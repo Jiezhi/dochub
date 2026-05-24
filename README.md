@@ -14,18 +14,25 @@ Currently mirrored:
 Browse the mirrored markdown under [`docs/`](./docs/). GitHub renders the
 `.md` / `.mdx` files inline.
 
+**Built HTML** for opencode and mermaid is deployed daily to
+[GitHub Pages](https://jiezhi.github.io/dochub/) (`build-docs.yml` workflow).
+
 ## How it works
 
-A GitHub Actions workflow runs every 6 hours and:
+Two GitHub Actions workflows:
 
-1. Reads [`scripts/sources.yaml`](./scripts/sources.yaml) to find each upstream
-   repo, branch, and the paths under it to mirror.
-2. Sparse-checkouts only those paths via `git`.
-3. Copies the matching markdown into `docs/<source>/`, pruning anything that
-   was removed upstream.
-4. Writes [`docs/manifest.json`](./docs/manifest.json) recording the upstream
-   commit SHA used for each source.
+**`update-docs.yml`** (every 6 hours) — mirrors raw markdown source:
+1. Reads [`scripts/sources.yaml`](./scripts/sources.yaml) for each upstream repo.
+2. Downloads markdown files via `gh api` (GitHub Contents API).
+3. Copies matching files into `docs/<source>/`, prunes removed files.
+4. Writes [`docs/manifest.json`](./docs/manifest.json) with upstream commit SHA.
 5. Commits and pushes only when something changed.
+
+**`build-docs.yml`** (daily) — builds static HTML for sources with a `build` config:
+1. Full clone of each upstream repo.
+2. Installs dependencies (`bun install` / `pnpm install`).
+3. Runs the build command (Astro, VitePress).
+4. Deploys the built HTML to the `gh-pages` branch (served by GitHub Pages).
 
 ## Adding a new source
 
@@ -43,6 +50,12 @@ Append an entry to `scripts/sources.yaml`:
     - "**/*.md"
   exclude:
     - "node_modules/**"
+  build:             # optional: build static HTML via CI
+    tool: bun
+    working_dir: docs
+    install: bun install
+    script: bun run build
+    output: dist
 ```
 
 Then either wait for the cron, or trigger the workflow manually

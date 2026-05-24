@@ -1,0 +1,154 @@
+name: Build Docs
+
+on:
+  schedule:
+    # Daily at 04:00 UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Comma-separated source names (blank = all with build config)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      sources: ${{ steps.gen.outputs.sources }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install pyyaml
+      - id: gen
+        name: Generate build matrix
+        run: |
+          MATRIX=$(python scripts/gen-build-matrix.py)
+          if [ -n "${{ github.event.inputs.only }}" ]; then
+            MATRIX=$(echo "$MATRIX" | python -c "
+import json,sys
+data=json.load(sys.stdin)
+wanted=set('${{ github.event.inputs.only }}'.split(','))
+data['include']=[i for i in data['include'] if i['name'] in wanted]
+json.dump(data,sys.stdout,indent=2); print()
+")
+          fi
+          echo "sources=$(echo "$MATRIX" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: matrix
+    if: fromJson(needs.matrix.outputs.sources).include[0] != null
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.sources) }}
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - if: matrix.tool == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with: { bun-version: "1.3" }
+
+      - if: matrix.tool == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with: { version: "10" }
+
+      - name: Clone upstream repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh repo clone "${{ matrix.repo }}" _src -- --depth=1 --branch "${{ matrix.ref }}"
+
+      - name: Install dependencies
+        working-directory: _src
+        run: ${{ matrix.install }}
+
+      - name: Build
+        working-directory: _src/${{ matrix.working_dir }}
+        run: ${{ matrix.script }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-${{ matrix.name }}
+          path: _src/${{ matrix.working_dir }}/${{ matrix.output }}
+          retention-days: 1
+
+  deploy:
+    needs: build
+    if: always() && !cancelled() && needs.build.result != 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: built-*
+          merge-multiple: true
+          path: _built
+
+      - name: Publish to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          REPO="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+
+          if git ls-remote --exit-code --heads origin gh-pages > /dev/null 2>&1; then
+            git clone --depth=1 --branch gh-pages "$REPO" _pages
+          else
+            mkdir _pages
+            git -C _pages init
+            git -C _pages checkout -b gh-pages
+          fi
+
+          # Clear previous builds
+          rm -rf _pages/*/
+
+          # Move each built artifact into place
+          for d in _built/built-*/; do
+            [ -d "$d" ] || continue
+            name=$(basename "$d" | sed 's/^built-//')
+            mkdir -p "_pages/$name"
+            cp -r "$d"* "_pages/$name/"
+          done
+
+          # Generate index page
+          python -c "
+          import json
+          links = ''
+          try:
+            with open('docs/manifest.json') as f:
+              m = json.load(f)
+            for name, s in sorted(m.get('sources', {}).items()):
+              links += f'<li><a href=\"{name}/\">{name}</a> — {s[\"homepage\"]} ({s[\"file_count\"]} src files)</li>\n'
+          except Exception as e:
+            links = f'<li>Error reading manifest: {e}</li>'
+          html = f'''<!DOCTYPE html>
+          <html lang=\"en\">
+          <head><meta charset=\"utf-8\"><title>dochub</title>
+          <style>body{{font-family:system-ui,sans-serif;max-width:640px;margin:2em auto;padding:1em;line-height:1.6}}a{{color:#0969da}}</style></head>
+          <body>
+          <h1>dochub</h1>
+          <p>Built documentation for browsing on restricted networks. Raw source at <a href=\"https://github.com/{'${{ github.repository }}'}\">{'${{ github.repository }}'}</a>.</p>
+          <ul>{links}</ul>
+          </body></html>'''
+          with open('_pages/index.html', 'w') as f:
+              f.write(html)
+          "
+
+          # Commit & push
+          cd _pages
+          git add -A .
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "build: $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push "$REPO" gh-pages
