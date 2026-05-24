@@ -1,0 +1,88 @@
+name: Update Docs
+
+on:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Comma-separated source names to sync (blank = all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: update-docs
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install deps
+        run: pip install -r scripts/requirements.txt
+
+      - name: Sync docs
+        id: sync
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.only }}" ]; then
+            for name in $(echo "${{ github.event.inputs.only }}" | tr ',' ' '); do
+              ARGS="$ARGS --only $name"
+            done
+          fi
+          python scripts/fetch_docs.py $ARGS
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- docs/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          ADDED=$(git diff --name-only --diff-filter=A -- docs/ | wc -l | tr -d ' ')
+          MODIFIED=$(git diff --name-only --diff-filter=M -- docs/ | wc -l | tr -d ' ')
+          DELETED=$(git diff --name-only --diff-filter=D -- docs/ | wc -l | tr -d ' ')
+          DATE=$(date -u +'%Y-%m-%d')
+
+          MSG="docs: sync $DATE (+$ADDED ~$MODIFIED -$DELETED)"
+
+          git add docs/
+          git commit -m "$MSG"
+          git push
+
+      - name: Open issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const date = new Date().toISOString().split("T")[0];
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: `Docs sync failed - ${date}`,
+              body: `The scheduled docs sync failed on ${date}.\n\nSee the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`,
+              labels: ["bug", "automation"],
+            });
