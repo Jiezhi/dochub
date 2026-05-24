@@ -14,6 +14,10 @@ for s in sources["sources"]:
     build = s.get("build")
     if not build:
         continue
+    # pre_build is a list of shell commands; chain with `&&` so the matrix
+    # value stays a single line (multi-line matrix strings break GHA YAML
+    # expansion in `env:` blocks) and any failure short-circuits the rest.
+    pre_build = " && ".join(build.get("pre_build") or [])
     matrix.append(
         {
             "name": s["name"],
@@ -22,8 +26,10 @@ for s in sources["sources"]:
             "tool": build["tool"],
             "working_dir": build["working_dir"],
             "install": build["install"],
+            "pre_build": pre_build,
             "script": build["script"],
             "output": build["output"],
+            "landing": build.get("landing", ""),
         }
     )
 

@@ -60,9 +60,29 @@ jobs:
         working-directory: _src
         run: ${{ matrix.install }}
 
+      - name: Apply pre-build patches
+        if: matrix.pre_build != ''
+        working-directory: _src/${{ matrix.working_dir }}
+        run: ${{ matrix.pre_build }}
+
       - name: Build
         working-directory: _src/${{ matrix.working_dir }}
         run: ${{ matrix.script }}
+
+      - name: Write landing redirect
+        if: matrix.landing != ''
+        working-directory: _src/${{ matrix.working_dir }}/${{ matrix.output }}
+        env:
+          LANDING: ${{ matrix.landing }}
+        run: |
+          cat > index.html <<HTML
+          <!DOCTYPE html>
+          <meta charset="utf-8">
+          <title>Redirecting…</title>
+          <meta http-equiv="refresh" content="0; url=${LANDING}">
+          <link rel="canonical" href="${LANDING}">
+          <p>Redirecting to <a href="${LANDING}">${LANDING}</a>…</p>
+          HTML
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -16,8 +16,13 @@
 #     tool       : bun | pnpm
 #     working_dir: path within repo to run the build script from
 #     install    : dependency install command (always runs from repo root)
+#     pre_build  : (optional) list of shell commands run from working_dir before script
+#                  (used to patch upstream configs into static / correct-base builds)
 #     script     : build command (runs from working_dir)
 #     output     : built static files dir (relative to working_dir)
+#                  contents of this dir are copied to gh-pages /<name>/
+#     landing    : (optional) sub-path under /<name>/ holding the entry index.html;
+#                  triggers an auto-generated redirect at /<name>/index.html
 
 sources:
   - name: opencode
@@ -54,8 +59,17 @@ sources:
       tool: bun
       working_dir: packages/web
       install: bun install
+      # Upstream ships an SSR + Cloudflare adapter config. Patch it into a
+      # plain static Astro build with the gh-pages base path so assets resolve
+      # under https://<user>.github.io/dochub/opencode/docs/.
+      pre_build:
+        - 'sed -i ''s|^  base: "/docs",|  base: "/dochub/opencode/docs/",|'' astro.config.mjs'
+        - 'sed -i ''s|^  output: "server",|  output: "static",|'' astro.config.mjs'
+        - 'sed -i ''/^  adapter: cloudflare(/,/^  }),$/d'' astro.config.mjs'
+        - 'sed -i ''/^import cloudflare /d'' astro.config.mjs'
       script: bun run build
-      output: dist
+      output: dist/dochub/opencode
+      landing: docs/
 
   - name: bruno
     repo: usebruno/bruno-docs
