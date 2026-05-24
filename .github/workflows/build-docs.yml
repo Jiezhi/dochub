@@ -2,12 +2,11 @@ name: Build Docs
 
 on:
   schedule:
-    # Daily at 04:00 UTC
     - cron: "0 4 * * *"
   workflow_dispatch:
     inputs:
       only:
-        description: "Comma-separated source names (blank = all with build config)"
+        description: "Comma-separated source names (blank = all)"
         required: false
         default: ""
 
@@ -29,13 +28,7 @@ jobs:
         run: |
           MATRIX=$(python scripts/gen-build-matrix.py)
           if [ -n "${{ github.event.inputs.only }}" ]; then
-            MATRIX=$(echo "$MATRIX" | python -c "
-import json,sys
-data=json.load(sys.stdin)
-wanted=set('${{ github.event.inputs.only }}'.split(','))
-data['include']=[i for i in data['include'] if i['name'] in wanted]
-json.dump(data,sys.stdout,indent=2); print()
-")
+            MATRIX=$(echo "$MATRIX" | python scripts/filter-matrix.py "${{ github.event.inputs.only }}")
           fi
           echo "sources=$(echo "$MATRIX" | jq -c .)" >> "$GITHUB_OUTPUT"
 
@@ -95,9 +88,9 @@ json.dump(data,sys.stdout,indent=2); print()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           REPO="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
 
           if git ls-remote --exit-code --heads origin gh-pages > /dev/null 2>&1; then
@@ -108,10 +101,8 @@ json.dump(data,sys.stdout,indent=2); print()
             git -C _pages checkout -b gh-pages
           fi
 
-          # Clear previous builds
+          # Clear and copy built artifacts
           rm -rf _pages/*/
-
-          # Move each built artifact into place
           for d in _built/built-*/; do
             [ -d "$d" ] || continue
             name=$(basename "$d" | sed 's/^built-//')
@@ -120,34 +111,12 @@ json.dump(data,sys.stdout,indent=2); print()
           done
 
           # Generate index page
-          python -c "
-          import json
-          links = ''
-          try:
-            with open('docs/manifest.json') as f:
-              m = json.load(f)
-            for name, s in sorted(m.get('sources', {}).items()):
-              links += f'<li><a href=\"{name}/\">{name}</a> — {s[\"homepage\"]} ({s[\"file_count\"]} src files)</li>\n'
-          except Exception as e:
-            links = f'<li>Error reading manifest: {e}</li>'
-          html = f'''<!DOCTYPE html>
-          <html lang=\"en\">
-          <head><meta charset=\"utf-8\"><title>dochub</title>
-          <style>body{{font-family:system-ui,sans-serif;max-width:640px;margin:2em auto;padding:1em;line-height:1.6}}a{{color:#0969da}}</style></head>
-          <body>
-          <h1>dochub</h1>
-          <p>Built documentation for browsing on restricted networks. Raw source at <a href=\"https://github.com/{'${{ github.repository }}'}\">{'${{ github.repository }}'}</a>.</p>
-          <ul>{links}</ul>
-          </body></html>'''
-          with open('_pages/index.html', 'w') as f:
-              f.write(html)
-          "
+          python scripts/gen-index.py "${{ github.repository }}" > _pages/index.html
 
-          # Commit & push
           cd _pages
           git add -A .
           if git diff --cached --quiet; then
-            echo "No changes."
+            echo "No changes, skipping push."
             exit 0
           fi
           git commit -m "build: $(date -u +'%Y-%m-%d %H:%M UTC')"
