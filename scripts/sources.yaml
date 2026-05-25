@@ -136,6 +136,53 @@ sources:
       script: mkdocs build
       output: _site
 
+  - name: claude-code
+    repo: ericbuess/claude-code-docs
+    ref: main
+    homepage: https://docs.claude.com/en/docs/claude-code/overview
+    paths:
+      - docs
+    strip: docs
+    include:
+      - "*.md"
+    build:
+      # Anthropic ships Claude Code docs through Mintlify at docs.claude.com
+      # with no public source repo; ericbuess/claude-code-docs is a community
+      # mirror refreshed every ~3h. Same MkDocs Material pattern as bruno so
+      # the .md files are browsable under /dochub/claude-code/. Mintlify
+      # components (<Tabs>, <Note>, <CodeGroup>, etc.) pass through as raw HTML
+      # — readable but won't render identically to upstream.
+      tool: pip
+      working_dir: .
+      install: pip install mkdocs-material
+      pre_build:
+        # Upstream has no index.md; promote overview.md so / lands on it.
+        - "mv docs/overview.md docs/index.md"
+        # Heredoc must remain the LAST entry: gen-build-matrix.py joins entries
+        # with ` && `, and anything appended after the terminator line would
+        # break the heredoc syntax.
+        - |
+          cat > mkdocs.yml <<'YAML'
+          site_name: Claude Code Docs (mirror)
+          site_url: https://jiezhi.github.io/dochub/claude-code/
+          docs_dir: docs
+          site_dir: _site
+          use_directory_urls: true
+          theme:
+            name: material
+          markdown_extensions:
+            - admonition
+            - attr_list
+            - md_in_html
+            - tables
+            - pymdownx.details
+            - pymdownx.superfences
+            - pymdownx.tabbed:
+                alternate_style: true
+          YAML
+      script: mkdocs build
+      output: _site
+
   - name: mermaid
     repo: mermaid-js/mermaid
     ref: develop
