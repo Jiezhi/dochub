@@ -106,6 +106,9 @@ sources:
         - "find . -name '*.mdx' -not -path '*/node_modules/*' -exec sh -c 'mv \"$1\" \"${1%.mdx}.md\"' _ {} \\;"
         # Strip MDX `import ... from '...';` lines that MkDocs would render literally.
         - "find . -name '*.md' -not -path '*/node_modules/*' -exec sed -i -E '/^import[[:space:]].*from[[:space:]].*;?$/d' {} +"
+        # MkDocs refuses docs_dir == config dir, so stage all .md files under
+        # _docs/ preserving relative paths (rsync -R = use full source path).
+        - "rsync -aR --include='*/' --include='*.md' --exclude='node_modules/' --exclude='*' --prune-empty-dirs ./ _docs/"
         # Heredoc must remain the LAST entry: gen-build-matrix.py joins entries
         # with ` && `, and anything appended after the terminator line would
         # break the heredoc syntax.
@@ -113,7 +116,7 @@ sources:
           cat > mkdocs.yml <<'YAML'
           site_name: Bruno Docs (mirror)
           site_url: https://jiezhi.github.io/dochub/bruno/
-          docs_dir: .
+          docs_dir: _docs
           site_dir: _site
           use_directory_urls: true
           theme:
@@ -128,19 +131,7 @@ sources:
             - pymdownx.tabbed:
                 alternate_style: true
           exclude_docs: |
-            node_modules/
-            public/
-            images/
-            logo/
             snippets/
-            *.json
-            *.js
-            *.ts
-            *.css
-            components.json
-            package.json
-            package-lock.json
-            reo.js
           YAML
       script: mkdocs build
       output: _site
