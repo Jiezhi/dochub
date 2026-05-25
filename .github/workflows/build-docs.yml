@@ -51,6 +51,10 @@ jobs:
         uses: pnpm/action-setup@v4
         with: { version: "10" }
 
+      - if: matrix.tool == 'pip'
+        uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
       - name: Clone upstream repo
         env:
           GH_TOKEN: ${{ github.token }}
@@ -121,11 +125,13 @@ jobs:
           git -C _pages config user.name  "github-actions[bot]"
           git -C _pages config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Clear and copy built artifacts
-          rm -rf _pages/*/
+          # Replace only the sources rebuilt in this run; leave other
+          # subdirectories on gh-pages untouched so partial dispatches
+          # (e.g. only=mermaid) don't wipe out unrelated docs.
           for d in _built/built-*/; do
             [ -d "$d" ] || continue
             name=$(basename "$d" | sed 's/^built-//')
+            rm -rf "_pages/$name"
             mkdir -p "_pages/$name"
             cp -r "$d"* "_pages/$name/"
           done

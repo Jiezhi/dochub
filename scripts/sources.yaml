@@ -13,7 +13,7 @@
 #   exclude  : (optional) glob patterns to exclude
 #   homepage  : (optional) the original docs site URL, recorded in manifest
 #   build     : (optional) static site build instructions for gh-pages deployment
-#     tool       : bun | pnpm
+#     tool       : bun | pnpm | pip
 #     working_dir: path within repo to run the build script from
 #     install    : dependency install command (always runs from repo root)
 #     pre_build  : (optional) list of shell commands run from working_dir before script
@@ -91,6 +91,59 @@ sources:
       - "public/**"
       - "images/**"
       - "logo/**"
+    build:
+      # Upstream uses Mintlify, which has no public static-export build —
+      # `mint` is cloud-hosted only. We render the mirrored .md/.mdx through
+      # MkDocs Material so the docs are browsable under the gh-pages subpath.
+      # Mintlify-specific MDX components (<Card>, <Tabs>, <Frame>, etc.) pass
+      # through as raw HTML — they won't render the same as upstream but the
+      # prose content stays readable.
+      tool: pip
+      working_dir: .
+      install: pip install mkdocs-material
+      pre_build:
+        # MkDocs only picks up .md by default; rename mirrored .mdx -> .md.
+        - "find . -name '*.mdx' -not -path '*/node_modules/*' -exec sh -c 'mv \"$1\" \"${1%.mdx}.md\"' _ {} \\;"
+        # Strip MDX `import ... from '...';` lines that MkDocs would render literally.
+        - "find . -name '*.md' -not -path '*/node_modules/*' -exec sed -i -E '/^import[[:space:]].*from[[:space:]].*;?$/d' {} +"
+        # Heredoc must remain the LAST entry: gen-build-matrix.py joins entries
+        # with ` && `, and anything appended after the terminator line would
+        # break the heredoc syntax.
+        - |
+          cat > mkdocs.yml <<'YAML'
+          site_name: Bruno Docs (mirror)
+          site_url: https://jiezhi.github.io/dochub/bruno/
+          docs_dir: .
+          site_dir: _site
+          use_directory_urls: true
+          theme:
+            name: material
+          markdown_extensions:
+            - admonition
+            - attr_list
+            - md_in_html
+            - tables
+            - pymdownx.details
+            - pymdownx.superfences
+            - pymdownx.tabbed:
+                alternate_style: true
+          exclude_docs: |
+            node_modules/
+            public/
+            images/
+            logo/
+            snippets/
+            *.json
+            *.js
+            *.ts
+            *.css
+            components.json
+            package.json
+            package-lock.json
+            reo.js
+          YAML
+      script: mkdocs build
+      output: _site
 
   - name: mermaid
     repo: mermaid-js/mermaid
