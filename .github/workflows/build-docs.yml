@@ -60,22 +60,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh repo clone "${{ matrix.repo }}" _src -- --depth=1 --branch "${{ matrix.ref }}"
 
+      - name: Resolve paths
+        id: paths
+        env:
+          WORKING_DIR: ${{ matrix.working_dir }}
+          OUTPUT: ${{ matrix.output }}
+        run: |
+          # working_dir may be "." (config-root build) — collapse to avoid
+          # "_src/./_site" which actions/upload-artifact rejects.
+          if [ "$WORKING_DIR" = "." ] || [ -z "$WORKING_DIR" ]; then
+            build_dir="_src"
+          else
+            build_dir="_src/$WORKING_DIR"
+          fi
+          echo "build_dir=$build_dir" >> "$GITHUB_OUTPUT"
+          echo "artifact=$build_dir/$OUTPUT" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         working-directory: _src
         run: ${{ matrix.install }}
 
       - name: Apply pre-build patches
         if: matrix.pre_build != ''
-        working-directory: _src/${{ matrix.working_dir }}
+        working-directory: ${{ steps.paths.outputs.build_dir }}
         run: ${{ matrix.pre_build }}
 
       - name: Build
-        working-directory: _src/${{ matrix.working_dir }}
+        working-directory: ${{ steps.paths.outputs.build_dir }}
         run: ${{ matrix.script }}
 
       - name: Write landing redirect
         if: matrix.landing != ''
-        working-directory: _src/${{ matrix.working_dir }}/${{ matrix.output }}
+        working-directory: ${{ steps.paths.outputs.artifact }}
         env:
           LANDING: ${{ matrix.landing }}
         run: |
@@ -92,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: built-${{ matrix.name }}
-          path: _src/${{ matrix.working_dir }}/${{ matrix.output }}
+          path: ${{ steps.paths.outputs.artifact }}
           retention-days: 1
 
   deploy:
