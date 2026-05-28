@@ -3995,6 +3995,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Step 4: Configure Attribute Statements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-roles-profile-attribute-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: roles Profile Attribute Statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-groups-group-attribute-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: groups Group Attribute Statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuring-the-fullname-attribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuring the fullName attribute
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4186,7 +4225,7 @@
   <span class="md-ellipsis">
     
   
-    Troubleshooting
+    SAML SSO Troubleshooting
   
 
     
@@ -15092,6 +15131,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Step 4: Configure Attribute Statements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-roles-profile-attribute-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: roles Profile Attribute Statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-groups-group-attribute-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: groups Group Attribute Statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuring-the-fullname-attribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuring the fullName attribute
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -15327,14 +15405,42 @@ Keep this page open in a separate tab - you'll return here after configuring Okt
 </ol>
 <p><img alt="Configure Audience URI (SP Entity ID) in Okta" src="/images/screenshots/sso-scim-management/okta/okta-sso-3.webp" /></p>
 <h3 id="step-4-configure-attribute-statements">Step 4: Configure Attribute Statements</h3>
-<p>Bruno requires two specific SAML attributes to be configured. Add the following attribute statements:</p>
+<p>Bruno needs the user's full name plus a role/group value to map them to access levels in the License Portal. You can send the role/group value using <strong>either or both</strong> of two approaches — choose what fits how your organization manages access in Okta:</p>
+<ul>
+<li><strong>Option A: <code>roles</code> Profile Attribute Statement</strong> — Send a per-user role value (a static value, a user attribute, etc.)</li>
+<li><strong>Option B: <code>groups</code> Group Attribute Statement</strong> — Send the names of Okta groups the user belongs to (required if you assign users to the Bruno app via <strong>Assign to Groups</strong>)</li>
+</ul>
+<p>Both approaches are equally valid and can be used together. Bruno recognizes the attribute names <code>role</code>, <code>roles</code>, <code>group</code>, and <code>groups</code> (case-insensitive) for role mapping.</p>
+<p>Add the following attribute statements to your Okta SAML configuration:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>fullName</strong></td>
+<td><code>user.firstName+" "+user.lastName</code> or equivalent attribute</td>
+<td>Required. Represents the combined user's first and last name.</td>
+</tr>
+<tr>
+<td><strong>roles</strong> or <strong>groups</strong></td>
+<td>A role value (Option A) or a group filter (Option B)</td>
+<td>Use <code>roles</code> as a Profile Attribute Statement (Option A), OR use <code>groups</code> via Group Attribute Statements (Option B), OR both. See details below.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="option-a-roles-profile-attribute-statement">Option A: <code>roles</code> Profile Attribute Statement</h4>
+<p>In Okta's <strong>Attribute Statements</strong> section, add:</p>
 <table>
 <thead>
 <tr>
 <th>Name</th>
 <th>Name Format</th>
 <th>Value</th>
-<th>Notes</th>
 </tr>
 </thead>
 <tbody>
@@ -15342,18 +15448,11 @@ Keep this page open in a separate tab - you'll return here after configuring Okt
 <td><strong>roles</strong></td>
 <td>Unspecified</td>
 <td>Any role value from Okta</td>
-<td>Can be a static value (e.g., <code>"admin"</code>) or mapped to existing Okta user attributes/groups</td>
-</tr>
-<tr>
-<td><strong>fullName</strong></td>
-<td>Unspecified</td>
-<td><code>user.firstName+" "+user.lastName</code></td>
-<td>Concatenates first and last name. Can also use a single name field if available.</td>
 </tr>
 </tbody>
 </table>
 <p><Info>
-<strong>Configuring the roles attribute:</strong></p>
+<strong>Configuring the <code>roles</code> attribute:</strong></p>
 <p>The <code>roles</code> attribute can be configured in several ways:</p>
 <ol>
 <li><strong>Static value for testing</strong>: Set a hardcoded value like <code>"admin"</code> for all users assigned to this app</li>
@@ -15361,27 +15460,52 @@ Keep this page open in a separate tab - you'll return here after configuring Okt
 <p>Example: Value = <code>"admin"</code></p>
 </li>
 <li>
-<p><strong>Map to existing or created Okta user attribute</strong>: If your Okta users already have a role attribute or you create a specific attribute for Bruno roles</p>
+<p><strong>Map to an existing or created Okta user attribute</strong>: If your Okta users already have a role attribute or you create a specific attribute for Bruno roles</p>
 </li>
 <li>Example: Value = <code>user.userType</code> or <code>user.role</code> or <code>user.brunoRole</code></li>
 </ol>
-<p>{/<em> 3. </em><em>Map to Okta group membership</em><em>: Use an Okta expression to map group names
-   - Example: Value = <code>appuser.groups</code> (requires group attribute statement configuration) </em>/}</p>
-<p><strong>Important</strong>: The role value sent by Okta will be mapped to Bruno access levels in the License Portal's SSO Settings. You'll configure which role values correspond to admin or user access in Bruno (see Step 2 in the Bruno configuration section below).</p>
+<p><strong>Important</strong>: The role value sent by Okta will be mapped to Bruno access levels in the License Portal's SSO Settings. You'll configure which role values correspond to admin or user access in Bruno (see Step 3 in the Bruno configuration section below).</p>
 <p><strong>Example Scenarios:</strong>
 - If you set Value = <code>"Engineering"</code>, you'll add <code>Engineering</code> to either "Admin Roles" or "User Roles" in Bruno
 - If you set Value = <code>user.department</code>, and a user's department is <code>IT</code>, you'll add <code>IT</code> to the appropriate role field in Bruno
 </Info></p>
+<h4 id="option-b-groups-group-attribute-statement">Option B: <code>groups</code> Group Attribute Statement</h4>
+<p>If you assign users to the Bruno app via Okta groups (<strong>Assign to Groups</strong>) and rely on group membership for role mapping, configure a Group Attribute Statement. Without it, Okta will not include group membership in the SAML assertion and group-assigned users with no Profile <code>roles</code> value will receive a "You do not have necessary permissions" error.</p>
+<p>In Okta's <strong>Group Attribute Statements</strong> section, add:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Name Format</th>
+<th>Filter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>groups</strong></td>
+<td>Unspecified</td>
+<td>Matches regex</td>
+<td><code>.*</code></td>
+</tr>
+</tbody>
+</table>
 <p><Info>
-<strong>Configuring the fullName attribute:</strong></p>
-<p>The <code>fullName</code> attribute can be configured by:
+<strong>Filtering Groups:</strong></p>
+<p>Using <code>Matches regex</code> with <code>.*</code> sends all group names the user belongs to. You can narrow this down:
+- <strong>Starts with</strong>: e.g., <code>bruno-</code> to only send groups starting with "bruno-"
+- <strong>Equals</strong>: e.g., <code>bruno-admins</code> to send only a specific group
+- <strong>Contains</strong>: e.g., <code>bruno</code> to send groups containing "bruno"</p>
+<p>The group names sent must match the values you configure in Bruno's <strong>Admin Roles</strong> or <strong>User Roles</strong> fields.
+</Info></p>
+<h4 id="configuring-the-fullname-attribute">Configuring the <code>fullName</code> attribute</h4>
+<p>The <code>fullName</code> attribute is always required as a Profile Attribute Statement, regardless of which option(s) you use above. It can be configured by:
 - Concatenating first and last name: <code>user.firstName+" "+user.lastName</code>
 - Using a single field if your Okta user profile has a combined name field
-- Mapping to any existing user property that contains the full name
-</Info></p>
+- Mapping to any existing user property that contains the full name</p>
 <p><img alt="Configure attribute statements in Okta showing roles and fullName" src="/images/screenshots/sso-scim-management/okta/okta-sso-5.webp" /></p>
 <p><Warning>
-<strong>Important</strong>: Both <code>roles</code> and <code>fullName</code> attributes are required for Bruno SAML SSO to function correctly. The attribute names are case-sensitive and must match exactly as shown.
+<strong>Important</strong>: The <code>fullName</code> attribute plus at least one role/group source (<code>roles</code> Profile Attribute Statement, <code>groups</code> Group Attribute Statement, or both) are required for Bruno SAML SSO to function correctly. Attribute names are case-sensitive and must match exactly as shown.
 </Warning></p>
 <p><strong>Preview the SAML Assertion</strong></p>
 <ol>
@@ -15473,6 +15597,7 @@ Keep this page open in a separate tab - you'll return here after configuring Okt
 <li>In your Okta Bruno application, navigate to the <strong>Assignments</strong> tab</li>
 <li>Click <strong>Assign</strong> → <strong>Assign to People</strong> or <strong>Assign to Groups</strong></li>
 <li><strong>Note</strong>: Users assigned must already exist in your subscription under the Bruno License Portal in order to login with SSO</li>
+<li><strong>Important</strong>: If assigning via <strong>Assign to Groups</strong>, make sure you have configured a <strong>Group Attribute Statement</strong> in <a href="#step-4-configure-attribute-statements">Step 4</a>. Without it, Okta will not send group membership in the SAML assertion and users will get a permissions error.</li>
 <li>Select the users or groups that should have access to Bruno</li>
 <li>Click <strong>Assign</strong> and <strong>Done</strong></li>
 </ol>

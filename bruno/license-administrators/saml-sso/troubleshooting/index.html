@@ -25,7 +25,7 @@
     
     
       
-        <title>Troubleshooting - Bruno Docs (mirror)</title>
+        <title>SAML SSO Troubleshooting - Bruno Docs (mirror)</title>
       
     
     
@@ -102,7 +102,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Troubleshooting
+              SAML SSO Troubleshooting
             
           </span>
         </div>
@@ -3945,7 +3945,7 @@
   <span class="md-ellipsis">
     
   
-    Troubleshooting
+    SAML SSO Troubleshooting
   
 
     
@@ -3963,7 +3963,7 @@
   <span class="md-ellipsis">
     
   
-    Troubleshooting
+    SAML SSO Troubleshooting
   
 
     
@@ -4033,6 +4033,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-the-saml-response-with-saml-tracer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect the SAML Response with SAML-tracer
+      
+    </span>
+  </a>
   
 </li>
       
@@ -15339,6 +15350,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#inspect-the-saml-response-with-saml-tracer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect the SAML Response with SAML-tracer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#common-error-messages" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -15771,7 +15793,7 @@
 
 
 
-  <h1>Troubleshooting</h1>
+  <h1>SAML SSO Troubleshooting</h1>
 
 <p>This guide helps you diagnose and resolve common issues when configuring or using SAML Single Sign-On with Bruno.</p>
 <h2 id="quick-pre-flight-checks">Quick Pre-Flight Checks</h2>
@@ -15829,9 +15851,64 @@
 <p><Info>
 <strong>Tip</strong>: If you're not sure what values to use, refer to the <a href="./overview">SAML SSO Overview</a> page for detailed explanations of each field.
 </Info></p>
-<hr />
-<p>title: "SAML SSO Troubleshooting"
-sidebarTitle: "Troubleshooting"</p>
+<h2 id="inspect-the-saml-response-with-saml-tracer">Inspect the SAML Response with SAML-tracer</h2>
+<p><Info>
+<strong>Highly Recommended Early Step</strong>: Before working through specific error messages below, capture the SAML response using the <a href="https://chromewebstore.google.com/detail/saml-tracer/mpdajninpobndbfcldcmbpnnbhibjmch">SAML-tracer browser extension</a>. It exposes the exact attributes (e.g., <code>roles</code>, <code>fullName</code>, <code>NameID</code>) your IdP is sending to Bruno, which makes diagnosing most common issues significantly faster.
+</Info></p>
+<p>The SAML-tracer extension captures SAML requests and responses as they flow through the browser, letting you see exactly what your IdP is sending without having to decode <code>SAMLResponse</code> payloads from the Network tab manually.</p>
+<p><strong>Setup:</strong>
+1. Install <a href="https://chromewebstore.google.com/detail/saml-tracer/mpdajninpobndbfcldcmbpnnbhibjmch">SAML-tracer</a> from the Chrome Web Store (also available for <a href="https://addons.mozilla.org/en-US/firefox/addon/saml-tracer/">Firefox</a>)
+2. Click the SAML-tracer icon in your browser toolbar to open the tracer window
+3. Leave the tracer window open and attempt SSO login from Bruno</p>
+<p><strong>What to verify in the captured SAML response:</strong>
+1. In the SAML-tracer window, find the request flagged with a <code>SAML</code> badge that POSTs to <code>/api/v2/auth/sso/saml/acs/...</code>
+2. Click the request and open the <strong>SAML</strong> tab to view the decoded XML
+3. Confirm the following values are present and correct:
+   - <strong>NameID</strong>: Should be the user's email address (Bruno uses this to identify the user)
+   - <strong><code>roles</code> attribute</strong>: Should contain a value that exactly matches one of your Admin Roles or User Roles in Bruno (case-sensitive)
+   - <strong><code>fullName</code> attribute</strong> (or <code>firstName</code> + <code>lastName</code> as fallback): Should contain the user's name
+   - <strong>Destination</strong> and <strong>AudienceRestriction</strong>: Should match Bruno's ACS URL and SP Entity ID respectively</p>
+<p><strong>Example of a healthy SAML response (key sections):</strong></p>
+<div class="highlight"><pre><span></span><code><span class="nt">&lt;saml2:Subject&gt;</span>
+<span class="w">  </span><span class="nt">&lt;saml2:NameID</span><span class="w"> </span><span class="na">Format=</span><span class="s">&quot;urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress&quot;</span><span class="nt">&gt;</span>jane.doe@example.com<span class="nt">&lt;/saml2:NameID&gt;</span>
+<span class="nt">&lt;/saml2:Subject&gt;</span>
+
+<span class="nt">&lt;saml2:Conditions</span><span class="w"> </span><span class="na">NotBefore=</span><span class="s">&quot;2026-05-26T12:00:00Z&quot;</span><span class="w"> </span><span class="na">NotOnOrAfter=</span><span class="s">&quot;2026-05-26T12:05:00Z&quot;</span><span class="nt">&gt;</span>
+<span class="w">  </span><span class="nt">&lt;saml2:AudienceRestriction&gt;</span>
+<span class="w">    </span><span class="nt">&lt;saml2:Audience&gt;</span>bruno-demo<span class="nt">&lt;/saml2:Audience&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/saml2:AudienceRestriction&gt;</span>
+<span class="nt">&lt;/saml2:Conditions&gt;</span>
+
+<span class="nt">&lt;saml2:AttributeStatement&gt;</span>
+<span class="w">  </span><span class="nt">&lt;saml2:Attribute</span><span class="w"> </span><span class="na">Name=</span><span class="s">&quot;roles&quot;</span><span class="w"> </span><span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;saml2:AttributeValue</span><span class="w"> </span><span class="na">xsi:type=</span><span class="s">&quot;xs:string&quot;</span><span class="nt">&gt;</span>admin<span class="nt">&lt;/saml2:AttributeValue&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/saml2:Attribute&gt;</span>
+<span class="w">  </span><span class="nt">&lt;saml2:Attribute</span><span class="w"> </span><span class="na">Name=</span><span class="s">&quot;fullName&quot;</span><span class="w"> </span><span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;saml2:AttributeValue</span><span class="w"> </span><span class="na">xsi:type=</span><span class="s">&quot;xs:string&quot;</span><span class="nt">&gt;</span>Jane<span class="w"> </span>Doe<span class="nt">&lt;/saml2:AttributeValue&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/saml2:Attribute&gt;</span>
+<span class="nt">&lt;/saml2:AttributeStatement&gt;</span>
+</code></pre></div>
+<p>In this example:
+- <code>NameID</code> is <code>jane.doe@example.com</code> — Bruno uses this email to identify the user
+- <code>&lt;saml2:Audience&gt;</code> is <code>bruno-demo</code> — must match Bruno's <strong>SP Issuer ID / Entity ID</strong> exactly
+- <code>roles</code> is <code>admin</code> — must match a value in Bruno's <strong>Admin Roles</strong> (or <strong>User Roles</strong>) field, case-sensitive
+- <code>fullName</code> is <code>Jane Doe</code> — populates the user's display name in Bruno</p>
+<p><Info>
+If you're using <code>firstName</code> and <code>lastName</code> as a fallback instead of <code>fullName</code>, the <code>&lt;saml2:AttributeStatement&gt;</code> would contain two separate attributes named <code>firstName</code> and <code>lastName</code>, which Bruno will combine with a space.
+</Info></p>
+<p><Info>
+If you're using <strong>group claims</strong> (common with Entra ID), the attribute will be named <code>groups</code> instead of <code>roles</code>, and may contain multiple <code>&lt;saml2:AttributeValue&gt;</code> entries — one per group. Bruno checks if ANY of the values match your configured Admin Roles or User Roles.
+</Info></p>
+<p><strong>Common issues this quickly reveals:</strong>
+- The <code>roles</code> (or <code>groups</code>) attribute is missing entirely → IdP attribute statement not configured
+- The <code>roles</code> value doesn't match what's in Bruno's Admin Roles / User Roles → role mapping mismatch (often a casing or whitespace issue)
+- NameID is not an email address → IdP NameID format misconfigured
+- <code>fullName</code> is missing → user profile shows email instead of name
+- Destination / Audience values don't match Bruno → ACS URL or Entity ID mismatch
+- Attribute name uses a full URI (e.g., <code>http://schemas.microsoft.com/.../groups</code>) instead of <code>groups</code> → Bruno only recognizes the short names <code>role</code>, <code>roles</code>, <code>group</code>, <code>groups</code></p>
+<p><Warning>
+<strong>Sensitive Data</strong>: SAML responses contain user identity information and signed assertions. When sharing captures with Bruno support, redact any data you don't want to expose.
+</Warning></p>
 <h2 id="common-error-messages">Common Error Messages</h2>
 <h3 id="500-internal-server-error-when-clicking-login-with-sso">"500 Internal Server Error" When Clicking "Login with SSO"</h3>
 <p><strong>First, complete the pre-flight checks above</strong> (Is SSO enabled? Is the user an admin? Is configuration complete?)</p>
@@ -15902,14 +15979,14 @@ This error occurs when Bruno tries to generate a SAML authentication request but
    - The subscription ID is shown in the Bruno License Portal SSO settings page
    - This URL must match EXACTLY what's configured in Bruno
    - Copy this URL exactly from the Bruno SSO settings page
-3. <strong>Ensure SSO is enabled in Bruno</strong>:
+2. <strong>Ensure SSO is enabled in Bruno</strong>:
    - IdP test login will fail if SSO is not fully configured and enabled in Bruno
    - Complete the Bruno SSO configuration first, then test from your IdP
-4. <strong>Check the full error message</strong>: The error message may be truncated. Try:
+3. <strong>Check the full error message</strong>: The error message may be truncated. Try:
    - Opening the test in a new incognito/private browser window
    - Checking the browser console for the full error message
    - Looking at the Network tab in Developer Tools for the failed request
-5. <strong>Common error patterns</strong>:
+4. <strong>Common error patterns</strong>:
    - Reply URL mismatch: Check ACS URL configuration
    - Authentication method mismatch: Verify SAML 2.0 is configured
    - User not assigned: Ensure user is assigned to the Bruno application
@@ -16484,6 +16561,9 @@ Set a reminder to renew your SAML certificate before it expires to avoid service
 
 
 
+
+  
+  
 
 
 

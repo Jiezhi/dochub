@@ -5193,6 +5193,12 @@ Example managed settings configuration:
 <td><code>true</code></td>
 <td><code>false</code></td>
 </tr>
+<tr>
+<td><code>OTEL_METRICS_INCLUDE_ENTRYPOINT</code></td>
+<td>Include app.entrypoint attribute in metrics</td>
+<td><code>false</code></td>
+<td><code>true</code></td>
+</tr>
 </tbody>
 </table>
 <p>These variables help control the cardinality of metrics, which affects storage requirements and query performance in your metrics backend. Lower cardinality generally means better performance and lower storage costs but less granular data for analysis.</p>
@@ -5237,7 +5243,8 @@ Example managed settings configuration:
 </table>
 <p>Spans redact user prompt text, tool input details, and tool content by default. Set <code>OTEL_LOG_USER_PROMPTS=1</code>, <code>OTEL_LOG_TOOL_DETAILS=1</code>, and <code>OTEL_LOG_TOOL_CONTENT=1</code> to include them.</p>
 <p>When tracing is active, Bash and PowerShell subprocesses automatically inherit a <code>TRACEPARENT</code> environment variable containing the W3C trace context of the active tool execution span. This lets any subprocess that reads <code>TRACEPARENT</code> parent its own spans under the same trace, enabling end-to-end distributed tracing through scripts and commands that Claude runs.</p>
-<p>When tracing is active and Claude Code is connected directly to the Anthropic API, each model request carries a W3C <code>traceparent</code> header set to the <code>claude_code.llm_request</code> span's context, and the API's <code>traceresponse</code> header is recorded as a span link. Together these connect Claude Code's client-side spans to the server-side trace through any compliant intermediary. The header is not sent to third-party providers.</p>
+<p>When tracing is active and Claude Code is connected directly to the Anthropic API, each model request carries a W3C <code>traceparent</code> header set to the <code>claude_code.llm_request</code> span's context, and the API's <code>traceresponse</code> header is recorded as a span link. Together these connect Claude Code's client-side spans to the server-side trace through any compliant intermediary. Outbound HTTP MCP requests carry <code>traceparent</code> the same way. The header is not sent to third-party providers.</p>
+<p>By default, the <code>traceparent</code> header on model and HTTP MCP requests is sent only when <code>ANTHROPIC_BASE_URL</code> is unset or points at the Anthropic API, since some proxies reject unrecognized headers. The subprocess <code>TRACEPARENT</code> variable is controlled by the same switch for consistency. If you run Claude Code through a custom <code>ANTHROPIC_BASE_URL</code> proxy and want trace context propagated, set <code>CLAUDE_CODE_PROPAGATE_TRACEPARENT=1</code>.</p>
 <p>In Agent SDK and non-interactive sessions started with <code>-p</code>, Claude Code also reads <code>TRACEPARENT</code> and <code>TRACESTATE</code> from its own environment when starting each interaction span. This lets an embedding process pass its active W3C trace context into the subprocess so Claude Code's spans appear as children of the caller's distributed trace. Interactive sessions ignore inbound <code>TRACEPARENT</code> to avoid accidentally inheriting ambient values from CI or container environments.</p>
 <h4 id="span-hierarchy">Span hierarchy</h4>
 <p>Each user prompt starts a <code>claude_code.interaction</code> root span. API calls, tool calls, and hook executions are recorded as its children. Tool spans have two child spans of their own: one for the time spent waiting on a permission decision and one for the execution itself. When the Task tool spawns a subagent, the subagent's API and tool spans nest under the parent's <code>claude_code.tool</code> span.</p>
@@ -5460,6 +5467,7 @@ All metrics and events share these standard attributes:
 | ------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | `session.id`        | Unique session identifier                                                                                   | `OTEL_METRICS_INCLUDE_SESSION_ID` (default: true)   |
 | `app.version`       | Current Claude Code version                                                                                 | `OTEL_METRICS_INCLUDE_VERSION` (default: false)     |
+| `app.entrypoint`    | How the session was launched, such as `cli`, `sdk-cli`, `sdk-ts`, `sdk-py`, or `claude-vscode`              | `OTEL_METRICS_INCLUDE_ENTRYPOINT` (default: false)  |
 | `organization.id`   | Organization UUID (when authenticated)                                                                      | Always included when available                      |
 | `user.account_uuid` | Account UUID (when authenticated)                                                                           | `OTEL_METRICS_INCLUDE_ACCOUNT_UUID` (default: true) |
 | `user.account_id`   | Account ID in tagged format matching Anthropic admin APIs (when authenticated), such as `user_01BWBeN28...` | `OTEL_METRICS_INCLUDE_ACCOUNT_UUID` (default: true) |
@@ -5540,6 +5548,8 @@ Incremented after each API request.
 * `skill.name`: Skill active for the request, set by the Skill tool, a `/` command, or inherited by a spawned subagent. Built-in, bundled, user-defined, and official-marketplace plugin skill names appear verbatim. Third-party plugin skill names are replaced with `&quot;third-party&quot;`. Absent when no skill is active.
 * `plugin.name`: Owning plugin when the active skill or subagent is provided by a plugin. Official-marketplace plugin names appear verbatim. Third-party plugin names are replaced with `&quot;third-party&quot;`. Absent when neither the skill nor the subagent has an owning plugin.
 * `marketplace.name`: Marketplace the owning plugin was installed from. Only emitted for official-marketplace plugins. Absent otherwise.
+* `mcp_server.name`: MCP server whose tool ran in the turn that produced this request. Built-in, claude.ai-proxied, and official-registry server names appear verbatim. User-configured server names are replaced with `&quot;custom&quot;`. Absent when no MCP tool ran.
+* `mcp_tool.name`: MCP tool that ran in the turn that produced this request, with the same redaction as `mcp_server.name`. Absent when no MCP tool ran.
 
 #### Token counter
 
@@ -5553,7 +5563,7 @@ Incremented after each API request.
 * `query_source`: Category of the subsystem that issued the request. One of `&quot;main&quot;`, `&quot;subagent&quot;`, or `&quot;auxiliary&quot;`
 * `speed`: `&quot;fast&quot;` when the request used fast mode. Absent otherwise
 * `effort`: [Effort level](/en/model-config#adjust-effort-level) applied to the request. See [Cost counter](#cost-counter) for details.
-* `agent.name`, `skill.name`, `plugin.name`, `marketplace.name`: Skill, plugin, and agent attribution for the request. See [Cost counter](#cost-counter) for definitions and redaction behavior.
+* `agent.name`, `skill.name`, `plugin.name`, `marketplace.name`, `mcp_server.name`, `mcp_tool.name`: Skill, plugin, agent, and MCP attribution for the request. See [Cost counter](#cost-counter) for definitions and redaction behavior.
 
 #### Code edit tool decision counter
 
@@ -5664,6 +5674,7 @@ Logged for each API request to Claude.
 * `speed`: `&quot;fast&quot;` or `&quot;normal&quot;`, indicating whether fast mode was active
 * `query_source`: Subsystem that issued the request, such as `&quot;repl_main_thread&quot;`, `&quot;compact&quot;`, or a subagent name
 * `effort`: [Effort level](/en/model-config#adjust-effort-level) applied to the request: `&quot;low&quot;`, `&quot;medium&quot;`, `&quot;high&quot;`, `&quot;xhigh&quot;`, or `&quot;max&quot;`. Absent when the model does not support effort.
+* `agent.name`, `skill.name`, `plugin.name`, `marketplace.name`, `mcp_server.name`, `mcp_tool.name`: Skill, plugin, agent, and MCP attribution for the request. See [Cost counter](#cost-counter) for definitions and redaction behavior.
 
 #### API error event
 
@@ -5686,6 +5697,7 @@ Logged when an API request to Claude fails.
 * `speed`: `&quot;fast&quot;` or `&quot;normal&quot;`, indicating whether fast mode was active
 * `query_source`: Subsystem that issued the request, such as `&quot;repl_main_thread&quot;`, `&quot;compact&quot;`, or a subagent name
 * `effort`: [Effort level](/en/model-config#adjust-effort-level) applied to the request. Absent when the model does not support effort.
+* `agent.name`, `skill.name`, `plugin.name`, `marketplace.name`, `mcp_server.name`, `mcp_tool.name`: Skill, plugin, agent, and MCP attribution for the request. See [Cost counter](#cost-counter) for definitions and redaction behavior.
 
 #### API request body event
 
@@ -6008,6 +6020,7 @@ Logged when conversation compaction completes.
 * `pre_tokens`: Approximate token count before compaction
 * `post_tokens`: Approximate token count after compaction
 * `error`: Error message when compaction failed
+* `precompute_reuse`: Only set when `trigger` is `&quot;manual&quot;`. Auto-compaction can prepare a summary in the background before the context window fills, and this attribute records whether `/compact` reused that prepared summary. `&quot;hit&quot;` means it was reused; `&quot;miss_custom_instructions&quot;`, `&quot;miss_hook&quot;`, and `&quot;miss_not_ready&quot;` give the reason a fresh summary was computed instead. {/* min-version: 2.1.153 */}Requires Claude Code v2.1.153 or later
 
 #### Feedback survey event
 

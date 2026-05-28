@@ -4243,7 +4243,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><strong>First session in a repo.</strong> Run <code>/init</code> to generate a starter <code>CLAUDE.md</code>, then <code>/memory</code> to refine it. Use <code>/mcp</code> and <code>/agents</code> to set up any servers or subagents the project needs, and <code>/permissions</code> to set the approval rules you want.</p>
 <p><strong>During a task.</strong> <code>/plan</code> switches into plan mode before a large change. <code>/model</code> and <code>/effort</code> adjust how much reasoning you're spending. When the conversation gets long, <code>/context</code> shows where the window is going and <code>/compact</code> summarizes it down; use <code>/btw</code> for a quick aside that shouldn't bloat history.</p>
 <p><strong>Running work in parallel.</strong> <code>/agents</code> opens the manager for the <a href="/en/sub-agents">subagents</a> Claude can delegate side tasks to, and <code>/tasks</code> lists what's running in the background of the current session. <code>/background</code> detaches the whole session to keep running as a <a href="/en/agent-view">background agent</a> and frees your terminal. For a large change that spans the codebase, <code>/batch</code> decomposes it into independent units and runs each in its own <a href="/en/worktrees">worktree</a>. See <a href="/en/agents">Run agents in parallel</a> for how these approaches relate.</p>
-<p><strong>Before you ship.</strong> <code>/diff</code> shows what changed, <code>/code-review</code> checks the diff for correctness bugs, and <code>/review</code> or <code>/security-review</code> give a deeper read-only pass.</p>
+<p><strong>Before you ship.</strong> <code>/diff</code> shows what changed, <code>/code-review</code> checks the diff for correctness bugs and cleanups and can apply the findings with <code>--fix</code>, and <code>/review</code> or <code>/security-review</code> give a deeper read-only pass. <code>/code-review ultra</code> runs a multi-agent review in the cloud.</p>
 <p><strong>Between sessions.</strong> <code>/clear</code> starts fresh on a new task while keeping project memory. <code>/resume</code> and <code>/branch</code> let you return to or fork an earlier conversation. <code>/teleport</code> pulls a web session into this terminal, and <code>/remote-control</code> lets you continue this local session from another device.</p>
 <p><strong>When something is wrong.</strong> <code>/rewind</code> rolls code and conversation back to a checkpoint, or summarizes part of the conversation. <code>/doctor</code> and <code>/debug</code> diagnose install and runtime issues, and <code>/feedback</code> reports a bug with session context attached.</p>
 <h2 id="all-commands">All commands</h2>
@@ -4301,8 +4301,8 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Start a new conversation with empty context. The previous conversation stays available in <code>/resume</code>. Pass a name to label the previous conversation in the <code>/resume</code> picker. To free up context while continuing the same conversation, use <code>/compact</code> instead. Aliases: <code>/reset</code>, <code>/new</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>/code-review [low\|medium\|high\|xhigh\|max] [--comment] [target]</code></td>
-<td style="text-align: left;"><strong><a href="/en/skills#bundled-skills">Skill</a>.</strong> Review the current diff for correctness bugs and report findings without editing files. Lower <a href="/en/model-config#adjust-effort-level">effort levels</a> return fewer, higher-confidence findings, while <code>high</code> through <code>max</code> give broader coverage and may include uncertain findings. Without an effort argument, the review uses the session's current effort. Pass <code>--comment</code> to post findings as inline comments on the current GitHub PR. Pass a path or PR reference to review a specific target. Formerly <code>/simplify</code>, which still works as an alias</td>
+<td style="text-align: left;"><code>/code-review [low\|medium\|high\|xhigh\|max\|ultra] [--fix] [--comment] [target]</code></td>
+<td style="text-align: left;"><strong><a href="/en/skills#bundled-skills">Skill</a>.</strong> Review the current diff for correctness bugs and for reuse, simplification, and efficiency cleanups. Pass <code>--fix</code> to apply findings to your working tree, <code>--comment</code> to post them as inline GitHub PR comments, or <code>ultra</code> to run a deep <a href="/en/ultrareview">cloud review</a>. <code>/simplify</code> is equivalent to <code>/code-review --fix</code>. See <a href="/en/code-review#review-a-diff-locally">Review a diff locally</a> for effort levels and targeting</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/color [color\|default]</code></td>
@@ -4438,7 +4438,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/model [model]</code></td>
-<td style="text-align: left;">Set the AI model for the current session. For models that support it, use left/right arrows to <a href="/en/model-config#adjust-effort-level">adjust effort level</a>. With no argument, opens a picker; press <code>d</code> on a row to also save that model as the default for new sessions. The picker asks for confirmation when the conversation has prior output, since the next response re-reads the full history without cached context. Once confirmed, the change applies without waiting for the current response to finish</td>
+<td style="text-align: left;">Switch the AI model and save it as your default for new sessions. For models that support it, use left/right arrows to <a href="/en/model-config#adjust-effort-level">adjust effort level</a>. With no argument, opens a picker; press <code>s</code> on a row to switch for the current session only. The picker asks for confirmation when the conversation has prior output, since the next response re-reads the full history without cached context. Once confirmed, the change applies without waiting for the current response to finish</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/passes</code></td>
@@ -4485,6 +4485,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Reload all active <a href="/en/plugins">plugins</a> to apply pending changes without restarting. Reports counts for each reloaded component and flags any load errors</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>/reload-skills</code></td>
+<td style="text-align: left;">{/<em> min-version: 2.1.152 </em>/}Re-scan <a href="/en/skills">skill</a> and command directories so skills added or changed on disk during the session become available without restarting. Reports how many skills are available and how many were added or removed</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>/remote-control</code></td>
 <td style="text-align: left;">Make this session available for <a href="/en/remote-control">remote control</a> from claude.ai. Alias: <code>/rc</code></td>
 </tr>
@@ -4502,7 +4506,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/review [PR]</code></td>
-<td style="text-align: left;">Review a pull request locally in your current session. For a deeper cloud-based review, see <a href="/en/ultrareview"><code>/ultrareview</code></a></td>
+<td style="text-align: left;">Review a pull request locally in your current session. For a deeper cloud-based review, see <a href="/en/ultrareview"><code>/code-review ultra</code></a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/rewind</code></td>
@@ -4594,7 +4598,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/ultrareview [PR]</code></td>
-<td style="text-align: left;">Run a deep, multi-agent code review in a cloud sandbox with <a href="/en/ultrareview">ultrareview</a>. Includes 3 free runs on Pro and Max, then requires <a href="https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans">usage credits</a></td>
+<td style="text-align: left;">Run a deep, multi-agent code review in a cloud sandbox with <a href="/en/ultrareview">ultrareview</a>. The preferred invocation is now <code>/code-review ultra</code>, and <code>/ultrareview</code> remains as an alias. Includes 3 free runs on Pro and Max, then requires <a href="https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans">usage credits</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/upgrade</code></td>
