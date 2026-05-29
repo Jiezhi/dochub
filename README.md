@@ -5,17 +5,21 @@ from networks where only `github.com` is reachable.
 
 Currently mirrored:
 
-| Source         | Upstream                                                                 | Original site                   |
-| -------------- | ------------------------------------------------------------------------ | ------------------------------- |
-| `opencode`     | [`sst/opencode`](https://github.com/sst/opencode)                        | https://opencode.ai/docs/       |
-| `bruno`        | [`usebruno/bruno-docs`](https://github.com/usebruno/bruno-docs)          | https://docs.usebruno.com/      |
-| `mermaid`      | [`mermaid-js/mermaid`](https://github.com/mermaid-js/mermaid)            | https://mermaid.js.org/         |
+| Source         | Upstream                                                                 | Original site                                            |
+| -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `opencode`     | [`sst/opencode`](https://github.com/sst/opencode)                        | https://opencode.ai/docs/                                |
+| `bruno`        | [`usebruno/bruno-docs`](https://github.com/usebruno/bruno-docs)          | https://docs.usebruno.com/                               |
+| `claude-code`  | [`ericbuess/claude-code-docs`](https://github.com/ericbuess/claude-code-docs) | https://docs.claude.com/en/docs/claude-code/overview |
+| `fastmcp`      | [`jlowin/fastmcp`](https://github.com/jlowin/fastmcp)                    | https://gofastmcp.com/                                   |
+| `mermaid`      | [`mermaid-js/mermaid`](https://github.com/mermaid-js/mermaid)            | https://mermaid.js.org/                                  |
 
 Browse the mirrored markdown under [`docs/`](./docs/). GitHub renders the
 `.md` / `.mdx` files inline.
 
-**Built HTML** for opencode and mermaid is deployed daily to
+**Built HTML** is deployed daily to
 [GitHub Pages](https://jiezhi.github.io/dochub/) (`build-docs.yml` workflow).
+opencode uses Astro, mermaid uses VitePress, and the Mintlify-only sources
+(bruno, claude-code, fastmcp) are rendered through MkDocs Material.
 
 ## How it works
 
