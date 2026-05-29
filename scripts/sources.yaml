@@ -183,6 +183,66 @@ sources:
       script: mkdocs build
       output: _site
 
+  - name: fastmcp
+    repo: jlowin/fastmcp
+    ref: main
+    homepage: https://gofastmcp.com/
+    paths:
+      - docs
+    strip: docs
+    include:
+      - "**/*.md"
+      - "**/*.mdx"
+    exclude:
+      - "assets/**"
+      - "public/**"
+      - "css/**"
+      - ".cursor/**"
+      - "snippets/**"
+    build:
+      # Upstream uses Mintlify (gofastmcp.com) with no public static-export
+      # build. Same MkDocs Material pattern as bruno / claude-code so the
+      # mirrored .md/.mdx are browsable under /dochub/fastmcp/. Mintlify
+      # components (<Card>, <Tabs>, <CodeGroup>, etc.) pass through as raw
+      # HTML — readable but won't render identically to upstream.
+      tool: pip
+      working_dir: .
+      install: pip install mkdocs-material
+      pre_build:
+        # MkDocs only picks up .md by default; rename mirrored .mdx -> .md.
+        - "find . -name '*.mdx' -not -path '*/node_modules/*' -exec sh -c 'mv \"$1\" \"${1%.mdx}.md\"' _ {} \\;"
+        # Strip MDX `import ... from '...';` lines that MkDocs would render literally.
+        - "find . -name '*.md' -not -path '*/node_modules/*' -exec sed -i -E '/^import[[:space:]].*from[[:space:]].*;?$/d' {} +"
+        # Upstream has no index.md; promote getting-started/welcome.md so / lands on it.
+        - "cp getting-started/welcome.md index.md"
+        # MkDocs refuses docs_dir == config dir, so stage all .md files under
+        # _docs/ preserving relative paths (rsync -R = use full source path).
+        - "rsync -aR --include='*/' --include='*.md' --exclude='node_modules/' --exclude='*' --prune-empty-dirs ./ _docs/"
+        # Heredoc must remain the LAST entry: gen-build-matrix.py joins entries
+        # with ` && `, and anything appended after the terminator line would
+        # break the heredoc syntax.
+        - |
+          cat > mkdocs.yml <<'YAML'
+          site_name: FastMCP Docs (mirror)
+          site_url: https://jiezhi.github.io/dochub/fastmcp/
+          docs_dir: _docs
+          site_dir: _site
+          use_directory_urls: true
+          theme:
+            name: material
+          markdown_extensions:
+            - admonition
+            - attr_list
+            - md_in_html
+            - tables
+            - pymdownx.details
+            - pymdownx.superfences
+            - pymdownx.tabbed:
+                alternate_style: true
+          YAML
+      script: mkdocs build
+      output: _site
+
   - name: mermaid
     repo: mermaid-js/mermaid
     ref: develop
