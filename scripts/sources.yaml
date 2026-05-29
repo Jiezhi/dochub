@@ -210,14 +210,11 @@ sources:
       install: pip install mkdocs-material
       pre_build:
         # MkDocs only picks up .md by default; rename mirrored .mdx -> .md.
-        - "find . -name '*.mdx' -not -path '*/node_modules/*' -exec sh -c 'mv \"$1\" \"${1%.mdx}.md\"' _ {} \\;"
+        - "find docs -name '*.mdx' -exec sh -c 'mv \"$1\" \"${1%.mdx}.md\"' _ {} \\;"
         # Strip MDX `import ... from '...';` lines that MkDocs would render literally.
-        - "find . -name '*.md' -not -path '*/node_modules/*' -exec sed -i -E '/^import[[:space:]].*from[[:space:]].*;?$/d' {} +"
-        # Upstream has no index.md; promote getting-started/welcome.md so / lands on it.
-        - "cp getting-started/welcome.md index.md"
-        # MkDocs refuses docs_dir == config dir, so stage all .md files under
-        # _docs/ preserving relative paths (rsync -R = use full source path).
-        - "rsync -aR --include='*/' --include='*.md' --exclude='node_modules/' --exclude='*' --prune-empty-dirs ./ _docs/"
+        - "find docs -name '*.md' -exec sed -i -E '/^import[[:space:]].*from[[:space:]].*;?$/d' {} +"
+        # Upstream has no docs/index.md; promote welcome.md so / lands on it.
+        - "mv docs/getting-started/welcome.md docs/index.md"
         # Heredoc must remain the LAST entry: gen-build-matrix.py joins entries
         # with ` && `, and anything appended after the terminator line would
         # break the heredoc syntax.
@@ -225,7 +222,7 @@ sources:
           cat > mkdocs.yml <<'YAML'
           site_name: FastMCP Docs (mirror)
           site_url: https://jiezhi.github.io/dochub/fastmcp/
-          docs_dir: _docs
+          docs_dir: docs
           site_dir: _site
           use_directory_urls: true
           theme:
@@ -239,6 +236,8 @@ sources:
             - pymdownx.superfences
             - pymdownx.tabbed:
                 alternate_style: true
+          exclude_docs: |
+            snippets/
           YAML
       script: mkdocs build
       output: _site
