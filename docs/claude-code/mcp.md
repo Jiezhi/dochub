@@ -41,7 +41,7 @@ You can also have Claude scaffold a server for you with the official [`mcp-serve
     /plugin install mcp-server-dev@claude-plugins-official
     ```
 
-    Then run `/reload-plugins` to activate it in the current session.
+    If Claude Code reports that the marketplace is not found, run `/plugin marketplace add anthropics/claude-plugins-official` first, then retry the install. Once installed, run `/reload-plugins` to activate it in the current session.
   </Step>
 
   <Step title="Run the build skill">
@@ -140,6 +140,8 @@ claude mcp remove github
 # (within Claude Code) Check server status
 /mcp
 ```
+
+Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list` as `⏸ Pending approval`. Run `claude` interactively to review and approve them. `claude mcp get <name>` shows pending servers as `⏸ Pending approval` and rejected servers as `✗ Rejected`.
 
 The `/mcp` panel shows the tool count next to each connected server and flags servers that advertise the tools capability but expose no tools.
 
@@ -323,7 +325,7 @@ claude mcp add --transport http hubspot --scope user https://mcp.hubspot.com/ant
 
 ### Scope hierarchy and precedence
 
-When the same server is defined in more than one place, Claude Code connects to it once, using the definition from the highest-precedence source:
+When the same server is defined in more than one place, Claude Code connects to it once, using the definition from the highest-precedence source. The entire server entry from that source is used; fields are not merged across scopes.
 
 1. Local scope
 2. Project scope
