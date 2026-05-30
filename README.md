@@ -12,14 +12,16 @@ Currently mirrored:
 | `claude-code`  | [`ericbuess/claude-code-docs`](https://github.com/ericbuess/claude-code-docs) | https://docs.claude.com/en/docs/claude-code/overview |
 | `fastmcp`      | [`jlowin/fastmcp`](https://github.com/jlowin/fastmcp)                    | https://gofastmcp.com/                                   |
 | `mermaid`      | [`mermaid-js/mermaid`](https://github.com/mermaid-js/mermaid)            | https://mermaid.js.org/                                  |
+| `uv`           | [`astral-sh/uv`](https://github.com/astral-sh/uv)                        | https://docs.astral.sh/uv/                               |
 
 Browse the mirrored markdown under [`docs/`](./docs/). GitHub renders the
 `.md` / `.mdx` files inline.
 
 **Built HTML** is deployed daily to
 [GitHub Pages](https://jiezhi.github.io/dochub/) (`build-docs.yml` workflow).
-opencode uses Astro, mermaid uses VitePress, and the Mintlify-only sources
-(bruno, claude-code, fastmcp) are rendered through MkDocs Material.
+opencode uses Astro, mermaid uses VitePress, uv ships its own MkDocs Material
+site, and the Mintlify-only sources (bruno, claude-code, fastmcp) are rendered
+through MkDocs Material.
 
 ## How it works
 
