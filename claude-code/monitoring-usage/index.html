@@ -1312,7 +1312,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5274,7 +5274,7 @@ Example managed settings configuration:
 <p>By default, the <code>traceparent</code> header on model and HTTP MCP requests is sent only when <code>ANTHROPIC_BASE_URL</code> is unset or points at the Anthropic API, since some proxies reject unrecognized headers. The subprocess <code>TRACEPARENT</code> variable is controlled by the same switch for consistency. If you run Claude Code through a custom <code>ANTHROPIC_BASE_URL</code> proxy and want trace context propagated, set <code>CLAUDE_CODE_PROPAGATE_TRACEPARENT=1</code>.</p>
 <p>In Agent SDK and non-interactive sessions started with <code>-p</code>, Claude Code also reads <code>TRACEPARENT</code> and <code>TRACESTATE</code> from its own environment when starting each interaction span. This lets an embedding process pass its active W3C trace context into the subprocess so Claude Code's spans appear as children of the caller's distributed trace. Interactive sessions ignore inbound <code>TRACEPARENT</code> to avoid accidentally inheriting ambient values from CI or container environments.</p>
 <h4 id="span-hierarchy">Span hierarchy</h4>
-<p>Each user prompt starts a <code>claude_code.interaction</code> root span. API calls, tool calls, and hook executions are recorded as its children. Tool spans have two child spans of their own: one for the time spent waiting on a permission decision and one for the execution itself. When the Task tool spawns a subagent, the subagent's API and tool spans nest under the parent's <code>claude_code.tool</code> span.</p>
+<p>Each user prompt starts a <code>claude_code.interaction</code> root span. API calls, tool calls, and hook executions are recorded as its children. Tool spans have two child spans of their own: one for the time spent waiting on a permission decision and one for the execution itself. When the Agent tool, or legacy Task tool, spawns a subagent, the subagent's API and tool spans nest under the parent's <code>claude_code.tool</code> span.</p>
 <p>```text theme={null}
 claude_code.interaction
 ├── claude_code.llm_request
@@ -5282,7 +5282,7 @@ claude_code.interaction
 └── claude_code.tool
     ├── claude_code.tool.blocked_on_user
     ├── claude_code.tool.execution
-    └── (Task tool) subagent claude_code.llm_request / claude_code.tool spans
+    └── (Agent tool) subagent claude_code.llm_request / claude_code.tool spans
 <div class="highlight"><pre><span></span><code>In Agent SDK and `claude -p` sessions, `claude_code.interaction` itself becomes a child of the caller&#39;s span when `TRACEPARENT` is set in the environment.
 
 #### Span attributes
@@ -5341,7 +5341,7 @@ Each retry attempt is also recorded as a `gen_ai.request.attempt` span event wit
 | `file_path`       | Target file path for Read, Edit, and Write tools                                                                   | `OTEL_LOG_TOOL_DETAILS` |
 | `full_command`    | Command string for the Bash tool                                                                                   | `OTEL_LOG_TOOL_DETAILS` |
 | `skill_name`      | Skill name for the Skill tool                                                                                      | `OTEL_LOG_TOOL_DETAILS` |
-| `subagent_type`   | Subagent type for the Task tool                                                                                    | `OTEL_LOG_TOOL_DETAILS` |
+| `subagent_type`   | Subagent type for the Agent tool or legacy Task tool                                                               | `OTEL_LOG_TOOL_DETAILS` |
 
 When `OTEL_LOG_TOOL_CONTENT=1`, this span also records a `tool.output` span event whose attributes contain the tool&#39;s input and output bodies, truncated at 60 KB per attribute.
 
@@ -5673,9 +5673,10 @@ Logged when a tool completes execution. Not emitted if the tool call was rejecte
 * `mcp_server_scope`: MCP server scope identifier (for MCP tools)
 * `tool_parameters` (when `OTEL_LOG_TOOL_DETAILS=1`): JSON string containing tool-specific parameters:
   * For Bash tool: includes `bash_command`, `full_command`, `timeout`, `description`, `dangerouslyDisableSandbox`, and `git_commit_id` (the commit SHA, when a `git commit` command succeeds)
+  * For WorkspaceBash tool: includes `bash_command`, `full_command`, `timeout`
   * For MCP tools: includes `mcp_server_name`, `mcp_tool_name`
   * For Skill tool: includes `skill_name`
-  * For Task tool: includes `subagent_type`
+  * For Agent tool or legacy Task tool: includes `subagent_type`
 * `tool_input` (when `OTEL_LOG_TOOL_DETAILS=1`): JSON-serialized tool arguments. Individual values over 512 characters are truncated, and the full payload is bounded to \~4 K characters. Applies to all tools including MCP tools.
 
 #### API request event
@@ -5787,6 +5788,12 @@ Logged when a tool permission decision is made (accept/reject).
   * `&quot;user_temporary&quot;`: Emitted when the user chose &quot;Yes&quot; at a permission prompt for a one-time approval, or chose one of the &quot;... during this session&quot; options on a file edit or read prompt. In the interactive CLI this is emitted only for the choice itself; later calls allowed by that session-scoped grant emit `&quot;config&quot;` instead. In Agent SDK or non-interactive `-p` sessions, both the choice and later matches emit `&quot;user_temporary&quot;`. Treated as an accept.
   * `&quot;user_abort&quot;`: Emitted when the user dismissed the permission prompt without answering. Treated as a reject.
   * `&quot;user_reject&quot;`: Emitted when the user chose &quot;No&quot; when prompted. In the interactive CLI this is emitted only for that choice itself; calls that match a deny rule in the user&#39;s personal settings emit `&quot;config&quot;` instead. In Agent SDK or non-interactive `-p` sessions, calls that match a deny rule in personal settings emit `&quot;user_reject&quot;`. Treated as a reject.
+* `tool_parameters` (when `OTEL_LOG_TOOL_DETAILS=1`): JSON string containing tool-specific parameters. Same shape as the [Tool result event](#tool-result-event), minus post-execution fields such as `git_commit_id`. Values may differ from `tool_result` for an accepted call if the permission decision rewrites the tool input via `updatedInput`. Use this attribute to see which command was rejected when `decision` is `&quot;reject&quot;`.
+  * For Bash tool: includes `bash_command`, `full_command`, `timeout`, `description`, `dangerouslyDisableSandbox`
+  * For WorkspaceBash tool: includes `bash_command`, `full_command`, `timeout`
+  * For MCP tools: includes `mcp_server_name`, `mcp_tool_name`
+  * For Skill tool: includes `skill_name`
+  * For Agent tool or legacy Task tool: includes `subagent_type`
 
 #### Permission mode changed event
 
@@ -6158,11 +6165,16 @@ export OTEL_RESOURCE_ATTRIBUTES=&quot;enduser.id=jdoe@example.com,enduser.direct
 </tr>
 <tr>
 <td><code>tool_decision</code></td>
-<td>Whether the call was allowed or denied, and whether the decision came from config, a hook, or the user</td>
+<td>Whether the call was allowed or denied, whether the decision came from config, a hook, or the user, and a <code>tool_parameters</code> payload containing <code>mcp_server_name</code> and <code>mcp_tool_name</code></td>
 </tr>
 </tbody>
 </table>
-<p>Without <code>OTEL_LOG_TOOL_DETAILS</code>, <code>tool_result</code> events still carry <code>tool_name</code> and <code>mcp_server_scope</code> but omit the <code>mcp_server_name</code>/<code>mcp_tool_name</code> breakdown and the arguments, and <code>mcp_server_connection</code> events omit <code>server_name</code> and the error message.</p>
+<p>Without <code>OTEL_LOG_TOOL_DETAILS</code>, these events drop the identifying detail:</p>
+<ul>
+<li><code>tool_result</code>: keeps <code>tool_name</code> and <code>mcp_server_scope</code>, omits <code>mcp_server_name</code>, <code>mcp_tool_name</code>, and arguments</li>
+<li><code>tool_decision</code>: keeps <code>tool_name</code>, omits <code>tool_parameters</code></li>
+<li><code>mcp_server_connection</code>: omits <code>server_name</code> and the error message</li>
+</ul>
 <h3 id="map-security-questions-to-events">Map security questions to events</h3>
 <p>When building detection rules, look up the signal you want to monitor and query your backend for the corresponding event and attributes:</p>
 <table>
@@ -6177,7 +6189,7 @@ export OTEL_RESOURCE_ATTRIBUTES=&quot;enduser.id=jdoe@example.com,enduser.direct
 <tr>
 <td>Tool call allowed or denied, and by what</td>
 <td><code>tool_decision</code></td>
-<td><code>decision</code>, <code>source</code>, <code>tool_name</code></td>
+<td><code>decision</code>, <code>source</code>, <code>tool_name</code>, <code>tool_parameters</code></td>
 </tr>
 <tr>
 <td>Permission mode escalation</td>
@@ -6206,8 +6218,8 @@ export OTEL_RESOURCE_ATTRIBUTES=&quot;enduser.id=jdoe@example.com,enduser.direct
 </tr>
 <tr>
 <td>Commands run and files touched</td>
-<td><code>tool_result</code> with <code>OTEL_LOG_TOOL_DETAILS=1</code></td>
-<td><code>tool_parameters</code>, <code>tool_input</code></td>
+<td><code>tool_result</code> (executed) or <code>tool_decision</code> (rejected) with <code>OTEL_LOG_TOOL_DETAILS=1</code></td>
+<td><code>tool_parameters</code>; <code>tool_input</code> (<code>tool_result</code> only)</td>
 </tr>
 </tbody>
 </table>
@@ -6265,7 +6277,11 @@ export OTEL_RESOURCE_ATTRIBUTES=&quot;enduser.id=jdoe@example.com,enduser.direct
 <li>Raw file contents and code snippets are not included in metrics or events. Trace spans are a separate data path: see the <code>OTEL_LOG_TOOL_CONTENT</code> bullet below</li>
 <li>When authenticated via OAuth, <code>user.email</code> is included in telemetry attributes. If this is a concern for your organization, work with your telemetry backend to filter or redact this field</li>
 <li>User prompt content is not collected by default. Only prompt length is recorded. To include prompt content, set <code>OTEL_LOG_USER_PROMPTS=1</code></li>
-<li>Tool input arguments and parameters are not logged by default. To include them, set <code>OTEL_LOG_TOOL_DETAILS=1</code>. When enabled, <code>tool_result</code> events include a <code>tool_parameters</code> attribute with Bash commands, MCP server and tool names, and skill names, plus a <code>tool_input</code> attribute with file paths, URLs, search patterns, and other arguments. <code>user_prompt</code> events include the verbatim <code>command_name</code> for custom, plugin, and MCP commands. Trace spans include the same <code>tool_input</code> attribute and input-derived attributes such as <code>file_path</code>. Individual values over 512 characters are truncated and the total is bounded to \~4 K characters, but the arguments may still contain sensitive values. Configure your telemetry backend to filter or redact these attributes as needed</li>
+<li>Tool input arguments and parameters are not logged by default. To include them, set <code>OTEL_LOG_TOOL_DETAILS=1</code>. This data is sent only to the OTEL endpoint you configure, never to Anthropic. Arguments may still contain sensitive values, so configure your telemetry backend to filter or redact these attributes as needed. When enabled:</li>
+<li><code>tool_result</code> and <code>tool_decision</code> events include a <code>tool_parameters</code> attribute with Bash commands, MCP server and tool names, and skill names. Fields such as <code>full_command</code> are emitted untruncated</li>
+<li><code>tool_result</code> events additionally include a <code>tool_input</code> attribute with file paths, URLs, search patterns, and other arguments. Individual values over 512 characters are truncated and the total is bounded to \~4 K characters</li>
+<li><code>user_prompt</code> events include the verbatim <code>command_name</code> for custom, plugin, and MCP commands</li>
+<li>Trace spans include the same <code>tool_input</code> attribute and input-derived attributes such as <code>file_path</code>, with the same truncation as <code>tool_input</code></li>
 <li>Tool input and output content is not logged in trace spans by default. To include it, set <code>OTEL_LOG_TOOL_CONTENT=1</code>. When enabled, span events include full tool input and output content truncated at 60 KB per span. This can include raw file contents from Read tool results and Bash command output. Configure your telemetry backend to filter or redact these attributes as needed</li>
 <li>Raw Anthropic Messages API request and response bodies are not logged by default. To include them, set <code>OTEL_LOG_RAW_API_BODIES</code>. With <code>=1</code>, each API call emits <code>api_request_body</code> and <code>api_response_body</code> log events whose <code>body</code> attribute is the JSON-serialized payload, truncated at 60 KB. With <code>=file:&lt;dir&gt;</code>, untruncated bodies are written to <code>.request.json</code> and <code>.response.json</code> files under that directory and the events carry a <code>body_ref</code> path instead of the inline body. Ship the directory with a log collector or sidecar rather than through the telemetry stream. In both modes, bodies contain the full conversation history (system prompt, every prior user and assistant turn, tool results), so enabling this implies consent to everything the other <code>OTEL_LOG_*</code> content flags would reveal. Claude's extended-thinking content is always redacted from these bodies regardless of other settings</li>
 </ul>
