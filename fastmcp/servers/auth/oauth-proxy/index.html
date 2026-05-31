@@ -11042,7 +11042,24 @@
 <p>This two-tier validation ensures that FastMCP tokens can only be used with this server (via audience validation) while maintaining full upstream token security.</p>
 <p>This architecture also prevents <a href="#token-passthrough">token passthrough</a> — see the <a href="#security">Security</a> section for details.</p>
 <p><strong>Token expiry alignment:</strong></p>
-<p>FastMCP token lifetimes match the upstream token lifetimes. When the upstream token expires, the FastMCP token also expires, maintaining consistent security boundaries.</p>
+<p>By default, FastMCP token lifetimes match the upstream token lifetimes. When the upstream token expires, the FastMCP token also expires, maintaining consistent security boundaries.</p>
+<p><strong>Extending the FastMCP token lifetime:</strong></p>
+<p>Some upstream providers issue short-lived access tokens (5–60 minutes is common). Because the FastMCP token is a reference into the proxy's storage rather than the upstream credential itself, its client-facing lifetime can be longer than the upstream token's without weakening security: every request re-validates the upstream token and transparently refreshes it when it has expired, so a revoked or genuinely expired upstream session still fails validation and forces re-authentication.</p>
+<p>This matters for MCP clients that don't refresh gracefully. For example, <a href="https://github.com/geelen/mcp-remote"><code>mcp-remote</code></a> (used by Claude Desktop) has known issues handling access-token expiry, so a short upstream lifetime can push users through a full OAuth flow after every idle period. Set <code>fastmcp_access_token_expiry_seconds</code> to decouple the FastMCP token lifetime from the upstream <code>expires_in</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">OAuthProxy</span>
+
+<span class="n">auth</span> <span class="o">=</span> <span class="n">OAuthProxy</span><span class="p">(</span>
+    <span class="n">upstream_authorization_endpoint</span><span class="o">=</span><span class="s2">&quot;https://provider.com/oauth/authorize&quot;</span><span class="p">,</span>
+    <span class="n">upstream_token_endpoint</span><span class="o">=</span><span class="s2">&quot;https://provider.com/oauth/token&quot;</span><span class="p">,</span>
+    <span class="n">upstream_client_id</span><span class="o">=</span><span class="s2">&quot;your-client-id&quot;</span><span class="p">,</span>
+    <span class="n">upstream_client_secret</span><span class="o">=</span><span class="s2">&quot;your-client-secret&quot;</span><span class="p">,</span>
+    <span class="n">token_verifier</span><span class="o">=</span><span class="n">token_verifier</span><span class="p">,</span>
+    <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://your-server.com&quot;</span><span class="p">,</span>
+    <span class="n">fastmcp_access_token_expiry_seconds</span><span class="o">=</span><span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">24</span><span class="p">,</span>  <span class="c1"># 24 hours</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The upstream token's real expiry is preserved internally to drive transparent refresh; only the FastMCP-issued token lives longer. This parameter is available on every provider built on the OAuth proxy (<code>GitHubProvider</code>, <code>GoogleProvider</code>, <code>AzureProvider</code>, and the rest).</p>
+<p>Extending the lifetime only works when the upstream provider issues a refresh token, since that's what lets the proxy renew the access token behind the scenes. When the upstream provides no refresh token, the FastMCP token lifetime is capped at the upstream <code>expires_in</code> — issuing a longer-lived token would claim a validity the proxy can't honor.</p>
 <p><strong>Refresh tokens:</strong></p>
 <p>The proxy issues its own refresh tokens that map to upstream refresh tokens. When a client uses a FastMCP refresh token, the proxy refreshes the upstream token and issues a new FastMCP access token.</p>
 <h3 id="pkce-forwarding">PKCE Forwarding</h3>
