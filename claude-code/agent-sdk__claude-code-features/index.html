@@ -2735,6 +2735,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../mcp-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mcp quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp/" class="md-nav__link">
         
   
@@ -4566,6 +4593,11 @@ for await (const message of query({
 <td style="text-align: left;">Loaded by default into the system prompt</td>
 <td style="text-align: left;">Set <code>autoMemoryEnabled: false</code> in settings, or <code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code> in <code>env</code></td>
 </tr>
+<tr>
+<td style="text-align: left;"><a href="/en/mcp#use-mcp-servers-from-claude-ai">claude.ai MCP connectors</a></td>
+<td style="text-align: left;">Loaded when the active authentication method is a claude.ai subscription. Passing <code>mcpServers: {}</code> does not suppress them</td>
+<td style="text-align: left;">Set <code>strictMcpConfig: true</code>, or <code>ENABLE_CLAUDEAI_MCP_SERVERS=false</code> in <code>env</code></td>
+</tr>
 </tbody>
 </table>
 <p><Warning>
@@ -4627,7 +4659,7 @@ for await (const message of query({
 <p>For how to structure and organize CLAUDE.md content, see <a href="/en/memory">Manage Claude's memory</a>.</p>
 <h2 id="skills">Skills</h2>
 <p>Skills are markdown files that give your agent specialized knowledge and invocable workflows. Unlike <code>CLAUDE.md</code> (which loads every session), skills load on demand. The agent receives skill descriptions at startup and loads the full content when relevant.</p>
-<p>Skills are discovered from the filesystem through <code>settingSources</code>. When the <code>skills</code> option on <code>query()</code> is omitted, discovered user and project skills are enabled and the Skill tool is available, matching CLI behavior. To control which skills are enabled, pass <code>skills</code> as <code>"all"</code>, a list of skill names, or <code>[]</code> to disable all. The SDK enables the Skill tool automatically when <code>skills</code> is set, so you do not need to add it to <code>allowedTools</code>.</p>
+<p>Skills are discovered from the filesystem through <code>settingSources</code>. When the <code>skills</code> option on <code>query()</code> is omitted, discovered user and project skills are enabled and the Skill tool is available, matching CLI behavior. To control which skills are enabled, pass <code>skills</code> as <code>"all"</code>, a list of skill names, or <code>[]</code> to disable all. When <code>skills</code> is set, the SDK adds the Skill tool to <code>allowedTools</code> automatically. If you also pass an explicit <code>tools</code> list, include <code>"Skill"</code> in that list so Claude can invoke skills.</p>
 <p><CodeGroup>
   ```python Python theme={null}
   from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage</p>
@@ -4673,7 +4705,7 @@ for await (const message of query({
 <li><strong>Programmatic hooks:</strong> callback functions passed directly to <code>query()</code>. These run in your application process and can return structured decisions. See <a href="/en/agent-sdk/hooks">Control execution with hooks</a>.</li>
 </ul>
 <p>Both types execute during the same hook lifecycle. If you already have hooks in your project's <code>.claude/settings.json</code> and you set <code>settingSources: ["project"]</code>, those hooks run automatically in the SDK with no extra configuration.</p>
-<p>Hook callbacks receive the tool input and return a decision dict. Returning <code>{}</code> (an empty dict) means allow the tool to proceed. Returning <code>{"decision": "block", "reason": "..."}</code> prevents execution and the reason is sent to Claude as the tool result. See the <a href="/en/agent-sdk/hooks">hooks guide</a> for the full callback signature and return types.</p>
+<p>Hook callbacks receive the tool input and return a decision dict. Returning <code>{}</code> means allow the tool to proceed. To block execution, return a <code>hookSpecificOutput</code> object with <code>permissionDecision: "deny"</code> and a <code>permissionDecisionReason</code>. The reason is sent to Claude as the tool result. The top-level <code>decision</code> and <code>reason</code> fields are deprecated for <code>PreToolUse</code>. See the <a href="/en/agent-sdk/hooks">hooks guide</a> for the full callback signature and return types.</p>
 <p><CodeGroup>
   ```python Python theme={null}
   from claude_agent_sdk import query, ClaudeAgentOptions, HookMatcher, ResultMessage</p>
@@ -4684,7 +4716,13 @@ for await (const message of query({
   async def audit_bash(input_data, tool_use_id, context):
       command = input_data.get("tool_input", {}).get("command", "")
       if "rm -rf" in command:
-          return {"decision": "block", "reason": "Destructive command blocked"}
+          return {
+              "hookSpecificOutput": {
+                  "hookEventName": "PreToolUse",
+                  "permissionDecision": "deny",
+                  "permissionDecisionReason": "Destructive command blocked",
+              }
+          }
       return {}  # Empty dict: allow the tool to proceed</p>
 <p># Filesystem hooks from .claude/settings.json run automatically
   # when settingSources loads them. You can also add programmatic hooks:
@@ -4711,7 +4749,13 @@ const auditBash = async (input: HookInput): Promise&lt;HookJSONOutput&gt; =&gt; 
   if (input.hook_event_name !== &quot;PreToolUse&quot;) return {};
   const toolInput = input.tool_input as { command?: string };
   if (toolInput.command?.includes(&quot;rm -rf&quot;)) {
-    return { decision: &quot;block&quot;, reason: &quot;Destructive command blocked&quot; };
+    return {
+      hookSpecificOutput: {
+        hookEventName: &quot;PreToolUse&quot;,
+        permissionDecision: &quot;deny&quot;,
+        permissionDecisionReason: &quot;Destructive command blocked&quot;,
+      },
+    };
   }
   return {}; // Empty object: allow the tool to proceed
 };
@@ -4748,7 +4792,7 @@ for await (const message of query({
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Programmatic</strong> (callbacks in <code>query()</code>)</td>
-<td style="text-align: left;">Application-specific logic; returning structured decisions; in-process integration. Scoped to the main session only.</td>
+<td style="text-align: left;">Application-specific logic, structured decisions, and in-process integration. These also fire inside subagents. The callback receives <code>agent_id</code> and <code>agent_type</code> to distinguish.</td>
 </tr>
 </tbody>
 </table>

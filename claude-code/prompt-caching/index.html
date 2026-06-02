@@ -2547,6 +2547,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../mcp-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mcp quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp/" class="md-nav__link">
         
   
@@ -3097,6 +3124,17 @@
     <span class="md-ellipsis">
       
         Connecting or disconnecting an MCP server
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enabling-or-disabling-a-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling or disabling a plugin
       
     </span>
   </a>
@@ -4581,6 +4619,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#enabling-or-disabling-a-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling or disabling a plugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#denying-an-entire-tool" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4868,7 +4917,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>System prompt</td>
 <td>Core instructions, tool definitions, output style</td>
-<td>An MCP server connects or disconnects, or Claude Code is upgraded</td>
+<td>The set of loaded tool definitions changes, or Claude Code is upgraded</td>
 </tr>
 <tr>
 <td>Project context</td>
@@ -4890,7 +4939,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Effort level</strong>: each effort level has its own cache for the same model. Changing it mid-session recomputes the entire request, and Claude Code asks you to confirm before applying the change. See <a href="#changing-effort-level">Changing effort level</a> below.</li>
 </ul>
 <p><Tip>
-  Pick your model, effort level, and MCP servers at the top of a session, then save <code>/compact</code> for natural breaks between tasks. The fewer changes you make mid-task, the higher your cache hit rate.
+  Pick your model and effort level at the top of a session, then save <code>/compact</code> for natural breaks between tasks. The fewer changes you make mid-task, the higher your cache hit rate.
 </Tip></p>
 <h3 id="where-the-cache-lives">Where the cache lives</h3>
 <p>Caching happens server-side, in whichever infrastructure serves your model. Where that is depends on how you authenticate:</p>
@@ -4902,11 +4951,12 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>For what each provider stores and processes, see <a href="/en/data-usage">data usage</a>. Wherever the cache lives, entries expire after a period of inactivity, and <a href="#cache-lifetime">Cache lifetime</a> below covers the TTL and how to extend it.</p>
 <h2 id="actions-that-invalidate-the-cache">Actions that invalidate the cache</h2>
-<p>These actions cause the next request to miss part or all of the cache. You see a one-time slower, more expensive turn, after which the new prefix is cached. Most of them are avoidable mid-task once you know they have a cost. A model switch or an MCP reconnect can feel free until you notice the slower turn that follows.</p>
+<p>These actions cause the next request to miss part or all of the cache. You see a one-time slower, more expensive turn, after which the new prefix is cached. Most of them are avoidable mid-task once you know they have a cost. A model switch can feel free until you notice the slower turn that follows.</p>
 <ul>
 <li><a href="#switching-models">Switching models</a></li>
 <li><a href="#changing-effort-level">Changing effort level</a></li>
 <li><a href="#connecting-or-disconnecting-an-mcp-server">Connecting or disconnecting an MCP server</a></li>
+<li><a href="#enabling-or-disabling-a-plugin">Enabling or disabling a plugin</a></li>
 <li><a href="#denying-an-entire-tool">Denying an entire tool</a></li>
 <li><a href="#compacting-the-conversation">Compacting the conversation</a></li>
 <li><a href="#upgrading-claude-code">Upgrading Claude Code</a></li>
@@ -4917,11 +4967,20 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="changing-effort-level">Changing effort level</h3>
 <p>The cache is keyed by <a href="/en/model-config#adjust-effort-level">effort level</a> as well as model, so switching with <code>/effort</code> means the next request reads the entire conversation history with no cache hits. Once a conversation has started, Claude Code shows a confirmation dialog before applying an effort change that would invalidate the cache. A change that resolves to the same level already in effect, such as setting the model's default explicitly, skips the dialog and keeps the cache.</p>
 <h3 id="connecting-or-disconnecting-an-mcp-server">Connecting or disconnecting an MCP server</h3>
-<p>Tool definitions sit in the system prompt layer, so the cache invalidates when the set of MCP tools available to Claude changes between turns. The most common cause is an <a href="/en/mcp">MCP server</a> connecting or disconnecting mid-session, which can happen without any action on your part: a stdio server's process exits, an HTTP session expires, or a server <a href="/en/mcp#automatic-reconnection">reconnects automatically after a transient failure</a>. A connected server can also push a <a href="/en/mcp#dynamic-tool-updates">dynamic tool update</a> that changes its tool list.</p>
+<p>Tool definitions sit in the system prompt layer, so the cache invalidates when the set of tool definitions in the request changes between turns. Whether an <a href="/en/mcp">MCP server</a> change does this depends on whether its tools are deferred by <a href="/en/mcp#scale-with-mcp-tool-search">tool search</a> or loaded into the prefix:</p>
+<ul>
+<li><strong>Deferred tools</strong>, the default on supported models: a server connecting, disconnecting, or changing its tool list only appends new content and doesn't disturb anything already cached.</li>
+<li><strong>Tools loaded into the prefix</strong>: any change to them invalidates the cache. This happens when <a href="/en/mcp#configure-tool-search">tool search is unavailable or disabled</a>, such as on Haiku models, on Vertex AI, or with a custom <code>ANTHROPIC_BASE_URL</code> gateway. It also happens for a server or tool marked <a href="/en/mcp#exempt-a-server-from-deferral"><code>alwaysLoad</code></a>, and for definitions kept upfront by <a href="/en/mcp#configure-tool-search">threshold-based loading</a>.</li>
+</ul>
+<p>When tools load into the prefix, the most common cause of an invalidation is a server connecting or disconnecting mid-session, which can happen without any action on your part: a stdio server's process exits, an HTTP session expires, or a server <a href="/en/mcp#automatic-reconnection">reconnects automatically after a transient failure</a>. A connected server can also push a <a href="/en/mcp#dynamic-tool-updates">dynamic tool update</a> that changes its tool list.</p>
 <p>Editing your MCP config does not by itself change the cache. The new config takes effect only after a restart, which is when the server connects or disconnects.</p>
-<p><a href="/en/mcp#scale-with-mcp-tool-search">MCP tool search</a> reduces how much each tool contributes to the prefix by deferring full tool definitions, but the set of tool names still has to stay stable for the cache to remain valid.</p>
+<h3 id="enabling-or-disabling-a-plugin">Enabling or disabling a plugin</h3>
+<p><a href="/en/plugins">Plugins</a> bundle several component types, and the cost of a change depends on which components the plugin provides. Skills, commands, agents, hooks, LSP servers, monitors, and themes never invalidate the cache: anything they add to the request is appended after the existing conversation, so the next request pays for the new content but still reads everything before it from the cache.</p>
+<p>The exception is a plugin that provides <a href="/en/plugins-reference#mcp-servers">MCP servers</a>. Enabling or disabling one follows the same rules as <a href="#connecting-or-disconnecting-an-mcp-server">connecting or disconnecting an MCP server</a>: the cache survives when the server's tools are deferred, and the next request re-reads the entire conversation when they load into the prefix.</p>
+<p>Plugin changes apply when you run <a href="/en/discover-plugins#apply-plugin-changes-without-restarting"><code>/reload-plugins</code></a> or start a new session. The cost, whether appended announcements or a full re-read, shows up on the first turn after the reload, not when you run <code>/plugin install</code>, <code>/plugin enable</code>, or <code>/plugin disable</code>.</p>
+<p>Disabling a plugin you enabled earlier in the session restores the previous request shape. If that prefix is still within its <a href="#cache-lifetime">cache lifetime</a>, the next request reads the older cache entry instead of rebuilding.</p>
 <h3 id="denying-an-entire-tool">Denying an entire tool</h3>
-<p>Adding a bare tool name like <code>Bash</code> or <code>WebFetch</code> as a <a href="/en/permissions#manage-permissions">deny rule</a> removes that tool from Claude's context entirely. Tool definitions sit in the system prompt layer, so adding or removing one of these rules mid-session invalidates the cache the same way an MCP server connecting or disconnecting does. The change takes effect on the next turn whether you add it through <code>/permissions</code> or by <a href="/en/settings#when-edits-take-effect">editing a settings file directly</a>.</p>
+<p>Adding a bare tool name like <code>Bash</code> or <code>WebFetch</code> as a <a href="/en/permissions#manage-permissions">deny rule</a> removes that tool from Claude's context entirely. Built-in tool definitions load into the system prompt layer, so adding or removing one of these rules mid-session invalidates the cache. The change takes effect on the next turn whether you add it through <code>/permissions</code> or by <a href="/en/settings#when-edits-take-effect">editing a settings file directly</a>.</p>
 <p>Only a bare tool name, or the equivalent <code>Bash(*)</code> form, has this effect. Scoped deny rules like <code>Bash(rm *)</code>, and all allow and ask rules, don't change which tools Claude sees. Claude Code checks them when Claude attempts a call, leaving the prefix intact.</p>
 <h3 id="compacting-the-conversation">Compacting the conversation</h3>
 <p><a href="/en/context-window#what-survives-compaction">Compaction</a> replaces your message history with a summary. By design, this invalidates the conversation layer, since the next request has a new, shorter history that doesn't share a prefix with the old one. Claude Code reuses the system prompt layer and reloads project context from disk, which cache-hits only if CLAUDE.md and memory are unchanged since the session started.</p>

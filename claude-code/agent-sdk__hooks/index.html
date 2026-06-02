@@ -2950,6 +2950,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../mcp-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mcp quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp/" class="md-nav__link">
         
   
@@ -5244,7 +5271,7 @@ for await (const message of query({
 <p>Your callback returns an object with two categories of fields:</p>
 <ul>
 <li><strong>Top-level fields</strong> work the same on every event: <code>systemMessage</code> shows a message to the user, and <code>continue</code> (<code>continue_</code> in Python) determines whether the agent keeps running after this hook.</li>
-<li><strong><code>hookSpecificOutput</code></strong> controls the current operation. The fields inside depend on the hook event type. For <code>PreToolUse</code> hooks, this is where you set <code>permissionDecision</code> (<code>"allow"</code>, <code>"deny"</code>, <code>"ask"</code>, or <code>"defer"</code>), <code>permissionDecisionReason</code>, and <code>updatedInput</code>. Returning <code>"defer"</code> ends the query so you can <a href="/en/hooks#defer-a-tool-call-for-later">resume it later</a>. For <code>PostToolUse</code> hooks, you can set <code>additionalContext</code> to append information to the tool result, or <code>updatedToolOutput</code> to replace the tool's output entirely before Claude sees it.</li>
+<li><strong><code>hookSpecificOutput</code></strong> controls the current operation. The fields inside depend on the hook event type. For <code>PreToolUse</code> hooks, this is where you set <code>permissionDecision</code> (<code>"allow"</code>, <code>"deny"</code>, <code>"ask"</code>, or <code>"defer"</code>), <code>permissionDecisionReason</code>, and <code>updatedInput</code>. Returning <code>"defer"</code> ends the query so you can <a href="/en/hooks#defer-a-tool-call-for-later">resume it later</a>. For <code>PostToolUse</code> hooks, you can set <code>additionalContext</code> to append information to the tool result. To replace the tool's output before Claude sees it, set <code>updatedToolOutput</code>, which works for any tool in both SDKs. The older <code>updatedMCPToolOutput</code> field replaces MCP tool output only and is deprecated.</li>
 </ul>
 <p>Return <code>{}</code> to allow the operation without changes. SDK callback hooks use the same JSON output format as <a href="/en/hooks#json-output">Claude Code shell command hooks</a>, which documents every field and event-specific option. For the SDK type definitions, see the <a href="/en/agent-sdk/typescript#synchookjsonoutput">TypeScript</a> and <a href="/en/agent-sdk/python#synchookjsonoutput">Python</a> SDK references.</p>
 <p><Note>
@@ -5596,7 +5623,14 @@ const options = {
   ```
 </CodeGroup></p>
 <h3 id="forward-notifications-to-slack">Forward notifications to Slack</h3>
-<p>Use <code>Notification</code> hooks to receive system notifications from the agent and forward them to external services. Notifications fire for specific event types: <code>permission_prompt</code> (Claude needs permission), <code>idle_prompt</code> (Claude is waiting for input), <code>auth_success</code> (authentication completed), <code>elicitation_dialog</code> (Claude is prompting the user), <code>elicitation_response</code> (the user answered an elicitation), and <code>elicitation_complete</code> (an elicitation closed). Each notification includes a <code>message</code> field with a human-readable description and optionally a <code>title</code>.</p>
+<p>Use <code>Notification</code> hooks to receive system notifications from the agent and forward them to external services. Notifications fire for event types such as:</p>
+<ul>
+<li><code>permission_prompt</code> when Claude needs permission</li>
+<li><code>idle_prompt</code> when Claude is waiting for input</li>
+<li><code>auth_success</code> when authentication completes</li>
+<li><code>elicitation_dialog</code>, <code>elicitation_complete</code>, and <code>elicitation_response</code> for user-prompt elicitation flows</li>
+</ul>
+<p>Each notification includes a <code>message</code> field with a human-readable description and optionally a <code>title</code>.</p>
 <p>This example forwards every notification to a Slack channel. It requires a <a href="https://api.slack.com/messaging/webhooks">Slack incoming webhook URL</a>, which you create by adding an app to your Slack workspace and enabling incoming webhooks:</p>
 <p><CodeGroup>
   ```python Python theme={null}
@@ -5725,7 +5759,7 @@ const myHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
   };</code></p>
 <ul>
 <li>
-<p>You must also return <code>permissionDecision: 'allow'</code> or <code>'ask'</code> for the input modification to take effect</p>
+<p>Return <code>permissionDecision: 'allow'</code> to auto-approve the modified input, or <code>'ask'</code> to show it to the user for approval</p>
 </li>
 <li>
 <p>Include <code>hookEventName</code> in <code>hookSpecificOutput</code> to identify which hook type the output is for</p>
