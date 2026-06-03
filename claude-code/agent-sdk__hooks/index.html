@@ -622,10 +622,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#filter-with-regex-matchers" class="md-nav__link">
+  <a href="#filter-with-multi-tool-matchers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Filter with regex matchers
+        Filter with multi-tool matchers
       
     </span>
   </a>
@@ -4713,10 +4713,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#filter-with-regex-matchers" class="md-nav__link">
+  <a href="#filter-with-multi-tool-matchers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Filter with regex matchers
+        Filter with multi-tool matchers
       
     </span>
   </a>
@@ -5221,7 +5221,8 @@ for await (const message of query({
 <li><strong>Values</strong> are arrays of <a href="#matchers">matchers</a>, each containing an optional filter pattern and your <a href="#callback-functions">callback functions</a></li>
 </ul>
 <h3 id="matchers">Matchers</h3>
-<p>Use matchers to filter when your callbacks fire. The <code>matcher</code> field is a regex string that matches against a different value depending on the hook event type. For example, tool-based hooks match against the tool name, while <code>Notification</code> hooks match against the notification type. See the <a href="/en/hooks#matcher-patterns">Claude Code hooks reference</a> for the full list of matcher values for each event type.</p>
+<p>Use matchers to filter when your callbacks fire. The <code>matcher</code> field matches against a different value depending on the hook event type. For example, tool-based hooks match against the tool name, while <code>Notification</code> hooks match against the notification type. See the <a href="/en/hooks#matcher-patterns">Claude Code hooks reference</a> for the full list of matcher values for each event type.</p>
+<p>SDK matchers follow the same rules as <a href="/en/hooks#matcher-patterns">matchers in settings files</a>: a matcher containing only letters, digits, <code>_</code>, and <code>|</code> is compared as an exact string, with <code>|</code> separating alternatives, so <code>Write|Edit</code> matches exactly those two tools. A matcher of <code>*</code>, an empty string, or omitting the matcher entirely matches every occurrence of the event; a matcher containing any other character is evaluated as a regular expression, so <code>^mcp__</code> matches every MCP tool. A matcher like <code>mcp__memory</code> contains only letters and underscores, so it is compared as an exact string and matches no tool; use <code>mcp__memory__.*</code> to match every tool from that server.</p>
 <table>
 <thead>
 <tr>
@@ -5236,7 +5237,7 @@ for await (const message of query({
 <td><code>matcher</code></td>
 <td><code>string</code></td>
 <td><code>undefined</code></td>
-<td>Regex pattern matched against the event's filter field. For tool hooks, this is the tool name. Built-in tools include <code>Bash</code>, <code>Read</code>, <code>Write</code>, <code>Edit</code>, <code>Glob</code>, <code>Grep</code>, <code>WebFetch</code>, <code>Agent</code>, and others (see <a href="/en/agent-sdk/typescript#tool-input-types">Tool Input Types</a> for the full list). MCP tools use the pattern <code>mcp__&lt;server&gt;__&lt;action&gt;</code>.</td>
+<td>Pattern matched against the event's filter field, following the comparison rules above. For tool hooks, this is the tool name. Built-in tools include <code>Bash</code>, <code>Read</code>, <code>Write</code>, <code>Edit</code>, <code>Glob</code>, <code>Grep</code>, <code>WebFetch</code>, <code>Agent</code>, and others (see <a href="/en/agent-sdk/typescript#tool-input-types">Tool Input Types</a> for the full list). MCP tools use the pattern <code>mcp__&lt;server&gt;__&lt;action&gt;</code>.</td>
 </tr>
 <tr>
 <td><code>hooks</code></td>
@@ -5474,8 +5475,13 @@ const options = {
 };
 </code></pre></div>
 </CodeGroup></p>
-<h3 id="filter-with-regex-matchers">Filter with regex matchers</h3>
-<p>Use regex patterns to match multiple tools. This example registers three matchers with different scopes: the first triggers <code>file_security_hook</code> only for file modification tools, the second triggers <code>mcp_audit_hook</code> for any MCP tool (tools whose names start with <code>mcp__</code>), and the third triggers <code>global_logger</code> for every tool call regardless of name:</p>
+<h3 id="filter-with-multi-tool-matchers">Filter with multi-tool matchers</h3>
+<p>Use multi-tool matchers to share one callback across related tools. This example registers three matchers with different scopes:</p>
+<ul>
+<li>A pipe-separated exact list (<code>Write|Edit|Delete</code>) triggers <code>file_security_hook</code> only for file modification tools.</li>
+<li>A regex (<code>^mcp__</code>) triggers <code>mcp_audit_hook</code> for any MCP tool whose name starts with <code>mcp__</code>.</li>
+<li>An omitted matcher triggers <code>global_logger</code> for every tool call regardless of name.</li>
+</ul>
 <p><CodeGroup>
   ```python Python theme={null}
   options = ClaudeAgentOptions(
