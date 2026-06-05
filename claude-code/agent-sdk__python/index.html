@@ -2286,7 +2286,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7688,7 +7688,16 @@ class ResultMessage:
     errors: list[str] | None = None
     api_error_status: int | None = None
     uuid: str | None = None
-<div class="highlight"><pre><span></span><code>The `usage` dict contains the following keys when present:
+<div class="highlight"><pre><span></span><code>The `subtype` field determines which other fields are populated. It is one of `&quot;success&quot;`, `&quot;error_during_execution&quot;`, `&quot;error_max_turns&quot;`, `&quot;error_max_budget_usd&quot;`, or `&quot;error_max_structured_output_retries&quot;`. The Python dataclass flattens all variants into one shape, so fields that don&#39;t apply to the returned subtype are `None`.
+
+Several fields carry diagnostic detail when the conversation ends on an error:
+
+* `is_error`: `True` when the conversation ended in an error state. Always `True` on the `error_*` subtypes. On `subtype=&quot;success&quot;` it is `True` when the final model request failed, meaning the agent loop completed but the last API call returned an error.
+* `api_error_status`: the HTTP status code of the terminating API error. `None` when the turn ended without one. Populated only on `subtype=&quot;success&quot;`.
+* `result`: text of the final assistant message on `subtype=&quot;success&quot;`, or `None` on the `error_*` subtypes. When `subtype=&quot;success&quot;` and `is_error=True`, this holds the API error string if one is available but can be empty, so check `api_error_status` and the preceding `AssistantMessage` content for detail.
+* `errors`: loop-level error strings such as the max-turns message. Populated only on the `error_*` subtypes.
+
+The `usage` dict contains the following keys when present:
 
 | Key                           | Type  | Description                              |
 | ----------------------------- | ----- | ---------------------------------------- |
