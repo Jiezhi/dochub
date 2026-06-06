@@ -4866,7 +4866,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Define and invoke subagents to isolate context, run tasks in parallel, and apply specialized instructions in your Claude Agent SDK applications.</p>
 </blockquote>
 <p>Subagents are separate agent instances that your main agent can spawn to handle focused subtasks.
-Use subagents to isolate context for focused subtasks, run multiple analyses in parallel, and apply specialized instructions without bloating the main agent's prompt.</p>
+Use subagents to isolate context for focused subtasks, run multiple analyses in parallel, and apply specialized instructions without adding to the main agent's prompt.</p>
 <p>This guide explains how to define and use subagents in the SDK using the <code>agents</code> parameter.</p>
 <h2 id="overview">Overview</h2>
 <p>You can create subagents in three ways:</p>
@@ -4882,8 +4882,8 @@ Use subagents to isolate context for focused subtasks, run multiple analyses in 
 <p>Each subagent runs in its own fresh conversation. Intermediate tool calls and results stay inside the subagent; only its final message returns to the parent. See <a href="#what-subagents-inherit">What subagents inherit</a> for exactly what's in the subagent's context.</p>
 <p><strong>Example:</strong> a <code>research-assistant</code> subagent can explore dozens of files without any of that content accumulating in the main conversation. The parent receives a concise summary, not every file the subagent read.</p>
 <h3 id="parallelization">Parallelization</h3>
-<p>Multiple subagents can run concurrently, dramatically speeding up complex workflows.</p>
-<p><strong>Example:</strong> during a code review, you can run <code>style-checker</code>, <code>security-scanner</code>, and <code>test-coverage</code> subagents simultaneously, reducing review time from minutes to seconds.</p>
+<p>Multiple subagents can run concurrently, so independent subtasks finish in the time of the slowest one rather than the sum of all of them.</p>
+<p><strong>Example:</strong> during a code review, you can run <code>style-checker</code>, <code>security-scanner</code>, and <code>test-coverage</code> subagents simultaneously instead of sequentially.</p>
 <h3 id="specialized-instructions-and-knowledge">Specialized instructions and knowledge</h3>
 <p>Each subagent can have tailored system prompts with specific expertise, best practices, and constraints.</p>
 <p><strong>Example:</strong> a <code>database-migration</code> subagent can have detailed knowledge about SQL best practices, rollback strategies, and data integrity checks that would be unnecessary noise in the main agent's instructions.</p>
@@ -5045,6 +5045,12 @@ Focus on:
 <td style="text-align: left;">MCP servers available to this agent, by name or inline config</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>initialPrompt</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Auto-submitted as the first user turn when this agent runs as the main thread agent</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>maxTurns</code></td>
 <td style="text-align: left;"><code>number</code></td>
 <td style="text-align: left;">No</td>
@@ -5094,7 +5100,7 @@ Focus on:
 <td style="text-align: left;">The parent's conversation history or tool results</td>
 </tr>
 <tr>
-<td style="text-align: left;">Project CLAUDE.md (loaded via <code>settingSources</code>)</td>
+<td style="text-align: left;">Project CLAUDE.md (loaded via <a href="/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources"><code>settingSources</code></a>)</td>
 <td style="text-align: left;">Preloaded skill content, unless listed in <code>AgentDefinition.skills</code></td>
 </tr>
 <tr>
@@ -5184,10 +5190,8 @@ Focus on:
 <p><Note>
   The tool name was renamed from <code>"Task"</code> to <code>"Agent"</code> in Claude Code v2.1.63. Current SDK releases emit <code>"Agent"</code> in <code>tool_use</code> blocks but still use <code>"Task"</code> in the <code>system:init</code> tools list and in <code>result.permission_denials[].tool_name</code>. Checking both values in <code>block.name</code> ensures compatibility across SDK versions.
 </Note></p>
+<p>The message structure differs between SDKs. In Python, content blocks are accessed directly via <code>message.content</code>. In TypeScript, <code>SDKAssistantMessage</code> wraps the Claude API message, so content is accessed via <code>message.message.content</code>.</p>
 <p>This example iterates through streamed messages, logging when a subagent is invoked and when subsequent messages originate from within that subagent's execution context.</p>
-<p><Note>
-  The message structure differs between SDKs. In Python, content blocks are accessed directly via <code>message.content</code>. In TypeScript, <code>SDKAssistantMessage</code> wraps the Claude API message, so content is accessed via <code>message.message.content</code>.
-</Note></p>
 <p><CodeGroup>
   ```python Python theme={null}
   import asyncio
@@ -5262,35 +5266,90 @@ if ("result" in message) {
 </CodeGroup></p>
 <h2 id="resuming-subagents">Resuming subagents</h2>
 <p>Subagents can be resumed to continue where they left off. Resumed subagents retain their full conversation history, including all previous tool calls, results, and reasoning. The subagent picks up exactly where it stopped rather than starting fresh.</p>
-<p>When a subagent completes, Claude receives its agent ID in the Agent tool result. To resume a subagent programmatically:</p>
+<p>When a subagent completes, the Agent tool result includes a text block containing <code>agentId: &lt;id&gt;</code>. The built-in <a href="/en/sub-agents#built-in-subagents"><code>Explore</code> and <code>Plan</code> agents</a> are one-shot and omit this trailer, so use a custom agent or <code>general-purpose</code> when you need to resume. To resume a subagent programmatically:</p>
 <ol>
 <li><strong>Capture the session ID</strong>: Extract <code>session_id</code> from messages during the first query</li>
-<li><strong>Extract the agent ID</strong>: Parse <code>agentId</code> from the message content</li>
+<li><strong>Extract the agent ID</strong>: Parse <code>agentId</code> from the Agent tool result text</li>
 <li><strong>Resume the session</strong>: Pass <code>resume: sessionId</code> in the second query's options, and include the agent ID in your prompt</li>
 </ol>
 <p><Note>
   You must resume the same session to access the subagent's transcript. Each <code>query()</code> call starts a new session by default, so pass <code>resume: sessionId</code> to continue in the same session.</p>
-<p>If you're using a custom agent (not a built-in one), you also need to pass the same agent definition in the <code>agents</code> parameter for both queries.
+<p>When using a custom agent, pass the same agent definition in the <code>agents</code> parameter for both queries.
 </Note></p>
-<p>The example below demonstrates this flow: the first query runs a subagent and captures the session ID and agent ID, then the second query resumes the session to ask a follow-up question that requires context from the first analysis.</p>
+<p>The example below defines a custom <code>endpoint-finder</code> agent. The first query runs it and captures the session ID and agent ID from the Agent tool result, then the second query resumes the session to ask a follow-up question that requires context from the first analysis.</p>
 <p><CodeGroup>
-  ```typescript TypeScript theme={null}
+  ```python Python theme={null}
+  import asyncio
+  import re
+  from claude_agent_sdk import query, ClaudeAgentOptions, AgentDefinition, ToolResultBlock</p>
+<p>AGENTS = {
+      "endpoint-finder": AgentDefinition(
+          description="Locates and catalogs API endpoints in a codebase.",
+          prompt="You find and document API endpoints. Report each endpoint's path, method, and handler.",
+          tools=["Read", "Grep", "Glob"],
+      )
+  }</p>
+<p>def extract_agent_id(block: ToolResultBlock) -&gt; str | None:
+      """Extract agentId from an Agent tool result's text content."""
+      parts = block.content if isinstance(block.content, list) else [{"text": block.content}]
+      for part in parts:
+          if match := re.search(r"agentId:\s*([\w-]+)", part.get("text") or ""):
+              return match.group(1)
+      return None</p>
+<p>async def main():
+      agent_id = None
+      session_id = None</p>
+<pre><code>  # First invocation - run the endpoint-finder subagent
+  async for message in query(
+      prompt="Use the endpoint-finder agent to find all API endpoints in this codebase",
+      options=ClaudeAgentOptions(allowed_tools=["Read", "Grep", "Glob", "Agent"], agents=AGENTS),
+  ):
+      # Capture session_id from ResultMessage (needed to resume this session)
+      if hasattr(message, "session_id"):
+          session_id = message.session_id
+      # Search tool results for the agentId trailer
+      for block in getattr(message, "content", None) or []:
+          if isinstance(block, ToolResultBlock):
+              agent_id = extract_agent_id(block) or agent_id
+      # Print the final result
+      if hasattr(message, "result"):
+          print(message.result)
+
+  # Second invocation - resume and ask follow-up
+  if agent_id and session_id:
+      async for message in query(
+          prompt=f"Resume agent {agent_id} and list the top 3 most complex endpoints",
+          options=ClaudeAgentOptions(
+              allowed_tools=["Read", "Grep", "Glob", "Agent"], agents=AGENTS, resume=session_id
+          ),
+      ):
+          if hasattr(message, "result"):
+              print(message.result)
+</code></pre>
+<p>asyncio.run(main())
+  ```</p>
+<p>```typescript TypeScript theme={null}
   import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";</p>
-<p>// Helper to extract agentId from message content
-  // Stringify to avoid traversing different block types (TextBlock, ToolResultBlock, etc.)
+<p>const agents = {
+    "endpoint-finder": {
+      description: "Locates and catalogs API endpoints in a codebase.",
+      prompt: "You find and document API endpoints. Report each endpoint's path, method, and handler.",
+      tools: ["Read", "Grep", "Glob"]
+    }
+  };</p>
+<p>// Stringify content to search for agentId without traversing nested block types
   function extractAgentId(message: SDKMessage): string | undefined {
     if (message.type !== "assistant" &amp;&amp; message.type !== "user") return undefined;
-    // Stringify the content so we can search it without traversing nested blocks
     const content = JSON.stringify(message.message.content);
-    const match = content.match(/agentId:\s*([a-f0-9-]+)/);
+    const match = content.match(/agentId:\s*([\w-]+)/);
     return match?.[1];
   }</p>
 <p>let agentId: string | undefined;
   let sessionId: string | undefined;</p>
-<p>// First invocation - use the Explore agent to find API endpoints
+<p>// First invocation - run the endpoint-finder subagent
   for await (const message of query({
-    prompt: "Use the Explore agent to find all API endpoints in this codebase",
-    options: { allowedTools: ["Read", "Grep", "Glob", "Agent"] }
+    prompt: "Use the endpoint-finder agent to find all API endpoints in this codebase",
+    options: { allowedTools: ["Read", "Grep", "Glob", "Agent"], agents }
   })) {
     // Capture session_id from ResultMessage (needed to resume this session)
     if ("session_id" in message) sessionId = message.session_id;
@@ -5304,55 +5363,11 @@ if ("result" in message) {
   if (agentId &amp;&amp; sessionId) {
     for await (const message of query({
       prompt: <code>Resume agent ${agentId} and list the top 3 most complex endpoints</code>,
-      options: { allowedTools: ["Read", "Grep", "Glob", "Agent"], resume: sessionId }
+      options: { allowedTools: ["Read", "Grep", "Glob", "Agent"], agents, resume: sessionId }
     })) {
       if ("result" in message) console.log(message.result);
     }
   }
-  ```</p>
-<p>```python Python theme={null}
-  import asyncio
-  import json
-  import re
-  from claude_agent_sdk import query, ClaudeAgentOptions</p>
-<p>def extract_agent_id(text: str) -&gt; str | None:
-      """Extract agentId from Agent tool result text."""
-      match = re.search(r"agentId:\s*([a-f0-9-]+)", text)
-      return match.group(1) if match else None</p>
-<p>async def main():
-      agent_id = None
-      session_id = None</p>
-<pre><code>  # First invocation - use the Explore agent to find API endpoints
-  async for message in query(
-      prompt="Use the Explore agent to find all API endpoints in this codebase",
-      options=ClaudeAgentOptions(allowed_tools=["Read", "Grep", "Glob", "Agent"]),
-  ):
-      # Capture session_id from ResultMessage (needed to resume this session)
-      if hasattr(message, "session_id"):
-          session_id = message.session_id
-      # Search message content for the agentId (appears in Agent tool results)
-      if hasattr(message, "content"):
-          # Stringify the content so we can search it without traversing nested blocks
-          content_str = json.dumps(message.content, default=str)
-          extracted = extract_agent_id(content_str)
-          if extracted:
-              agent_id = extracted
-      # Print the final result
-      if hasattr(message, "result"):
-          print(message.result)
-
-  # Second invocation - resume and ask follow-up
-  if agent_id and session_id:
-      async for message in query(
-          prompt=f"Resume agent {agent_id} and list the top 3 most complex endpoints",
-          options=ClaudeAgentOptions(
-              allowed_tools=["Read", "Grep", "Glob", "Agent"], resume=session_id
-          ),
-      ):
-          if hasattr(message, "result"):
-              print(message.result)
-</code></pre>
-<p>asyncio.run(main())
   ```
 </CodeGroup></p>
 <p>Subagent transcripts persist independently of the main conversation:</p>
