@@ -252,6 +252,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../advisor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advisor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__agent-loop/" class="md-nav__link">
         
   
@@ -4767,7 +4794,7 @@ If the panel shows only a Dependencies tab, a required package is missing. Insta
     On the Mode tab, select auto-allow or regular permissions. Auto-allow runs sandboxed commands without prompting, and regular permissions keeps the regular permission prompts even when commands are sandboxed. See <a href="#sandbox-modes">Sandbox modes</a> for which commands still prompt in auto-allow mode.
   </Step></p>
 <p><Step title="Run a Bash command">
-    Ask Claude to run a command, such as a build or a test suite. By default, commands inside the sandbox can write only to the working directory. The first time a command needs a new network domain, Claude Code prompts for approval.</p>
+    Ask Claude to run a command, such as a build or a test suite. By default, commands inside the sandbox can write only to the working directory and the session temp directory. The first time a command needs a new network domain, Claude Code prompts for approval.</p>
 <pre><code>Commands that cannot run sandboxed fall back to the regular permission flow. To widen or narrow these boundaries, see [Configure sandboxing](#configure-sandboxing).
 </code></pre>
 <p></Step>
@@ -4832,10 +4859,12 @@ sudo systemctl reload apparmor
 <ul>
 <li>Explicit <a href="/en/permissions">deny rules</a> are always respected</li>
 <li><code>rm</code> or <code>rmdir</code> commands that target <code>/</code>, your home directory, or other critical system paths still trigger a permission prompt</li>
-<li><a href="/en/permissions">Ask rules</a> apply to commands that fall back to the regular permission flow</li>
+<li>Content-scoped <a href="/en/permissions">ask rules</a> like <code>Bash(git push *)</code> still force a prompt even for sandboxed commands</li>
+<li>A bare <code>Bash</code> ask rule, or the equivalent <code>Bash(*)</code> form, is skipped for commands that run sandboxed; it still applies to commands that fall back to the regular permission flow</li>
 </ul>
 <p><strong>Regular permissions mode</strong>: All Bash commands go through the regular permission flow, even when sandboxed. This provides more control but requires more approvals.</p>
 <p>In both modes, the sandbox enforces the same filesystem and network restrictions. The difference is only in whether sandboxed commands are auto-approved or require explicit permission.</p>
+<p>The session temp directory is writable inside the sandbox by default, alongside the working directory. Claude Code sets <code>$TMPDIR</code> to this directory for sandboxed commands, so tools that write temporary files work without extra configuration. Unsandboxed commands inherit your shell's <code>$TMPDIR</code> unchanged, which means sandboxed and unsandboxed commands resolve <code>$TMPDIR</code> to different directories. To pass temporary files between the two, write them under the working directory instead.</p>
 <p>Some commands cannot run inside the sandbox at all, such as tools that are incompatible with it or that need a host you have not allowed. Rather than failing the task or requiring you to turn sandboxing off, Claude Code includes an escape hatch: when a command fails because of sandbox restrictions, Claude analyzes the failure and may retry the command with the <code>dangerouslyDisableSandbox</code> parameter. The retried command runs outside the sandbox, so it goes through the regular permission flow and requires your approval.</p>
 <p>You can disable this escape hatch by setting <code>"allowUnsandboxedCommands": false</code> in your <a href="/en/settings#sandbox-settings">sandbox settings</a>. When disabled, which the <code>/sandbox</code> Overrides tab shows as <strong>Strict sandbox mode</strong>, the <code>dangerouslyDisableSandbox</code> parameter is completely ignored and all commands must run sandboxed or be explicitly listed in <code>excludedCommands</code>.</p>
 <p><Info>
@@ -4843,7 +4872,7 @@ sudo systemctl reload apparmor
 </Info></p>
 <h2 id="configure-sandboxing">Configure sandboxing</h2>
 <p>Customize sandbox behavior through your <code>settings.json</code> file. See <a href="/en/settings#sandbox-settings">Settings</a> for the complete configuration reference.</p>
-<p>By default, sandboxed commands can only write to the current working directory. If subprocess commands like <code>kubectl</code>, <code>terraform</code>, or <code>npm</code> need to write outside the project directory, use <code>sandbox.filesystem.allowWrite</code> to grant access to specific paths:</p>
+<p>By default, sandboxed commands can write only to the current working directory and the session temp directory. If subprocess commands like <code>kubectl</code>, <code>terraform</code>, or <code>npm</code> need to write outside those directories, use <code>sandbox.filesystem.allowWrite</code> to grant access to specific paths:</p>
 <p>```json theme={null}
 {
   "sandbox": {
@@ -4887,9 +4916,9 @@ The example below blocks reading from the entire home directory while still allo
 <h3 id="filesystem-isolation">Filesystem isolation</h3>
 <p>The sandboxed Bash tool restricts file system access to specific directories:</p>
 <ul>
-<li><strong>Default write behavior</strong>: read and write access to the current working directory and its subdirectories</li>
+<li><strong>Default write behavior</strong>: read and write access to the current working directory and its subdirectories, plus the session temp directory that <code>$TMPDIR</code> points to</li>
 <li><strong>Default read behavior</strong>: read access to the entire computer, except certain denied directories. Note that this default still allows reading credential files such as <code>~/.aws/credentials</code> and <code>~/.ssh/</code>. Add them to <code>denyRead</code> to block them.</li>
-<li><strong>Blocked access</strong>: cannot modify files outside the current working directory without explicit permission, including shell configuration files such as <code>~/.bashrc</code> and system binaries in <code>/bin/</code></li>
+<li><strong>Blocked access</strong>: cannot modify files outside the current working directory and session temp directory without explicit permission, including shell configuration files such as <code>~/.bashrc</code> and system binaries in <code>/bin/</code></li>
 <li><strong>Git worktrees</strong>: when the working directory is a <a href="/en/worktrees">linked git worktree</a>, the sandbox also allows writes to the main repository's shared <code>.git</code> directory so commands such as <code>git commit</code> can update refs and the index. Writes to <code>hooks/</code> and <code>config</code> inside that directory remain denied.</li>
 <li><strong>Configurable</strong>: define custom allowed and denied paths through settings</li>
 </ul>
@@ -4992,7 +5021,7 @@ The example below blocks reading from the entire home directory while still allo
 <tr>
 <td style="text-align: left;"><code>--dangerously-skip-permissions</code></td>
 <td style="text-align: left;">Whether each tool call runs</td>
-<td style="text-align: left;">Nothing. <a href="/en/permission-modes#protected-paths">Protected path</a> checks are also skipped; only removing <code>/</code> or your home directory still prompts</td>
+<td style="text-align: left;">Nothing. <a href="/en/permission-modes#protected-paths">Protected path</a> checks are also skipped; only explicit <a href="/en/permissions#manage-permissions">ask rules</a> and removing <code>/</code> or your home directory still prompt</td>
 </tr>
 </tbody>
 </table>

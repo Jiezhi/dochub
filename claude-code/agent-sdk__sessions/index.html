@@ -252,6 +252,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../advisor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advisor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__agent-loop/" class="md-nav__link">
         
   
@@ -4706,6 +4733,10 @@ console.log(`Session ID: ${sessionId}`);
       if isinstance(message, ResultMessage) and message.subtype == "success":
           print(message.result)
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
+
+const sessionId = &quot;...&quot;; // The ID you captured in the previous example
+
 // Earlier session analyzed the code; now build on that analysis
 for await (const message of query({
   prompt: &quot;Now implement the refactoring you suggested&quot;,
@@ -4720,8 +4751,9 @@ for await (const message of query({
 }
 </code></pre></div>
 </CodeGroup></p>
+<p>You should see a response that builds on the earlier analysis instead of starting fresh. That confirms the agent resumed the session with its prior context intact.</p>
 <p><Tip>
-  If a <code>resume</code> call returns a fresh session instead of the expected history, the most common cause is a mismatched <code>cwd</code>. Sessions are stored under <code>~/.claude/projects/&lt;encoded-cwd&gt;/*.jsonl</code>, where <code>&lt;encoded-cwd&gt;</code> is the absolute working directory with every non-alphanumeric character replaced by <code>-</code> (so <code>/Users/me/proj</code> becomes <code>-Users-me-proj</code>). If your resume call runs from a different directory, the SDK looks in the wrong place. The session file also needs to exist on the current machine.
+  If a <code>resume</code> call returns a fresh session instead of the expected history, the most common cause is a mismatched <code>cwd</code>. Sessions are stored under <code>~/.claude/projects/&lt;encoded-cwd&gt;/*.jsonl</code>, or under <code>$CLAUDE_CONFIG_DIR/projects/&lt;encoded-cwd&gt;/*.jsonl</code> if you set the <code>CLAUDE_CONFIG_DIR</code> environment variable, where <code>&lt;encoded-cwd&gt;</code> is the absolute working directory with every non-alphanumeric character replaced by <code>-</code> (so <code>/Users/me/proj</code> becomes <code>-Users-me-proj</code>). If your resume call runs from a different directory, the SDK looks in the wrong place. The session file also needs to exist on the current machine.
 </Tip></p>
 <p>To resume sessions across machines or in serverless environments, mirror transcripts to shared storage with a <a href="/en/agent-sdk/session-storage"><code>SessionStore</code> adapter</a>.</p>
 <h3 id="fork-to-explore-alternatives">Fork to explore alternatives</h3>
@@ -4735,10 +4767,11 @@ for await (const message of query({
   # Fork: branch from session_id into a new session
   forked_id = None
   async for message in query(
-      prompt="Instead of JWT, implement OAuth2 for the auth module",
+      prompt="Instead of JWT, outline how OAuth2 would work for the auth module",
       options=ClaudeAgentOptions(
           resume=session_id,
           fork_session=True,
+          max_turns=5,
       ),
   ):
       if isinstance(message, ResultMessage):
@@ -4754,14 +4787,19 @@ for await (const message of query({
       if isinstance(message, ResultMessage) and message.subtype == "success":
           print(message.result)
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
+
+const sessionId = &quot;...&quot;; // The ID you captured in the previous example
+
 // Fork: branch from sessionId into a new session
 let forkedId: string | undefined;
 
 for await (const message of query({
-  prompt: &quot;Instead of JWT, implement OAuth2 for the auth module&quot;,
+  prompt: &quot;Instead of JWT, outline how OAuth2 would work for the auth module&quot;,
   options: {
     resume: sessionId,
-    forkSession: true
+    forkSession: true,
+    maxTurns: 5
   }
 })) {
   if (message.type === &quot;system&quot; &amp;&amp; message.subtype === &quot;init&quot;) {
@@ -4785,6 +4823,7 @@ for await (const message of query({
 }
 </code></pre></div>
 </CodeGroup></p>
+<p>You should see that <code>forkedId</code> differs from the original session ID. Resuming the original session still continues the JWT thread, which confirms the fork did not modify the original history.</p>
 <h2 id="resume-across-hosts">Resume across hosts</h2>
 <p>Session files are local to the machine that created them. To resume a session on a different host (CI workers, ephemeral containers, serverless), you have two options:</p>
 <ul>

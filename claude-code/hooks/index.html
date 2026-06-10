@@ -252,6 +252,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../advisor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advisor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__agent-loop/" class="md-nav__link">
         
   
@@ -6211,7 +6238,7 @@ fi
 </code></pre></div></p>
 <p>Now suppose Claude Code decides to run <code>Bash "rm -rf /tmp/build"</code>. Here's what happens:</p>
 <p><Frame>
-  <img src="https://mintcdn.com/claude-code/-tYw1BD_DEqfyyOZ/images/hook-resolution.svg?fit=max&auto=format&n=-tYw1BD_DEqfyyOZ&q=85&s=c73ebc1eeda2037570427d7af1e0a891" alt="Hook resolution flow: PreToolUse event fires, matcher checks for Bash match, if condition checks for Bash(rm *) match, hook handler runs, result returns to Claude Code" width="930" height="290" data-path="images/hook-resolution.svg" />
+  <img src="https://mintcdn.com/claude-code/ikqp3_70mqIahteV/images/hook-resolution.svg?fit=max&auto=format&n=ikqp3_70mqIahteV&q=85&s=be0bf3053550c26de5f54cd64674c197" alt="Diagram of hook resolution: PreToolUse fires, the matcher checks for a Bash match, then the if condition checks for a Bash(rm *) match. If both match, the hook command runs and returns permissionDecision deny, so the tool call is blocked and Claude Code continues. If either check fails to match, the hook is skipped and the tool call is allowed to proceed." width="930" height="270" data-path="images/hook-resolution.svg" />
 </Frame></p>
 <p><Steps>
   <Step title="Event fires">
@@ -6282,7 +6309,7 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 <tr>
 <td style="text-align: left;"><code>.claude/settings.local.json</code></td>
 <td style="text-align: left;">Single project</td>
-<td style="text-align: left;">No, gitignored</td>
+<td style="text-align: left;">No, gitignored when Claude Code creates it</td>
 </tr>
 <tr>
 <td style="text-align: left;">Managed policy settings</td>
@@ -6580,7 +6607,7 @@ This example logs all memory server operations and validates write operations fr
 <td style="text-align: left;"><code>Bash(git push *)</code></td>
 <td style="text-align: left;"><code>echo $(date)</code></td>
 <td style="text-align: left;">yes</td>
-<td style="text-align: left;">patterns that constrain past the command name fail open on <code>$()</code>, backticks, or <code>$VAR</code></td>
+<td style="text-align: left;">patterns that specify more than the command name run the hook anyway on <code>$()</code>, backticks, or <code>$VAR</code></td>
 </tr>
 </tbody>
 </table>
@@ -7132,6 +7159,14 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 </tr>
 </tbody>
 </table>
+<p>A few events can also rewrite content rather than only allow or block it:</p>
+<ul>
+<li><code>PreToolUse</code> — <code>updatedInput</code> directly under <code>hookSpecificOutput</code> replaces a tool's arguments before it runs (<a href="#pretooluse-decision-control">details</a>)</li>
+<li><code>PermissionRequest</code> — <code>updatedInput</code> inside the <code>decision</code> object (<a href="#permissionrequest-decision-control">details</a>)</li>
+<li><code>PostToolUse</code> — <code>updatedToolOutput</code> replaces the tool's result (<a href="#posttooluse-decision-control">details</a>)</li>
+<li><code>UserPromptSubmit</code> — cannot replace the prompt; only injects <code>additionalContext</code> alongside it</li>
+</ul>
+<p>For redaction or transformation use cases, intercept at <code>PreToolUse</code> for outbound tool inputs and <code>PostToolUse</code> for inbound tool results.</p>
 <p>Here are examples of each pattern in action:</p>
 <p><Tabs>
   <Tab title="Top-level decision">
@@ -7720,6 +7755,8 @@ In `PostToolUse`, `tool_response` for a completed Agent call carries the subagen
 | `usage`             | object | `{&quot;input_tokens&quot;: 8320, ...}`                         | Per-type token breakdown: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` |
 
 For `run_in_background: true` calls, the tool returns immediately after launching the subagent, so `tool_response` carries no usage fields. It has `status: &quot;async_launched&quot;`, `agentId`, `description`, `prompt`, and `outputFile` instead.
+
+&lt;a id=&quot;askuserquestion&quot; /&gt;
 
 ##### AskUserQuestion
 
