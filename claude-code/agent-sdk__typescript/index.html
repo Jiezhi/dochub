@@ -7491,6 +7491,7 @@ Configuration for loading plugins in the SDK.
 type SdkPluginConfig = {
   type: &quot;local&quot;;
   path: string;
+  skipMcpDiscovery?: boolean;
 };
 </code></pre></div></p>
 <table>
@@ -7511,6 +7512,11 @@ type SdkPluginConfig = {
 <td style="text-align: left;"><code>path</code></td>
 <td style="text-align: left;"><code>string</code></td>
 <td style="text-align: left;">Absolute or relative path to the plugin directory</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>skipMcpDiscovery</code></td>
+<td style="text-align: left;"><code>boolean</code></td>
+<td style="text-align: left;">When <code>true</code>, the SDK loads skills, hooks, agents, and commands from this plugin but does not read its <code>.mcp.json</code> or manifest <code>mcpServers</code>. Set this when your application owns the plugin's MCP connections.</td>
 </tr>
 </tbody>
 </table>
@@ -7784,14 +7790,16 @@ type SDKMessageOrigin =
   | { kind: "channel"; server: string }
   | { kind: "peer"; from: string; name?: string }
   | { kind: "task-notification" }
-  | { kind: "coordinator" };
-<div class="highlight"><pre><span></span><code>| `kind`              | Meaning                                                                                                                                 |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `human`             | Direct input from the end user. On user messages, an absent `origin` also means human input.                                            |
-| `channel`           | Message arriving on a [channel](/en/channels). `server` is the source MCP server name.                                                  |
-| `peer`              | Message from another agent session via `SendMessage`. `from` is the sender address; `name` is the sender&#39;s display name when available. |
-| `task-notification` | Synthetic turn injected after a background task finished. See [`SDKTaskNotificationMessage`](#sdktasknotificationmessage).              |
-| `coordinator`       | Message from a team coordinator in an [agent team](/en/agent-teams).                                                                    |
+  | { kind: "coordinator" }
+  | { kind: "auto-continuation" };
+<div class="highlight"><pre><span></span><code>| `kind`              | Meaning                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `human`             | Direct input from the end user. On user messages, an absent `origin` also means human input.                                                                                                                |
+| `channel`           | Message arriving on a [channel](/en/channels). `server` is the source MCP server name.                                                                                                                      |
+| `peer`              | Reserved for messages from another agent session. `from` is the sender address and `name` is the sender&#39;s display name when available. The Agent SDK does not emit this origin; treat as an unknown origin. |
+| `task-notification` | Synthetic turn injected after a background task finished. See [`SDKTaskNotificationMessage`](#sdktasknotificationmessage).                                                                                  |
+| `coordinator`       | Message from a team coordinator in an [agent team](/en/agent-teams).                                                                                                                                        |
+| `auto-continuation` | Synthetic turn injected when the session continues without fresh user input, such as a command result that triggers a follow-up prompt.                                                                     |
 
 ## Hook Types
 
@@ -8551,6 +8559,7 @@ type AgentOutput =
       status: &quot;completed&quot;;
       agentId: string;
       content: Array&lt;{ type: &quot;text&quot;; text: string }&gt;;
+      resolvedModel?: string;
       totalToolUseCount: number;
       totalDurationMs: number;
       totalTokens: number;
@@ -8575,6 +8584,7 @@ type AgentOutput =
       status: &quot;async_launched&quot;;
       agentId: string;
       description: string;
+      resolvedModel?: string;
       prompt: string;
       outputFile: string;
       canReadOutputFile?: boolean;
@@ -8586,6 +8596,7 @@ type AgentOutput =
     };
 </code></pre></div></p>
 <p>Returns the result from the subagent. Discriminated on the <code>status</code> field: <code>"completed"</code> for finished tasks, <code>"async_launched"</code> for background tasks, and <code>"sub_agent_entered"</code> for interactive subagents.</p>
+<p>The <code>resolvedModel</code> field on the <code>completed</code> and <code>async_launched</code> variants names the model the subagent actually ran on, which can differ from the requested <code>model</code> input when <a href="/en/model-config#restrict-model-selection"><code>availableModels</code></a> or another override applies. {/<em> min-version: 2.1.174 </em>/}This field requires Claude Code v2.1.174 or later.</p>
 <h3 id="askuserquestion">AskUserQuestion</h3>
 <p><strong>Tool name:</strong> <code>AskUserQuestion</code></p>
 <p>```typescript theme={null}

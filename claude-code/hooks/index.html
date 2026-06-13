@@ -6916,7 +6916,7 @@ When running with `--agent` or inside a subagent, two additional fields are incl
 | `agent_id`   | Unique identifier for the subagent. Present only when the hook fires inside a subagent call. Use this to distinguish subagent hook calls from main-thread calls.                                                                                                                                                                                      |
 | `agent_type` | Agent name (for example, `&quot;Explore&quot;` or `&quot;security-reviewer&quot;`). Present when the session uses `--agent` or the hook fires inside a subagent. For subagents, the subagent&#39;s type takes precedence over the session&#39;s `--agent` value. For [custom subagents](/en/sub-agents), this is the `name` field from the agent&#39;s frontmatter, not the filename. |
 
-Only [`SessionStart`](#sessionstart) hooks receive a `model` field. There is no `$CLAUDE_MODEL` environment variable. A hook process inherits the parent environment, so it can read `$ANTHROPIC_MODEL` if you set it in your shell, but that value does not change when you switch models with `/model` during a session.
+Only [`SessionStart`](#sessionstart) hooks can receive a `model` field, and it is not guaranteed to be present. There is no `$CLAUDE_MODEL` environment variable. A hook process inherits the parent environment, so it can read `$ANTHROPIC_MODEL` if you set it in your shell, but that value does not change when you switch models with `/model` during a session.
 
 For example, a `PreToolUse` hook for a Bash command receives this on stdin:
 
@@ -7244,7 +7244,7 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 </tbody>
 </table>
 <h4 id="sessionstart-input">SessionStart input</h4>
-<p>In addition to the <a href="#common-input-fields">common input fields</a>, SessionStart hooks receive <code>source</code>, <code>model</code>, and optionally <code>agent_type</code> and <code>session_title</code>. The <code>source</code> field indicates how the session started: <code>"startup"</code> for new sessions, <code>"resume"</code> for resumed sessions, <code>"clear"</code> after <code>/clear</code>, or <code>"compact"</code> after compaction. The <code>model</code> field contains the model identifier. If you start Claude Code with <code>claude --agent &lt;name&gt;</code>, an <code>agent_type</code> field contains the agent name. The <code>session_title</code> field carries the current session title if one is already set, for example via <code>--name</code> or <code>/rename</code>. A hook that emits <code>sessionTitle</code> can check <code>session_title</code> first to avoid overwriting a title the user set explicitly.</p>
+<p>In addition to the <a href="#common-input-fields">common input fields</a>, SessionStart hooks receive <code>source</code> and optionally <code>model</code>, <code>agent_type</code>, and <code>session_title</code>. The <code>source</code> field indicates how the session started: <code>"startup"</code> for new sessions, <code>"resume"</code> for resumed sessions, <code>"clear"</code> after <code>/clear</code>, or <code>"compact"</code> after compaction. The <code>model</code> field contains the active model identifier. It can be omitted, for example after <code>/clear</code> or when a session is restored through conversation recovery, so check for the field before reading it. If you start Claude Code with <code>claude --agent &lt;name&gt;</code>, an <code>agent_type</code> field contains the agent name. The <code>session_title</code> field carries the current session title if one is already set, for example via <code>--name</code> or <code>/rename</code>. A hook that emits <code>sessionTitle</code> can check <code>session_title</code> first to avoid overwriting a title the user set explicitly.</p>
 <p>```json theme={null}
 {
   "session_id": "abc123",
@@ -7744,17 +7744,20 @@ Spawns a [subagent](/en/sub-agents).
 
 In `PostToolUse`, `tool_response` for a completed Agent call carries the subagent&#39;s final text along with usage telemetry. Read these fields to record per-subagent cost from a hook:
 
-| Field               | Type   | Example                                               | Description                                                                                                         |
-| :------------------ | :----- | :---------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-| `status`            | string | `&quot;completed&quot;`                                         | `&quot;completed&quot;` for synchronous calls, `&quot;async_launched&quot;` for `run_in_background: true`                               |
-| `agentId`           | string | `&quot;a4d2c8f1e0b3a297&quot;`                                  | Identifier for the subagent run                                                                                     |
-| `content`           | array  | `[{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;Found 12 endpoints...&quot;}]` | The subagent&#39;s final text blocks                                                                                    |
-| `totalTokens`       | number | `12450`                                               | Total tokens billed across the subagent&#39;s turns                                                                     |
-| `totalDurationMs`   | number | `48211`                                               | Wall-clock duration of the subagent run                                                                             |
-| `totalToolUseCount` | number | `7`                                                   | Count of tool calls the subagent made                                                                               |
-| `usage`             | object | `{&quot;input_tokens&quot;: 8320, ...}`                         | Per-type token breakdown: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens` |
+| Field               | Type   | Example                                               | Description                                                                                                                              |
+| :------------------ | :----- | :---------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`            | string | `&quot;completed&quot;`                                         | `&quot;completed&quot;` for synchronous calls, `&quot;async_launched&quot;` for `run_in_background: true`                                                    |
+| `agentId`           | string | `&quot;a4d2c8f1e0b3a297&quot;`                                  | Identifier for the subagent run                                                                                                          |
+| `content`           | array  | `[{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;Found 12 endpoints...&quot;}]` | The subagent&#39;s final text blocks                                                                                                         |
+| `resolvedModel`     | string | `&quot;claude-sonnet-4-5&quot;`                                 | Model the subagent ran on, which may differ from the requested model. {/* min-version: 2.1.174 */}Requires Claude Code v2.1.174 or later |
+| `totalTokens`       | number | `12450`                                               | Total tokens billed across the subagent&#39;s turns                                                                                          |
+| `totalDurationMs`   | number | `48211`                                               | Wall-clock duration of the subagent run                                                                                                  |
+| `totalToolUseCount` | number | `7`                                                   | Count of tool calls the subagent made                                                                                                    |
+| `usage`             | object | `{&quot;input_tokens&quot;: 8320, ...}`                         | Per-type token breakdown: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`                      |
 
-For `run_in_background: true` calls, the tool returns immediately after launching the subagent, so `tool_response` carries no usage fields. It has `status: &quot;async_launched&quot;`, `agentId`, `description`, `prompt`, and `outputFile` instead.
+For `run_in_background: true` calls, the tool returns immediately after launching the subagent, so `tool_response` carries no usage fields. It has `status: &quot;async_launched&quot;`, `agentId`, `description`, `prompt`, `outputFile`, and `resolvedModel`.
+
+The `resolvedModel` field names the model the subagent actually runs on, which can differ from the `model` value in `tool_input`. It requires Claude Code v2.1.174 or later.
 
 &lt;a id=&quot;askuserquestion&quot; /&gt;
 

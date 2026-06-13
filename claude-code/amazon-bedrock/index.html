@@ -4948,7 +4948,7 @@ Set the following environment variables to enable Bedrock:
 ```bash theme={null}
 # Enable Bedrock integration
 export CLAUDE_CODE_USE_BEDROCK=1
-export AWS_REGION=us-east-1  # or your preferred region
+export AWS_REGION=us-east-1  # optional if your AWS profile already sets a region
 
 # Optional: Override the AWS region for the small/fast model (Bedrock and Mantle).
 # On Bedrock, has no effect without ANTHROPIC_DEFAULT_HAIKU_MODEL
@@ -4960,11 +4960,20 @@ export ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION=us-west-2
 </code></pre></div></p>
 <p>When enabling Bedrock for Claude Code, keep the following in mind:</p>
 <ul>
-<li><code>AWS_REGION</code> is a required environment variable. Claude Code does not read from the <code>.aws</code> config file for this setting.</li>
-<li>When using Bedrock, the <code>/logout</code> command is unavailable since authentication is handled through AWS credentials.</li>
-<li>The WebSearch tool is not available on Bedrock. See <a href="/en/tools-reference#websearch-tool-behavior">WebSearch tool behavior</a>.</li>
-<li>You can use settings files for environment variables like <code>AWS_PROFILE</code> that you don't want to leak to other processes. See <a href="/en/settings">Settings</a> for more information.</li>
+<li>
+<p>{/<em> min-version: 2.1.172 </em>/}As of v2.1.172, you only need to set <code>AWS_REGION</code> to override your AWS profile's region or when your profile has no region. Claude Code resolves the region in this order:</p>
+</li>
+<li>
+<p><code>AWS_REGION</code></p>
+</li>
+<li><code>AWS_DEFAULT_REGION</code></li>
+<li>the <code>region</code> set on your active AWS profile, read from the AWS shared credentials file first and then the shared config file, matching AWS SDK precedence</li>
+<li><code>us-east-1</code></li>
 </ul>
+<p>The active profile is <code>AWS_PROFILE</code> if set, otherwise <code>default</code>. Set <code>AWS_SHARED_CREDENTIALS_FILE</code> or <code>AWS_CONFIG_FILE</code> to point at non-default file paths. Run <code>/status</code> to see the resolved region. When the region came from your AWS config files or the default fallback, <code>/status</code> also notes the source. On v2.1.171 and earlier, Claude Code does not read the AWS config files, so set <code>AWS_REGION</code> explicitly.
+* When using Bedrock, the <code>/logout</code> command is unavailable since authentication is handled through AWS credentials.
+* The WebSearch tool is not available on Bedrock. See <a href="/en/tools-reference#websearch-tool-behavior">WebSearch tool behavior</a>.
+* You can use settings files for environment variables like <code>AWS_PROFILE</code> that you don't want to leak to other processes. See <a href="/en/settings">Settings</a> for more information.</p>
 <h3 id="4-pin-model-versions">4. Pin model versions</h3>
 <p><Warning>
   Pin specific model versions when deploying to multiple users. Without pinning, model aliases such as <code>sonnet</code> and <code>opus</code> resolve to Claude Code's built-in default for Bedrock, which can lag the newest release and may not yet be available in your account. Claude Code <a href="#startup-model-checks">falls back</a> to the previous version at startup when the default is unavailable, but pinning lets you control when your users move to a new model.
@@ -4975,7 +4984,7 @@ export ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION=us-west-2
 export ANTHROPIC_DEFAULT_OPUS_MODEL='us.anthropic.claude-opus-4-8'
 export ANTHROPIC_DEFAULT_SONNET_MODEL='us.anthropic.claude-sonnet-4-6'
 export ANTHROPIC_DEFAULT_HAIKU_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
-<div class="highlight"><pre><span></span><code>These variables use cross-region inference profile IDs (with the `us.` prefix). If you use a different region prefix or application inference profiles, adjust accordingly. For current and legacy model IDs, see [Models overview](https://platform.claude.com/docs/en/about-claude/models/overview). See [Model configuration](/en/model-config#pin-models-for-third-party-deployments) for the full list of environment variables.
+<div class="highlight"><pre><span></span><code>These variables use cross-region inference profile IDs (with the `us.` prefix). If you use a different region prefix or application inference profiles, adjust accordingly. In AWS GovCloud regions, use the `us-gov.` prefix. For current and legacy model IDs, see [Models overview](https://platform.claude.com/docs/en/about-claude/models/overview). See [Model configuration](/en/model-config#pin-models-for-third-party-deployments) for the full list of environment variables.
 
 Claude Code uses these default models when no pinning variables are set:
 
@@ -5105,7 +5114,7 @@ Example configuration:
 <p>```bash theme={null}
 export CLAUDE_CODE_USE_MANTLE=1
 export AWS_REGION=us-east-1
-<div class="highlight"><pre><span></span><code>Claude Code constructs the endpoint URL from `AWS_REGION`. To override it for a custom endpoint or gateway, set `ANTHROPIC_BEDROCK_MANTLE_BASE_URL`.
+<div class="highlight"><pre><span></span><code>Claude Code constructs the endpoint URL from the AWS region. {/* min-version: 2.1.172 */}As of v2.1.172, the region is resolved with the same precedence as [Bedrock above](#3-configure-claude-code); earlier versions use `AWS_REGION` only. To override the URL for a custom endpoint or gateway, set `ANTHROPIC_BEDROCK_MANTLE_BASE_URL`.
 
 Run `/status` inside Claude Code to confirm. The provider line shows `Amazon Bedrock (Mantle)` when Mantle is active.
 

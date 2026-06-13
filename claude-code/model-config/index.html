@@ -5177,7 +5177,14 @@ remembering exact version numbers:</p>
 </code></pre></div></p>
 <h2 id="restrict-model-selection">Restrict model selection</h2>
 <p>Enterprise administrators can use <code>availableModels</code> in <a href="/en/settings#settings-files">managed or policy settings</a> to restrict which models users can select.</p>
-<p>When <code>availableModels</code> is set, users cannot switch to models not in the list via <code>/model</code>, <code>--model</code> flag, or <code>ANTHROPIC_MODEL</code> environment variable. Elements of a <a href="#fallback-model-chains">fallback model chain</a> outside the list are dropped.</p>
+<p>When <code>availableModels</code> is set, the allowlist applies to every surface where a user can name a model:</p>
+<ul>
+<li><strong>Main session model</strong>: <code>/model</code>, the <code>--model</code> flag, and the <code>ANTHROPIC_MODEL</code> environment variable</li>
+<li><strong>Subagent models</strong>: the <code>model</code> field in <a href="/en/sub-agents#choose-a-model">subagent</a> frontmatter, the Agent tool's <code>model</code> parameter, the model picker in <code>/agents</code>, and <code>CLAUDE_CODE_SUBAGENT_MODEL</code></li>
+<li><strong>Advisor model</strong>: the configured <a href="/en/advisor"><code>advisorModel</code></a> setting</li>
+<li><strong>Fallback chains</strong>: elements of a <a href="#fallback-model-chains">fallback model chain</a> outside the list are dropped</li>
+</ul>
+<p>Switching to a blocked model with <code>/model</code> is rejected with an error, while a blocked <code>--model</code> flag or <code>ANTHROPIC_MODEL</code> value is ignored at startup and the session starts on the default model. A blocked subagent or advisor override falls back to the inherited or default model rather than failing the request.</p>
 <p>```json theme={null}
 {
   "availableModels": ["sonnet", "haiku"]
@@ -5213,7 +5220,7 @@ This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, 
 <h3 id="merge-behavior">Merge behavior</h3>
 <p>When <code>availableModels</code> is set at multiple levels, such as user settings and project settings, arrays are merged and deduplicated. To enforce a strict allowlist, set <code>availableModels</code> in managed or policy settings which take highest priority.</p>
 <h3 id="mantle-model-ids">Mantle model IDs</h3>
-<p>When the <a href="/en/amazon-bedrock#use-the-mantle-endpoint">Bedrock Mantle endpoint</a> is enabled, entries in <code>availableModels</code> that start with <code>anthropic.</code> are added to the <code>/model</code> picker as custom options and routed to the Mantle endpoint. This is an exception to the alias-only matching described in <a href="#pin-models-for-third-party-deployments">Pin models for third-party deployments</a>. The setting still restricts the picker to listed entries, so include the standard aliases alongside any Mantle IDs.</p>
+<p>When the <a href="/en/amazon-bedrock#use-the-mantle-endpoint">Bedrock Mantle endpoint</a> is enabled, entries in <code>availableModels</code> that start with <code>anthropic.</code> are added to the <code>/model</code> picker as custom options and routed to the Mantle endpoint. The setting still restricts the picker to listed entries, so include the standard aliases alongside any Mantle IDs.</p>
 <h2 id="special-model-behavior">Special model behavior</h2>
 <h3 id="default-model-setting"><code>default</code> model setting</h3>
 <p>The behavior of <code>default</code> depends on your account type:</p>
@@ -5235,7 +5242,7 @@ This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, 
 </ul>
 <p>This gives you the best of both worlds: Opus's superior reasoning for planning,
 and Sonnet's efficiency for execution.</p>
-<p>The plan-mode Opus phase runs with the standard 200K context window. The automatic 1M upgrade described in <a href="#extended-context">Extended context</a> applies to the <code>opus</code> model setting and does not extend to <code>opusplan</code>.</p>
+<p>The plan-mode Opus phase uses the same context window as the <code>opus</code> model setting. On subscription tiers where Opus is <a href="#extended-context">automatically upgraded to 1M context</a>, <code>opusplan</code> receives the upgrade in plan mode as well. To force 1M context for both phases when you are not on an auto-upgrade tier, set the model to <code>opusplan[1m]</code>.</p>
 <p>For a hybrid approach where Claude decides mid-task when to consult a second model rather than switching at the plan boundary, see the <a href="/en/advisor">advisor tool</a>.</p>
 <h3 id="fallback-model-chains">Fallback model chains</h3>
 <p>When the primary model is overloaded, unavailable, or returns another non-retryable server error, Claude Code can switch to a fallback model instead of failing the request. Authentication, billing, rate-limit, request-size, and transport errors never trigger a switch; those follow their normal retry and error handling.</p>
@@ -5519,14 +5526,14 @@ names</strong> (or equivalent for your API provider), to control the model names
 <p>To enable <a href="#extended-context">extended context</a> for a pinned model, append <code>[1m]</code> to the model ID in <code>ANTHROPIC_DEFAULT_OPUS_MODEL</code> or <code>ANTHROPIC_DEFAULT_SONNET_MODEL</code>:</p>
 <p>```bash theme={null}
 export ANTHROPIC_DEFAULT_OPUS_MODEL='claude-opus-4-8[1m]'
-<div class="highlight"><pre><span></span><code>The `[1m]` suffix applies the 1M context window to all usage of the `opus` and `sonnet` aliases. It does not extend the plan-mode Opus phase of `opusplan`, which [remains capped at 200K](#opusplan-model-setting).
+<div class="highlight"><pre><span></span><code>The `[1m]` suffix applies the 1M context window to all usage of the `opus` and `sonnet` aliases, including the plan-mode Opus phase of [`opusplan`](#opusplan-model-setting).
 
 * Claude Code strips the suffix before sending the model ID to your provider.
 * Only append `[1m]` when the underlying model [supports 1M context](https://platform.claude.com/docs/en/build-with-claude/context-windows#1m-token-context-window).
 * The suffix is read per variable, not per model. On Bedrock, Vertex, and Foundry, a model ID without `[1m]` in one variable uses 200K context even if another variable sets the same model with the suffix.
 
 &lt;Note&gt;
-  The `settings.availableModels` allowlist still applies when using third-party providers. Filtering matches on the model alias (`fable`, `opus`, `sonnet`, `haiku`), not the provider-specific model ID.
+  The `settings.availableModels` allowlist still applies when using third-party providers. Filtering matches on the model alias such as `opus`, the version prefix such as `claude-opus-4-8`, or the full model ID. Any `[1m]` suffix is stripped from both the allowlist entry and the requested model before matching, so an entry of `claude-opus-4-8` permits both the standard and 1M-context Opus rows. Provider-specific prefixes such as `us.anthropic.` are not stripped: list the same form in `availableModels` that the picker shows, or map it through [`modelOverrides`](#override-model-ids-per-version).
 &lt;/Note&gt;
 
 ### Customize pinned model display and capabilities
