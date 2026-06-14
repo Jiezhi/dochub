@@ -5184,41 +5184,46 @@ remembering exact version numbers:</p>
 <li><strong>Advisor model</strong>: the configured <a href="/en/advisor"><code>advisorModel</code></a> setting</li>
 <li><strong>Fallback chains</strong>: elements of a <a href="#fallback-model-chains">fallback model chain</a> outside the list are dropped</li>
 </ul>
-<p>Switching to a blocked model with <code>/model</code> is rejected with an error, while a blocked <code>--model</code> flag or <code>ANTHROPIC_MODEL</code> value is ignored at startup and the session starts on the default model. A blocked subagent or advisor override falls back to the inherited or default model rather than failing the request.</p>
+<p>Switching to a blocked model with <code>/model</code> is rejected with an error, while a blocked <code>--model</code> flag or <code>ANTHROPIC_MODEL</code> value is replaced at startup with a warning naming both the requested and substituted models, and the session starts on the default model. A blocked subagent or advisor override falls back to the inherited or default model rather than failing the request.</p>
 <p>```json theme={null}
 {
   "availableModels": ["sonnet", "haiku"]
 }
 <div class="highlight"><pre><span></span><code>### Default model behavior
 
-The Default option in the model picker is not affected by `availableModels`. It always remains available and represents the system&#39;s runtime default [based on the user&#39;s subscription tier](#default-model-setting).
+By default, the Default option in the model picker is not affected by `availableModels`. It remains available and represents the system&#39;s runtime default [based on the user&#39;s subscription tier](#default-model-setting).
 
-Even with `availableModels: []`, users can still use Claude Code with the Default model for their tier.
+To extend the allowlist to the Default option, set `enforceAvailableModels` to `true` in managed or policy settings alongside a non-empty `availableModels` list. When the tier default is not in the allowlist, Default resolves to the first allowed entry instead of the tier default. This requires Claude Code v2.1.175 or later.
+
+An empty `availableModels` array never engages enforcement. Even with `availableModels: []`, users can still use Claude Code with the Default model for their tier regardless of `enforceAvailableModels`.
 
 ### Control the model users run on
 
 The `model` setting is an initial selection, not enforcement. It sets which model is active when a session starts, but users can still open `/model` and pick Default, which resolves to the system default for their tier regardless of what `model` is set to.
 
-To fully control the model experience, combine three settings:
+To fully control the model experience, combine these settings:
 
 * **`availableModels`**: restricts which named models users can switch to
+* **`enforceAvailableModels`**: extends the `availableModels` allowlist to the Default option, so Default cannot resolve to a model outside the list
 * **`model`**: sets the initial model selection when a session starts
 * **`ANTHROPIC_DEFAULT_SONNET_MODEL`** / **`ANTHROPIC_DEFAULT_OPUS_MODEL`** / **`ANTHROPIC_DEFAULT_HAIKU_MODEL`** / **`ANTHROPIC_DEFAULT_FABLE_MODEL`**: control what the Default option and the `sonnet`, `opus`, `haiku`, and `fable` aliases resolve to
 
-This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, and pins Default to resolve to Sonnet 4.5 rather than the latest release:
+This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, and ensures Default resolves to a model on the allowlist rather than the tier default:
 
 ```json theme={null}
 {
   &quot;model&quot;: &quot;claude-sonnet-4-5&quot;,
   &quot;availableModels&quot;: [&quot;claude-sonnet-4-5&quot;, &quot;haiku&quot;],
+  &quot;enforceAvailableModels&quot;: true,
   &quot;env&quot;: {
     &quot;ANTHROPIC_DEFAULT_SONNET_MODEL&quot;: &quot;claude-sonnet-4-5&quot;
   }
 }
 </code></pre></div></p>
-<p>Without the <code>env</code> block, a user who selects Default in the picker would get the latest Sonnet release, bypassing the version pin in <code>model</code> and <code>availableModels</code>.</p>
+<p>Without <code>enforceAvailableModels</code> or the <code>env</code> block, a user who selects Default in the picker would get the latest release for their tier, bypassing the version pin in <code>model</code> and <code>availableModels</code>. The two settings cover different scopes: <code>enforceAvailableModels</code> makes Default obey the allowlist, while the <code>env</code> block pins which version a permitted alias such as <code>sonnet</code> resolves to. Use <code>enforceAvailableModels</code> alone when restricting model families is enough; add the <code>env</code> block when you also need to pin a specific version.</p>
 <h3 id="merge-behavior">Merge behavior</h3>
-<p>When <code>availableModels</code> is set at multiple levels, such as user settings and project settings, arrays are merged and deduplicated. To enforce a strict allowlist, set <code>availableModels</code> in managed or policy settings which take highest priority.</p>
+<p>When <code>availableModels</code> is set in user, project, and local settings only, arrays are merged and deduplicated across those levels.</p>
+<p>When <code>availableModels</code> is set in managed or policy settings, the managed or policy value replaces the merged result entirely: entries added in user or project settings cannot widen it. Managed and policy settings replace lower-precedence values for <code>enforceAvailableModels</code> the same way. As of Claude Code v2.1.175, this is the only way to enforce a strict allowlist; earlier versions merge the managed list with lower-precedence entries.</p>
 <h3 id="mantle-model-ids">Mantle model IDs</h3>
 <p>When the <a href="/en/amazon-bedrock#use-the-mantle-endpoint">Bedrock Mantle endpoint</a> is enabled, entries in <code>availableModels</code> that start with <code>anthropic.</code> are added to the <code>/model</code> picker as custom options and routed to the Mantle endpoint. The setting still restricts the picker to listed entries, so include the standard aliases alongside any Mantle IDs.</p>
 <h2 id="special-model-behavior">Special model behavior</h2>
@@ -5243,6 +5248,7 @@ This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, 
 <p>This gives you the best of both worlds: Opus's superior reasoning for planning,
 and Sonnet's efficiency for execution.</p>
 <p>The plan-mode Opus phase uses the same context window as the <code>opus</code> model setting. On subscription tiers where Opus is <a href="#extended-context">automatically upgraded to 1M context</a>, <code>opusplan</code> receives the upgrade in plan mode as well. To force 1M context for both phases when you are not on an auto-upgrade tier, set the model to <code>opusplan[1m]</code>.</p>
+<p>When <a href="#restrict-model-selection"><code>availableModels</code></a> excludes Opus, <code>opusplan</code> stays on Sonnet in plan mode instead of switching. The same applies to the implicit Haiku-to-Sonnet plan-mode upgrade when Sonnet is excluded.</p>
 <p>For a hybrid approach where Claude decides mid-task when to consult a second model rather than switching at the plan boundary, see the <a href="/en/advisor">advisor tool</a>.</p>
 <h3 id="fallback-model-chains">Fallback model chains</h3>
 <p>When the primary model is overloaded, unavailable, or returns another non-retryable server error, Claude Code can switch to a fallback model instead of failing the request. Authentication, billing, rate-limit, request-size, and transport errors never trigger a switch; those follow their normal retry and error handling.</p>
