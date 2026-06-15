@@ -1,1 +1,0 @@
-import{_ as p}from"./render-ZLSWZ7IR.Ba8R-PRm.js";import{bv as a}from"./theme.D4MVOk-a.js";function m(c,e){var o,i,t;c.accDescr&&((o=e.setAccDescription)==null||o.call(e,c.accDescr)),c.accTitle&&((i=e.setAccTitle)==null||i.call(e,c.accTitle)),c.title&&((t=e.setDiagramTitle)==null||t.call(e,c.title))}a(m,"populateCommonDb");p(m,"populateCommonDb");export{m as p};
