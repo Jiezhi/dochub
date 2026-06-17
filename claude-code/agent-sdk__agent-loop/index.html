@@ -4897,12 +4897,21 @@ Use this file to discover all available pages before exploring further.</p>
 <h2 id="message-types">Message types</h2>
 <p>As the loop runs, the SDK yields a stream of messages. Each message carries a type that tells you what stage of the loop it came from. The five core types are:</p>
 <ul>
-<li><strong><code>SystemMessage</code>:</strong> session lifecycle events. The <code>subtype</code> field distinguishes them: <code>"init"</code> is the first message (session metadata), and <code>"compact_boundary"</code> fires after <a href="#automatic-compaction">compaction</a>. In TypeScript, the compact boundary is its own <a href="/en/agent-sdk/typescript#sdkcompactboundarymessage"><code>SDKCompactBoundaryMessage</code></a> type rather than a subtype of <code>SDKSystemMessage</code>.</li>
-<li><strong><code>AssistantMessage</code>:</strong> emitted after each Claude response, including the final text-only one. Contains text content blocks and tool call blocks from that turn.</li>
-<li><strong><code>UserMessage</code>:</strong> emitted after each tool execution with the tool result content sent back to Claude. Also emitted for any user inputs you stream mid-loop.</li>
-<li><strong><code>StreamEvent</code>:</strong> only emitted when partial messages are enabled. Contains raw API streaming events (text deltas, tool input chunks). See <a href="/en/agent-sdk/streaming-output">Stream responses</a>.</li>
-<li><strong><code>ResultMessage</code>:</strong> marks the end of the agent loop. Contains the final text result, token usage, cost, and session ID. Check the <code>subtype</code> field to determine whether the task succeeded or hit a limit. A small number of trailing system events, such as <code>prompt_suggestion</code>, can arrive after it, so iterate the stream to completion rather than breaking on the result. See <a href="#handle-the-result">Handle the result</a>.</li>
+<li>
+<p><strong><code>SystemMessage</code>:</strong> session lifecycle events. The <code>subtype</code> field distinguishes them:</p>
+</li>
+<li>
+<p><code>"init"</code>: the first message with session metadata</p>
+</li>
+<li><code>"compact_boundary"</code>: fires after <a href="#automatic-compaction">compaction</a></li>
+<li><code>"informational"</code>: plain-text status banners from the loop</li>
+<li><code>"worker_shutting_down"</code>: the loop will end after the current turn because the host is exiting or Remote Control disconnected</li>
 </ul>
+<p>In TypeScript, each subtype other than <code>"init"</code> is its own type in the <a href="/en/agent-sdk/typescript#sdkmessage"><code>SDKMessage</code> union</a> rather than a subtype of <code>SDKSystemMessage</code>.
+* <strong><code>AssistantMessage</code>:</strong> emitted after each Claude response, including the final text-only one. Contains text content blocks and tool call blocks from that turn.
+* <strong><code>UserMessage</code>:</strong> emitted after each tool execution with the tool result content sent back to Claude. Also emitted for any user inputs you stream mid-loop.
+* <strong><code>StreamEvent</code>:</strong> only emitted when partial messages are enabled. Contains raw API streaming events (text deltas, tool input chunks). See <a href="/en/agent-sdk/streaming-output">Stream responses</a>.
+* <strong><code>ResultMessage</code>:</strong> marks the end of the agent loop. Contains the final text result, token usage, cost, and session ID. Check the <code>subtype</code> field to determine whether the task succeeded or hit a limit. A small number of trailing system events, such as <code>prompt_suggestion</code>, can arrive after it, so iterate the stream to completion rather than breaking on the result. See <a href="#handle-the-result">Handle the result</a>.</p>
 <p>These five types cover the full agent loop lifecycle in both SDKs. The TypeScript SDK also yields additional observability events (hook events, tool progress, rate limits, task notifications) that provide extra detail but are not required to drive the loop. See the <a href="/en/agent-sdk/python#message-types">Python message types reference</a> and <a href="/en/agent-sdk/typescript#message-types">TypeScript message types reference</a> for the complete lists.</p>
 <h3 id="handle-messages">Handle messages</h3>
 <p>Which messages you handle depends on what you're building:</p>

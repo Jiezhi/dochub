@@ -4702,7 +4702,8 @@ await tracker.track_query(&quot;Build a complete authentication system with todo
 </tr>
 </tbody>
 </table>
-<p>The assigned task ID is not in the <code>TaskCreate</code> input. It comes back in the matching <code>tool_result</code> as <code>{ task: { id, subject } }</code>, so capture it from the result block to key your map. The following example shows the minimal change to the <a href="#monitoring-todo-changes">Monitoring Todo Changes</a> loop. To render a complete list, watch for a <code>TaskList</code> tool result in the stream or accumulate <code>TaskCreate</code> results and <code>TaskUpdate</code> inputs into a map:</p>
+<p>The assigned task ID is not in the <code>TaskCreate</code> input. It comes back in the matching <code>tool_result</code> as <code>{ task: { id, subject } }</code>, so capture it from the result block to key your map. The following example shows the minimal change to the <a href="#monitoring-todo-changes">Monitoring Todo Changes</a> loop. To render a complete list, watch for a <code>TaskList</code> tool result in the stream or accumulate <code>TaskCreate</code> results and <code>TaskUpdate</code> inputs into a map.</p>
+<p>The streamed <code>tool_use</code> input is the raw shape the model emitted. Claude Code repairs some close-but-incorrect key names before execution, mapping <code>id</code> or <code>task_id</code> to <code>taskId</code> and <code>active_form</code> to <code>activeForm</code>, but that repair is not reflected in the stream. Read <code>TaskUpdate</code> input fields defensively, as the samples below do, rather than assuming the canonical name is always present.</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
   import { query } from "@anthropic-ai/claude-agent-sdk";</p>
@@ -4716,8 +4717,14 @@ await tracker.track_query(&quot;Build a complete authentication system with todo
         const input = block.input as { subject: string };
         console.log(<code>+ ${input.subject}</code>);
       } else if (block.name === "TaskUpdate") {
-        const input = block.input as { taskId: string; status?: string };
-        if (input.status) console.log(<code>${input.taskId} -&gt; ${input.status}</code>);
+        const input = block.input as {
+          taskId?: string;
+          id?: string;
+          task_id?: string;
+          status?: string;
+        };
+        const taskId = input.taskId ?? input.id ?? input.task_id;
+        if (taskId &amp;&amp; input.status) console.log(<code>${taskId} -&gt; ${input.status}</code>);
       }
     }
   }
@@ -4735,7 +4742,13 @@ async for message in query(
         if block.name == &quot;TaskCreate&quot;:
             print(f&quot;+ {block.input[&#39;subject&#39;]}&quot;)
         elif block.name == &quot;TaskUpdate&quot; and block.input.get(&quot;status&quot;):
-            print(f&quot;  {block.input[&#39;taskId&#39;]} -&gt; {block.input[&#39;status&#39;]}&quot;)
+            task_id = (
+                block.input.get(&quot;taskId&quot;)
+                or block.input.get(&quot;id&quot;)
+                or block.input.get(&quot;task_id&quot;)
+            )
+            if task_id:
+                print(f&quot;  {task_id} -&gt; {block.input[&#39;status&#39;]}&quot;)
 </code></pre></div>
 </CodeGroup></p>
 <h2 id="related-documentation">Related Documentation</h2>
