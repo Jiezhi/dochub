@@ -6112,6 +6112,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#audit-and-event-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit and Event Records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#complete-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10838,6 +10849,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#audit-and-event-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audit and Event Records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#complete-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11321,7 +11343,7 @@ Cache keys are based on the operation name and arguments only — they do not in
 <td>Maximum burst size</td>
 </tr>
 <tr>
-<td><code>client_id_func</code></td>
+<td><code>get_client_id</code></td>
 <td><code>Callable</code></td>
 <td><code>None</code></td>
 <td>Custom client identification</td>
@@ -11689,6 +11711,73 @@ If a tool defines an <code>output_schema</code>, truncated responses will no lon
             <span class="k">raise</span>  <span class="c1"># Re-raise to let error propagate</span>
 </code></pre></div>
 <p>Catching and not re-raising suppresses the error entirely. Usually you want to log and re-raise.</p>
+<h3 id="audit-and-event-records">Audit and Event Records</h3>
+<p>A common need is to emit one structured record per tool call — for audit logs, policy decisions, or offline analysis — without wrapping individual tools or storing raw payloads. <code>on_call_tool</code> is the right place: it sees the call start, the resolved <code>ToolResult</code> (so it can detect empty or error results), the duration, and can deny the call before it runs.</p>
+<p>Use <a href="/servers/telemetry">OpenTelemetry</a> when the goal is to <em>export</em> spans to an observability backend. Reach for a record like this when you want a self-contained, redacted audit trail — or to drive runtime decisions from the result.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.middleware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Middleware</span><span class="p">,</span> <span class="n">MiddlewareContext</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolError</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_schema_hash</span><span class="p">(</span><span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stable hash of the argument shape — detects schema drift without storing values.&quot;&quot;&quot;</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">arguments</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()[:</span><span class="mi">12</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_redact</span><span class="p">(</span><span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Keep keys, drop values — raw inputs stay out of the default path.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="s2">&quot;&lt;redacted&gt;&quot;</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="n">arguments</span> <span class="ow">or</span> <span class="p">{})}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_call_id</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">MiddlewareContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Request id when an MCP session is active (see Session Availability above).&quot;&quot;&quot;</span>
+    <span class="n">ctx</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">fastmcp_context</span>
+    <span class="k">if</span> <span class="n">ctx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ctx</span><span class="o">.</span><span class="n">request_context</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">request_id</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">AuditMiddleware</span><span class="p">(</span><span class="n">Middleware</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_call_tool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">MiddlewareContext</span><span class="p">,</span> <span class="n">call_next</span><span class="p">):</span>
+        <span class="n">record</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;tool&quot;</span><span class="p">:</span> <span class="n">context</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;call_id&quot;</span><span class="p">:</span> <span class="n">_call_id</span><span class="p">(</span><span class="n">context</span><span class="p">),</span>
+            <span class="s2">&quot;schema_hash&quot;</span><span class="p">:</span> <span class="n">_schema_hash</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">arguments</span><span class="p">),</span>
+            <span class="s2">&quot;arguments&quot;</span><span class="p">:</span> <span class="n">_redact</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">arguments</span><span class="p">),</span>
+            <span class="s2">&quot;received_at&quot;</span><span class="p">:</span> <span class="n">context</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+        <span class="p">}</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">call_next</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">record</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;failed&quot;</span>
+            <span class="n">record</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="k">raise</span>
+
+        <span class="n">empty</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">content</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">structured_content</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="n">record</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span> <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">is_error</span> <span class="k">else</span> <span class="s2">&quot;empty&quot;</span> <span class="k">if</span> <span class="n">empty</span> <span class="k">else</span> <span class="s2">&quot;completed&quot;</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">tzinfo</span><span class="p">)</span>
+        <span class="n">record</span><span class="p">[</span><span class="s2">&quot;duration_ms&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">((</span><span class="n">now</span> <span class="o">-</span> <span class="n">context</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">emit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Swap in your sink: structured logger, queue, audit store, etc.</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">record</span><span class="p">))</span>
+</code></pre></div>
+<p>Each record carries the fields downstream tools tend to need — tool name, call id, input schema hash, redacted arguments, result class (<code>completed</code> / <code>empty</code> / <code>error</code> / <code>failed</code>), and duration — while raw inputs and outputs stay out by default.</p>
+<p>To make this a policy layer, deny inside the same hook before calling <code>call_next</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_call_tool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">MiddlewareContext</span><span class="p">,</span> <span class="n">call_next</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowed</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">arguments</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">({</span><span class="s2">&quot;tool&quot;</span><span class="p">:</span> <span class="n">context</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;denied&quot;</span><span class="p">,</span> <span class="s2">&quot;reason&quot;</span><span class="p">:</span> <span class="s2">&quot;policy&quot;</span><span class="p">})</span>
+        <span class="k">raise</span> <span class="n">ToolError</span><span class="p">(</span><span class="s2">&quot;Call blocked by policy&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">call_next</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+</code></pre></div>
 <h3 id="complete-example">Complete Example</h3>
 <p>Authentication middleware checking API keys for specific tools:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
