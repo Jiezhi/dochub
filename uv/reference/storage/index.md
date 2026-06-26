@@ -168,6 +168,8 @@ By default, project virtual environments are created in `.venv` in the project o
 
 Use the `UV_PROJECT_ENVIRONMENT` environment variable to override this location. For more details, see the [projects environment documentation](https://jiezhi.github.io/dochub/uv/concepts/projects/config/#project-environment-path).
 
+With the [`centralized-project-envs` preview feature](https://jiezhi.github.io/dochub/uv/concepts/preview/index.md), uv stores default project environments in the [cache directory](#cache-directory). They can be removed by `uv cache clean` or `uv cache prune` and are recreated when next needed. See the [centralized project environments](https://jiezhi.github.io/dochub/uv/concepts/projects/layout/#centralized-project-environments) documentation for details.
+
 ### [Script virtual environments](#script-virtual-environments)
 
 When running [scripts with inline metadata](https://jiezhi.github.io/dochub/uv/guides/scripts/index.md), uv creates a dedicated virtual environment for each script in the [cache directory](#cache-directory).

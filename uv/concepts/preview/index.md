@@ -61,6 +61,7 @@ Often, preview features can be used without changing any preview settings if the
 The following preview features are available:
 
 - `add-bounds`: Allows configuring the [default bounds for `uv add`](https://jiezhi.github.io/dochub/uv/concepts/reference/settings.md#add-bounds) invocations.
+- `centralized-project-envs`: Stores [project virtual environments](https://jiezhi.github.io/dochub/uv/concepts/projects/layout/#centralized-project-environments) in the uv cache.
 - `json-output`: Allows `--output-format json` for various uv commands.
 - `package-conflicts`: Allows defining workspace conflicts at the package level.
 - `pylock`: Allows installing from `pylock.toml` files.
