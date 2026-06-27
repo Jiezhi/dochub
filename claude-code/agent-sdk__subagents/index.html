@@ -4651,6 +4651,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w25/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w25
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whats-new__2026-w26/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w26
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5136,6 +5190,7 @@ Use subagents to isolate context for focused subtasks, run multiple analyses in 
 <h2 id="creating-subagents">Creating subagents</h2>
 <h3 id="programmatic-definition-recommended">Programmatic definition (recommended)</h3>
 <p>Define subagents directly in your code using the <code>agents</code> parameter. This example creates two subagents: a code reviewer with read-only access and a test runner that can execute commands. Claude invokes subagents through the <code>Agent</code> tool, so include <code>Agent</code> in <code>allowedTools</code> to auto-approve subagent invocations without a permission prompt.</p>
+<p>Most examples on this page print only the final result. To confirm that Claude delegated to a subagent rather than answering directly, see <a href="#detecting-subagent-invocation">Detecting subagent invocation</a>.</p>
 <p><CodeGroup>
   ```python Python theme={null}
   import asyncio
@@ -5319,7 +5374,7 @@ Focus on:
 </tr>
 </tbody>
 </table>
-<p>In the Python SDK, these field names use camelCase to match the wire format. See the <a href="/en/agent-sdk/python#agentdefinition"><code>AgentDefinition</code> reference</a> for details.</p>
+<p>In the Python SDK, multi-word field names such as <code>disallowedTools</code> and <code>mcpServers</code> keep their camelCase spelling to match the wire format rather than following Python's snake_case convention. See the <a href="/en/agent-sdk/python#agentdefinition"><code>AgentDefinition</code> reference</a> for details.</p>
 <p><Note>
   {/<em> min-version: 2.1.172 </em>/}As of Claude Code v2.1.172, subagents can spawn their own subagents. A subagent five levels below the main agent cannot spawn further subagents, regardless of whether it runs in the foreground or background. To prevent a subagent from spawning others, omit <code>Agent</code> from its <code>tools</code> array or add it to <code>disallowedTools</code>. See <a href="/en/sub-agents#spawn-nested-subagents">nested subagents</a> for the full depth rules.
 </Note></p>
@@ -5543,20 +5598,25 @@ if ("result" in message) {
       agent_id = None
       session_id = None</p>
 <pre><code>  # First invocation - run the endpoint-finder subagent
-  async for message in query(
-      prompt="Use the endpoint-finder agent to find all API endpoints in this codebase",
-      options=ClaudeAgentOptions(allowed_tools=["Read", "Grep", "Glob", "Agent"], agents=AGENTS),
-  ):
-      # Capture session_id from ResultMessage (needed to resume this session)
-      if hasattr(message, "session_id"):
-          session_id = message.session_id
-      # Search tool results for the agentId trailer
-      for block in getattr(message, "content", None) or []:
-          if isinstance(block, ToolResultBlock):
-              agent_id = extract_agent_id(block) or agent_id
-      # Print the final result
-      if hasattr(message, "result"):
-          print(message.result)
+  try:
+      async for message in query(
+          prompt="Use the endpoint-finder agent to find all API endpoints in this codebase",
+          options=ClaudeAgentOptions(allowed_tools=["Read", "Grep", "Glob", "Agent"], agents=AGENTS),
+      ):
+          # Capture session_id from ResultMessage (needed to resume this session)
+          if hasattr(message, "session_id"):
+              session_id = message.session_id
+          # Search tool results for the agentId trailer
+          for block in getattr(message, "content", None) or []:
+              if isinstance(block, ToolResultBlock):
+                  agent_id = extract_agent_id(block) or agent_id
+          # Print the final result
+          if hasattr(message, "result"):
+              print(message.result)
+  except Exception as error:
+      # A single-shot query() raises after yielding an error result,
+      # so session_id and agent_id have already been captured by the loop above.
+      print(f"Session ended with an error: {error}")
 
   # Second invocation - resume and ask follow-up
   if agent_id and session_id:
@@ -5568,6 +5628,8 @@ if ("result" in message) {
       ):
           if hasattr(message, "result"):
               print(message.result)
+  else:
+      print("No agentId found in the first query, so there is no subagent to resume.")
 </code></pre>
 <p>asyncio.run(main())
   ```</p>
@@ -5590,17 +5652,23 @@ if ("result" in message) {
 <p>let agentId: string | undefined;
   let sessionId: string | undefined;</p>
 <p>// First invocation - run the endpoint-finder subagent
-  for await (const message of query({
-    prompt: "Use the endpoint-finder agent to find all API endpoints in this codebase",
-    options: { allowedTools: ["Read", "Grep", "Glob", "Agent"], agents }
-  })) {
-    // Capture session_id from ResultMessage (needed to resume this session)
-    if ("session_id" in message) sessionId = message.session_id;
-    // Search message content for the agentId (appears in Agent tool results)
-    const extractedId = extractAgentId(message);
-    if (extractedId) agentId = extractedId;
-    // Print the final result
-    if ("result" in message) console.log(message.result);
+  try {
+    for await (const message of query({
+      prompt: "Use the endpoint-finder agent to find all API endpoints in this codebase",
+      options: { allowedTools: ["Read", "Grep", "Glob", "Agent"], agents }
+    })) {
+      // Capture session_id from ResultMessage (needed to resume this session)
+      if ("session_id" in message) sessionId = message.session_id;
+      // Search message content for the agentId (appears in Agent tool results)
+      const extractedId = extractAgentId(message);
+      if (extractedId) agentId = extractedId;
+      // Print the final result
+      if ("result" in message) console.log(message.result);
+    }
+  } catch (error) {
+    // A single-shot query() throws after yielding an error result,
+    // so sessionId and agentId have already been captured by the loop above.
+    console.error(<code>Session ended with an error: ${error}</code>);
   }</p>
 <p>// Second invocation - resume and ask follow-up
   if (agentId &amp;&amp; sessionId) {
@@ -5610,6 +5678,8 @@ if ("result" in message) {
     })) {
       if ("result" in message) console.log(message.result);
     }
+  } else {
+    console.log("No agentId found in the first query, so there is no subagent to resume.");
   }
   ```
 </CodeGroup></p>
