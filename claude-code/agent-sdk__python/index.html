@@ -2468,6 +2468,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on gcp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-spend-limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway spend limits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-code-on-the-web/" class="md-nav__link">
         
   
@@ -3124,6 +3259,33 @@
     
   
     Fullscreen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gateways/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gateways
   
 
     
@@ -7120,6 +7282,7 @@ class ClaudeAgentOptions:
     fork_session: bool = False
     agents: dict[str, AgentDefinition] | None = None
     setting_sources: list[SettingSource] | None = None
+    skills: list[str] | Literal["all"] | None = None
     sandbox: SandboxSettings | None = None
     plugins: list[SdkPluginConfig] = field(default_factory=list)
     max_thinking_tokens: int | None = None  # Deprecated: use thinking instead
@@ -7190,7 +7353,7 @@ options = ClaudeAgentOptions(
 <li><code>API_TIMEOUT_MS</code>: per-request timeout on the Anthropic client, in milliseconds. Default <code>600000</code>. Applies to the main loop and all subagents.</li>
 <li><code>CLAUDE_CODE_MAX_RETRIES</code>: maximum API retries. Default <code>10</code>, capped at <code>15</code>. Each retry gets its own <code>API_TIMEOUT_MS</code> window, so worst-case wall time is roughly <code>API_TIMEOUT_MS × (CLAUDE_CODE_MAX_RETRIES + 1)</code> plus backoff. For unattended runs that need to wait through longer outages, set <code>CLAUDE_CODE_RETRY_WATCHDOG=1</code> to retry capacity errors indefinitely.</li>
 <li><code>CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS</code>: stall watchdog for subagents launched with <code>run_in_background</code>. Default <code>600000</code>. Resets on each stream event; on stall it aborts the subagent, marks the task failed, and surfaces the error to the parent with any partial result. Does not apply to synchronous subagents.</li>
-<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG=1</code> with <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code>: aborts the request when headers have arrived but the response body stops streaming. When <code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> is unset, the default is server-controlled on the direct Anthropic API and off on other providers. <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> defaults to <code>300000</code> and is clamped to that minimum. The aborted request goes through the normal retry path.</li>
+<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> with <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code>: aborts the request when headers have arrived but the response body stops streaming. The watchdog is on by default for all providers; set <code>CLAUDE_ENABLE_STREAM_WATCHDOG=0</code> to disable it. <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> defaults to <code>300000</code> and is clamped to that minimum. The aborted request goes through the normal retry path.</li>
 </ul>
 <h3 id="outputformat"><code>OutputFormat</code></h3>
 <p>Configuration for structured output validation. Pass this as a <code>dict</code> to the <code>output_format</code> field on <code>ClaudeAgentOptions</code>:</p>
@@ -7473,7 +7636,7 @@ EffortLevel = Literal[
     &quot;low&quot;,  # Minimal thinking, fastest responses
     &quot;medium&quot;,  # Moderate thinking
     &quot;high&quot;,  # Deep reasoning
-    &quot;xhigh&quot;,  # Extended reasoning (Opus 4.8 and Opus 4.7; falls back to &quot;high&quot; on other models)
+    &quot;xhigh&quot;,  # Extended reasoning; falls back to &quot;high&quot; on models that don&#39;t support it
     &quot;max&quot;,  # Maximum effort
 ]
 </code></pre></div></p>
@@ -8990,13 +9153,16 @@ Asks the user clarifying questions during execution. See [Handle approvals and u
 
 **Tool name:** `Monitor`
 
-Runs a background script and delivers each stdout line to Claude as an event so it can react without polling. Monitor follows the same permission rules as Bash. See the [Monitor tool reference](/en/tools-reference#monitor-tool) for behavior and provider availability.
+Runs a background source and delivers each event to Claude so it can react without polling: `command` runs a script and emits one event per stdout line, and `ws` opens a WebSocket and emits one event per text frame. Provide exactly one of `command` or `ws`.
+
+When Monitor runs a command, it follows the same permission rules as Bash; a WebSocket watch prompts for approval separately. {/* min-version: 2.1.195 */}The `ws` source requires Claude Code v2.1.195 or later. See the [Monitor tool reference](/en/tools-reference#monitor-tool) for behavior and provider availability.
 
 **Input:**
 
 ```python theme={null}
 {
-    &quot;command&quot;: str,  # Shell script; each stdout line is an event, exit ends the watch
+    &quot;command&quot;: str | None,  # Shell script; each stdout line is an event, exit ends the watch
+    &quot;ws&quot;: dict | None,  # WebSocket source: {&quot;url&quot;: str, &quot;protocols&quot;: list[str] | None}; each text frame is an event
     &quot;description&quot;: str,  # Short description shown in notifications
     &quot;timeout_ms&quot;: int | None,  # Kill after this deadline (default 300000, max 3600000)
     &quot;persistent&quot;: bool | None,  # Run for the lifetime of the session; stop with TaskStop

@@ -1494,6 +1494,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on gcp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-spend-limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway spend limits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-code-on-the-web/" class="md-nav__link">
         
   
@@ -2150,6 +2285,33 @@
     
   
     Fullscreen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gateways/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gateways
   
 
     
@@ -5906,6 +6068,17 @@ claude mcp add-json events-server \
 <p>/mcp
 <div class="highlight"><pre><span></span><code>Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list` as `⏸ Pending approval`. Run `claude` interactively to review and approve them. `claude mcp get &lt;name&gt;` shows pending servers as `⏸ Pending approval` and rejected servers as `✗ Rejected`.
 
+As of v2.1.196, `claude mcp list` and `claude mcp get` read `.mcp.json` approvals only from settings files that aren&#39;t checked into the repository until you trust the workspace by running `claude` in it and accepting the workspace trust dialog. A cloned repository can&#39;t approve its own servers: [`enableAllProjectMcpServers` or `enabledMcpjsonServers`](/en/settings#available-settings) committed to the project&#39;s `.claude/settings.json` is ignored in an untrusted folder, and the server stays at `⏸ Pending approval` instead of being connected and health-checked.
+
+Approvals from these sources still apply in an untrusted folder:
+
+* your user `~/.claude/settings.json`
+* managed settings
+* settings passed with `--settings`
+* `.claude/settings.local.json`, as long as git doesn&#39;t track it
+
+A `disabledMcpjsonServers` entry in any settings file still rejects the server.
+
 The `/mcp` panel shows the tool count next to each connected server and flags servers that advertise the tools capability but expose no tools.
 
 If your request needs tools from a server that is still connecting in the background, Claude waits for that server before continuing. With [tool search](#scale-with-mcp-tool-search) enabled, which is the default, the wait happens inside the `ToolSearch` call. In configurations without tool search, such as Vertex AI, a custom `ANTHROPIC_BASE_URL`, or `ENABLE_TOOL_SEARCH=false`, Claude uses the `WaitForMcpServers` tool instead.
@@ -6192,7 +6365,15 @@ Find customers who haven't made a purchase in 90 days
 
 Many cloud-based MCP servers require authentication. Claude Code supports OAuth 2.0 for secure connections.
 
-Claude Code marks a remote server as needing authentication when the server responds with `401 Unauthorized` or `403 Forbidden`. Either status code flags the server in `/mcp` so you can complete the OAuth flow. A custom server that returns a `WWW-Authenticate` header pointing to its authorization server gets the same automatic discovery as any other remote server.
+Claude Code marks a remote server as needing authentication when the server responds with `401 Unauthorized` or `403 Forbidden`. Either status code flags the server in `/mcp` so you can complete the OAuth flow.
+
+As of v2.1.195, when a token refresh fails because the server rejects the stored refresh token, Claude Code immediately shows a notice pointing at `/mcp`. The connected server&#39;s menu there offers Re-authenticate, so you can sign in again before the next tool call fails.
+
+A custom server that returns a `WWW-Authenticate` header pointing to its authorization server gets the same automatic discovery as any other remote server.
+
+As of v2.1.193, Claude Code also shows a startup notice when one or more configured servers need authentication, so you don&#39;t have to open `/mcp` to discover which servers need sign-in.
+
+In non-interactive mode there&#39;s no `/mcp` panel, so Claude Code can&#39;t run the OAuth flow for you. As of v2.1.196, when a configured server needs authentication during a `claude -p` or Agent SDK run with [tool search](#scale-with-mcp-tool-search) enabled, which is the default, Claude Code tells Claude that the server&#39;s tools are unavailable until you authorize it. Claude can then name the server that needs sign-in instead of responding as if the server weren&#39;t configured. Complete the sign-in from an interactive session with `/mcp` or `claude mcp login &lt;name&gt;`.
 
 If you configured `headers.Authorization` for the server and the server rejects that header, Claude Code reports the connection as failed instead of falling back to OAuth. Check that the token is valid for the MCP endpoint, or remove the header to use the OAuth flow.
 
@@ -6350,6 +6531,7 @@ Set `oauth.scopes` to pin the scopes Claude Code requests during the authorizati
 }
 </code></pre></div></p>
 <p><code>oauth.scopes</code> takes precedence over both <code>authServerMetadataUrl</code> and the scopes the server discovers at <code>/.well-known</code>. Leave it unset to let the MCP server determine the requested scope set.</p>
+<p>As of v2.1.196, when <code>oauth.scopes</code> isn't set, Claude Code requests the scope provided by the server's <code>WWW-Authenticate</code> header or its protected resource metadata, and sends no <code>scope</code> parameter when neither provides one. It no longer requests the full <code>scopes_supported</code> catalog from automatically discovered authorization server metadata. Requesting that catalog made identity providers that advertise admin-only or template scopes reject the authorization request with an <code>invalid_scope</code> error. Metadata fetched from a configured <code>authServerMetadataUrl</code> still supplies its <code>scopes_supported</code> as the requested scopes.</p>
 <p>If the authorization server advertises <code>offline_access</code> in <code>scopes_supported</code>, Claude Code appends it to the pinned scopes so the access token can be refreshed without a new browser sign-in.</p>
 <p>If the server later returns a 403 <code>insufficient_scope</code> for a tool call, Claude Code re-authenticates with the same pinned scopes. Widen <code>oauth.scopes</code> when a tool you need requires a scope outside the pinned set.</p>
 <h3 id="use-dynamic-headers-for-custom-authentication">Use dynamic headers for custom authentication</h3>
@@ -6384,6 +6566,7 @@ Set `oauth.scopes` to pin the scopes Claude Code requests during the authorizati
 <li>Dynamic headers override any static <code>headers</code> with the same name</li>
 </ul>
 <p>The helper runs fresh on each connection, at session start and on reconnect. There is no caching, so your script is responsible for any token reuse.</p>
+<p>As of v2.1.193, if a tool call returns <code>401 Unauthorized</code> or <code>403 Forbidden</code>, Claude Code automatically re-runs the helper, reconnects with the fresh headers, and retries the call once. Claude Code marks the server as needing authentication in <code>/mcp</code> only if that retry also fails.</p>
 <p>Claude Code sets these environment variables when executing the helper:</p>
 <table>
 <thead>
@@ -6401,9 +6584,14 @@ Set `oauth.scopes` to pin the scopes Claude Code requests during the authorizati
 <td style="text-align: left;"><code>CLAUDE_CODE_MCP_SERVER_URL</code></td>
 <td style="text-align: left;">the URL of the MCP server</td>
 </tr>
+<tr>
+<td style="text-align: left;"><code>CLAUDE_PLUGIN_ROOT</code></td>
+<td style="text-align: left;">the plugin's root directory. Set only when a <a href="/en/plugins-reference#mcp-servers">plugin</a> provides the server</td>
+</tr>
 </tbody>
 </table>
 <p>Use these to write a single helper script that serves multiple MCP servers.</p>
+<p>For a plugin-provided server, the helper also runs with its working directory set to the plugin root, so a relative <code>headersHelper</code> path resolves inside the plugin directory rather than against the session's working directory. Requires Claude Code v2.1.195 or later.</p>
 <p><Note>
   <code>headersHelper</code> executes arbitrary shell commands. When defined at project or local scope, it only runs after you accept the workspace trust dialog.
 </Note></p>

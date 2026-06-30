@@ -1714,6 +1714,141 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on gcp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway-spend-limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway spend limits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-apps-gateway/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-code-on-the-web/" class="md-nav__link">
         
   
@@ -2370,6 +2505,33 @@
     
   
     Fullscreen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gateways/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gateways
   
 
     
@@ -5077,7 +5239,7 @@ async def test_my_store_conformance():
 <h3 id="dual-write-architecture">Dual-write architecture</h3>
 <p>The store is a mirror, not a replacement. The Claude Code subprocess always writes to local disk first; the SDK then forwards each batch to <code>append()</code>. If you want the local copy to be ephemeral, point <code>CLAUDE_CONFIG_DIR</code> at a temp directory in <code>options.env</code>. Because the mirror depends on local writes, <code>sessionStore</code> cannot be combined with <code>persistSession: false</code>; the SDK throws if you set both. It also throws if combined with <code>enableFileCheckpointing</code>, since file-history backup blobs are written directly to local disk and are not mirrored to the store.</p>
 <h3 id="mirror-writes-are-best-effort">Mirror writes are best-effort</h3>
-<p>If <code>append()</code> rejects or times out, the error is logged, a <code>{ type: "system", subtype: "mirror_error" }</code> message is emitted into the iterator, and the query continues. The local transcript is already durable on disk, so a store outage does not interrupt the agent or lose data locally. Batches that fail are not retried, so monitor for <code>mirror_error</code> if you need to detect store data loss.</p>
+<p>If <code>append()</code> rejects, the SDK retries the batch up to two more times with a short backoff, for at most three attempts in total. A call that times out isn't retried, since the original call may still land. If the batch still fails, the error is logged, a <code>{ type: "system", subtype: "mirror_error" }</code> message is emitted into the iterator, the batch is dropped, and the query continues. The local transcript is already durable on disk, so a store outage doesn't interrupt the agent or lose data locally. Monitor for <code>mirror_error</code> if you need to detect store data loss. Because a retried batch can re-deliver entries that already landed, deduplicate by <code>entry.uuid</code> in your <code>append()</code> implementation.</p>
 <h3 id="getsessionmessages-returns-the-post-compaction-chain"><code>getSessionMessages</code> returns the post-compaction chain</h3>
 <p><code>getSessionMessages({ sessionStore })</code> returns the linked message chain the agent would see on resume. After auto-compaction, earlier turns are replaced by a summary, so a session whose store holds 503 raw entries may return 18 messages from <code>getSessionMessages</code>. For the full raw history, including pre-compaction turns and metadata entries, call <code>store.load(key)</code> directly.</p>
 <h3 id="forksession-is-not-a-byte-copy"><code>forkSession</code> is not a byte copy</h3>
