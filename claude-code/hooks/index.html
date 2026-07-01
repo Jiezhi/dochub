@@ -2007,6 +2007,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../desktop-linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop linux
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../desktop-quickstart/" class="md-nav__link">
         
   
@@ -3497,17 +3524,6 @@
         
       </ul>
     </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#debug-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debug hooks
-      
-    </span>
-  </a>
   
 </li>
         
@@ -6444,17 +6460,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#debug-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Debug hooks
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -7694,7 +7699,7 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
   "cwd": "/Users/...",
   "hook_event_name": "SessionStart",
   "source": "startup",
-  "model": "claude-sonnet-4-6"
+  "model": "claude-sonnet-5"
 }
 <div class="highlight"><pre><span></span><code>#### SessionStart decision control
 
@@ -8085,6 +8090,10 @@ Batches with no markdown pass through unchanged. If the script fails, for exampl
 ### PreToolUse
 
 Runs after Claude creates tool parameters and before processing the tool call. Matches on tool name: `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `Agent`, `WebFetch`, `WebSearch`, `AskUserQuestion`, `ExitPlanMode`, and any [MCP tool names](#match-mcp-tools).
+
+&lt;Warning&gt;
+  PreToolUse runs only when Claude calls a tool. Files you [reference with `@` in your prompt](/en/common-workflows#reference-files-and-directories) are added without any tool call: Claude Code inserts their contents while building the prompt, so no PreToolUse hook fires for them, including hooks matching `Read`. To block specific paths from `@` references, use a [`Read` deny rule](/en/permissions#read-and-edit) instead.
+&lt;/Warning&gt;
 
 Use [PreToolUse decision control](#pretooluse-decision-control) to allow, deny, ask, or defer the tool call.
 
@@ -9887,13 +9896,24 @@ On Windows, you can run individual hooks in PowerShell by setting `&quot;shell&q
   }
 }
 </code></pre></div></p>
-<h2 id="debug-hooks">Debug hooks</h2>
-<p>Hook execution details, including which hooks matched, their exit codes, and full stdout and stderr, are written to the debug log file. Start Claude Code with <code>claude --debug-file &lt;path&gt;</code> to write the log to a known location, or run <code>claude --debug</code> and read the log at <code>~/.claude/debug/&lt;session-id&gt;.txt</code>. The <code>--debug</code> flag does not print to the terminal.</p>
-<p><code>text theme={null}
+<p>To reference the project root from a PowerShell shell-form command, read it as an environment variable with <code>$env:CLAUDE_PROJECT_DIR</code>. PowerShell treats the bare <code>${CLAUDE_PROJECT_DIR}</code> form as a local variable, not an environment lookup, and Claude Code substitutes that placeholder in shell form only for <a href="#reference-scripts-by-path">plugin hooks</a>. For a hook defined in <code>settings.json</code>, either use the <code>$env:</code> form or switch to <a href="#exec-form-and-shell-form">exec form</a>, where <code>${CLAUDE_PROJECT_DIR}</code> is substituted in each <code>args</code> element regardless of where the hook is defined.</p>
+<p>The example below shows a <code>settings.json</code> hook that runs a project script with the <code>$env:</code> form:</p>
+<p>```json theme={null}
+{
+  "type": "command",
+  "shell": "powershell",
+  "command": "&amp; \"$env:CLAUDE_PROJECT_DIR\.claude\hooks\check.ps1\""
+}
+<div class="highlight"><pre><span></span><code>## Debug hooks
+
+Hook execution details, including which hooks matched, their exit codes, and full stdout and stderr, are written to the debug log file. Start Claude Code with `claude --debug-file &lt;path&gt;` to write the log to a known location, or run `claude --debug` and read the log at `~/.claude/debug/&lt;session-id&gt;.txt`. The `--debug` flag does not print to the terminal.
+
+```text theme={null}
 [DEBUG] Executing hooks for PostToolUse:Write
 [DEBUG] Found 1 hook commands to execute
 [DEBUG] Executing hook command: &lt;Your command&gt; with timeout 600000ms
-[DEBUG] Hook command completed with status 0: &lt;Your stdout&gt;</code></p>
+[DEBUG] Hook command completed with status 0: &lt;Your stdout&gt;
+</code></pre></div></p>
 <p>For more granular hook matching details, set <code>CLAUDE_CODE_DEBUG_LOG_LEVEL=verbose</code> to see additional log lines such as hook matcher counts and query matching.</p>
 <p>For troubleshooting common issues like hooks not firing, Stop hooks that keep blocking, or configuration errors, see <a href="/en/hooks-guide#limitations-and-troubleshooting">Limitations and troubleshooting</a> in the guide. For a broader diagnostic walkthrough covering <code>/context</code>, <code>/doctor</code>, and settings precedence, see <a href="/en/debug-your-config">Debug your config</a>.</p>
 
