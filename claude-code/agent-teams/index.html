@@ -5481,7 +5481,8 @@ one on UX, one on technical architecture, one playing devil&#39;s advocate.
 <li><strong>Enter</strong>: open the selected teammate's transcript and message it directly</li>
 <li><strong>Escape</strong>: interrupt the selected teammate's current turn</li>
 </ul>
-<p>{/<em> min-version: 2.1.181 </em>/}As of v2.1.181, an idle teammate's row hides after 30 seconds and reappears on its next turn. The teammate stays running and addressable while hidden.</p>
+<p>{/<em> min-version: 2.1.199 </em>/}As of v2.1.199, an idle teammate's row stays in the panel while any teammate or subagent is still working, so you can select it to review its transcript or send it more work. Once every agent in the panel is idle, idle rows hide after 30 seconds and reappear on the teammate's next turn; the teammate stays running and addressable while hidden. In v2.1.181 through v2.1.198, an idle row hid 30 seconds after its own turn ended, even while other teammates were still working; idle rows are not hidden on versions before v2.1.181.</p>
+<p>When more than three teammates are idle at once, the rows beyond the first three collapse into a single row that counts the collapsed teammates, such as <code>2 idle agents</code> when five are idle. Select it and press Enter to expand the collapsed rows, or press Esc to collapse them again. Working teammates, failed teammates, and the teammate you're viewing always keep their own rows.</p>
 <p>If you want each teammate in its own split pane, see <a href="#choose-a-display-mode">Choose a display mode</a>.</p>
 <h2 id="control-your-agent-team">Control your agent team</h2>
 <p>Tell the lead what you want in natural language. It handles team coordination, task assignment, and delegation based on your instructions.</p>
@@ -5536,6 +5537,8 @@ Require plan approval before they make any changes.
 <li><strong>In-process mode</strong>: use the up and down arrow keys in the agent panel to select a teammate, then press Enter to view its session and type to send it a message. Press <code>x</code> on a selected teammate to stop it. Press Ctrl+T to toggle the task list.</li>
 <li><strong>Split-pane mode</strong>: click into a teammate's pane to interact with their session directly. Each teammate has a full view of their own terminal.</li>
 </ul>
+<p>While you're viewing an in-process teammate, plain text and <a href="/en/skills">skills</a> go to that teammate, but built-in commands still run in the lead's session.</p>
+<p>A teammate's model and fast mode are fixed when it spawns, so <code>/model</code> and <code>/fast</code> only change the lead's settings. {/<em> min-version: 2.1.199 </em>/}As of v2.1.199, typing either command while viewing a teammate shows a notice that the change applies to the lead; earlier versions applied it to the lead with no indication. <code>/effort</code> still applies to the viewed teammate's later turns, because teammates follow the lead's <a href="/en/model-config#adjust-effort-level">effort level</a>.</p>
 <h3 id="assign-and-claim-tasks">Assign and claim tasks</h3>
 <p>The shared task list coordinates work across the team. The lead creates tasks and teammates work through them. Tasks have three states: pending, in progress, and completed. Tasks can also depend on other tasks: a pending task with unresolved dependencies cannot be claimed until those dependencies are completed.</p>
 <p>The lead can assign tasks explicitly, or teammates can self-claim:</p>
@@ -5624,7 +5627,7 @@ Spawn a teammate using the security-reviewer agent type to audit the auth module
 <p><strong>How teammates share information:</strong></p>
 <ul>
 <li><strong>Automatic message delivery</strong>: when teammates send messages, they're delivered automatically to recipients. The lead doesn't need to poll for updates.</li>
-<li><strong>Idle notifications</strong>: when a teammate finishes and stops, they automatically notify the lead.</li>
+<li><strong>Idle notifications</strong>: when a teammate finishes and stops, it automatically notifies the lead. {/<em> min-version: 2.1.198 </em>/}As of v2.1.198, a teammate whose turn ends on an API error notifies the lead that it failed and includes the error text, instead of appearing to finish normally.</li>
 <li><strong>Shared task list</strong>: all agents can see task status and claim available work.</li>
 <li><strong>Teammate messaging</strong>: send a message to one specific teammate by name. To reach everyone, send one message per recipient.</li>
 </ul>
@@ -5705,7 +5708,7 @@ Wait for your teammates to complete their tasks before proceeding
 <p>If teammates aren't appearing after you ask Claude to spawn them:</p>
 <ul>
 <li>In in-process mode, teammates appear in the agent panel below the prompt input. Use the up and down arrow keys to select one, then press Enter to view it.</li>
-<li>A teammate row that disappeared after sitting idle has been hidden, not stopped. Idle rows hide after 30 seconds and reappear on the teammate's next turn. Send the teammate a message by name to bring it back.</li>
+<li>A teammate row that disappeared after sitting idle has been hidden, not stopped. Idle rows hide 30 seconds after the whole panel goes idle and reappear on the teammate's next turn. When more than three teammates are idle, their surplus rows collapse into a single <code>N idle agents</code> row that Enter expands. Send the teammate a message by name to bring a hidden row back.</li>
 <li>Check that the task you gave Claude was complex enough to warrant a team. Claude decides whether to spawn teammates based on the task.</li>
 <li>If you explicitly requested split panes, ensure tmux is installed and available in your PATH:
   <code>bash theme={null}
@@ -5720,6 +5723,7 @@ Wait for your teammates to complete their tasks before proceeding
 <li>Give them additional instructions directly</li>
 <li>Spawn a replacement teammate to continue the work</li>
 </ul>
+<p>{/<em> min-version: 2.1.198 </em>/}As of v2.1.198, a message from the lead or another teammate wakes an in-process teammate that is waiting to retry a failed API request, so it retries immediately instead of waiting for the full retry delay.</p>
 <h3 id="lead-shuts-down-before-work-is-done">Lead shuts down before work is done</h3>
 <p>The lead may decide the team is finished before all tasks are actually complete. If this happens, tell it to keep going. You can also tell the lead to wait for teammates to finish before proceeding if it starts doing work instead of delegating.</p>
 <h3 id="orphaned-tmux-sessions">Orphaned tmux sessions</h3>
@@ -5735,6 +5739,7 @@ tmux kill-session -t &lt;session-name&gt;</code></p>
 <li><strong>Shutdown can be slow</strong>: teammates finish their current request or tool call before shutting down, which can take time.</li>
 <li><strong>One team per session</strong>: a session has exactly one team, scoped to that session. You can't create additional named teams or share a team across sessions.</li>
 <li><strong>No nested teams</strong>: teammates cannot spawn their own teammates. Only the lead can manage the team.</li>
+<li><strong>No background subagents from in-process teammates</strong>: an in-process teammate's own subagents run in the foreground. Asking for a background one, whether with <code>run_in_background</code> or a subagent definition that sets <code>background: true</code>, returns an error, because a teammate's background work can't outlive the lead's process. Subagents launched from the main conversation follow the <a href="/en/sub-agents#run-subagents-in-foreground-or-background">background default</a>.</li>
 <li><strong>Lead is fixed</strong>: the main session is the lead for its lifetime. You can't promote a teammate to lead or transfer leadership.</li>
 <li><strong>Permissions set at spawn</strong>: all teammates start with the lead's permission mode. You can change individual teammate modes after spawning, but you can't set per-teammate modes at spawn time.</li>
 <li><strong>Split panes require tmux or iTerm2</strong>: the default in-process mode works in any terminal. Split-pane mode isn't supported in VS Code's integrated terminal, Windows Terminal, or Ghostty.</li>

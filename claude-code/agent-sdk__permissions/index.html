@@ -5021,8 +5021,10 @@ Use this file to discover all available pages before exploring further.</p>
     Check <code>deny</code> rules (from <code>disallowed_tools</code> and <a href="/en/settings#permission-settings">settings.json</a>). If a deny rule matches, the tool is blocked, even in <code>bypassPermissions</code> mode. Bare-name deny rules like <code>Bash</code> remove the tool from Claude's context before this evaluation begins, so only scoped rules like <code>Bash(rm *)</code> are checked at this step.
   </Step></p>
 <p><Step title="Ask rules">
-    Check <code>ask</code> rules from <a href="/en/settings#permission-settings">settings.json</a>. If an ask rule matches, the call falls through to your <a href="/en/agent-sdk/user-input"><code>canUseTool</code> callback</a> for confirmation, even in <code>bypassPermissions</code> mode. In <code>dontAsk</code> mode a matching ask rule is denied instead, because that mode never prompts.
-  </Step></p>
+    Check <code>ask</code> rules from <a href="/en/settings#permission-settings">settings.json</a>. If an ask rule matches, the call falls through to your <a href="/en/agent-sdk/user-input"><code>canUseTool</code> callback</a> for confirmation, even in <code>bypassPermissions</code> mode.</p>
+<pre><code>Tools that require user interaction behave the same way: `AskUserQuestion` and MCP tools whose server sets [`_meta["anthropic/requiresUserInteraction"]`](/en/mcp#require-approval-for-a-specific-tool) always fall through to the callback, even when an allow rule matches. In `dontAsk` mode both cases are denied instead, because that mode never prompts. {/* min-version: 2.1.199 */}The MCP annotation requires Claude Code v2.1.199 or later.
+</code></pre>
+<p></Step></p>
 <p><Step title="Permission mode">
     Apply the active <a href="#permission-modes">permission mode</a>. <code>bypassPermissions</code> approves everything that reaches this step. <code>acceptEdits</code> approves file operations. <code>plan</code> routes file-edit and shell-write tools to your <code>canUseTool</code> callback regardless of allow rules, so write operations cannot be auto-approved while planning. Other modes fall through.
   </Step></p>
@@ -5034,6 +5036,13 @@ Use this file to discover all available pages before exploring further.</p>
   </Step>
 </Steps></p>
 <p><img src="https://mintcdn.com/claude-code/jYgs7qigNjO1Badj/images/agent-sdk/permissions-flow.svg?fit=max&auto=format&n=jYgs7qigNjO1Badj&q=85&s=c771ad9085b1277d3708027a49c744bc" alt="Diagram of the six-step permission evaluation flow matching the steps above: a tool request passes through hooks, deny rules, ask rules, permission mode, allow rules, and canUseTool. Hooks, deny rules, and canUseTool can route down to Blocked; permission mode bypass, allow rules, and canUseTool can route up to Execute; ask rules route to canUseTool." width="1180" height="260" data-path="images/agent-sdk/permissions-flow.svg" /></p>
+<p>As of v2.1.198, if you pass a <code>canUseTool</code> callback that this evaluation order can never reach, the TypeScript SDK emits a Node.js process warning once when the query is constructed. The warning's code is <code>CLAUDE_SDK_CAN_USE_TOOL_SHADOWED</code>. Two configurations trigger it:</p>
+<ul>
+<li><code>permissionMode: 'bypassPermissions'</code>, which auto-approves every call that reaches the permission mode step</li>
+<li>Each bare <code>allowedTools</code> entry such as <code>"Read"</code>, which auto-approves that whole tool before the callback is consulted</li>
+</ul>
+<p>Entries with a specifier such as <code>Bash(ls *)</code> and the <code>acceptEdits</code> mode don't trigger it, and allow rules coming from settings files aren't visible to the check.</p>
+<p>Listen with <code>process.on('warning', ...)</code> and match the code to log or suppress it. To gate every tool call regardless of mode and rules, use a <a href="/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a> instead.</p>
 <p>This page focuses on <strong>allow and deny rules</strong> and <strong>permission modes</strong>. For the other steps:</p>
 <ul>
 <li><strong>Hooks:</strong> run custom code to allow, deny, or modify tool requests. See <a href="/en/agent-sdk/hooks">Control execution with hooks</a>.</li>
@@ -5069,7 +5078,7 @@ Use this file to discover all available pages before exploring further.</p>
 </table>
 <p>Allow rules accept tool-name globs only after a literal <code>mcp__&lt;server&gt;__</code> prefix. The server segment must be glob-free so the rule names a specific server you configured: <code>mcp__puppeteer__*</code> matches every tool from the <code>puppeteer</code> server, and <code>mcp__github__get_*</code> matches its <code>get_</code> tools. An unanchored entry like <code>allowed_tools=["*"]</code> or <code>allowed_tools=["mcp__*"]</code> is ignored with a startup warning and does not auto-approve anything.</p>
 <p><Warning>
-  <strong>Auto-approved tools never reach <code>canUseTool</code>.</strong> A tool call approved at any earlier step, by <code>acceptEdits</code> or <code>bypassPermissions</code>, or by an allow rule, skips your <code>canUseTool</code> callback, so permission checks you put there are silently bypassed for that tool. Coverage depends on the entry's form: a bare name like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool, while a scoped rule like <code>Bash(ls *)</code> auto-approves only matching calls and other <code>Bash</code> calls still fall through to the callback. For checks that must run on every tool call, use a <a href="/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.
+  <strong>Auto-approved tools never reach <code>canUseTool</code>.</strong> A tool call approved at any earlier step, by <code>acceptEdits</code> or <code>bypassPermissions</code>, or by an allow rule, skips your <code>canUseTool</code> callback, so permission checks you put there are silently bypassed for that tool. The exception is tools that require user interaction, <code>AskUserQuestion</code> and MCP tools marked with <a href="/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a>, which reach the callback even when an allow rule matches. Coverage depends on the entry's form: a bare name like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool, while a scoped rule like <code>Bash(ls *)</code> auto-approves only matching calls and other <code>Bash</code> calls still fall through to the callback. For checks that must run on every tool call, use a <a href="/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.
 </Warning></p>
 <p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>. Listed tools are approved; anything else is denied outright instead of prompting:</p>
 <p><code>typescript theme={null}

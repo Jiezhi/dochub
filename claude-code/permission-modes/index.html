@@ -5206,6 +5206,7 @@ To enable it for one developer, add the variable to the `env` block in `~/.claud
 <li>Force push, or pushing directly to <code>main</code></li>
 <li>{/<em> min-version: 2.1.182 </em>/}<code>git reset --hard</code>, <code>git checkout -- .</code>, <code>git restore .</code>, <code>git clean -fd</code>, <code>git stash drop</code>, or <code>git stash clear</code>, which the classifier presumes would discard uncommitted changes</li>
 <li><code>git commit --amend</code> when the commit at HEAD was not created in this session</li>
+<li>{/<em> min-version: 2.1.198 </em>/}From v2.1.198, <code>git commit --amend</code> when the commit at HEAD has already been pushed. A message-only reword is not blocked: <code>--amend -m</code> with nothing newly staged, on a commit that Claude created during this session</li>
 <li><code>terraform destroy</code>, <code>pulumi destroy</code>, <code>cdk destroy</code>, or <code>terragrunt destroy</code>, and applying a plan that destroys resources</li>
 </ul>
 <p>Claude Code v2.1.195 and later block more categories by default. Several depend on <a href="/en/auto-mode-config#define-trusted-infrastructure">environment</a> entries, such as sensitive remote targets and protected IaC scopes, that you can narrow to concrete names.</p>
@@ -5220,10 +5221,17 @@ To enable it for one developer, add the variable to the `env` block in `~/.claud
 <li>Interactive shells or port-forwards into a sensitive remote target</li>
 <li>Opening a tunnel or reverse shell that makes a local service reachable from the public internet</li>
 <li>Printing a live credential or token into the transcript or a file</li>
-<li>Accessing a PII or regulated-data location, or copying data out of one</li>
-<li>Routing a package install around your internal package registry to a public registry</li>
+<li>Accessing a location listed as a sensitive data location in your <a href="/en/auto-mode-config#define-trusted-infrastructure">environment</a>, or copying data out of one. {/<em> min-version: 2.1.198 </em>/}As of v2.1.198 this also blocks sending data from one to an audience the entry excludes</li>
+<li>Routing a package install around your internal package registry to a public registry. {/<em> min-version: 2.1.198 </em>/}As of v2.1.198, this also applies when you've told Claude an internal registry or mirror exists in the conversation, not only when one is listed in your environment</li>
 <li>Running a command with a flag that disarms a safety guard, like <code>--insecure</code></li>
+<li>Launching an autonomous agent loop that runs without human approval or a sandbox, such as one started with <code>--dangerously-skip-permissions</code> or <code>--no-sandbox</code>. {/<em> min-version: 2.1.198 </em>/}As of v2.1.198 this also covers running a third-party agent or eval harness with isolation and per-action approval disabled, such as a runner started with <code>--yes-always</code></li>
 <li><a href="/en/chrome">Claude in Chrome</a> browser actions that could send page content, cookies, or credentials off-origin</li>
+</ul>
+<p>Claude Code v2.1.198 and later also block these by default:</p>
+<ul>
+<li>Deleting files in <code>/tmp</code>, <code>$TMPDIR</code>, or another shared scratch or cache directory by wildcard, glob, or age filter rather than by a specific named path</li>
+<li>Including sensitive details in content sent, uploaded, published, or written to other people or shared systems, when your own message didn't authorize those details for that recipient</li>
+<li>Sending keystrokes to Claude Code's own tmux pane to drive its own interface, which the classifier treats as Claude changing its own permissions or oversight</li>
 </ul>
 <p><strong>Allowed by default</strong>:</p>
 <ul>
@@ -5241,7 +5249,14 @@ To enable it for one developer, add the variable to the `env` block in `~/.claud
 <li>Sending data to the trusted domains, buckets, and services you list in <a href="/en/auto-mode-config#define-trusted-infrastructure"><code>environment</code></a>. This covers data flow only, not destructive or credential operations on the same infrastructure</li>
 <li><a href="/en/chrome">Claude in Chrome</a> navigation to a trusted internal domain, localhost, or a URL you named</li>
 </ul>
-<p>Sandbox network access requests are routed through the classifier rather than allowed by default. Run <code>claude auto-mode defaults</code> to see the full rule lists. If routine actions get blocked, an administrator can add trusted repos, buckets, and services via the <code>autoMode.environment</code> setting: see <a href="/en/auto-mode-config">Configure auto mode</a>.</p>
+<p>Sandbox network access requests are routed through the classifier rather than allowed by default. {/<em> min-version: 2.1.198 </em>/}As of v2.1.198, the classifier reuses its verdict for a network host and port instead of re-running on every connection:</p>
+<ul>
+<li>An allow is reused until new content enters the conversation, at which point that host is checked again</li>
+<li>In the interactive CLI, a deny is dropped when the turn ends</li>
+<li>In <a href="/en/headless">non-interactive mode</a> and Agent SDK sessions there is no turn boundary, so a deny is reused for the rest of the run</li>
+<li>Changing your permission mode or rules drops all cached verdicts</li>
+</ul>
+<p>Run <code>claude auto-mode defaults</code> to see the full rule lists. If routine actions get blocked, an administrator can add trusted repos, buckets, and services via the <code>autoMode.environment</code> setting: see <a href="/en/auto-mode-config">Configure auto mode</a>.</p>
 <h3 id="boundaries-you-state-in-conversation">Boundaries you state in conversation</h3>
 <p>The classifier treats boundaries you state in the conversation as a block signal. If you tell Claude "don't push" or "wait until I review before deploying", the classifier blocks matching actions even when the default rules would allow them. A boundary stays in force until you lift it in a later message. Claude's own judgment that a condition was met does not lift it.</p>
 <p>Boundaries are not stored as rules. The classifier re-reads them from the transcript on each check, so a boundary can be lost if <a href="/en/costs#reduce-token-usage">context compaction</a> removes the message that stated it. For a hard guarantee, add a <a href="/en/permissions#permission-rule-syntax">deny rule</a> instead.</p>
@@ -5255,7 +5270,7 @@ To enable it for one developer, add the variable to the `env` block in `~/.claud
     Each action goes through a fixed decision order. The first matching step wins:</p>
 <pre><code>1. Actions matching your [allow or deny rules](/en/permissions#manage-permissions) resolve immediately, except writes to [protected paths](#protected-paths), which route to the classifier even when an allow rule matches
 2. Read-only actions and file edits in your working directory are auto-approved, except writes to [protected paths](#protected-paths)
-3. Everything else goes to the classifier
+3. Everything else goes to the classifier. {/* min-version: 2.1.199 */}As of v2.1.199, an MCP tool marked with [`_meta["anthropic/requiresUserInteraction"]`](/en/mcp#require-approval-for-a-specific-tool) skips the classifier and prompts you directly, so a consent step is never auto-approved on the tool author's behalf
 4. If the classifier blocks, Claude receives the reason and tries an alternative
 
 On entering auto mode, broad allow rules that grant arbitrary code execution are dropped:
@@ -5280,17 +5295,17 @@ Step 1 requires Claude Code v2.1.178 or later. Earlier versions applied the clas
 </code></pre>
 <p></Accordion></p>
 <p><Accordion title="Cost and latency">
-    The classifier runs on a server-configured model that is independent of your <code>/model</code> selection, so switching models does not change classifier availability. Classifier calls count toward your token usage. Each check sends a portion of the transcript plus the pending action, adding a round-trip before execution. Reads and working-directory edits outside protected paths skip the classifier, so the overhead comes mainly from shell commands and network operations.
+    The classifier runs on a server-configured model that is independent of your <code>/model</code> selection, so switching models does not change classifier availability. Classifier calls count toward your token usage. Each check sends a portion of the transcript plus the pending action, adding a round-trip before execution. Reads and working-directory edits outside protected paths skip the classifier, so the overhead comes mainly from shell commands and network operations. {/<em> min-version: 2.1.198 </em>/}As of v2.1.198, a sandbox network verdict for a host and port is reused instead of re-classified on every connection, so repeated connections to the same host don't each add a check. <a href="#what-the-classifier-blocks-by-default">What the classifier blocks by default</a> describes how long an allow and a deny last.
   </Accordion>
 </AccordionGroup></p>
 <h2 id="allow-only-pre-approved-tools-with-dontask-mode">Allow only pre-approved tools with dontAsk mode</h2>
-<p><code>dontAsk</code> mode auto-denies every tool call that would otherwise prompt. Only actions matching your <code>permissions.allow</code> rules and <a href="/en/permissions#read-only-commands">read-only Bash commands</a> can execute; explicit <a href="/en/permissions#manage-permissions"><code>ask</code> rules</a> are denied rather than prompting. This makes the mode fully non-interactive for CI pipelines or restricted environments where you pre-define exactly what Claude may do. Cloud sessions on <a href="/en/claude-code-on-the-web">Claude Code on the web</a> ignore <code>defaultMode: "dontAsk"</code>; see <a href="#skip-all-checks-with-bypasspermissions-mode">bypassPermissions</a> for details.</p>
+<p><code>dontAsk</code> mode auto-denies every tool call that would otherwise prompt. The status bar shows <code>⏵⏵ don't ask on</code> while this mode is active. Only actions matching your <code>permissions.allow</code> rules and <a href="/en/permissions#read-only-commands">read-only Bash commands</a> can execute; explicit <a href="/en/permissions#manage-permissions"><code>ask</code> rules</a> are denied rather than prompting. {/<em> min-version: 2.1.199 </em>/}As of v2.1.199, an MCP tool marked with <a href="/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a> is also denied in this mode even when an allow rule matches it, because its approval card needs an answer this mode never collects. This makes the mode fully non-interactive for CI pipelines or restricted environments where you pre-define exactly what Claude may do. Cloud sessions on <a href="/en/claude-code-on-the-web">Claude Code on the web</a> ignore <code>defaultMode: "dontAsk"</code>; see <a href="#skip-all-checks-with-bypasspermissions-mode">bypassPermissions</a> for details.</p>
 <p>Set it at startup with the flag:</p>
 <p>```bash theme={null}
 claude --permission-mode dontAsk
 <div class="highlight"><pre><span></span><code>## Skip all checks with bypassPermissions mode
 
-`bypassPermissions` mode disables permission prompts and safety checks so tool calls execute immediately. As of v2.1.126 this includes writes to [protected paths](#protected-paths), which earlier versions still prompted for. Explicit [ask rules](/en/permissions#manage-permissions) still force a prompt in this mode, and removals targeting the filesystem root or home directory, such as `rm -rf /` and `rm -rf ~`, still prompt as a circuit breaker against model error. Only use this mode in isolated environments like containers, VMs, or dev containers without internet access, where Claude Code cannot damage your host system.
+`bypassPermissions` mode disables permission prompts and safety checks so tool calls execute immediately. As of v2.1.126 this includes writes to [protected paths](#protected-paths), which earlier versions still prompted for. Explicit [ask rules](/en/permissions#manage-permissions) still force a prompt in this mode, and removals targeting the filesystem root or home directory, such as `rm -rf /` and `rm -rf ~`, still prompt as a circuit breaker against model error. {/* min-version: 2.1.199 */}As of v2.1.199, MCP tools marked with [`_meta[&quot;anthropic/requiresUserInteraction&quot;]`](/en/mcp#require-approval-for-a-specific-tool) also still prompt. Only use this mode in isolated environments like containers, VMs, or dev containers without internet access, where Claude Code cannot damage your host system.
 
 You cannot enter `bypassPermissions` from a session that was started without one of the enabling flags; restart with one to enable it:
 

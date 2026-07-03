@@ -4929,12 +4929,24 @@ Use this file to discover all available pages before exploring further.</p>
 </Note></p>
 <h2 id="define-trusted-infrastructure">Define trusted infrastructure</h2>
 <p>For most organizations, <code>autoMode.environment</code> is the only field you need to set. It tells the classifier which repos, buckets, and domains are trusted: the classifier uses it to decide what "external" means, so any destination not listed is a potential exfiltration target.</p>
-<p>As of Claude Code v2.1.195, <code>claude auto-mode defaults</code> prints two kinds of environment entry.</p>
+<p>As of Claude Code v2.1.198, <code>claude auto-mode defaults</code> prints three kinds of environment entry. Versions before v2.1.195 print only the first five trust slots.</p>
 <ul>
+<li><strong>Context slots</strong>: describe your organization, stack, and security posture so the classifier reads the other rules in your context. Unlike the other two kinds, context slots have no rules of their own that target them. Each defaults to <code>None configured</code> or to the conservative assumption named next to it:</li>
+<li><strong>Organization</strong></li>
+<li><strong>Primary use of Claude Code</strong>: defaults to software development</li>
+<li><strong>Cloud provider(s)</strong></li>
+<li><strong>Repository visibility</strong>: a repository is assumed private unless its remote host and name indicate otherwise</li>
+<li><strong>Internal sharing / snippet hosting</strong>: public paste and gist services are treated as outside the trust boundary until you name one</li>
+<li><strong>Org-specific CLIs</strong></li>
+<li><strong>Secrets management</strong></li>
+<li><strong>Default / protected branches</strong>: <code>main</code> and <code>master</code> are treated as protected until you name others</li>
+<li><strong>CI/CD deploy targets</strong></li>
+<li><strong>Network posture</strong></li>
+<li><strong>Protected deployment namespaces / environments</strong>: falls back to the Sensitive remote targets heuristic until you name them</li>
+<li><strong>Data retention / declassification</strong></li>
 <li><strong>Trust slots</strong>: name what the classifier treats as inside your boundary. The slots are Trusted repo, Source control, Trusted internal domains, Trusted cloud buckets, Key internal services, and Internal package registry. The repo and source-control entries default to the working repository and its configured remotes. Every other trust slot defaults to <code>None configured</code>, so nothing else is trusted until you add it.</li>
-<li><strong>Sensitivity slots</strong>: name what the protective rules treat as high-risk. The slots are PII / regulated-data locations, Sensitive remote targets, and Protected IaC scopes. Each defaults to a broad heuristic, such as treating any host or namespace whose name carries <code>prod</code> or <code>production</code> as a sensitive remote target, so the protective rules are active before you configure anything. Naming concrete targets in a sensitivity slot makes those rules apply to the named targets instead of the heuristic.</li>
+<li><strong>Sensitivity slots</strong>: name what the protective rules treat as high-risk. The slots are Sensitive data locations &amp; audiences, Sensitive remote targets, and Protected IaC scopes. Each defaults to a broad heuristic, such as treating any host or namespace whose name carries <code>prod</code> or <code>production</code> as a sensitive remote target, so the protective rules are active before you configure anything. Naming concrete targets in a sensitivity slot makes those rules apply to the named targets instead of the heuristic.</li>
 </ul>
-<p>Versions before v2.1.195 print only the first five trust slots.</p>
 <p>To add your own entries alongside the defaults, include the literal string <code>"$defaults"</code> in the array. The default entries are spliced in at that position, so your custom entries can go before or after them.</p>
 <p>The following example keeps the default entries and adds an organization's repos, buckets, domains, and services.</p>
 <p>```json theme={null}
@@ -4957,12 +4969,12 @@ Use this file to discover all available pages before exploring further.</p>
 * **Trusted internal domains**: hostnames for APIs, dashboards, and services inside your network, like `*.internal.example.com`
 * **Key internal services**: CI, artifact registries, internal package indexes, incident tooling
 * **Internal package registry**: the private npm, PyPI, or other registry that installs should route through, so installs that bypass it for a public registry get blocked
-* **PII / regulated-data locations**: the buckets, databases, or paths that hold personal or regulated data, so the classifier protects those locations instead of guessing from content
+* **Sensitive data locations &amp; audiences**: the buckets, databases, or paths that hold personal data, confidential business data, credentials, regulated data, or similarly sensitive material, and the audiences that data in each location may be shared with, so the classifier protects those locations instead of guessing from content. {/* min-version: 2.1.195 */}{/* max-version: 2.1.197 */}Claude Code v2.1.195 through v2.1.197 name this entry PII / regulated-data locations and cover only locations that hold personal or regulated data, without the audience dimension
 * **Sensitive remote targets**: the namespaces, hosts, or containers that count as production, so remote shells and port-forwards into them need your explicit approval
 * **Protected IaC scopes**: the infrastructure resources whose apply or destroy should always require you to name the change
 * **Additional context**: regulated-industry constraints, multi-tenant infrastructure, or compliance requirements that affect what the classifier should treat as risky
 
-The Internal package registry, PII / regulated-data locations, Sensitive remote targets, and Protected IaC scopes entries require Claude Code v2.1.195 or later. Earlier versions still read them as plain context but don&#39;t have the built-in rules that target them.
+The Internal package registry, Sensitive data locations &amp; audiences, Sensitive remote targets, and Protected IaC scopes entries require Claude Code v2.1.195 or later. Earlier versions still read them as plain context but don&#39;t have the built-in rules that target them.
 
 A useful starting template: fill in the bracketed fields and remove any lines that don&#39;t apply.
 
