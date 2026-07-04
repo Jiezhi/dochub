@@ -5333,31 +5333,49 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Accordion title="Example: Check message types and handle results">
   <CodeGroup>
     ```python Python theme={null}
+    import asyncio
     from claude_agent_sdk import query, AssistantMessage, ResultMessage</p>
-<pre><code>async for message in query(prompt="Summarize this project"):
-    if isinstance(message, AssistantMessage):
-        print(f"Turn completed: {len(message.content)} content blocks")
-    if isinstance(message, ResultMessage):
-        if message.subtype == "success":
-            print(message.result)
-        else:
-            print(f"Stopped: {message.subtype}")
+<pre><code>async def main():
+    try:
+        async for message in query(prompt="Summarize this project"):
+            if isinstance(message, AssistantMessage):
+                print(f"Turn completed: {len(message.content)} content blocks")
+            if isinstance(message, ResultMessage):
+                if message.subtype == "success":
+                    print(message.result)
+                else:
+                    print(f"Stopped: {message.subtype}")
+    except Exception as error:
+        # A single-shot query() raises after yielding an error result. If the
+        # failure was an error result, the error subtype branches above have
+        # already run; connection or process failures yield no result message.
+        print(f"Session ended with an error: {error}")
+
+
+asyncio.run(main())
 ```
 
 ```typescript TypeScript theme={null}
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
-for await (const message of query({ prompt: "Summarize this project" })) {
-  if (message.type === "assistant") {
-    console.log(`Turn completed: ${message.message.content.length} content blocks`);
-  }
-  if (message.type === "result") {
-    if (message.subtype === "success") {
-      console.log(message.result);
-    } else {
-      console.log(`Stopped: ${message.subtype}`);
+try {
+  for await (const message of query({ prompt: "Summarize this project" })) {
+    if (message.type === "assistant") {
+      console.log(`Turn completed: ${message.message.content.length} content blocks`);
+    }
+    if (message.type === "result") {
+      if (message.subtype === "success") {
+        console.log(message.result);
+      } else {
+        console.log(`Stopped: ${message.subtype}`);
+      }
     }
   }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result. If the
+  // failure was an error result, the error subtype branches above have
+  // already run; connection or process failures yield no result message.
+  console.log(`Session ended with an error: ${error}`);
 }
 ```
 </code></pre>
@@ -5559,7 +5577,7 @@ for await (const message of query({ prompt: "Summarize this project" })) {
 <tr>
 <td style="text-align: left;"><strong>Tool definitions</strong></td>
 <td style="text-align: left;">Every request; MCP schemas deferred by default</td>
-<td style="text-align: left;">Built-in tool schemas load every request. <a href="/en/agent-sdk/mcp#mcp-tool-search">Tool search</a> defers MCP tool schemas by default, falling back to upfront loading on Vertex AI or a non-first-party <code>ANTHROPIC_BASE_URL</code>. See <a href="/en/agent-sdk/tool-search#configure-tool-search">Configure tool search</a> for the full matrix</td>
+<td style="text-align: left;">Built-in tool schemas load every request. <a href="/en/agent-sdk/mcp#mcp-tool-search">Tool search</a> defers MCP tool schemas by default, falling back to upfront loading on Google Cloud's Agent Platform or a non-first-party <code>ANTHROPIC_BASE_URL</code>. See <a href="/en/agent-sdk/tool-search#configure-tool-search">Configure tool search</a> for the full matrix</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Conversation history</strong></td>
@@ -5599,7 +5617,7 @@ for await (const message of query({ prompt: "Summarize this project" })) {
 <ul>
 <li><strong>Use subagents for subtasks.</strong> Each subagent starts with a fresh conversation (no prior message history, though it does load its own system prompt and project-level context like CLAUDE.md). It does not see the parent's turns, and only its final response returns to the parent as a tool result. The main agent's context grows by that summary, not by the full subtask transcript. See <a href="/en/agent-sdk/subagents#what-subagents-inherit">What subagents inherit</a> for details.</li>
 <li><strong>Be selective with tools.</strong> Every tool definition takes context space. Use the <code>tools</code> field on <a href="/en/agent-sdk/subagents#agentdefinition-configuration"><code>AgentDefinition</code></a> to scope subagents to the minimum set they need.</li>
-<li><strong>Watch MCP server costs.</strong> <a href="/en/agent-sdk/mcp#mcp-tool-search">MCP tool search</a> defers MCP tool schemas by default and loads them on demand. When tool search is off, on Vertex AI, or behind a non-first-party <code>ANTHROPIC_BASE_URL</code>, each MCP server adds all its tool schemas to every request, so a few servers with many tools can consume significant context before the agent does any work.</li>
+<li><strong>Watch MCP server costs.</strong> <a href="/en/agent-sdk/mcp#mcp-tool-search">MCP tool search</a> defers MCP tool schemas by default and loads them on demand. When tool search is off, on Google Cloud's Agent Platform, or behind a non-first-party <code>ANTHROPIC_BASE_URL</code>, each MCP server adds all its tool schemas to every request, so a few servers with many tools can consume significant context before the agent does any work.</li>
 <li><strong>Use lower effort for routine tasks.</strong> Set <a href="#effort-level">effort</a> to <code>"low"</code> for agents that only need to read files or list directories. This reduces token usage and cost.</li>
 </ul>
 <p>For a detailed breakdown of per-feature context costs, see <a href="/en/features-overview#understand-context-costs">Understand context costs</a>.</p>
@@ -5649,6 +5667,13 @@ for await (const message of query({ prompt: "Summarize this project" })) {
 </tbody>
 </table>
 <p>The <code>result</code> field (the final text output) is only present on the <code>success</code> variant, so always check the subtype before reading it. All result subtypes carry <code>total_cost_usd</code>, <code>usage</code>, <code>num_turns</code>, and <code>session_id</code> so you can track cost and resume even after errors. In Python, <code>total_cost_usd</code> and <code>usage</code> are typed as optional and may be <code>None</code> on some error paths, so guard before formatting them. See <a href="/en/agent-sdk/cost-tracking">Tracking costs and usage</a> for details on interpreting the <code>usage</code> fields.</p>
+<p><Note>
+  When a query ends on an error result:</p>
+<ul>
+<li>A single-shot <code>query()</code> call yields the final result message, then raises an error that includes the failure text, such as <code>Reached maximum number of turns</code>. The raise is intentional — wrap the loop in a try block if your code needs to continue past it. The underlying Claude Code process also exits with a nonzero code.</li>
+<li>A streaming input session stays alive, and you can keep sending messages.
+</Note></li>
+</ul>
 <p>The result also includes a <code>stop_reason</code> field (<code>string | null</code> in TypeScript, <code>str | None</code> in Python) indicating why the model stopped generating on its final turn. Common values are <code>end_turn</code> (model finished normally), <code>max_tokens</code> (hit the output token limit), and <code>refusal</code> (the model declined the request). On error result subtypes, <code>stop_reason</code> carries the value from the last assistant response before the loop ended. To detect refusals, check <code>stop_reason === "refusal"</code> (TypeScript) or <code>stop_reason == "refusal"</code> (Python). See <a href="/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> (TypeScript) or <a href="/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> (Python) for the full type.</p>
 <h2 id="hooks">Hooks</h2>
 <p><a href="/en/agent-sdk/hooks">Hooks</a> are callbacks that fire at specific points in the loop: before a tool runs, after it returns, when the agent finishes, and so on. Some commonly used hooks are:</p>
@@ -5697,44 +5722,51 @@ for await (const message of query({ prompt: "Summarize this project" })) {
 <p>Both SDKs support all the events above. The TypeScript SDK includes additional events that Python does not yet support. See <a href="/en/agent-sdk/hooks">Control execution with hooks</a> for the complete event list, per-SDK availability, and the full callback API.</p>
 <h2 id="put-it-all-together">Put it all together</h2>
 <p>This example combines the key concepts from this page into a single agent that fixes failing tests. It configures the agent with allowed tools (auto-approved so the agent runs autonomously), project settings, and safety limits on turns and reasoning effort. As the loop runs, it captures the session ID for potential resumption, handles the final result, and prints the total cost.</p>
+<p>Because a single-shot <code>query()</code> call raises after yielding an error result, the loop is wrapped in a try block so the script exits cleanly when a limit is hit.</p>
 <p><CodeGroup>
   ```python Python theme={null}
   import asyncio
   from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage</p>
 <p>async def run_agent():
       session_id = None</p>
-<pre><code>  async for message in query(
-      prompt="Find and fix the bug causing test failures in the auth module",
-      options=ClaudeAgentOptions(
-          allowed_tools=[
-              "Read",
-              "Edit",
-              "Bash",
-              "Glob",
-              "Grep",
-          ],  # Listing tools here auto-approves them (no prompting)
-          setting_sources=[
-              "project"
-          ],  # Load CLAUDE.md, skills, hooks from current directory
-          max_turns=30,  # Prevent runaway sessions
-          effort="high",  # Thorough reasoning for complex debugging
-      ),
-  ):
-      # Handle the final result
-      if isinstance(message, ResultMessage):
-          session_id = message.session_id  # Save for potential resumption
+<pre><code>  try:
+      async for message in query(
+          prompt="Find and fix the bug causing test failures in the auth module",
+          options=ClaudeAgentOptions(
+              allowed_tools=[
+                  "Read",
+                  "Edit",
+                  "Bash",
+                  "Glob",
+                  "Grep",
+              ],  # Listing tools here auto-approves them (no prompting)
+              setting_sources=[
+                  "project"
+              ],  # Load CLAUDE.md, skills, hooks from current directory
+              max_turns=30,  # Prevent runaway sessions
+              effort="high",  # Thorough reasoning for complex debugging
+          ),
+      ):
+          # Handle the final result
+          if isinstance(message, ResultMessage):
+              session_id = message.session_id  # Save for potential resumption
 
-          if message.subtype == "success":
-              print(f"Done: {message.result}")
-          elif message.subtype == "error_max_turns":
-              # Agent ran out of turns. Resume with a higher limit.
-              print(f"Hit turn limit. Resume session {session_id} to continue.")
-          elif message.subtype == "error_max_budget_usd":
-              print("Hit budget limit.")
-          else:
-              print(f"Stopped: {message.subtype}")
-          if message.total_cost_usd is not None:
-              print(f"Cost: ${message.total_cost_usd:.4f}")
+              if message.subtype == "success":
+                  print(f"Done: {message.result}")
+              elif message.subtype == "error_max_turns":
+                  # Agent ran out of turns. Resume with a higher limit.
+                  print(f"Hit turn limit. Resume session {session_id} to continue.")
+              elif message.subtype == "error_max_budget_usd":
+                  print("Hit budget limit.")
+              else:
+                  print(f"Stopped: {message.subtype}")
+              if message.total_cost_usd is not None:
+                  print(f"Cost: ${message.total_cost_usd:.4f}")
+  except Exception as error:
+      # A single-shot query() raises after yielding an error result. If the
+      # failure was an error result, the error subtype branches above have
+      # already run; connection or process failures yield no result message.
+      print(f"Session ended with an error: {error}")
 </code></pre>
 <p>asyncio.run(run_agent())
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
@@ -5742,34 +5774,41 @@ import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 
 let sessionId: string | undefined;
 
-for await (const message of query({
-  prompt: &quot;Find and fix the bug causing test failures in the auth module&quot;,
-  options: {
-    allowedTools: [&quot;Read&quot;, &quot;Edit&quot;, &quot;Bash&quot;, &quot;Glob&quot;, &quot;Grep&quot;], // Listing tools here auto-approves them (no prompting)
-    settingSources: [&quot;project&quot;], // Load CLAUDE.md, skills, hooks from current directory
-    maxTurns: 30, // Prevent runaway sessions
-    effort: &quot;high&quot; // Thorough reasoning for complex debugging
-  }
-})) {
-  // Save the session ID to resume later if needed
-  if (message.type === &quot;system&quot; &amp;&amp; message.subtype === &quot;init&quot;) {
-    sessionId = message.session_id;
-  }
-
-  // Handle the final result
-  if (message.type === &quot;result&quot;) {
-    if (message.subtype === &quot;success&quot;) {
-      console.log(`Done: ${message.result}`);
-    } else if (message.subtype === &quot;error_max_turns&quot;) {
-      // Agent ran out of turns. Resume with a higher limit.
-      console.log(`Hit turn limit. Resume session ${sessionId} to continue.`);
-    } else if (message.subtype === &quot;error_max_budget_usd&quot;) {
-      console.log(&quot;Hit budget limit.&quot;);
-    } else {
-      console.log(`Stopped: ${message.subtype}`);
+try {
+  for await (const message of query({
+    prompt: &quot;Find and fix the bug causing test failures in the auth module&quot;,
+    options: {
+      allowedTools: [&quot;Read&quot;, &quot;Edit&quot;, &quot;Bash&quot;, &quot;Glob&quot;, &quot;Grep&quot;], // Listing tools here auto-approves them (no prompting)
+      settingSources: [&quot;project&quot;], // Load CLAUDE.md, skills, hooks from current directory
+      maxTurns: 30, // Prevent runaway sessions
+      effort: &quot;high&quot; // Thorough reasoning for complex debugging
     }
-    console.log(`Cost: $${message.total_cost_usd.toFixed(4)}`);
+  })) {
+    // Save the session ID to resume later if needed
+    if (message.type === &quot;system&quot; &amp;&amp; message.subtype === &quot;init&quot;) {
+      sessionId = message.session_id;
+    }
+
+    // Handle the final result
+    if (message.type === &quot;result&quot;) {
+      if (message.subtype === &quot;success&quot;) {
+        console.log(`Done: ${message.result}`);
+      } else if (message.subtype === &quot;error_max_turns&quot;) {
+        // Agent ran out of turns. Resume with a higher limit.
+        console.log(`Hit turn limit. Resume session ${sessionId} to continue.`);
+      } else if (message.subtype === &quot;error_max_budget_usd&quot;) {
+        console.log(&quot;Hit budget limit.&quot;);
+      } else {
+        console.log(`Stopped: ${message.subtype}`);
+      }
+      console.log(`Cost: $${message.total_cost_usd.toFixed(4)}`);
+    }
   }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result. If the
+  // failure was an error result, the error subtype branches above have
+  // already run; connection or process failures yield no result message.
+  console.log(`Session ended with an error: ${error}`);
 }
 </code></pre></div>
 </CodeGroup></p>

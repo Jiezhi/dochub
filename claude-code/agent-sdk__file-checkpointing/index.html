@@ -594,6 +594,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#file-rewinding-is-not-enabled-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "File rewinding is not enabled" error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#processtransport-is-not-ready-for-writing-error" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4994,6 +5005,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#file-rewinding-is-not-enabled-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        "File rewinding is not enabled" error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#processtransport-is-not-ready-for-writing-error" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5235,8 +5257,8 @@ Capturing the session ID (`message.session_id`) is optional; you only need it if
   session_id = None
 
   async for message in client.receive_response():
-      # Update checkpoint on each user message (keeps the latest)
-      if isinstance(message, UserMessage) and message.uuid:
+      # Capture the first user message UUID as the checkpoint
+      if isinstance(message, UserMessage) and message.uuid and checkpoint_id is None:
           checkpoint_id = message.uuid
       # Capture session ID from the result message
       if isinstance(message, ResultMessage):
@@ -5248,8 +5270,8 @@ Capturing the session ID (`message.session_id`) is optional; you only need it if
   let sessionId: string | undefined;
 
   for await (const message of response) {
-    // Update checkpoint on each user message (keeps the latest)
-    if (message.type === "user" &amp;&amp; message.uuid) {
+    // Capture the first user message UUID as the checkpoint
+    if (message.type === "user" &amp;&amp; message.uuid &amp;&amp; !checkpointId) {
       checkpointId = message.uuid;
     }
     // Capture session ID from any message that has it
@@ -5287,11 +5309,13 @@ Capturing the session ID (`message.session_id`) is optional; you only need it if
   ```
 &lt;/CodeGroup&gt;
 
-If you capture the session ID and checkpoint ID, you can also rewind from the CLI. This command requires the `claude` executable, which comes from [installing Claude Code](/en/setup) and is not installed by the SDK package:
+If you capture the session ID and checkpoint ID, you can also rewind from the CLI. This command requires the `claude` executable, which comes from [installing Claude Code](/en/setup) and is not installed by the SDK package. The SDK enables checkpointing for you, but when you run `claude -p` directly you must set the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable:
 
 ```bash theme={null}
-claude -p --resume &lt;session-id&gt; --rewind-files &lt;checkpoint-uuid&gt;
+CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true claude -p --resume &lt;session-id&gt; --rewind-files &lt;checkpoint-uuid&gt;
 ```
+
+The `--rewind-files` flag does not appear in `claude --help` output, but the CLI accepts it as shown.
 </code></pre>
 <p></Step>
 </Steps></p>
@@ -5299,6 +5323,7 @@ claude -p --resume &lt;session-id&gt; --rewind-files &lt;checkpoint-uuid&gt;
 <p>These patterns show different ways to capture and use checkpoint UUIDs depending on your use case.</p>
 <h3 id="checkpoint-before-risky-operations">Checkpoint before risky operations</h3>
 <p>This pattern keeps only the most recent checkpoint UUID, updating it before each agent turn. If something goes wrong during processing, you can immediately rewind to the last safe state and break out of the loop.</p>
+<p>Before running this example, replace <code>your_revert_condition</code> (Python) or <code>yourRevertCondition</code> (TypeScript) with your own check, such as error detection or a validation failure; the placeholder is not defined in the example.</p>
 <p><CodeGroup>
   ```python Python theme={null}
   import asyncio
@@ -5749,11 +5774,17 @@ You'll see the agent add doc comments, then a prompt asking if you want to rewin
 <li>The session wasn't properly completed before attempting to resume and rewind</li>
 </ul>
 <p><strong>Solution</strong>: Ensure <code>enable_file_checkpointing=True</code> (Python) or <code>enableFileCheckpointing: true</code> (TypeScript) was set on the original session, then use the pattern shown in the examples: capture the first user message UUID, complete the session fully, then resume with an empty prompt and call <code>rewindFiles()</code> once.</p>
+<h3 id="file-rewinding-is-not-enabled-error">"File rewinding is not enabled" error</h3>
+<p>This error occurs when you attempt a non-interactive rewind without checkpointing enabled: running bare <code>claude -p</code> with <code>--rewind-files</code>, or running an SDK session, including a resumed one, whose options don't enable checkpointing. The SDK sets the <code>CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING</code> environment variable internally only when <code>enable_file_checkpointing</code> (Python) or <code>enableFileCheckpointing</code> (TypeScript) is enabled on the session performing the rewind; the bare CLI never sets it.</p>
+<p><strong>Solution</strong>: For the bare CLI, set the environment variable when running the command:</p>
+<p><code>bash theme={null}
+CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true claude -p --resume &lt;session-id&gt; --rewind-files &lt;checkpoint-uuid&gt;</code></p>
+<p>For the SDK, set <code>enable_file_checkpointing=True</code> (Python) or <code>enableFileCheckpointing: true</code> (TypeScript) on the resumed session, as the examples on this page do.</p>
 <h3 id="processtransport-is-not-ready-for-writing-error">"ProcessTransport is not ready for writing" error</h3>
 <p>This error occurs when you call <code>rewindFiles()</code> or <code>rewind_files()</code> after you've finished iterating through the response. The connection to the CLI process closes when the loop completes.</p>
 <p><strong>Solution</strong>: Resume the session with an empty prompt, then call rewind on the new query:</p>
 <p><CodeGroup>
-  ```python Python theme={null}
+  <code>python Python theme={null}
   # Resume session with empty prompt, then rewind
   async with ClaudeSDKClient(
       ClaudeAgentOptions(enable_file_checkpointing=True, resume=session_id)
@@ -5761,19 +5792,18 @@ You'll see the agent add doc comments, then a prompt asking if you want to rewin
       await client.query("")
       async for message in client.receive_response():
           await client.rewind_files(checkpoint_id)
-          break
-  <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
-// Resume session with empty prompt, then rewind
-const rewindQuery = query({
-  prompt: &quot;&quot;,
-  options: { ...opts, resume: sessionId }
-});
-
-for await (const msg of rewindQuery) {
-  await rewindQuery.rewindFiles(checkpointId);
-  break;
-}
-</code></pre></div>
+          break</code></p>
+<p>```typescript TypeScript theme={null}
+  // Resume session with empty prompt, then rewind
+  const rewindQuery = query({
+    prompt: "",
+    options: { ...opts, resume: sessionId }
+  });</p>
+<p>for await (const msg of rewindQuery) {
+    await rewindQuery.rewindFiles(checkpointId);
+    break;
+  }
+  ```
 </CodeGroup></p>
 <h2 id="next-steps">Next steps</h2>
 <ul>

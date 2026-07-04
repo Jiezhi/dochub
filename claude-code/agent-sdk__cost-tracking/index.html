@@ -5047,10 +5047,18 @@ Use this file to discover all available pages before exploring further.</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
   import { query } from "@anthropic-ai/claude-agent-sdk";</p>
-<p>for await (const message of query({ prompt: "Summarize this project" })) {
-    if (message.type === "result") {
-      console.log(<code>Total cost: $${message.total_cost_usd}</code>);
+<p>try {
+    for await (const message of query({ prompt: "Summarize this project" })) {
+      if (message.type === "result") {
+        console.log(<code>Total cost: $${message.total_cost_usd}</code>);
+      }
     }
+  } catch (error) {
+    // A single-shot query() throws after yielding an error result. If the
+    // failure was an error result, it still carried total_cost_usd and the
+    // branch above has already run; connection or process failures yield
+    // no result message.
+    console.error(<code>Session ended with an error: ${error}</code>);
   }
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
 from claude_agent_sdk import query, ResultMessage
@@ -5058,9 +5066,16 @@ import asyncio
 
 
 async def main():
-    async for message in query(prompt=&quot;Summarize this project&quot;):
-        if isinstance(message, ResultMessage):
-            print(f&quot;Total cost: ${message.total_cost_usd or 0}&quot;)
+    try:
+        async for message in query(prompt=&quot;Summarize this project&quot;):
+            if isinstance(message, ResultMessage):
+                print(f&quot;Total cost: ${message.total_cost_usd or 0}&quot;)
+    except Exception as error:
+        # A single-shot query() raises after yielding an error result. If the
+        # failure was an error result, it still carried total_cost_usd and the
+        # branch above has already run; connection or process failures yield
+        # no result message.
+        print(f&quot;Session ended with an error: {error}&quot;)
 
 
 asyncio.run(main())
@@ -5079,17 +5094,23 @@ import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>const seenIds = new Set<string>();
 let totalInputTokens = 0;
 let totalOutputTokens = 0;</p>
-<p>for await (const message of query({ prompt: "Summarize this project" })) {
-  if (message.type === "assistant") {
-    const msgId = message.message.id;</p>
-<pre><code>// Parallel tool calls share the same ID, only count once
-if (!seenIds.has(msgId)) {
-  seenIds.add(msgId);
-  totalInputTokens += message.message.usage.input_tokens;
-  totalOutputTokens += message.message.usage.output_tokens;
+<p>try {
+  for await (const message of query({ prompt: "Summarize this project" })) {
+    if (message.type === "assistant") {
+      const msgId = message.message.id;</p>
+<pre><code>  // Parallel tool calls share the same ID, only count once
+  if (!seenIds.has(msgId)) {
+    seenIds.add(msgId);
+    totalInputTokens += message.message.usage.input_tokens;
+    totalOutputTokens += message.message.usage.output_tokens;
+  }
 }
 </code></pre>
 <p>}
+} catch (error) {
+  // A single-shot query() throws after yielding an error result, so the
+  // totals below still reflect the steps that ran before the failure.
+  console.error(<code>Session ended with an error: ${error}</code>);
 }</p>
 <p>console.log(<code>Steps: ${seenIds.size}</code>);
 console.log(<code>Input tokens: ${totalInputTokens}</code>);
@@ -5103,16 +5124,23 @@ The following example runs a query and prints the cost and token breakdown for e
 ```typescript theme={null}
 import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 
-for await (const message of query({ prompt: &quot;Summarize this project&quot; })) {
-  if (message.type !== &quot;result&quot;) continue;
+try {
+  for await (const message of query({ prompt: &quot;Summarize this project&quot; })) {
+    if (message.type !== &quot;result&quot;) continue;
 
-  for (const [modelName, usage] of Object.entries(message.modelUsage)) {
-    console.log(`${modelName}: $${usage.costUSD.toFixed(4)}`);
-    console.log(`  Input tokens: ${usage.inputTokens}`);
-    console.log(`  Output tokens: ${usage.outputTokens}`);
-    console.log(`  Cache read: ${usage.cacheReadInputTokens}`);
-    console.log(`  Cache creation: ${usage.cacheCreationInputTokens}`);
+    for (const [modelName, usage] of Object.entries(message.modelUsage)) {
+      console.log(`${modelName}: $${usage.costUSD.toFixed(4)}`);
+      console.log(`  Input tokens: ${usage.inputTokens}`);
+      console.log(`  Output tokens: ${usage.outputTokens}`);
+      console.log(`  Cache read: ${usage.cacheReadInputTokens}`);
+      console.log(`  Cache creation: ${usage.cacheCreationInputTokens}`);
+    }
   }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result. If the
+  // failure was an error result, the per-model breakdown above has already
+  // printed; connection or process failures yield no result message.
+  console.error(`Session ended with an error: ${error}`);
 }
 </code></pre></div></p>
 <h2 id="accumulate-costs-across-multiple-calls">Accumulate costs across multiple calls</h2>
@@ -5128,11 +5156,19 @@ for await (const message of query({ prompt: &quot;Summarize this project&quot; }
     "List all exported functions in src/auth.ts"
   ];</p>
 <p>for (const prompt of prompts) {
-    for await (const message of query({ prompt })) {
-      if (message.type === "result") {
-        totalSpend += message.total_cost_usd;
-        console.log(<code>This call: $${message.total_cost_usd}</code>);
+    try {
+      for await (const message of query({ prompt })) {
+        if (message.type === "result") {
+          totalSpend += message.total_cost_usd;
+          console.log(<code>This call: $${message.total_cost_usd}</code>);
+        }
       }
+    } catch (error) {
+      // A single-shot query() throws after yielding an error result. If the
+      // failure was an error result, this call's cost was already counted;
+      // connection or process failures yield no result message. Continue
+      // with the next prompt.
+      console.error(<code>Call failed: ${error}</code>);
     }
   }</p>
 <p>console.log(<code>Total spend: $${totalSpend.toFixed(4)}</code>);
@@ -5151,11 +5187,18 @@ async def main():
     ]
 
     for prompt in prompts:
-        async for message in query(prompt=prompt):
-            if isinstance(message, ResultMessage):
-                cost = message.total_cost_usd or 0
-                total_spend += cost
-                print(f&quot;This call: ${cost}&quot;)
+        try:
+            async for message in query(prompt=prompt):
+                if isinstance(message, ResultMessage):
+                    cost = message.total_cost_usd or 0
+                    total_spend += cost
+                    print(f&quot;This call: ${cost}&quot;)
+        except Exception as error:
+            # A single-shot query() raises after yielding an error result. If
+            # the failure was an error result, this call&#39;s cost was already
+            # counted; connection or process failures yield no result message.
+            # Continue with the next prompt.
+            print(f&quot;Call failed: {error}&quot;)
 
     print(f&quot;Total spend: ${total_spend:.4f}&quot;)
 
@@ -5182,9 +5225,9 @@ asyncio.run(main())
 </ul>
 <p>Track these separately from <code>input_tokens</code> to understand caching savings. In TypeScript, these fields are typed on the <a href="/en/agent-sdk/typescript#usage"><code>Usage</code></a> object. In Python, they appear as keys in the <a href="/en/agent-sdk/python#resultmessage"><code>ResultMessage.usage</code></a> dict (for example, <code>message.usage.get("cache_read_input_tokens", 0)</code>).</p>
 <h3 id="extend-the-prompt-cache-ttl-to-one-hour">Extend the prompt cache TTL to one hour</h3>
-<p>Cache entries written by the SDK use a 5-minute TTL by default when you authenticate with an API key or run on Amazon Bedrock, Google Cloud Vertex AI, or Microsoft Foundry. If your workload runs many short sessions against the same system prompt and context with gaps longer than 5 minutes between them, the cache expires between sessions and each new session pays full input price.</p>
+<p>Cache entries written by the SDK use a 5-minute TTL by default when you authenticate with an API key or run on Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry. If your workload runs many short sessions against the same system prompt and context with gaps longer than 5 minutes between them, the cache expires between sessions and each new session pays full input price.</p>
 <p>To request a 1-hour TTL on cache writes, set the <a href="/en/env-vars"><code>ENABLE_PROMPT_CACHING_1H</code></a> environment variable. You can export it in your shell or container environment, or pass it through <code>options.env</code>.</p>
-<p>The following example enables 1-hour TTL for an agent running on Bedrock:</p>
+<p>The following example enables 1-hour TTL for an agent running on Amazon Bedrock:</p>
 <p><CodeGroup>
   ```python Python theme={null}
   from claude_agent_sdk import ClaudeAgentOptions, query

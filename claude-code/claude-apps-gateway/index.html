@@ -5061,7 +5061,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Access control</strong>: your IdP groups map to model allowlists and <a href="/en/permissions#managed-settings">managed settings</a> policies. The gateway enforces model access server-side, rejecting requests for non-granted models, and selects each group's managed settings policy, which the CLI applies at the <a href="/en/settings#settings-precedence">managed settings tier</a>. Different teams get different models, tools, and permissions, and a developer can't override what their policy locks.</li>
 <li><strong>Settings delivery</strong>: the gateway delivers managed settings to signed-in clients itself, taking the place of <a href="/en/server-managed-settings">server-managed settings</a> from the claude.ai admin console.</li>
 <li><strong>Telemetry</strong>: each configured destination, such as Datadog, Splunk, or ClickHouse, receives <a href="/en/monitoring-usage">OpenTelemetry Protocol (OTLP) metrics</a> with token counts, model, user identity, and latency by default, with logs and traces as per-destination opt-ins.</li>
-<li><strong>Upstream routing</strong>: clients speak the Anthropic Messages API to the gateway, and the gateway translates for each upstream, whether Bedrock, <a href="/en/claude-platform-on-aws">Claude Platform on AWS</a>, Google Cloud's Agent Platform, Foundry, or the Anthropic API, with failover between them. You can change regions, providers, or failover order without developers noticing or reconfiguring.</li>
+<li><strong>Upstream routing</strong>: clients speak the Anthropic Messages API to the gateway, and the gateway translates for each upstream, whether Amazon Bedrock, <a href="/en/claude-platform-on-aws">Claude Platform on AWS</a>, Google Cloud's Agent Platform, Microsoft Foundry, or the Anthropic API, with failover between them. You can change regions, providers, or failover order without developers noticing or reconfiguring.</li>
 </ul>
 <p><Frame>
   <img src="https://mintcdn.com/claude-code/st9_ZQOFsZa3cKFl/images/claude-gateway-architecture.svg?fit=max&auto=format&n=st9_ZQOFsZa3cKFl&q=85&s=560770d8f49bbd6f1ca7090ed1f13c03" alt="Diagram showing Claude Code clients connecting over HTTPS with bearer tokens to a self-hosted Claude apps gateway inside your infrastructure, which signs users in against your IdP, stores auth state in PostgreSQL, relays telemetry to your OTLP collector, and forwards inference to Amazon Bedrock, Claude Platform on AWS, Google Cloud, Microsoft Foundry, or the Anthropic API" width="760" height="320" data-path="images/claude-gateway-architecture.svg" />
@@ -5075,7 +5075,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>The <a href="/en/llm-gateway-protocol">gateway protocol reference</a> documents the contract Claude Code expects from any gateway: the endpoints it calls, the headers and body fields to forward, and what stops working when they're stripped. A running Claude apps gateway serves a superset of that contract at <code>GET /protocol</code>, adding the Claude apps gateway-specific endpoints for SSO sign-in, managed settings delivery, and telemetry. Fetch it with <code>curl https://claude-gateway.internal.example.com/protocol</code> from any deployed gateway, such as the one the <a href="#quickstart">quickstart</a> below produces.</p>
 <p>Breaking changes to the protocol are announced in advance, but indefinite backwards compatibility isn't guaranteed.</p>
 <h2 id="quickstart">Quickstart</h2>
-<p>This quickstart walks the minimal path: register an OAuth client in your IdP, write a <code>gateway.yaml</code>, run the gateway alongside Postgres with Docker Compose, and verify sign-in end to end. It uses an Amazon Bedrock upstream; Claude Platform on AWS, Google Cloud's Agent Platform, Foundry, and the Anthropic API are equally supported by swapping the <code>upstreams</code> block as shown in the <a href="/en/claude-apps-gateway-config#upstreams">configuration reference</a>. At the end you have a gateway a developer can <code>/login</code> to.</p>
+<p>This quickstart walks the minimal path: register an OAuth client in your IdP, write a <code>gateway.yaml</code>, run the gateway alongside Postgres with Docker Compose, and verify sign-in end to end. It uses an Amazon Bedrock upstream; Claude Platform on AWS, Google Cloud's Agent Platform, Microsoft Foundry, and the Anthropic API are equally supported by swapping the <code>upstreams</code> block as shown in the <a href="/en/claude-apps-gateway-config#upstreams">configuration reference</a>. At the end you have a gateway a developer can <code>/login</code> to.</p>
 <p><Note>
   <strong>Deploy on your private network.</strong> Claude Code only connects to a gateway whose address is private. This is a security guard, because a trusted gateway can push settings that run commands on developer machines. Put the gateway behind an internal load balancer or VPN and give it a hostname that resolves to private IPs only.
 </Note></p>
@@ -5165,10 +5165,10 @@ upstreams:
 auto_include_builtin_models: true
 ```
 
-This config is enough for a working sign-in loop with the default Bedrock model catalog. Once it's running, add per-group RBAC and managed settings via [`managed.policies`](/en/claude-apps-gateway-config#managed), telemetry fan-out via [`telemetry`](/en/claude-apps-gateway-config#telemetry), and multi-upstream failover, provisioned-throughput ARNs, or non-US regions via [`models`](/en/claude-apps-gateway-config#models).
+This config is enough for a working sign-in loop with the default Amazon Bedrock model catalog. Once it's running, add per-group RBAC and managed settings via [`managed.policies`](/en/claude-apps-gateway-config#managed), telemetry fan-out via [`telemetry`](/en/claude-apps-gateway-config#telemetry), and multi-upstream failover, provisioned-throughput ARNs, or non-US regions via [`models`](/en/claude-apps-gateway-config#models).
 
 &lt;Note&gt;
-  The Bedrock upstream needs an AWS principal with `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on both the `inference-profile/us.anthropic.*` ARNs and the underlying `foundation-model/anthropic.*` ARNs, and model access enabled in the Bedrock console for the Claude models you want. Supply the credential with IRSA on EKS, an ECS task role, or an EC2 instance profile rather than static keys. The [`upstreams` reference](/en/claude-apps-gateway-config#upstreams) has the full IAM details, the cross-cloud credential matrix, and the `auth` blocks for the other providers.
+  The Amazon Bedrock upstream needs an AWS principal with `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on both the `inference-profile/us.anthropic.*` ARNs and the underlying `foundation-model/anthropic.*` ARNs, and model access enabled in the Amazon Bedrock console for the Claude models you want. Supply the credential with IRSA on EKS, an ECS task role, or an EC2 instance profile rather than static keys. The [`upstreams` reference](/en/claude-apps-gateway-config#upstreams) has the full IAM details, the cross-cloud credential matrix, and the `auth` blocks for the other providers.
 &lt;/Note&gt;
 </code></pre>
 <p></Step></p>
@@ -5204,7 +5204,7 @@ volumes: { pgdata: }
 
 The gateway is a single Linux binary that reads the config, runs OIDC discovery against your IdP, applies its Postgres schema migrations, builds upstream clients, and starts listening. Boot is fail-closed for the config, the Postgres connection with a 5-second timeout, OIDC discovery, and upstream client construction. If any of those is unreachable or misconfigured, the gateway exits with an error rather than serving traffic in a degraded state.
 
-A successful boot doesn't validate the inference path, because Bedrock and Agent Platform instance credentials resolve on the first request, not at boot.
+A successful boot doesn't validate the inference path, because Amazon Bedrock and Google Cloud's Agent Platform instance credentials resolve on the first request, not at boot.
 
 Watch stderr for the boot sequence. Log lines use the format `[gateway] &lt;timestamp&gt; &lt;level&gt; &lt;message&gt;`, audit events are single-line JSON with an `evt` field, and a startup banner, omitted below, prints between the migration and listening lines. You should see, in order:
 
@@ -5312,7 +5312,7 @@ Use the first failing check to locate the problem:
 <p>Usage telemetry carries the developer's identity, token counts, model, and latency to the organization's collector. The gateway doesn't log or store prompt or completion content. Whether richer telemetry such as logs and traces is collected, which can include commands and file paths, is the organization's <a href="/en/claude-apps-gateway-config#telemetry">per-destination choice</a>.</p>
 <h2 id="availability-and-limitations">Availability and limitations</h2>
 <p>The table covers which Claude Code features work when developers connect through the gateway, and what the gateway server itself supports. Where something isn't supported, the Notes column gives the alternative.</p>
-<p>The gateway delivers the <a href="https://platform.claude.com/docs/en/api/beta-headers"><code>anthropic-beta</code></a> values the CLI sends to every upstream, so operators don't maintain a beta allowlist. For Bedrock, which ignores the header, the gateway moves the values into the request body's <code>anthropic_beta</code> field; the other upstreams receive the header as sent.</p>
+<p>The gateway delivers the <a href="https://platform.claude.com/docs/en/api/beta-headers"><code>anthropic-beta</code></a> values the CLI sends to every upstream, so operators don't maintain a beta allowlist. For Amazon Bedrock, which ignores the header, the gateway moves the values into the request body's <code>anthropic_beta</code> field; the other upstreams receive the header as sent.</p>
 <p>The CLI's gateway-session beta set omits first-party-only betas and the extended-cache-ttl beta, which is why those rows below show as not available.</p>
 <table>
 <thead>
@@ -5324,9 +5324,9 @@ Use the first failing check to locate the problem:
 </thead>
 <tbody>
 <tr>
-<td>Inference forwarding (Bedrock, Claude Platform on AWS, Agent Platform, Foundry, Anthropic)</td>
+<td>Inference forwarding (Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, Microsoft Foundry, Anthropic)</td>
 <td>Available</td>
-<td>With per-upstream model translation and failover. The Bedrock upstream uses the <code>bedrock-runtime</code> endpoint and the AWS default credential chain; the Bedrock <a href="/en/amazon-bedrock#use-the-mantle-endpoint">Mantle endpoint</a> is not a supported upstream. The <a href="/en/claude-apps-gateway-config#claude-platform-on-aws">Claude Platform on AWS upstream</a> requires Claude Code v2.1.198 or later on the gateway server.</td>
+<td>With per-upstream model translation and failover. The Amazon Bedrock upstream uses the <code>bedrock-runtime</code> endpoint and the AWS default credential chain; the Amazon Bedrock <a href="/en/amazon-bedrock#use-the-mantle-endpoint">Mantle endpoint</a> is not a supported upstream. The <a href="/en/claude-apps-gateway-config#claude-platform-on-aws">Claude Platform on AWS upstream</a> requires Claude Code v2.1.198 or later on the gateway server.</td>
 </tr>
 <tr>
 <td>Model access and managed settings by IdP group</td>
@@ -5366,7 +5366,7 @@ Use the first failing check to locate the problem:
 <tr>
 <td>Auto mode</td>
 <td>Available with opt-in</td>
-<td>Follows the <a href="/en/permission-modes#enable-auto-mode-on-bedrock-vertex-ai-or-foundry">third-party provider rules</a>: set <code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code>, deliverable through the managed policy <code>env</code> block, and only the models eligible on third-party providers can use it</td>
+<td>Follows the <a href="/en/permission-modes#enable-auto-mode-on-bedrock-agent-platform-or-foundry">third-party provider rules</a>: set <code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code>, deliverable through the managed policy <code>env</code> block, and only the models eligible on third-party providers can use it</td>
 </tr>
 <tr>
 <td>First-party-only optimizations such as global cache scope and token-efficient tools</td>

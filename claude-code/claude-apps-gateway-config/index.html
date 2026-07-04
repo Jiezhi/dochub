@@ -5811,7 +5811,7 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <h1 id="claude-apps-gateway-configuration">Claude apps gateway configuration</h1>
 <blockquote>
-<p>Reference for every gateway.yaml option: listener and TLS, OIDC, session, Postgres store, Bedrock/Claude Platform on AWS/Agent Platform/Foundry upstreams, model routing, managed policies, and telemetry.</p>
+<p>Reference for every gateway.yaml option: listener and TLS, OIDC, session, Postgres store, Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, and Microsoft Foundry upstreams, model routing, managed policies, and telemetry.</p>
 </blockquote>
 <p>A Claude apps gateway deployment is configured by one YAML file, conventionally <code>gateway.yaml</code>. The file defines everything the gateway does: where it listens, how developers sign in, where inference goes, and which policies and telemetry apply. This page is the reference for every option in that file.</p>
 <p>To write your first one, start from the <a href="/en/claude-apps-gateway#quickstart">quickstart</a>, which builds a minimal working config and runs it. Once you have a config you're happy with, the <a href="/en/claude-apps-gateway-deploy">deployment guide</a> covers containerizing and hosting it on Kubernetes, Cloud Run, or your own platform.</p>
@@ -5825,7 +5825,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#oidc"><code>oidc</code></a>: your identity provider (IdP), including issuer, client, claim mapping, and who may sign in</li>
 <li><a href="#session"><code>session</code></a>: the bearer tokens the gateway mints, with secret and lifetime</li>
 <li><a href="#store"><code>store</code></a>: PostgreSQL, for device grants and rate-limit counters</li>
-<li><a href="#upstreams"><code>upstreams</code></a>: where inference goes, whether Anthropic, Bedrock, Claude Platform on AWS, Agent Platform, or Foundry</li>
+<li><a href="#upstreams"><code>upstreams</code></a>: where inference goes, whether Anthropic, Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, or Microsoft Foundry</li>
 </ul>
 <p><strong>Optional sections:</strong></p>
 <ul>
@@ -6063,7 +6063,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><code>upstreams</code> is an ordered list. The gateway forwards inference to the first upstream that resolves the requested model. On <code>5xx</code>, <code>429</code>, <code>401</code>, <code>403</code>, <code>404</code>, or timeout it fails over to the next; other <code>4xx</code> doesn't, because those errors are attributable to the request rather than the upstream. A <code>401</code> or <code>403</code> means the gateway's own credential failed against that upstream, and a <code>404</code> means that upstream doesn't serve the requested model, so a later upstream in the list still can.</p>
 <p>Failover on <code>404</code> requires gateway v2.1.198 or later. Earlier releases returned the first <code>404</code> to the client even when a later upstream in the list served the model.</p>
 <p>Multiple upstreams of the same provider must set a distinct <code>name:</code>.</p>
-<p>Bedrock, Claude Platform on AWS, Agent Platform, and Foundry clients are built once at startup, and their SDKs refresh credentials internally, so rotating cloud credentials doesn't require a restart. Static Anthropic API keys and bearers are read at startup; see <a href="#anthropic-api">Anthropic API</a>.</p>
+<p>Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, and Microsoft Foundry clients are built once at startup, and their SDKs refresh credentials internally, so rotating cloud credentials doesn't require a restart. Static Anthropic API keys and bearers are read at startup; see <a href="#anthropic-api">Anthropic API</a>.</p>
 <h4 id="anthropic-api">Anthropic API</h4>
 <p>The minimal Anthropic upstream is an API key from the <a href="https://platform.claude.com">Claude Console</a>:</p>
 <p>```yaml theme={null}
@@ -6092,7 +6092,7 @@ upstreams:
       # service_account_id: svac_...   # optional expected-target check
 </code></pre></div></p>
 <h4 id="amazon-bedrock">Amazon Bedrock</h4>
-<p>For the client-side Bedrock deployment that the gateway replaces or fronts, see <a href="/en/amazon-bedrock">Claude Code on Amazon Bedrock</a>. The gateway-side upstream:</p>
+<p>For the client-side Amazon Bedrock deployment that the gateway replaces or fronts, see <a href="/en/amazon-bedrock">Claude Code on Amazon Bedrock</a>. The gateway-side upstream:</p>
 <p>```yaml theme={null}
 upstreams:
   - provider: bedrock
@@ -6113,7 +6113,7 @@ upstreams:
 | Setup           | How                                                                                                                                                                                                                                                                                                                                               |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | IAM permissions | Grant the gateway&#39;s principal `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on both the inference-profile ARNs and the underlying foundation-model ARNs. For the built-in catalog in US regions: `arn:aws:bedrock:&lt;region&gt;:&lt;account&gt;:inference-profile/us.anthropic.*` and `arn:aws:bedrock:*::foundation-model/anthropic.*`. |
-| Model access    | In the Bedrock console, per region, request and enable model access for the Claude models you want. Cross-region inference profiles (`us.anthropic.*`) require model access in each region the profile spans.                                                                                                                                     |
+| Model access    | In the Amazon Bedrock console, per region, request and enable model access for the Claude models you want. Cross-region inference profiles (`us.anthropic.*`) require model access in each region the profile spans.                                                                                                                              |
 | EKS (IRSA)      | Create an IAM role with the policy above and a trust policy for your cluster&#39;s OIDC provider scoped to the gateway&#39;s service account. Annotate the service account with `eks.amazonaws.com/role-arn: arn:aws:iam::&lt;acct&gt;:role/claude-gateway`. `auth: {}` picks it up.                                                                            |
 | ECS / EC2       | Attach the IAM role to the task definition or instance profile. `auth: {}` picks it up.                                                                                                                                                                                                                                                           |
 | Anywhere else   | Pass credentials via the `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` env vars, or set them explicitly in `auth:` with `${VAR}` expansion                                                                                                                                                                                |
@@ -6193,11 +6193,11 @@ upstreams:
     # base_url: https://us-east5-aiplatform.p.googleapis.com
 <div class="highlight"><pre><span></span><code>An empty `auth` block uses Application Default Credentials: `GOOGLE_APPLICATION_CREDENTIALS`, GCE metadata, or GKE Workload Identity. Service-account JSON key files are supported but discouraged; use Workload Identity or attach a service account to the GCE or Cloud Run instance.
 
-Set `region: global` to use [Agent Platform&#39;s global endpoint](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations) instead of a regional one. Google then routes each request to an available region, so you don&#39;t track per-region model availability. Setting a specific region pins every request to it.
+Set `region: global` to use the [global endpoint for Google Cloud&#39;s Agent Platform](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations) instead of a regional one. Google then routes each request to an available region, so you don&#39;t track per-region model availability. Setting a specific region pins every request to it.
 
 | Setup                   | How                                                                                                                                                                                                       |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IAM permissions         | Grant the gateway&#39;s service account `roles/aiplatform.user` on the project, or a custom role with `aiplatform.endpoints.predict`. Enable the Agent Platform API (`aiplatform.googleapis.com`).            |
+| IAM permissions         | Grant the gateway&#39;s service account `roles/aiplatform.user` on the project, or a custom role with `aiplatform.endpoints.predict`. Enable Google Cloud&#39;s Agent Platform API (`aiplatform.googleapis.com`). |
 | Model access            | In Model Garden, enable the Claude models for your project. They publish to specific regions; check the model card for supported regions.                                                                 |
 | GKE (Workload Identity) | Bind a GCP service account to the gateway&#39;s Kubernetes service account and annotate the KSA with `iam.gke.io/gcp-service-account: claude-gateway@&lt;proj&gt;.iam.gserviceaccount.com`. `auth: {}` picks it up. |
 | Cloud Run / GCE         | Set the service&#39;s service account to one with `roles/aiplatform.user`. `auth: {}` picks it up.                                                                                                            |
@@ -6205,7 +6205,7 @@ Set `region: global` to use [Agent Platform&#39;s global endpoint](https://cloud
 
 #### Microsoft Foundry
 
-For the client-side Foundry deployment, see [Claude Code on Microsoft Foundry](/en/microsoft-foundry). The gateway-side upstream:
+For the client-side Microsoft Foundry deployment, see [Claude Code on Microsoft Foundry](/en/microsoft-foundry). The gateway-side upstream:
 
 ```yaml theme={null}
 upstreams:
@@ -6216,7 +6216,7 @@ upstreams:
     # auth:
     #   api_key: ${FOUNDRY_API_KEY}
 </code></pre></div></p>
-<p><code>use_azure_ad: true</code> resolves through <code>DefaultAzureCredential</code>: Managed Identity on AKS, ACI, or App Service; the Azure CLI; or environment credentials. API keys work but are project-wide and don't rotate automatically. Foundry's endpoint is derived from <code>resource:</code>; set the optional <code>base_url</code> to override it for sovereign clouds such as Azure Government.</p>
+<p><code>use_azure_ad: true</code> resolves through <code>DefaultAzureCredential</code>: Managed Identity on AKS, ACI, or App Service; the Azure CLI; or environment credentials. API keys work but are project-wide and don't rotate automatically. Microsoft Foundry's endpoint is derived from <code>resource:</code>; set the optional <code>base_url</code> to override it for sovereign clouds such as Azure Government.</p>
 <table>
 <thead>
 <tr>
@@ -6227,11 +6227,11 @@ upstreams:
 <tbody>
 <tr>
 <td>RBAC</td>
-<td>Grant the gateway's identity <code>Azure AI User</code> or <code>Cognitive Services User</code> on the Foundry resource</td>
+<td>Grant the gateway's identity <code>Azure AI User</code> or <code>Cognitive Services User</code> on the Microsoft Foundry resource</td>
 </tr>
 <tr>
 <td>Deployments</td>
-<td>Foundry uses admin-chosen deployment names, not canonical model IDs. Add a <a href="#models"><code>models:</code></a> block mapping each canonical ID to your deployment name.</td>
+<td>Microsoft Foundry uses admin-chosen deployment names, not canonical model IDs. Add a <a href="#models"><code>models:</code></a> block mapping each canonical ID to your deployment name.</td>
 </tr>
 <tr>
 <td>AKS (workload identity)</td>
@@ -6251,7 +6251,7 @@ upstreams:
 <p>The same provider can appear more than once with a distinct <code>name:</code>. This covers different regions, different accounts via different credential chains, provisioned throughput versus on-demand, and cross-provider fallback.</p>
 <p>The gateway tries upstreams in order. <code>5xx</code>, <code>429</code>, <code>401</code>, <code>403</code>, <code>404</code>, timeouts, and missing-endpoint (<code>501</code>) fail over; other <code>4xx</code> doesn't.</p>
 <p><code>429</code> is per-upstream capacity, so provisioned-throughput (PT) exhaustion fails over to on-demand. <code>404</code> is per-upstream model availability, so an upstream that hasn't enabled a model doesn't block a later upstream that serves it. An upstream that can't resolve the requested model is skipped without a network round-trip.</p>
-<p>This example routes a provisioned-throughput Bedrock allotment first, overflows to on-demand and a second account, and falls back to the Anthropic API last:</p>
+<p>This example routes a provisioned-throughput Amazon Bedrock allotment first, overflows to on-demand and a second account, and falls back to the Anthropic API last:</p>
 <p>```yaml theme={null}
 upstreams:
   # Primary: provisioned throughput in your home region.
@@ -6288,13 +6288,13 @@ upstreams:
       bedrock-od: us.anthropic.claude-opus-4-8
       bedrock-acct2: us.anthropic.claude-opus-4-8
       anthropic-fallback: claude-opus-4-8
-<div class="highlight"><pre><span></span><code>| Lever                  | How                                                                                                                                                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Different regions      | One Bedrock upstream per region, each with its own `region:`. With [`auto_include_builtin_models: true`](#models) the cross-region inference profiles route automatically; for region-pinned deployments use a `models:` block. |
-| Different accounts     | One Bedrock upstream per account, each with its own credentials in `auth:`. The default chain (`auth: {}`) uses the pod&#39;s identity; for a second account, set explicit credentials or a bearer token.                           |
-| Provisioned throughput | Map the model to the provisioned-throughput ARN in `models:` for that upstream&#39;s name. Other upstreams keep the on-demand ID, so PT capacity is exhausted before failing over.                                                  |
-| VPC / FIPS endpoints   | Set `base_url:` on the upstream to your VPC endpoint or FIPS endpoint URL                                                                                                                                                       |
-| Model-scoped routing   | Omit an upstream from a model&#39;s `upstream_model:` map and that upstream is skipped for that model. For example, route Opus to provisioned throughput and Sonnet and Haiku to on-demand.                                         |
+<div class="highlight"><pre><span></span><code>| Lever                  | How                                                                                                                                                                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Different regions      | One Amazon Bedrock upstream per region, each with its own `region:`. With [`auto_include_builtin_models: true`](#models) the cross-region inference profiles route automatically; for region-pinned deployments use a `models:` block. |
+| Different accounts     | One Amazon Bedrock upstream per account, each with its own credentials in `auth:`. The default chain (`auth: {}`) uses the pod&#39;s identity; for a second account, set explicit credentials or a bearer token.                           |
+| Provisioned throughput | Map the model to the provisioned-throughput ARN in `models:` for that upstream&#39;s name. Other upstreams keep the on-demand ID, so PT capacity is exhausted before failing over.                                                         |
+| VPC / FIPS endpoints   | Set `base_url:` on the upstream to your VPC endpoint or FIPS endpoint URL                                                                                                                                                              |
+| Model-scoped routing   | Omit an upstream from a model&#39;s `upstream_model:` map and that upstream is skipped for that model. For example, route Opus to provisioned throughput and Sonnet and Haiku to on-demand.                                                |
 
 Failing over between cloud providers, or to the direct Anthropic API, changes which agreement, geography, and other terms govern the request.
 
@@ -6391,7 +6391,7 @@ admin:
 </tbody>
 </table>
 <h3 id="models"><code>models</code></h3>
-<p>The <code>models</code> block is an optional admin-curated model list, served at <code>/v1/models</code> and used to translate model IDs per upstream. It is required for non-US Bedrock regions, Bedrock provisioned-throughput ARNs, and Foundry deployment names.</p>
+<p>The <code>models</code> block is an optional admin-curated model list, served at <code>/v1/models</code> and used to translate model IDs per upstream. It is required for non-US Amazon Bedrock regions, Amazon Bedrock provisioned-throughput ARNs, and Microsoft Foundry deployment names.</p>
 <p>```yaml theme={null}
 auto_include_builtin_models: true   # false: expose only the list below
 models:

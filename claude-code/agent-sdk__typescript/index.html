@@ -8198,7 +8198,7 @@ type SDKSystemMessage = {
 };
 <div class="highlight"><pre><span></span><code>### `SDKPartialAssistantMessage`
 
-Streaming partial message (only when `includePartialMessages` is true).
+Streaming partial message (only when `includePartialMessages` is true). The `parent_tool_use_id` field is always `null`: stream events are emitted for the main session only. For subagent attribution, use complete messages, which carry `parent_tool_use_id`, or enable [`forwardSubagentText`](#options) to receive subagent text and thinking as complete messages.
 
 ```typescript theme={null}
 type SDKPartialAssistantMessage = {
@@ -10215,25 +10215,31 @@ type SandboxSettings = {
 </tbody>
 </table>
 <p><Note>
-  The sandbox depends on platform support and, on Linux, tools like <code>bubblewrap</code> and <code>socat</code>. When <code>enabled</code> is <code>true</code> and the sandbox can't start, <code>query()</code> reports a <code>result</code> message with <code>subtype: "error_during_execution"</code> and the reason in <code>errors</code>, then stops. Watch for that subtype rather than expecting <code>query()</code> to throw before yielding messages.</p>
+  The sandbox depends on platform support and, on Linux, tools like <code>bubblewrap</code> and <code>socat</code>. When <code>enabled</code> is <code>true</code> and the sandbox can't start, <code>query()</code> reports a <code>result</code> message with <code>subtype: "error_during_execution"</code> and the reason in <code>errors</code>. For a single message <code>query()</code> call, the SDK throws after yielding that error result, so wrap the loop in a try block to continue past it. See <a href="/en/agent-sdk/agent-loop#handle-the-result">Handle the result</a> for the error contract.</p>
 <p>To run unsandboxed instead, set <code>failIfUnavailable: false</code>.
 </Note></p>
 <h4 id="example-usage">Example usage</h4>
 <p>```typescript theme={null}
 import { query } from "@anthropic-ai/claude-agent-sdk";</p>
-<p>for await (const message of query({
-  prompt: "Build and test my project",
-  options: {
-    sandbox: {
-      enabled: true,
-      autoAllowBashIfSandboxed: true,
-      network: {
-        allowLocalBinding: true
+<p>try {
+  for await (const message of query({
+    prompt: "Build and test my project",
+    options: {
+      sandbox: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        network: {
+          allowLocalBinding: true
+        }
       }
     }
+  })) {
+    if ("result" in message) console.log(message.result);
   }
-})) {
-  if ("result" in message) console.log(message.result);
+} catch (error) {
+  // A single-shot query() throws after yielding an error result,
+  // such as when the sandbox can't start (failIfUnavailable defaults to true).
+  console.log(<code>Session ended with an error: ${error}</code>);
 }
 <div class="highlight"><pre><span></span><code>&lt;Warning&gt;
   **Unix socket security:** The `allowUnixSockets` option can grant access to powerful system services. For example, allowing `/var/run/docker.sock` effectively grants full host system access through the Docker API, bypassing sandbox isolation. Only allow Unix sockets that are strictly necessary and understand the security implications of each.

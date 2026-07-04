@@ -5162,7 +5162,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>Anything not marked forward unchanged is yours to consume or ignore.</p>
 <h2 id="api-formats">API formats</h2>
-<p>A gateway must expose at least one of the following API formats to Claude Code clients. Which format Claude Code speaks is determined by the client's configuration: the variable in the Selected by column of the table below points Claude Code at your gateway in that format. Agent Platform is Google Cloud's Claude endpoint, formerly Vertex AI; its variable names keep the <code>VERTEX</code> spelling.</p>
+<p>A gateway must expose at least one of the following API formats to Claude Code clients. Which format Claude Code speaks is determined by the client's configuration: the variable in the Selected by column of the table below points Claude Code at your gateway in that format. Google Cloud's Agent Platform is Google Cloud's Claude endpoint, formerly Vertex AI; its variable names keep the <code>VERTEX</code> spelling.</p>
 <table>
 <thead>
 <tr>
@@ -5180,13 +5180,13 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>anthropic-beta</code> and <code>anthropic-version</code> request headers</td>
 </tr>
 <tr>
-<td style="text-align: left;">Bedrock InvokeModel</td>
+<td style="text-align: left;">Amazon Bedrock InvokeModel</td>
 <td style="text-align: left;"><code>ANTHROPIC_BEDROCK_BASE_URL</code> with <code>CLAUDE_CODE_USE_BEDROCK=1</code></td>
 <td style="text-align: left;"><code>/model/{model}/invoke</code>, <code>/model/{model}/invoke-with-response-stream</code></td>
 <td style="text-align: left;"><code>anthropic_beta</code> and <code>anthropic_version</code> request body fields</td>
 </tr>
 <tr>
-<td style="text-align: left;">Agent Platform rawPredict</td>
+<td style="text-align: left;">Google Cloud's Agent Platform rawPredict</td>
 <td style="text-align: left;"><code>ANTHROPIC_VERTEX_BASE_URL</code> with <code>CLAUDE_CODE_USE_VERTEX=1</code></td>
 <td style="text-align: left;"><code>:rawPredict</code>, <code>:streamRawPredict</code>, <code>count-tokens:rawPredict</code> (optional)</td>
 <td style="text-align: left;"><code>anthropic-beta</code> and <code>anthropic-version</code> request headers, and the <code>anthropic_version</code> request body field</td>
@@ -5196,15 +5196,15 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="foundry-and-claude-platform-on-aws">Foundry and Claude Platform on AWS</h3>
 <p>Microsoft Foundry and the <a href="/en/claude-platform-on-aws">Claude Platform on AWS</a> implement the Anthropic Messages format. Claude Code routes to them through their own variables, <code>ANTHROPIC_FOUNDRY_BASE_URL</code> and <code>ANTHROPIC_AWS_BASE_URL</code>, but a gateway fronting either implements the Anthropic Messages row above. A gateway fronting the Claude Platform on AWS must also forward the <code>anthropic-workspace-id</code> header, which <a href="/en/claude-platform-on-aws">that platform requires on every request</a>.</p>
 <h3 id="optional-endpoints-and-startup-traffic">Optional endpoints and startup traffic</h3>
-<p>Token-counting endpoints are the only optional ones: when they're absent, Claude Code estimates context usage locally. Inference requests post to <code>/v1/messages?beta=true</code>, so match on the path, not the full URL. The Agent Platform method suffixes attach to the publisher model path, as in <code>/projects/{project}/locations/{location}/publishers/anthropic/models/{model}:streamRawPredict</code>.</p>
-<p>A gateway also sees best-effort startup traffic it can reject without breaking anything: a <code>HEAD /</code> connectivity probe, and on Bedrock-format gateways a <code>GET /inference-profiles?type=SYSTEM_DEFINED</code> request.</p>
+<p>Token-counting endpoints are the only optional ones: when they're absent, Claude Code estimates context usage locally. Inference requests post to <code>/v1/messages?beta=true</code>, so match on the path, not the full URL. The Google Cloud's Agent Platform method suffixes attach to the publisher model path, as in <code>/projects/{project}/locations/{location}/publishers/anthropic/models/{model}:streamRawPredict</code>.</p>
+<p>A gateway also sees best-effort startup traffic it can reject without breaking anything: a <code>HEAD /</code> connectivity probe, and on Amazon Bedrock-format gateways a <code>GET /inference-profiles?type=SYSTEM_DEFINED</code> request.</p>
 <h3 id="streaming">Streaming</h3>
 <p>Inference responses must stream. Claude Code consumes server-sent events as they arrive, so a gateway that buffers complete responses before relaying them stalls the client.</p>
 <h3 id="format-mismatch-with-the-upstream">Format mismatch with the upstream</h3>
 <p>Which format the client speaks determines what your gateway receives. The common failure mode is a mismatch between the format the client sends to your gateway and the format the upstream provider behind it accepts.</p>
 <ul>
-<li>When the client speaks the Bedrock or Agent Platform format, Claude Code sends only the subset of its full capability set that those providers accept</li>
-<li>When the client speaks the Anthropic Messages format, Claude Code sends the full set, even if your gateway forwards to a Bedrock or Agent Platform upstream</li>
+<li>When the client speaks the Amazon Bedrock or Google Cloud's Agent Platform format, Claude Code sends only the subset of its full capability set that those providers accept</li>
+<li>When the client speaks the Anthropic Messages format, Claude Code sends the full set, even if your gateway forwards to an Amazon Bedrock or Google Cloud's Agent Platform upstream</li>
 </ul>
 <p>Bridging that difference is your gateway's job. <a href="#feature-pass-through">Feature pass-through</a> describes what breaks when it doesn't.</p>
 <h2 id="request-headers">Request headers</h2>
@@ -5223,7 +5223,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>anthropic-version</code></td>
-<td style="text-align: left;">API version, currently <code>2023-06-01</code>. Bedrock- and Agent Platform-format requests also carry the <code>anthropic_version</code> body field, whose value is the provider dialect string, not this header's value</td>
+<td style="text-align: left;">API version, currently <code>2023-06-01</code>. Amazon Bedrock- and Google Cloud's Agent Platform-format requests also carry the <code>anthropic_version</code> body field, whose value is the provider dialect string, not this header's value</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>anthropic-beta</code></td>
@@ -5248,9 +5248,16 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="forward-as-open-lists">Forward as open lists</h3>
 <p>Treat the headers and body fields as open lists, not closed ones. Claude Code gains capabilities over releases, and they arrive as new <code>anthropic-beta</code> values, new request body fields, and occasionally new <code>anthropic-*</code> or <code>x-claude-code-*</code> headers.</p>
 <p>When forwarding to an Anthropic-format upstream, pass <code>anthropic-*</code> request headers and request body fields through unchanged rather than allowlisting the ones you see today. A gateway pinned to an observed list strips the next capability's header or field and breaks it on the release that introduces it.</p>
-<p>The exception is a non-Anthropic upstream such as Bedrock or Agent Platform, where bridging the schema difference is the gateway's job; see <a href="#feature-pass-through">feature pass-through</a>.</p>
+<p>The exception is a non-Anthropic upstream such as Amazon Bedrock or Google Cloud's Agent Platform, where bridging the schema difference is the gateway's job; see <a href="#feature-pass-through">feature pass-through</a>.</p>
 <h2 id="system-prompt-attribution-block">System prompt attribution block</h2>
-<p>Claude Code prepends a short attribution block to the system prompt containing the client version and a fingerprint derived from the conversation. The <code>api.anthropic.com</code> endpoint strips the block before processing, so it doesn't affect first-party prompt caching; any other upstream receives it as part of the prompt. Anthropic and the cloud providers' Claude endpoints read it for attribution, so to omit it set <a href="/en/env-vars"><code>CLAUDE_CODE_ATTRIBUTION_HEADER=0</code></a> rather than stripping it in the gateway.</p>
+<p>Claude Code prepends a short attribution block to the system prompt containing the client version and a fingerprint derived from the conversation. The <code>api.anthropic.com</code> endpoint strips the block before processing when it arrives unchanged as the first system block, so it doesn't affect first-party prompt caching. Any other upstream receives it as part of the prompt.</p>
+<p>The strip is positional, so it only works when the gateway forwards the <code>system</code> array unchanged. To keep the block out of the prompt without losing other system content:</p>
+<ul>
+<li>Forward the <code>system</code> array exactly as received, keeping the block first: prepending another system block, reordering the array, or converting it to a single string defeats the strip, and the block then reaches the model and the prompt cache key.</li>
+<li>Keep the block in its own array entry: the endpoint treats a merged block that starts with the attribution header as attribution in its entirety and drops everything merged into it, including the rest of the system prompt.</li>
+<li>If your gateway must reshape system content, set <a href="/en/env-vars"><code>CLAUDE_CODE_ATTRIBUTION_HEADER=0</code></a> so Claude Code omits the block. Anthropic and the cloud providers' Claude endpoints read the block for attribution, so omit it at the client rather than stripping or moving it in the gateway.</li>
+</ul>
+<p>Requests that reach the endpoint unmodified are unaffected.</p>
 <p>{/<em> min-version: 2.1.181 </em>/}From Claude Code v2.1.181, the block is stable for the lifetime of a conversation when requests route through a custom base URL, so a gateway-side prompt cache keyed on the full request body works without disabling it. Before v2.1.181 the block included a per-request token; on those versions, set <code>CLAUDE_CODE_ATTRIBUTION_HEADER=0</code> if your gateway implements such a cache.</p>
 <h2 id="feature-pass-through">Feature pass-through</h2>
 <p>Claude Code treats an <code>ANTHROPIC_BASE_URL</code> gateway as an Anthropic-format endpoint and sends it the beta headers and request body fields it sends to <code>api.anthropic.com</code>, except a small set of diagnostics and defaults reserved for direct connections, such as the fine-grained tool streaming default covered below. That set varies by release, so don't depend on its contents.</p>
@@ -5275,7 +5282,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><a href="https://platform.claude.com/docs/en/build-with-claude/context-management">Context management</a></td>
 <td style="text-align: left;">Context management beta header pairs with the <code>context_management</code> body field</td>
-<td style="text-align: left;"><code>400</code> with <code>Extra inputs are not permitted</code>. Common when a gateway accepts Anthropic-format requests but forwards them to Bedrock</td>
+<td style="text-align: left;"><code>400</code> with <code>Extra inputs are not permitted</code>. Common when a gateway accepts Anthropic-format requests but forwards them to Amazon Bedrock</td>
 <td style="text-align: left;">Forward both, or <a href="/en/env-vars"><code>CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1</code></a></td>
 </tr>
 <tr>
@@ -5293,7 +5300,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a> and <a href="https://platform.claude.com/docs/en/build-with-claude/structured-outputs">structured outputs</a></td>
 <td style="text-align: left;">The <code>output_config</code> body field carries effort, structured-output format, and task budget settings; each pairs with its own beta header</td>
-<td style="text-align: left;"><code>400</code> naming <code>output_config</code>, often <code>Extra inputs are not permitted</code>, on Bedrock and Agent Platform upstreams</td>
+<td style="text-align: left;"><code>400</code> naming <code>output_config</code>, often <code>Extra inputs are not permitted</code>, on Amazon Bedrock and Google Cloud's Agent Platform upstreams</td>
 <td style="text-align: left;">Forward the field and its headers together</td>
 </tr>
 <tr>

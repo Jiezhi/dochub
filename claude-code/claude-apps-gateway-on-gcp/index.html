@@ -4871,7 +4871,7 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <h1 id="deploy-claude-apps-gateway-on-google-cloud">Deploy Claude apps gateway on Google Cloud</h1>
 <blockquote>
-<p>A worked example of running Claude apps gateway on Google Cloud: Cloud Run or GKE, Cloud SQL for PostgreSQL, Secret Manager, and service-account auth to Agent Platform.</p>
+<p>A worked example of running Claude apps gateway on Google Cloud: Cloud Run or GKE, Cloud SQL for PostgreSQL, Secret Manager, and service-account auth to Google Cloud's Agent Platform.</p>
 </blockquote>
 <p><Note>
   This page walks through one way to run Claude apps gateway on Google Cloud. The configuration is a working example for customer-managed infrastructure rather than a supported production deployment; use it to see how the pieces fit together before adapting it to your own environment. For the platform-agnostic requirements, see the <a href="/en/claude-apps-gateway-deploy">deployment guide</a>.
@@ -4879,7 +4879,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>This example provisions Claude apps gateway on Google Cloud with Google Cloud's Agent Platform as the model upstream, using either Cloud Run or GKE for compute. Google Workspace is the example identity provider (IdP), but any OpenID Connect (OIDC) compliant IdP works; only the <code>oidc</code> block changes. See <a href="/en/claude-apps-gateway-deploy#identity-provider-setup">Identity provider setup</a> for per-IdP details.</p>
 <h2 id="what-youll-build">What you'll build</h2>
 <p><Frame>
-  <img src="https://mintcdn.com/claude-code/-uq-4JE0W_JO5Er5/images/claude-gateway-gcp-architecture.svg?fit=max&auto=format&n=-uq-4JE0W_JO5Er5&q=85&s=cb705151c69128ac0da235852d5600ab" alt="Diagram of Claude apps gateway on Google Cloud: Claude Code clients connect over HTTPS to the gateway (Cloud Run or GKE), which runs inside a VPC alongside a private-IP Cloud SQL database for session state. The gateway signs users in via OIDC against Google Workspace, reads config and secrets from Secret Manager, forwards model requests to Agent Platform, and pulls its image from Artifact Registry at deploy." width="760" height="400" data-path="images/claude-gateway-gcp-architecture.svg" />
+  <img src="https://mintcdn.com/claude-code/-uq-4JE0W_JO5Er5/images/claude-gateway-gcp-architecture.svg?fit=max&auto=format&n=-uq-4JE0W_JO5Er5&q=85&s=cb705151c69128ac0da235852d5600ab" alt="Diagram of Claude apps gateway on Google Cloud: Claude Code clients connect over HTTPS to the gateway (Cloud Run or GKE), which runs inside a VPC alongside a private-IP Cloud SQL database for session state. The gateway signs users in via OIDC against Google Workspace, reads config and secrets from Secret Manager, forwards model requests to Google Cloud's Agent Platform, and pulls its image from Artifact Registry at deploy." width="760" height="400" data-path="images/claude-gateway-gcp-architecture.svg" />
 </Frame></p>
 <p>The reference configuration provisions:</p>
 <ul>
@@ -4931,7 +4931,7 @@ The APIs you need depend on the deployment path:
 </code></pre>
 <p></Step></p>
 <p><Step title="Create the service account and grant IAM">
-    The gateway runs as a dedicated service account with permission to call Agent Platform. It reaches Cloud SQL over the VPC with a password user, so no Cloud SQL IAM role is required:</p>
+    The gateway runs as a dedicated service account with permission to call Google Cloud's Agent Platform. It reaches Cloud SQL over the VPC with a password user, so no Cloud SQL IAM role is required:</p>
 <pre><code>```bash theme={null}
 gcloud iam service-accounts create claude-gateway --display-name="Claude apps gateway"
 SA="claude-gateway@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -4989,7 +4989,7 @@ The Cloud Run or GKE runtime must be on, or routed into, this VPC.
 </code></pre>
 <p></Step></p>
 <p><Step title="Write gateway.yaml">
-    The <code>upstreams</code> block points at Agent Platform with <code>auth: {}</code>, so the gateway authenticates via Application Default Credentials from the runtime service account. See the <a href="/en/claude-apps-gateway-config">configuration reference</a> for every field.</p>
+    The <code>upstreams</code> block points at Google Cloud's Agent Platform with <code>auth: {}</code>, so the gateway authenticates via Application Default Credentials from the runtime service account. See the <a href="/en/claude-apps-gateway-config">configuration reference</a> for every field.</p>
 <pre><code>Two `listen` fields depend on what fronts the gateway:
 
 * `public_url`: required behind Cloud Run or a GKE Ingress. The gateway builds the IdP `redirect_uri` and its discovery document only from this value, never from `X-Forwarded-*` headers.
@@ -5071,7 +5071,7 @@ How the secrets reach the container differs by track:
       --no-invoker-iam-check
     ```
 
-    Direct VPC egress, via `--network`, `--subnet`, and `--vpc-egress=private-ranges-only`, lets the service reach the Cloud SQL private IP directly. Public egress to the Agent Platform endpoints and `accounts.google.com` goes directly to the internet rather than through the VPC, so no Cloud NAT is needed.
+    Direct VPC egress, via `--network`, `--subnet`, and `--vpc-egress=private-ranges-only`, lets the service reach the Cloud SQL private IP directly. Public egress to Google Cloud's Agent Platform endpoints and `accounts.google.com` goes directly to the internet rather than through the VPC, so no Cloud NAT is needed.
 
     The invoker IAM check must be open or disabled. The gateway runs its own OIDC and its clients carry no GCP token, so Cloud Run's invoker check has to admit unauthenticated requests. The gateway's OIDC sign-in authenticates the request once it reaches the container, with `allowed_email_domains` gating which domains may sign in.
 
@@ -5177,7 +5177,7 @@ How the secrets reach the container differs by track:
 <td>Deploy with <code>--network</code> and <code>--subnet</code> for Direct VPC egress, and create the Cloud SQL instance with <code>--no-assign-ip</code> and <code>--network</code> pointing at the same VPC</td>
 </tr>
 <tr>
-<td>Agent Platform requests return <code>403 PERMISSION_DENIED</code></td>
+<td>Google Cloud's Agent Platform requests return <code>403 PERMISSION_DENIED</code></td>
 <td>Runtime isn't using the <code>claude-gateway</code> service account, or the model isn't enabled in Model Garden for the project</td>
 <td>Set <code>--service-account</code> on Cloud Run or bind Workload Identity on GKE, and enable each Claude model in Model Garden for the target region</td>
 </tr>
