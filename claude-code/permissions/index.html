@@ -5584,7 +5584,7 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <h4 id="read-only-commands">Read-only commands</h4>
 <p>Claude Code recognizes a built-in set of Bash commands as read-only and runs them without a permission prompt in every mode. These include <code>ls</code>, <code>cat</code>, <code>echo</code>, <code>pwd</code>, <code>head</code>, <code>tail</code>, <code>grep</code>, <code>find</code>, <code>wc</code>, <code>which</code>, <code>diff</code>, <code>stat</code>, <code>du</code>, <code>cd</code>, and read-only forms of <code>git</code>. The set is not configurable; to require a prompt for one of these commands, add an <code>ask</code> or <code>deny</code> rule for it.</p>
 <p>Unquoted glob patterns are permitted for commands whose every flag is read-only, so <code>ls *.ts</code> and <code>wc -l src/*.py</code> run without a prompt. Commands with write-capable or exec-capable flags, such as <code>find</code>, <code>sort</code>, <code>sed</code>, and <code>git</code>, still prompt when an unquoted glob is present because the glob could expand to a flag like <code>-delete</code>.</p>
-<p>A <code>cd</code> into a path inside your working directory or an <a href="#working-directories">additional directory</a> is also read-only. A compound command like <code>cd packages/api &amp;&amp; ls</code> runs without a prompt when each part qualifies on its own. Combining <code>cd</code> with <code>git</code> in one compound command always prompts, regardless of the target directory.</p>
+<p>A <code>cd</code> into a path inside your working directory or an <a href="#working-directories">additional directory</a> is also read-only. A compound command like <code>cd packages/api &amp;&amp; ls</code> runs without a prompt when each part qualifies on its own. Combining <code>cd</code> with <code>git</code> in one compound command prompts when the <code>cd</code> changes into a different directory, since running <code>git</code> in a new directory can execute that directory's hooks. A <code>cd</code> whose target resolves to the current working directory is a no-op and doesn't trigger this prompt.</p>
 <p><Warning>
   Bash permission patterns that try to constrain command arguments are fragile. For example, <code>Bash(curl http://github.com/ *)</code> intends to restrict curl to GitHub URLs, but won't match variations like:</p>
 <ul>
@@ -5671,6 +5671,8 @@ A rule only matches files under its anchor, so the anchor determines how far a d
 &lt;Note&gt;
   In gitignore patterns, `*` matches within a single path segment and can appear at any position in the pattern, while `**` matches across directories. To allow all file access, use only the tool name without parentheses: `Read`, `Edit`, or `Write`.
 &lt;/Note&gt;
+
+When you approve a file path with &quot;Yes, don&#39;t ask again&quot;, Claude Code escapes gitignore pattern characters in that path, such as `[`, `]`, and `*`, so the generated rule matches only the literal path you approved. Rules you write yourself aren&#39;t escaped. Before v2.1.202, Claude Code saved the path unescaped, so a generated rule for a directory named `[2024-06] Reports` could fail to match its own path or match unintended sibling directories.
 
 When Claude accesses a symlink, permission rules check two paths: the symlink itself and the file it resolves to. Allow and deny rules treat that pair differently: allow rules fall back to prompting you, while deny rules block outright.
 

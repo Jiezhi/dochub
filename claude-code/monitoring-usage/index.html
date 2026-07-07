@@ -5713,7 +5713,7 @@ Example managed settings configuration:
 </tr>
 <tr>
 <td><code>OTEL_LOG_TOOL_DETAILS</code></td>
-<td>Enable logging of tool parameters and input arguments in tool events and trace span attributes: Bash commands, MCP server and tool names, skill names, and tool input. Also enables custom, plugin, and MCP command names on <code>user_prompt</code> events (default: disabled)</td>
+<td>Enable logging of tool parameters and input arguments in tool events and trace span attributes: Bash commands, MCP server and tool names, skill names, user-authored workflow names, and tool input. Also enables custom, plugin, and MCP command names on <code>user_prompt</code> events (default: disabled)</td>
 <td><code>1</code> to enable</td>
 </tr>
 <tr>
@@ -5878,32 +5878,34 @@ Every span carries the [standard attributes](#standard-attributes) plus a `span.
 
 **`claude_code.llm_request`**
 
-| Attribute                        | Description                                                                                                           | Gated by |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------- |
-| `model`                          | Model identifier                                                                                                      |          |
-| `gen_ai.system`                  | Always `anthropic`. OpenTelemetry GenAI semantic convention                                                           |          |
-| `gen_ai.request.model`           | Same value as `model`. OpenTelemetry GenAI semantic convention                                                        |          |
-| `query_source`                   | Subsystem that issued the request, such as `repl_main_thread` or a subagent name                                      |          |
-| `agent_id`                       | Identifier of the subagent or teammate that issued the request. Absent on the main session                            |          |
-| `parent_agent_id`                | Identifier of the agent that spawned this one. Absent for the main session and for agents spawned directly from it    |          |
-| `speed`                          | `fast` or `normal`                                                                                                    |          |
-| `llm_request.context`            | `interaction`, `tool`, or `standalone` depending on the parent span                                                   |          |
-| `duration_ms`                    | Wall-clock duration including retries                                                                                 |          |
-| `ttft_ms`                        | Time to first token in milliseconds                                                                                   |          |
-| `input_tokens`                   | Input token count from the API usage block                                                                            |          |
-| `output_tokens`                  | Output token count                                                                                                    |          |
-| `cache_read_tokens`              | Tokens read from prompt cache                                                                                         |          |
-| `cache_creation_tokens`          | Tokens written to prompt cache                                                                                        |          |
-| `request_id`                     | Anthropic API request ID from the `request-id` response header                                                        |          |
-| `gen_ai.response.id`             | Same value as `request_id`. OpenTelemetry GenAI semantic convention                                                   |          |
-| `client_request_id`              | Client-generated `x-client-request-id` of the final attempt                                                           |          |
-| `attempt`                        | Total attempts made for this request                                                                                  |          |
-| `success`                        | `true` or `false`                                                                                                     |          |
-| `status_code`                    | HTTP status code when the request failed                                                                              |          |
-| `error`                          | Error message when the request failed                                                                                 |          |
-| `response.has_tool_call`         | `true` when the response contained tool-use blocks                                                                    |          |
-| `stop_reason`                    | API response `stop_reason`, such as `end_turn`, `tool_use`, `max_tokens`, `stop_sequence`, `pause_turn`, or `refusal` |          |
-| `gen_ai.response.finish_reasons` | Same value as `stop_reason`, wrapped in a string array. OpenTelemetry GenAI semantic convention                       |          |
+| Attribute                        | Description                                                                                                                                   | Gated by                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `model`                          | Model identifier                                                                                                                              |                         |
+| `gen_ai.system`                  | Always `anthropic`. OpenTelemetry GenAI semantic convention                                                                                   |                         |
+| `gen_ai.request.model`           | Same value as `model`. OpenTelemetry GenAI semantic convention                                                                                |                         |
+| `query_source`                   | Subsystem that issued the request, such as `repl_main_thread` or a subagent name                                                              |                         |
+| `agent_id`                       | Identifier of the subagent or teammate that issued the request. Absent on the main session                                                    |                         |
+| `parent_agent_id`                | Identifier of the agent that spawned this one. Absent for the main session and for agents spawned directly from it                            |                         |
+| `workflow.run_id`                | Run identifier of the [Workflow](/en/workflows) tool run that spawned this agent, prefixed `wf_`. Absent for agents not spawned by a workflow |                         |
+| `workflow.name`                  | Name of the workflow that spawned this agent. User-authored names are replaced with `custom` unless the gate is set                           | `OTEL_LOG_TOOL_DETAILS` |
+| `speed`                          | `fast` or `normal`                                                                                                                            |                         |
+| `llm_request.context`            | `interaction`, `tool`, or `standalone` depending on the parent span                                                                           |                         |
+| `duration_ms`                    | Wall-clock duration including retries                                                                                                         |                         |
+| `ttft_ms`                        | Time to first token in milliseconds                                                                                                           |                         |
+| `input_tokens`                   | Input token count from the API usage block                                                                                                    |                         |
+| `output_tokens`                  | Output token count                                                                                                                            |                         |
+| `cache_read_tokens`              | Tokens read from prompt cache                                                                                                                 |                         |
+| `cache_creation_tokens`          | Tokens written to prompt cache                                                                                                                |                         |
+| `request_id`                     | Anthropic API request ID from the `request-id` response header                                                                                |                         |
+| `gen_ai.response.id`             | Same value as `request_id`. OpenTelemetry GenAI semantic convention                                                                           |                         |
+| `client_request_id`              | Client-generated `x-client-request-id` of the final attempt                                                                                   |                         |
+| `attempt`                        | Total attempts made for this request                                                                                                          |                         |
+| `success`                        | `true` or `false`                                                                                                                             |                         |
+| `status_code`                    | HTTP status code when the request failed                                                                                                      |                         |
+| `error`                          | Error message when the request failed                                                                                                         |                         |
+| `response.has_tool_call`         | `true` when the response contained tool-use blocks                                                                                            |                         |
+| `stop_reason`                    | API response `stop_reason`, such as `end_turn`, `tool_use`, `max_tokens`, `stop_sequence`, `pause_turn`, or `refusal`                         |                         |
+| `gen_ai.response.finish_reasons` | Same value as `stop_reason`, wrapped in a string array. OpenTelemetry GenAI semantic convention                                               |                         |
 
 Each retry attempt is also recorded as a `gen_ai.request.attempt` span event with `attempt` and `client_request_id` attributes.
 
@@ -5916,6 +5918,8 @@ Each retry attempt is also recorded as a `gen_ai.request.attempt` span event wit
 | `result_tokens`       | Approximate token size of the tool result                                                                                                                                                                                            |                         |
 | `agent_id`            | Identifier of the subagent or teammate that ran the tool. Absent on the main session                                                                                                                                                 |                         |
 | `parent_agent_id`     | Identifier of the agent that spawned this one. Absent for the main session and for agents spawned directly from it                                                                                                                   |                         |
+| `workflow.run_id`     | Run identifier of the Workflow tool run that spawned this agent, prefixed `wf_`. Absent for agents not spawned by a workflow                                                                                                         |                         |
+| `workflow.name`       | Name of the workflow that spawned this agent. User-authored names are replaced with `custom` unless the gate is set                                                                                                                  | `OTEL_LOG_TOOL_DETAILS` |
 | `tool_use_id`         | The model&#39;s `tool_use` block id for this call. Matches the `tool_use_id` on the [tool\_result](#tool-result-event) and [tool\_decision](#tool-decision-event) events and in hook payloads, so you can join the span to those records |                         |
 | `gen_ai.tool.call.id` | Same value as `tool_use_id`. OpenTelemetry GenAI semantic convention                                                                                                                                                                 |                         |
 | `file_path`           | Target file path for Read, Edit, and Write tools                                                                                                                                                                                     | `OTEL_LOG_TOOL_DETAILS` |
@@ -6091,6 +6095,8 @@ Events additionally include the following attributes. These are never attached t
 
 * `prompt.id`: UUID correlating a user prompt with all subsequent events until the next prompt. See [Event correlation attributes](#event-correlation-attributes).
 * `workspace.host_paths`: host workspace directories selected in the desktop app, as a string array
+* `workflow.run_id`: run identifier, prefixed `wf_`, on the API and tool events emitted by agents that belong to a [Workflow](/en/workflows) tool run. Filtering events by one `workflow.run_id` reconstructs that run&#39;s API requests and tool results. The identifier covers the agents the workflow script spawns and any agents those spawn in turn, such as skill invocations. It matches the run identifier reported in the Workflow tool result. Absent on all other events. {/* min-version: 2.1.202 */}Requires Claude Code v2.1.202 or later
+* `workflow.name`: name of the workflow, its script&#39;s `meta.name`, emitted alongside `workflow.run_id`. Built-in workflow names appear verbatim when the run executes the unmodified built-in script. User-authored names, including edited copies of built-in scripts, are replaced with `custom` unless `OTEL_LOG_TOOL_DETAILS=1` is set. {/* min-version: 2.1.202 */}Requires Claude Code v2.1.202 or later
 
 ### Metrics
 
