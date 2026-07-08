@@ -5183,8 +5183,8 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Set <code>readOnlyHint: true</code> on tools with no side effects. See <a href="#add-tool-annotations">Add tool annotations</a>.</td>
 </tr>
 <tr>
-<td style="text-align: left;">Handle errors without stopping the loop</td>
-<td style="text-align: left;">Return <code>isError: true</code> instead of throwing. See <a href="#handle-errors">Handle errors</a>.</td>
+<td style="text-align: left;">Control the error message Claude reads</td>
+<td style="text-align: left;">Return <code>isError: true</code> to compose the message instead of surfacing the raw exception. See <a href="#handle-errors">Handle errors</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;">Return images or files</td>
@@ -5511,7 +5511,7 @@ tool(
 </table>
 <p>To remove a built-in entirely, omit it from <code>tools</code> or list its bare name in <code>disallowedTools</code> (Python: <code>disallowed_tools</code>); both keep the tool out of context so Claude never attempts it. A scoped <code>disallowedTools</code> rule blocks matching calls but leaves the tool visible, so Claude may waste a turn trying it. See <a href="/en/agent-sdk/permissions">Configure permissions</a> for the full evaluation order.</p>
 <h2 id="handle-errors">Handle errors</h2>
-<p>How your handler reports errors determines whether the agent loop continues or stops:</p>
+<p>A handler error doesn't stop the agent loop. The SDK's in-process MCP server catches uncaught exceptions and returns them as error results, so how you report an error determines what Claude reads, not whether the query fails:</p>
 <table>
 <thead>
 <tr>
@@ -5522,15 +5522,16 @@ tool(
 <tbody>
 <tr>
 <td style="text-align: left;">Handler throws an uncaught exception</td>
-<td style="text-align: left;">Agent loop stops. Claude never sees the error, and the <code>query</code> call fails.</td>
+<td style="text-align: left;">The MCP server converts it to an error result carrying the raw exception message. Claude sees that message, and the agent loop continues.</td>
 </tr>
 <tr>
 <td style="text-align: left;">Handler catches the error and returns <code>isError: true</code> (TS) / <code>"is_error": True</code> (Python)</td>
-<td style="text-align: left;">Agent loop continues. Claude sees the error as data and can retry, try a different tool, or explain the failure.</td>
+<td style="text-align: left;">Claude sees the message you compose. You can add context the raw exception lacks, such as which request failed or what to try instead.</td>
 </tr>
 </tbody>
 </table>
-<p>The example below catches two kinds of failures inside the handler instead of letting them throw. A non-200 HTTP status is caught from the response and returned as an error result. A network error or invalid JSON is caught by the surrounding <code>try/except</code> (Python) or <code>try/catch</code> (TypeScript) and also returned as an error result. In both cases the handler returns normally and the agent loop continues.</p>
+<p>In both cases Claude can retry, try a different tool, or explain the failure. Catch errors yourself when the raw exception message isn't enough for Claude to act on.</p>
+<p>The example below catches two kinds of failures inside the handler and composes the error message Claude reads. A non-200 HTTP status is caught from the response and returned as an error result. A network error or invalid JSON is caught by the surrounding <code>try/except</code> (Python) or <code>try/catch</code> (TypeScript) and also returned as an error result. In both cases Claude receives a message that describes the failure instead of a bare exception string.</p>
 <p><CodeGroup>
   ```python Python theme={null}
   import json
@@ -5560,8 +5561,8 @@ tool(
 <pre><code>          data = response.json()
           return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
   except Exception as e:
-      # Catching here keeps the agent loop alive. An uncaught exception
-      # would end the whole query() call.
+      # Composes the message Claude reads. An uncaught exception would
+      # reach Claude as the raw str(e) with no context.
       return {
           "content": [{"type": "text", "text": f"Failed to fetch data: {str(e)}"}],
           "is_error": True,
@@ -5602,8 +5603,8 @@ tool(
           ]
         };
       } catch (error) {
-        // Catching here keeps the agent loop alive. An uncaught throw
-        // would end the whole query() call.
+        // Composes the message Claude reads. An uncaught throw would
+        // reach Claude as the raw error message with no context.
         return {
           content: [
             {
@@ -5619,7 +5620,7 @@ tool(
   ```
 </CodeGroup></p>
 <h2 id="return-images-and-resources">Return images and resources</h2>
-<p>The <code>content</code> array in a tool result accepts <code>text</code>, <code>image</code>, <code>audio</code>, <code>resource</code>, and <code>resource_link</code> blocks. You can mix them in the same response. Audio blocks are saved to disk and Claude receives a text block with the saved file path. Resource link blocks are converted to a text block containing the link's name, URI, and description.</p>
+<p>The <code>content</code> array in a tool result accepts <code>text</code>, <code>image</code>, <code>audio</code>, <code>resource</code>, and <code>resource_link</code> blocks. You can mix them in the same response. In TypeScript, audio blocks are saved to disk and Claude receives a text block with the saved file path; in Python, the SDK drops audio blocks from the tool result and logs a warning. Resource link blocks are converted to a text block containing the link's name, URI, and description.</p>
 <h3 id="images">Images</h3>
 <p>An image block carries the image bytes inline, encoded as base64. There is no URL field. To return an image that lives at a URL, fetch it in the handler, read the response bytes, and base64-encode them before returning. The result is processed as visual input.</p>
 <table>
@@ -5725,7 +5726,7 @@ tool(
 <tr>
 <td style="text-align: left;"><code>resource.blob</code></td>
 <td style="text-align: left;"><code>string</code></td>
-<td style="text-align: left;">The content base64-encoded, if it's binary</td>
+<td style="text-align: left;">The content base64-encoded, if it's binary. TypeScript only: the Python SDK drops binary resources from the tool result and logs a warning</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>resource.mimeType</code></td>

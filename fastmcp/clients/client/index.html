@@ -1209,6 +1209,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#protocol-negotiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol negotiation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9899,6 +9921,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#protocol-negotiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol negotiation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10058,6 +10102,52 @@ This is a programmatic client that requires explicit function calls and provides
 
     <span class="c1"># Now ready for operations</span>
     <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</code></pre></div>
+<h2 id="protocol-negotiation">Protocol negotiation</h2>
+<p><VersionBadge version="4.0.0" /></p>
+<p>MCP has two protocol eras: the original <em>legacy</em> era, which begins every connection with an <code>initialize</code> handshake, and the <em>modern</em> era (protocol version <code>2026-07-28</code> and later), which a client discovers by probing the server's <code>server/discover</code> endpoint. The <code>mode</code> parameter controls which era the client negotiates when it connects.</p>
+<p>By default, <code>mode="legacy"</code>. This runs the initialize handshake and behaves identically to earlier FastMCP versions, so existing code connecting to any server keeps working unchanged.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+
+<span class="c1"># Legacy handshake (the default)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Set <code>mode="auto"</code> to negotiate the newest era the server supports. The client probes <code>server/discover</code> and adopts the modern protocol when the server responds; for any server that is not positive evidence of modern support, it falls back to the legacy handshake. This makes <code>"auto"</code> safe to use against a mixed fleet of legacy and modern servers.</p>
+<div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>You can also pin a specific modern protocol version to adopt it directly, without a discovery probe:</p>
+<div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;2026-07-28&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Once connected, the negotiated version and the server's advertised capabilities are available as properties. Both are populated regardless of which era was negotiated, and both are <code>None</code> while the client is disconnected.</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">protocol_version</span><span class="p">)</span>      <span class="c1"># e.g. &quot;2026-07-28&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">server_capabilities</span><span class="p">)</span>   <span class="c1"># ServerCapabilities | None</span>
+</code></pre></div>
+<p><Note>
+<code>mode="auto"</code> is not the default yet — the conservative <code>"legacy"</code> remains the default to preserve byte-identical behavior against pre-2026 servers. Whether <code>"auto"</code> becomes the default is a future release decision.
+</Note></p>
+<h2 id="response-caching">Response caching</h2>
+<p><VersionBadge version="4.0.0" /></p>
+<p>The client can cache the results of <code>list_tools</code>, <code>list_resources</code>, <code>list_prompts</code>, and <code>read_resource</code> so that repeated calls avoid a network round-trip. Caching is opt-in and honors the server's own cache hints, so it only takes effect against modern-era servers that advertise them — a cache is inert on a legacy connection.</p>
+<p>Enable the default in-memory cache by passing <code>cache=True</code>. It respects the <code>ttlMs</code> and <code>cacheScope</code> hints the server attaches to each response.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>   <span class="c1"># fetched from the server</span>
+    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>   <span class="c1"># served from the cache</span>
+</code></pre></div>
+<p>The default (<code>cache=None</code>) and <code>cache=False</code> both disable caching. For control over the store, TTL, or partitioning, pass a <code>CacheConfig</code>. A custom config requires a <code>target_id</code>, since in-memory FastMCP transports expose no server URL to derive a shared-store identity from.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.client.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span><span class="n">target_id</span><span class="o">=</span><span class="s2">&quot;weather-api&quot;</span><span class="p">,</span> <span class="n">default_ttl_ms</span><span class="o">=</span><span class="mi">60_000</span><span class="p">)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div>
+<p>The high-level <code>list_tools</code>, <code>list_resources</code>, <code>list_prompts</code>, and <code>read_resource</code> methods always use the cache when one is configured. To override the behavior for a single call, use the lower-level <code>*_mcp</code> variants, which accept a <code>cache_mode</code> argument: <code>"use"</code> (the default) serves and stores, <code>"refresh"</code> stores a fresh result without serving a cached one, and <code>"bypass"</code> skips the cache entirely.</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
+    <span class="n">fresh</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools_mcp</span><span class="p">(</span><span class="n">cache_mode</span><span class="o">=</span><span class="s2">&quot;refresh&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="operations">Operations</h2>
 <p>FastMCP clients interact with three types of server components.</p>
