@@ -5646,7 +5646,7 @@ If Claude can't find the new subagent, restart Claude Code and try again. This h
 <p>Directories added with <code>--add-dir</code> are also scanned: a <code>.claude/agents/</code> folder inside an added directory loads alongside project subagents. See <a href="/en/permissions#additional-directories-grant-file-access-not-configuration">Additional directories</a> for which other configuration types load from <code>--add-dir</code>. To share subagents across projects without <code>--add-dir</code>, use <code>~/.claude/agents/</code> or a <a href="/en/plugins">plugin</a>.</p>
 <p><strong>User subagents</strong> (<code>~/.claude/agents/</code>) are personal subagents available in all your projects.</p>
 <p>Claude Code scans <code>.claude/agents/</code> and <code>~/.claude/agents/</code> recursively, so you can organize definitions into subfolders such as <code>agents/review/</code> or <code>agents/research/</code>. The subdirectory path doesn't affect how a subagent is identified or invoked, because identity comes only from the <code>name</code> frontmatter field.</p>
-<p>Keep <code>name</code> values unique across the whole tree: if two files within one scope declare the same name, Claude Code loads only one of them. {/<em> min-version: 2.1.196 </em>/}As of v2.1.196, running <code>/doctor</code> reports same-scope duplicate agent names and shows which definition is active.</p>
+<p>Keep <code>name</code> values unique across the whole tree: if two files under the same <code>.claude/agents/</code> directory, including its subfolders, declare the same name, Claude Code loads only one of them, chosen by filesystem read order rather than a documented precedence. Across nested project directories, the definition closest to the working directory wins, as described above. {/<em> min-version: 2.1.205 </em>/}The <a href="/en/commands#all-commands"><code>/doctor</code></a> setup checkup reports files in the same directory that share a name and proposes renaming or removing all but one. Before v2.1.205, <code>/doctor</code> opened a diagnostics screen that listed duplicates and showed which definition was active.</p>
 <p>Plugin <code>agents/</code> directories are also scanned recursively. Unlike project and user scopes, a subfolder inside a plugin's <code>agents/</code> directory becomes part of the <a href="#invoke-subagents-explicitly">scoped identifier</a>: a file at <code>agents/review/security.md</code> in plugin <code>my-plugin</code> registers as <code>my-plugin:review:security</code>.</p>
 <p><strong>CLI-defined subagents</strong> are passed as JSON when launching Claude Code. They exist only for that session and aren't saved to disk, making them useful for quick testing or automation scripts. You can define multiple subagents in a single <code>--agents</code> call:</p>
 <p><Tabs>
@@ -5710,7 +5710,11 @@ model: sonnet</p>
 specific, actionable feedback on quality, security, and best practices.
 <div class="highlight"><pre><span></span><code>The frontmatter defines the subagent&#39;s metadata and configuration. The body becomes the system prompt that guides the subagent&#39;s behavior. Subagents receive only this system prompt plus basic environment details like the working directory, not the full Claude Code system prompt.
 
+In [non-interactive mode](/en/headless), the [`--append-subagent-system-prompt`](/en/cli-reference#cli-flags) flag appends the text you provide to the end of every subagent&#39;s system prompt, including nested subagents. Requires Claude Code v2.1.205 or later.
+
 A subagent starts in the main conversation&#39;s current working directory. Within a subagent, `cd` commands don&#39;t persist between Bash or PowerShell tool calls and don&#39;t affect the main conversation&#39;s working directory. To give the subagent an isolated copy of the repository instead, set [`isolation: worktree`](#supported-frontmatter-fields).
+
+{/* min-version: 2.1.203 */}A subagent with `isolation: worktree` runs its Bash and PowerShell commands inside its worktree. A command whose working directory resolves to your main checkout instead, for example because the worktree directory was removed while the subagent was running, fails with an error. Before v2.1.203, such a command could run in the main checkout.
 
 #### Supported frontmatter fields
 
@@ -6225,6 +6229,8 @@ Use the code-reviewer subagent to review the authentication module
 <p>Continue that code review and now analyze the authorization logic
 [Claude resumes the subagent with full context from previous conversation]
 <div class="highlight"><pre><span></span><code>If a stopped subagent receives a `SendMessage`, it auto-resumes in the background without requiring a new `Agent` invocation.
+
+Resuming starts a new run of the agent under the same ID, so a subagent that had already failed or completed shows as running again in the task list and in the Agent SDK&#39;s task events. Before v2.1.205, it kept showing its earlier failed or completed status while the resumed run was working.
 
 {/* min-version: 2.1.199 */}As of v2.1.199, `SendMessage` checks that a name still refers to the same agent it reached earlier in the conversation. If a newer agent has taken the name, such as a re-spawned background agent that reused it, Claude Code refuses the send rather than delivering it to the wrong agent, and the error reports which agent the name now reaches so Claude can retarget. To reach the earlier agent while it&#39;s still running, Claude addresses it by the agent ID from its spawn result. The check is scoped to the current conversation and resets on `/clear`.
 

@@ -3193,6 +3193,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../integrations/huggingface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hugging Face OAuth 🤝 FastMCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../integrations/keycloak/" class="md-nav__link">
         
   
@@ -5797,6 +5825,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Caching
+      
+    </span>
+  </a>
   
 </li>
       
@@ -9999,6 +10038,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#response-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tag-based-filtering" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10170,6 +10220,12 @@
 </ParamField></p>
 <p><ParamField body="dereference_schemas" type="bool" default="True">
   Automatically dereference <code>$ref</code> pointers in JSON schemas generated from complex Pydantic models. Most clients require flat schemas without <code>$ref</code>, so this should usually stay enabled
+</ParamField></p>
+<p><ParamField body="cache_ttl" type="int | None" default="None">
+  How long, in seconds, a client may treat this server's cacheable responses as fresh (SEP-2549). When set, the hint applies uniformly to <code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, and <code>resources/read</code>. Clients must opt into caching to honor it — see <a href="/clients/client#response-caching">Response caching</a>. Must be a positive integer
+</ParamField></p>
+<p><ParamField body="cache_scope" type='Literal["public", "private"] | None' default="None">
+  Whether a cached response may be shared across authorization contexts (<code>"public"</code>) or reused only within the one that produced it (<code>"private"</code>, the default when a <code>cache_ttl</code> is set). Requires <code>cache_ttl</code>
 </ParamField>
 </Card></p>
 <h3 id="handlers-and-storage">Handlers and Storage</h3>
@@ -10185,6 +10241,19 @@
   Persistent key-value store for session state that survives across requests. Defaults to an in-memory store. Provide a custom implementation for persistence across server restarts
 </ParamField>
 </Card></p>
+<h2 id="response-caching">Response Caching</h2>
+<p><VersionBadge version="4.0.0" /></p>
+<p>A server whose listings and resource reads change slowly can tell clients how long they may reuse a response before fetching it again (SEP-2549). Set <code>cache_ttl</code> (seconds) on the server, and the hint is attached uniformly to every cacheable response — <code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, and <code>resources/read</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;Weather&quot;</span><span class="p">,</span> <span class="n">cache_ttl</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">cache_scope</span><span class="o">=</span><span class="s2">&quot;public&quot;</span><span class="p">)</span>
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forecast</span><span class="p">(</span><span class="n">city</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Sunny in </span><span class="si">{</span><span class="n">city</span><span class="si">}</span><span class="s2">&quot;</span>
+</code></pre></div>
+<p><code>cache_scope</code> controls whether a cached response may be shared across authorization contexts (<code>"public"</code>) or reused only within the one that produced it (<code>"private"</code>, the default when a TTL is set). A <code>cache_scope</code> without a <code>cache_ttl</code> does not enable caching and raises at construction.</p>
+<p>The hint is inert on its own: a client only reuses a response if it opts into caching and negotiates the modern protocol. See <a href="/clients/client#response-caching">Response caching</a> for the client side.</p>
 <h2 id="tag-based-filtering">Tag-Based Filtering</h2>
 <p><VersionBadge version="2.8.0" /></p>
 <p>Tags let you categorize components and selectively expose them. This is useful for creating different views of your server for different environments or user types.</p>

@@ -2740,6 +2740,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#server-level-cache-hints-sep-2549-new-opt-in-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-level cache hints (SEP-2549) — New (opt-in feature)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-xfail-register-known-gap" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3728,6 +3739,34 @@
     
   
     Goose 🤝 FastMCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../integrations/huggingface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hugging Face OAuth 🤝 FastMCP
   
 
     
@@ -10715,6 +10754,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#server-level-cache-hints-sep-2549-new-opt-in-feature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-level cache hints (SEP-2549) — New (opt-in feature)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-xfail-register-known-gap" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11019,6 +11069,9 @@
 <h3 id="push-feature-degradation-quality-resolved-was-sdk-feedback-10">Push-feature degradation quality — Resolved (was sdk-feedback #10)</h3>
 <p>On a <code>2026-07-28</code> connection the degradation error used to differ by feature: <code>ctx.list_roots</code> raised a clear <code>NoBackChannelError</code>, while <code>ctx.elicit</code> / <code>ctx.sample</code> surfaced a bare "Method not found" because those methods attach a <code>related_request_id</code> and reach client dispatch before failing. FastMCP now era-gates <code>ctx.elicit</code> and <code>ctx.sample</code>/<code>ctx.sample_step</code> to raise a clear, era-aware <code>ToolError</code> before the wire ("server-initiated sampling is not available on MCP 2026-07-28 connections…" and "elicitation via server-initiated requests is unavailable on 2026-07-28 connections."). The strict xfail that captured #10 is flipped to a passing test.</p>
 <p><em>Verify:</em> <code>tests/server/test_protocol_eras.py</code> (<code>test_elicit_sample_degradation_message_is_clear_on_modern</code>, now a real test), <code>server/context.py</code> (era gates).</p>
+<h3 id="server-level-cache-hints-sep-2549-new-opt-in-feature">Server-level cache hints (SEP-2549) — New (opt-in feature)</h3>
+<p>A FastMCP server can emit SEP-2549 freshness hints so a caching client (<code>fastmcp.Client(cache=...)</code>) may reuse a response without a wire round-trip. Two constructor params carry it: <code>FastMCP(cache_ttl=300, cache_scope="public")</code>, where <code>cache_ttl</code> is in seconds and <code>cache_scope</code> is <code>"public"</code> or <code>"private"</code> (default <code>"private"</code> when a TTL is set). The hint is uniform by construction — one server-level value applies to every SDK-cacheable method (<code>tools/list</code>, <code>prompts/list</code>, <code>resources/list</code>, <code>resources/templates/list</code>, <code>resources/read</code>, and <code>server/discover</code>) with no per-component surface and no aggregation. FastMCP does not hand-set the wire fields: it passes the hint through to the SDK low-level <code>Server(cache_hints=...)</code>, whose runner fills <code>ttlMs</code>/<code>cacheScope</code> on every cacheable result via <code>apply_cache_hint</code>, leaving any field a handler set explicitly untouched. <code>cache_ttl</code> must be positive, and a <code>cache_scope</code> without a <code>cache_ttl</code> is rejected at construction (a scope alone does not enable caching, since the client gates on the TTL's presence). Absent both params, no hint is emitted. Honoring is modern-only (the SDK client reads hints only at <code>2026-07-28</code>) and opt-in on the client, so a hinted server is inert unless the client passes <code>cache=</code>.</p>
+<p><em>Verify:</em> <code>fastmcp_slim/fastmcp/server/caching.py</code> (<code>build_cache_hints</code>), <code>fastmcp_slim/fastmcp/server/server.py</code> (constructor params passed to <code>LowLevelServer(cache_hints=...)</code>), <code>tests/server/test_cache_hints.py</code> (unit validation + end-to-end interop with <code>fastmcp.Client(cache=True)</code>).</p>
 <h3 id="the-xfail-register-known-gap">The xfail register — Known gap</h3>
 <p>Roughly forty <code>xfail</code> markers across the test tree (concentrated in <code>tests/server/tasks/</code>, <code>tests/client/tasks/</code>, and <code>test_protocol_eras.py</code>) are the built-in beta tracker: each names the SDK gap it waits on. They are enumerated and mapped to sdk-feedback findings on the <a href="/development/v4-notes/known-gaps">Known Gaps</a> page.</p>
 <h2 id="security">Security</h2>

@@ -3705,6 +3705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../integrations/huggingface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hugging Face OAuth 🤝 FastMCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../integrations/keycloak/" class="md-nav__link">
         
   
@@ -10798,14 +10826,15 @@ Authentication is <strong>highly recommended</strong> for remote MCP servers. So
 <p>FastMCP supports multiple authentication methods to secure your remote server. See the <a href="/servers/auth/authentication">Authentication Overview</a> for complete configuration options including Bearer tokens, JWT, and OAuth.</p>
 <p>If you're mounting an authenticated server under a path prefix, see <a href="#mounting-authenticated-servers">Mounting Authenticated Servers</a> below for important routing considerations.</p>
 <h3 id="host-and-origin-protection">Host and Origin Protection</h3>
-<p>FastMCP validates <code>Host</code> and browser <code>Origin</code> headers for Streamable HTTP requests by default. This protects localhost-bound servers from DNS rebinding attacks and rejects browser requests from origins you have not trusted.</p>
+<p>FastMCP can validate <code>Host</code> and browser <code>Origin</code> headers for Streamable HTTP requests before they reach MCP session handling. This request guard protects localhost-bound servers from DNS rebinding attacks, and it remains opt-in in FastMCP 3.x to preserve compatibility with existing ASGI, serverless, and reverse-proxy deployments.</p>
 <p>Think of this as a request guard rather than CORS middleware. It decides whether a request can reach MCP session handling. CORS remains a separate browser response-header policy; configure CORS middleware separately when browser JavaScript must read cross-origin responses.</p>
-<p>When you deploy behind a public hostname, add the hostname clients use to reach your MCP endpoint. If a browser-based MCP client runs on a separate origin, add that origin as well:</p>
+<p>Enable strict validation with <code>host_origin_protection=True</code>. When you deploy behind a public hostname, add the hostname clients use to reach your MCP endpoint. If a browser-based MCP client runs on a separate origin, add that origin as well:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;My Server&quot;</span><span class="p">)</span>
 
 <span class="n">app</span> <span class="o">=</span> <span class="n">mcp</span><span class="o">.</span><span class="n">http_app</span><span class="p">(</span>
+    <span class="n">host_origin_protection</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">allowed_hosts</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mcp.example.com&quot;</span><span class="p">],</span>
     <span class="n">allowed_origins</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://app.example.com&quot;</span><span class="p">],</span>
 <span class="p">)</span>
@@ -10820,15 +10849,17 @@ Authentication is <strong>highly recommended</strong> for remote MCP servers. So
         <span class="n">transport</span><span class="o">=</span><span class="s2">&quot;http&quot;</span><span class="p">,</span>
         <span class="n">host</span><span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span><span class="p">,</span>
         <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">,</span>
+        <span class="n">host_origin_protection</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">allowed_hosts</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mcp.example.com&quot;</span><span class="p">],</span>
         <span class="n">allowed_origins</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://app.example.com&quot;</span><span class="p">],</span>
     <span class="p">)</span>
 </code></pre></div>
 <p>You can also configure these values with environment variables:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">FASTMCP_HTTP_ALLOWED_HOSTS</span><span class="o">=</span><span class="s1">&#39;[&quot;mcp.example.com&quot;]&#39;</span>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">FASTMCP_HTTP_HOST_ORIGIN_PROTECTION</span><span class="o">=</span><span class="nb">true</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">FASTMCP_HTTP_ALLOWED_HOSTS</span><span class="o">=</span><span class="s1">&#39;[&quot;mcp.example.com&quot;]&#39;</span>
 <span class="nb">export</span><span class="w"> </span><span class="nv">FASTMCP_HTTP_ALLOWED_ORIGINS</span><span class="o">=</span><span class="s1">&#39;[&quot;https://app.example.com&quot;]&#39;</span>
 </code></pre></div>
-<p>Use <code>host_origin_protection=False</code> only for trusted internal deployments that provide equivalent validation at another layer, such as an ingress proxy.</p>
+<p>Use <code>host_origin_protection="auto"</code> to protect localhost-bound direct servers while allowing ASGI, serverless, and reverse-proxy deployments to keep their existing Host handling unless they configure explicit trust rules. Use <code>host_origin_protection=False</code> to keep the request guard disabled.</p>
 <h3 id="health-checks">Health Checks</h3>
 <p>Health check endpoints are essential for monitoring your deployed server and ensuring it's responding correctly. FastMCP allows you to add custom routes alongside your MCP endpoints, making it easy to implement health checks that work with both deployment approaches.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">starlette.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONResponse</span>
@@ -10869,7 +10900,7 @@ Custom routes are never protected by the server's authentication middleware, eve
 Most MCP clients, including those that you access through a browser like ChatGPT or Claude, don't need CORS configuration. Only enable CORS if you're working with an MCP client that connects directly from a browser, such as debugging tools or inspectors.
 </Tip></p>
 <p>CORS (Cross-Origin Resource Sharing) is needed when JavaScript running in a web browser connects directly to your MCP server. This is different from using an LLM through a browser—in that case, the browser connects to the LLM service, and the LLM service connects to your MCP server (no CORS needed).</p>
-<p>Host and Origin protection runs before CORS. Add browser client origins to <code>allowed_origins</code> so trusted browser requests reach the CORS middleware, then configure CORS to let browser JavaScript read the MCP response headers it needs. Setting <code>allowed_origins</code> trusts the request; it does not emit <code>Access-Control-Allow-Origin</code> or other CORS response headers.</p>
+<p>Host and Origin protection runs before CORS when it is active for a request. Add browser client origins to <code>allowed_origins</code> so trusted browser requests reach the CORS middleware, then configure CORS to let browser JavaScript read the MCP response headers it needs. Setting <code>allowed_origins</code> trusts the request; it does not emit <code>Access-Control-Allow-Origin</code> or other CORS response headers.</p>
 <p>Browser-based MCP clients that need CORS include:</p>
 <ul>
 <li><strong>MCP Inspector</strong> - Browser-based debugging tool for testing MCP servers</li>

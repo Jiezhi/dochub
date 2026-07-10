@@ -5414,7 +5414,7 @@ Set the gateway variables for the [VS Code extension](/en/vs-code) in `claudeCod
 }
 </code></pre></div></p>
 <h3 id="desktop-app">Desktop app</h3>
-<p>The desktop app reads gateway routing from an <a href="https://claude.com/docs/cowork/3p/gateway">administrator-distributed configuration</a>, not from <code>ANTHROPIC_BASE_URL</code> or <code>settings.json</code>. If your organization has distributed it, the desktop app routes through the gateway with no setup on your part; if not, use the terminal CLI or VS Code extension for gateway sessions. Administrators distribute the configuration as described in the <a href="/en/llm-gateway-rollout#distribute-through-managed-settings">organization rollout</a>.</p>
+<p>The desktop app reads gateway routing from an <a href="https://claude.com/docs/third-party/claude-desktop/gateway">administrator-distributed configuration</a>, not from <code>ANTHROPIC_BASE_URL</code> or <code>settings.json</code>. If your organization has distributed it, the desktop app routes through the gateway with no setup on your part; if not, use the terminal CLI or VS Code extension for gateway sessions. Administrators distribute the configuration as described in the <a href="/en/llm-gateway-rollout#distribute-through-managed-settings">organization rollout</a>.</p>
 <p>If the desktop app shows <code>Gateway was unreachable</code>, the app couldn't reach the configured base URL at startup; check the URL and network path with the <a href="#verify-the-connection">curl test above</a>.</p>
 <h3 id="github-actions">GitHub Actions</h3>
 <p><a href="/en/github-actions">Claude Code GitHub Actions</a> reads <code>ANTHROPIC_BASE_URL</code> and <code>ANTHROPIC_CUSTOM_HEADERS</code> from the workflow's <code>env</code> block. Pass the credential as the action's <code>anthropic_api_key</code> input; the action sets it as <code>ANTHROPIC_API_KEY</code>, so it reaches the gateway in the <code>x-api-key</code> header.</p>
@@ -5469,7 +5469,7 @@ options = ClaudeAgentOptions(
 <h3 id="slack-web-and-remote-control">Slack, web, and Remote Control</h3>
 <p><a href="/en/slack">Claude Code in Slack</a> and <a href="/en/claude-code-on-the-web">Claude Code on the web</a> are Anthropic-hosted products that always use Anthropic's API; they aren't part of a gateway deployment. Gateway variables set in a cloud session's environment configuration are not applied. If your traffic must stay on the gateway, don't enable these surfaces for those users.</p>
 <p><a href="/en/remote-control">Remote Control</a> and <a href="/en/voice-dictation">voice dictation</a> both rely on a claude.ai identity: Remote Control to pair a live session with your account, and voice dictation to reach the claude.ai transcription endpoint. They are unavailable while <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or an <code>apiKeyHelper</code> is active. {/<em> min-version: 2.1.196 </em>/}As of v2.1.196, Remote Control is also disabled while <code>ANTHROPIC_BASE_URL</code> points at a non-Anthropic host, so signing in with claude.ai isn't enough on its own.</p>
-<p>To restore either feature, log in with claude.ai and unset the gateway variables it checks. <code>/doctor</code> names the credential variable to unset.</p>
+<p>To restore either feature, log in with claude.ai and unset the gateway variables that feature checks. The Remote Control section of <code>claude doctor</code> names the credential variable to unset.</p>
 <ul>
 <li>Voice dictation: unset the gateway credential</li>
 <li>Remote Control: unset the gateway credential and <code>ANTHROPIC_BASE_URL</code></li>
@@ -5542,7 +5542,7 @@ Reference the PowerShell invocation in `%USERPROFILE%\.claude\settings.json`, es
 <h3 id="route-to-a-cloud-provider-through-a-gateway">Route to a cloud provider through a gateway</h3>
 <p>These configurations point Claude Code at a gateway through a provider-specific base URL variable in place of <code>ANTHROPIC_BASE_URL</code>. Amazon Bedrock and Google Cloud's Agent Platform gateways accept those providers' native request formats; Microsoft Foundry and Claude Platform on AWS gateways accept the Anthropic Messages format and differ only in which base URL variable reaches them.</p>
 <p>Use one only if your gateway team specifically named Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or the Claude Platform on AWS. If the <a href="#verify-the-connection">verification request</a> above returned JSON, you can skip this section.</p>
-<p>Set the block for the provider your gateway team named. The skip-auth variables tell Claude Code not to sign requests with provider credentials, since the gateway holds those. If the gateway needs its own token, add <code>ANTHROPIC_AUTH_TOKEN</code> after the block, except for Microsoft Foundry, which uses <code>ANTHROPIC_FOUNDRY_API_KEY</code> as shown.</p>
+<p>Set the block for the provider your gateway team named. The skip-auth variables tell Claude Code not to sign requests with provider credentials, since the gateway holds those. If the gateway needs its own token, add <code>ANTHROPIC_AUTH_TOKEN</code> after the block, except for Microsoft Foundry, which uses <code>ANTHROPIC_FOUNDRY_API_KEY</code> as shown. {/<em> min-version: 2.1.203 </em>/}A Microsoft Foundry gateway that expects a bearer token can use <a href="/en/env-vars"><code>ANTHROPIC_FOUNDRY_AUTH_TOKEN</code></a> instead; it takes precedence over <code>ANTHROPIC_FOUNDRY_API_KEY</code> when both are set. <code>ANTHROPIC_FOUNDRY_AUTH_TOKEN</code> requires Claude Code v2.1.203 or later.</p>
 <h4 id="amazon-bedrock">Amazon Bedrock</h4>
 <p><Tabs>
   <Tab title="Bash or Zsh">
@@ -5578,7 +5578,8 @@ Reference the PowerShell invocation in `%USERPROFILE%\.claude\settings.json`, es
   </Tab>
 </Tabs></p>
 <h4 id="microsoft-foundry">Microsoft Foundry</h4>
-<p>Put the gateway's credential in <code>ANTHROPIC_FOUNDRY_API_KEY</code>; it is sent to the gateway as the <code>x-api-key</code> header. <code>CLAUDE_CODE_SKIP_FOUNDRY_AUTH</code> doesn't apply here: without an API key, the Microsoft Foundry client fails every request before it leaves the machine.</p>
+<p>Put the gateway's credential in <code>ANTHROPIC_FOUNDRY_API_KEY</code>; it is sent to the gateway as the <code>x-api-key</code> header. {/<em> min-version: 2.1.203 </em>/}A gateway that expects a bearer token can take <a href="/en/env-vars"><code>ANTHROPIC_FOUNDRY_AUTH_TOKEN</code></a> instead. Claude Code sends that value as the <code>Authorization: Bearer</code> header, and it takes precedence over <code>ANTHROPIC_FOUNDRY_API_KEY</code> when both are set. Requires Claude Code v2.1.203 or later.</p>
+<p>For a gateway that injects its own <code>Authorization</code> header, set <code>CLAUDE_CODE_SKIP_FOUNDRY_AUTH=1</code> and leave both credential variables unset. Claude Code then sends requests without an Azure credential and preserves the <code>Authorization</code> header you supply, for example through <code>ANTHROPIC_CUSTOM_HEADERS</code>. {/<em> min-version: 2.1.203 </em>/}Before v2.1.203, <code>CLAUDE_CODE_SKIP_FOUNDRY_AUTH</code> without an API key left the Microsoft Foundry client unable to send requests.</p>
 <p><Tabs>
   <Tab title="Bash or Zsh">
     <code>bash theme={null}

@@ -4921,7 +4921,9 @@ claude -p &quot;Summarize this project&quot; --output-format json
 claude -p "Extract the main function names from auth.py" \
   --output-format json \
   --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}'
-<div class="highlight"><pre><span></span><code>&lt;Tip&gt;
+<div class="highlight"><pre><span></span><code>If the value isn&#39;t a valid JSON Schema, `claude` exits with `Error: --json-schema is not a valid JSON Schema` followed by the validator&#39;s diagnostic. Claude Code accepts schemas that use the `format` keyword, such as `&quot;format&quot;: &quot;email&quot;`, but treats `format` as an annotation and doesn&#39;t enforce it. Before v2.1.205, Claude Code silently ignored an invalid schema and returned unstructured text, and treated any schema containing `format` as invalid.
+
+&lt;Tip&gt;
   Use a tool like [jq](https://jqlang.github.io/jq/) to parse the response and extract specific fields:
 
   ```bash theme={null}
@@ -4961,7 +4963,11 @@ claude -p "Write a poem" --output-format stream-json --verbose --include-partial
 | `uuid`           | string          | unique event identifier                                                                                                                                                                                |
 | `session_id`     | string          | session the event belongs to                                                                                                                                                                           |
 
-The `system/init` event reports session metadata including the model, tools, MCP servers, and loaded plugins. It is the first event in the stream unless [`CLAUDE_CODE_SYNC_PLUGIN_INSTALL`](/en/env-vars) is set, in which case `plugin_install` events precede it. Use the plugin fields to fail CI when a plugin did not load:
+The `system/init` event reports session metadata including the model, tools, MCP servers, and loaded plugins. It is the first event in the stream unless [`CLAUDE_CODE_SYNC_PLUGIN_INSTALL`](/en/env-vars) is set, in which case `plugin_install` events precede it.
+
+The event also carries an optional `capabilities` array of strings naming the protocol behaviors this Claude Code version implements, such as `interrupt_receipt_v1`. Check it to feature-detect instead of comparing version strings, and ignore values you don&#39;t recognize. The field requires Claude Code v2.1.205 or later and is absent from earlier versions. See [`SDKSystemMessage`](/en/agent-sdk/typescript#sdksystemmessage) for the capability list.
+
+Use the plugin fields to fail CI when a plugin did not load:
 
 | Field           | Type  | Description                                                                                                                                                                                                                                                                                  |
 | --------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -5003,7 +5009,7 @@ claude -p &quot;Look at my staged changes and create an appropriate commit&quot;
 </code></pre></div></p>
 <p>The <code>--allowedTools</code> flag uses <a href="/en/settings#permission-rule-syntax">permission rule syntax</a>. The trailing <code>*</code> enables prefix matching, so <code>Bash(git diff *)</code> allows any command starting with <code>git diff</code>. The space before <code>*</code> is important: without it, <code>Bash(git diff*)</code> would also match <code>git diff-index</code>.</p>
 <p><Note>
-  User-invoked <a href="/en/skills">skills</a> and custom commands work in <code>-p</code> mode: include <code>/skill-name</code> in the prompt string and Claude Code expands it before running. Built-in commands that open an interactive dialog, such as <code>/login</code>, are not available in <code>-p</code> mode. {/<em> min-version: 2.1.181 </em>/}To change a setting from a <code>-p</code> invocation, pass <code>key=value</code> to <code>/config</code>, for example <code>/config thinking=false</code>.
+  User-invoked <a href="/en/skills">skills</a> and custom commands work in <code>-p</code> mode: include <code>/skill-name</code> in the prompt string and Claude Code expands it before running. Built-in commands that only run in the terminal interface, such as <code>/login</code>, aren't available in <code>-p</code> mode. {/<em> min-version: 2.1.205 </em>/}<code>/model</code>, <code>/effort</code>, <code>/fast</code>, <code>/color</code>, and <code>/rename</code> accept the value as an argument, for example <code>/model sonnet</code>, and <code>/mcp</code> with no argument prints a text summary of server status; these forms require Claude Code v2.1.205 or later and follow each command's <a href="/en/commands#all-commands">availability notes</a>. {/<em> min-version: 2.1.181 </em>/}To change a setting from a <code>-p</code> invocation, pass <code>key=value</code> to <code>/config</code>, for example <code>/config thinking=false</code>.
 </Note></p>
 <h3 id="customize-the-system-prompt">Customize the system prompt</h3>
 <p>Use <code>--append-system-prompt</code> to add instructions while keeping Claude Code's default behavior. This example pipes a PR diff to Claude and instructs it to review for security vulnerabilities:</p>
