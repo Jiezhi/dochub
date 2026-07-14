@@ -225,6 +225,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../admin-setup/" class="md-nav__link">
         
   
@@ -2069,6 +2096,33 @@
     
   
     Desktop scheduled tasks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../desktop-wsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop wsl
   
 
     
@@ -6090,21 +6144,47 @@ This example shows a plugin entry using many of the optional fields, including c
 
 Claude Code supports installing plugins from private repositories. For manual installation and updates, Claude Code uses your existing git credential helpers, so HTTPS access via `gh auth login`, macOS Keychain, or `git-credential-store` works the same as in your terminal. SSH access works as long as the host is already in your `known_hosts` file and the key is loaded in `ssh-agent`, since Claude Code suppresses interactive SSH prompts for the host fingerprint and key passphrase.
 
-Background auto-updates run at startup without credential helpers, since interactive prompts would block Claude Code from starting. To enable auto-updates for private marketplaces, set the appropriate authentication token in your environment:
+Background auto-updates work differently. By default, the background refresh disables git credential helpers for its `git pull`, so the pull can&#39;t authenticate to private repositories over HTTPS even when a helper is configured. SSH remotes aren&#39;t affected: a key loaded in `ssh-agent` authenticates background pulls the same way as manual operations. When the background pull fails, Claude Code falls back to re-cloning the marketplace from scratch. The re-clone does use your stored git credentials, but it can [time out on large repositories](#git-operations-time-out), so private-marketplace auto-updates may fail intermittently.
 
-| Provider  | Environment variables        | Notes                                     |
-| :-------- | :--------------------------- | :---------------------------------------- |
-| GitHub    | `GITHUB_TOKEN` or `GH_TOKEN` | Personal access token or GitHub App token |
-| GitLab    | `GITLAB_TOKEN` or `GL_TOKEN` | Personal access token or project token    |
-| Bitbucket | `BITBUCKET_TOKEN`            | App password or repository access token   |
+Two settings make private marketplaces behave predictably:
 
-Set the token in your shell configuration (for example, `.bashrc`, `.zshrc`) or pass it when running Claude Code:
+* Set `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` to keep the existing clone when the background pull fails, instead of deleting and re-cloning. Your plugins keep working from the last synced state, and manual updates with `/plugin marketplace update` still pull with your credentials.
+* Configure a git credential helper, for example with `gh auth setup-git` for GitHub, so the re-clone fallback can authenticate without prompting.
+
+Setting a provider token such as `GITHUB_TOKEN` in your environment doesn&#39;t by itself enable background authentication. Tokens take effect only through a configured credential helper, for example the `gh` CLI&#39;s helper, which reads `GH_TOKEN` and `GITHUB_TOKEN`.
+
+To make the background pull itself authenticate over HTTPS, configure a global git URL rewrite. The rewrite embeds a token in the remote URL, so it takes effect even though the background pull disables credential helpers, and a successful pull skips the re-clone fallback. The following example rewrites the marketplace repository&#39;s URL to include an access token:
 
 ```bash theme={null}
-export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+git config --global url.&quot;https://x-access-token:YOUR_TOKEN@github.com/acme-corp/plugins&quot;.insteadOf &quot;https://github.com/acme-corp/plugins&quot;
 </code></pre></div></p>
+<p>Scope the rewrite to the marketplace repository or organization path. A rewrite whose base is only the host applies to every fetch and push to that host on the machine and overrides your normal credentials, including pushes to your own repositories.</p>
+<p>Each provider expects a different username in the rewritten URL, and the same path scoping applies to every provider. For self-hosted servers, replace the hostname with your server's hostname:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Provider</th>
+<th style="text-align: left;">Rewritten URL form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">GitHub</td>
+<td style="text-align: left;"><code>https://x-access-token:YOUR_TOKEN@github.com/acme-corp/plugins</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">GitLab</td>
+<td style="text-align: left;"><code>https://oauth2:YOUR_TOKEN@gitlab.com/acme-corp/plugins</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">Bitbucket</td>
+<td style="text-align: left;"><code>https://x-token-auth:YOUR_TOKEN@bitbucket.org/acme-corp/plugins</code></td>
+</tr>
+</tbody>
+</table>
+<p>The rewrite stores the token in plaintext in your gitconfig, so use a token with read-only access to the marketplace repository.</p>
 <p><Note>
-  For CI/CD environments, configure the token as a secret environment variable. GitHub Actions automatically provides <code>GITHUB_TOKEN</code> for repositories in the same organization.
+  In CI/CD environments, configure a git credential helper before installing plugins from private repositories. On GitHub Actions, export a token with read access to the marketplace repository as <code>GH_TOKEN</code>, then run <code>gh auth setup-git</code>. The default workflow token can only access the workflow's own repository, so a private marketplace in another repository needs a personal access token or app token. A global URL rewrite configured in the pipeline also authenticates the background pull directly.
 </Note></p>
 <h3 id="test-locally-before-distribution">Test locally before distribution</h3>
 <p>Test your marketplace locally before sharing:</p>
@@ -6599,16 +6679,17 @@ claude plugin marketplace update [name]
 </ul>
 <p>For background auto-updates:</p>
 <ul>
-<li>Set the appropriate token in your environment: <code>echo $GITHUB_TOKEN</code></li>
-<li>Check that the token has the required permissions (read access to the repository)</li>
-<li>For GitHub, ensure the token has the <code>repo</code> scope for private repositories</li>
-<li>For GitLab, ensure the token has at least <code>read_repository</code> scope</li>
-<li>Verify the token hasn't expired</li>
+<li>By default, background refreshes disable git credential helpers for the pull, so the pull can't authenticate over HTTPS. SSH remotes with a key loaded in <code>ssh-agent</code> still authenticate. A failed pull triggers a re-clone from scratch, which uses your stored credentials but may time out on large repositories</li>
+<li>Set <code>CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1</code> to keep the existing clone when the background pull fails</li>
+<li>Configure a git credential helper, for example <code>gh auth setup-git</code>, so the re-clone fallback can authenticate</li>
+<li>If the re-clone times out on a large repository, increase the limit with <a href="#git-operations-time-out"><code>CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS</code></a></li>
+<li>Configure a <a href="#private-repositories">git URL rewrite</a> scoped to the marketplace repository so the background pull authenticates directly</li>
+<li>Or update private marketplaces manually with <code>/plugin marketplace update &lt;name&gt;</code>, which uses your credentials</li>
 </ul>
 <h3 id="marketplace-updates-fail-in-offline-environments">Marketplace updates fail in offline environments</h3>
-<p><strong>Symptoms</strong>: Marketplace <code>git pull</code> fails and Claude Code wipes the existing cache, causing plugins to become unavailable.</p>
-<p><strong>Cause</strong>: By default, when a <code>git pull</code> fails, Claude Code removes the stale clone and attempts to re-clone. In offline or airgapped environments, re-cloning fails the same way, leaving the marketplace directory empty.</p>
-<p><strong>Solution</strong>: Set <code>CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1</code> to keep the existing cache when the pull fails instead of wiping it:</p>
+<p><strong>Symptoms</strong>: Marketplace <code>git pull</code> fails in the background and Claude Code repeatedly attempts a re-clone that can't succeed.</p>
+<p><strong>Cause</strong>: By default, when a <code>git pull</code> fails, Claude Code attempts a re-clone from scratch. In offline or airgapped environments, re-cloning fails the same way, and the restore of the previous cache afterward is best-effort. The refresh runs in the background after startup, so it doesn't delay startup, but each session repeats the failed attempts and each git operation can wait out the <a href="#git-operations-time-out">120-second timeout</a>.</p>
+<p><strong>Solution</strong>: Set <code>CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1</code> to skip the re-clone attempt and keep using the existing cache when the pull fails:</p>
 <p>```bash theme={null}
 export CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1
 <div class="highlight"><pre><span></span><code>With this variable set, Claude Code retains the stale marketplace clone on `git pull` failure and continues using the last-known-good state. For fully offline deployments where the repository will never be reachable, use [`CLAUDE_CODE_PLUGIN_SEED_DIR`](#pre-populate-plugins-for-containers) to pre-populate the plugins directory at build time instead.

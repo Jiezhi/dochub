@@ -225,6 +225,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../admin-setup/" class="md-nav__link">
         
   
@@ -3350,6 +3377,33 @@
     
   
     Desktop scheduled tasks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../desktop-wsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop wsl
   
 
     
@@ -7742,7 +7796,7 @@ Configuration object for the `query()` function.
 | `forkSession`                     | `boolean`                                                                                                | `false`                                     | When resuming with `resume`, fork to a new session ID instead of continuing the original session                                                                                                                                                                                                                                                                                                                                                                                              |
 | `forwardSubagentText`             | `boolean`                                                                                                | `false`                                     | Forward subagent text and thinking blocks as assistant and user messages with `parent_tool_use_id` set, so consumers can render a nested transcript. By default only `tool_use` and `tool_result` blocks from subagents are emitted                                                                                                                                                                                                                                                           |
 | `hooks`                           | `Partial&lt;Record&lt;`[`HookEvent`](#hookevent)`, `[`HookCallbackMatcher`](#hookcallbackmatcher)`[]&gt;&gt;`        | `{}`                                        | Hook callbacks for events                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `includeHookEvents`               | `boolean`                                                                                                | `false`                                     | Include hook lifecycle events in the message stream as [`SDKHookStartedMessage`](#sdkhookstartedmessage), [`SDKHookProgressMessage`](#sdkhookprogressmessage), and [`SDKHookResponseMessage`](#sdkhookresponsemessage)                                                                                                                                                                                                                                                                        |
+| `includeHookEvents`               | `boolean`                                                                                                | `false`                                     | Include hook lifecycle events for every hook event in the message stream as [`SDKHookStartedMessage`](#sdkhookstartedmessage), [`SDKHookProgressMessage`](#sdkhookprogressmessage), and [`SDKHookResponseMessage`](#sdkhookresponsemessage). Lifecycle events for `SessionStart` and `Setup` hooks are always included and don&#39;t need this option                                                                                                                                             |
 | `includePartialMessages`          | `boolean`                                                                                                | `false`                                     | Include partial message events                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `loadTimeoutMs`                   | `number`                                                                                                 | `60000`                                     | *Alpha.* Timeout in milliseconds for each `sessionStore.load()` and `sessionStore.listSubkeys()` call during resume materialization. If the adapter doesn&#39;t settle within this window, the query fails instead of hanging. Ignored when `sessionStore` is not set                                                                                                                                                                                                                             |
 | `managedSettings`                 | `Settings`                                                                                               | `undefined`                                 | Policy-tier settings supplied by the spawning parent process. Dropped when an IT-controlled managed-settings tier already exists on the machine, unless that admin opts in with `parentSettingsBehavior: &#39;merge&#39;`. Filtered to restrictive-only keys regardless                                                                                                                                                                                                                               |
@@ -8425,6 +8479,10 @@ type SDKUserMessage = {
 };
 <div class="highlight"><pre><span></span><code>Set `shouldQuery` to `false` to append the message to the transcript without triggering an assistant turn. The message is held and merged into the next user message that does trigger a turn. Use this to inject context, such as the output of a command you ran out of band, without spending a model call on it.
 
+On a message that carries a `tool_result` block, `tool_use_result` is the tool&#39;s structured output object rather than the text sent to the model. Its shape depends on the tool named by the matching `tool_use` block, so the field is typed `unknown`; the built-in shapes are listed under [Tool Output Types](#tool-output-types).
+
+For the `Agent` tool, `tool_use_result` is [`AgentOutput`](#agent-2). On a `completed` result, `content` holds the subagent&#39;s report without the agent ID and usage trailer that Claude Code appends to the `tool_result` text, so render from `tool_use_result` instead of parsing that text.
+
 ### `SDKUserMessageReplay`
 
 Replayed user message with required UUID.
@@ -8442,6 +8500,7 @@ type SDKUserMessageReplay = {
   isReplay: true;
 };
 </code></pre></div></p>
+<p>A user turn injected from outside the session, one whose <a href="#sdkmessageorigin"><code>origin</code></a> kind is <code>peer</code> or <code>channel</code>, reaches the stream as a replay whether it was delivered during an active turn or started a new turn while the session was idle. {/<em> min-version: 2.1.207 </em>/}Before v2.1.207, an injected turn delivered while the session was idle produced no message on the stream and only appeared when you re-read the transcript.</p>
 <h3 id="sdkresultmessage"><code>SDKResultMessage</code></h3>
 <p>Final result message.</p>
 <p>```typescript theme={null}
@@ -8498,7 +8557,7 @@ type SDKResultMessage =
 * `api_error_status`: the HTTP status code of the API error that terminated the conversation. Absent or `null` when the turn ended without an API error.
 * `ttft_ms`: time to first token in milliseconds, measured when the first complete assistant message arrives. Present on the success arm only.
 * `ttft_stream_ms`: time in milliseconds until the first `message_start` stream event, when the response stream opens. Lower than `ttft_ms`; the gap between the two is time spent streaming the first message. Present on the success arm only.
-* `terminal_reason`: why the loop ended. One of `&quot;completed&quot;`, `&quot;max_turns&quot;`, `&quot;tool_deferred&quot;`, `&quot;aborted_streaming&quot;`, `&quot;aborted_tools&quot;`, `&quot;hook_stopped&quot;`, `&quot;stop_hook_prevented&quot;`, `&quot;blocking_limit&quot;`, `&quot;rapid_refill_breaker&quot;`, `&quot;prompt_too_long&quot;`, `&quot;image_error&quot;`, or `&quot;model_error&quot;`.
+* `terminal_reason`: why the loop ended. One of `&quot;completed&quot;`, `&quot;max_turns&quot;`, `&quot;tool_deferred&quot;`, `&quot;aborted_streaming&quot;`, `&quot;aborted_tools&quot;`, `&quot;hook_stopped&quot;`, `&quot;stop_hook_prevented&quot;`, `&quot;background_requested&quot;`, `&quot;blocking_limit&quot;`, `&quot;rapid_refill_breaker&quot;`, `&quot;prompt_too_long&quot;`, `&quot;image_error&quot;`, `&quot;model_error&quot;`, `&quot;api_error&quot;`, `&quot;malformed_tool_use_exhausted&quot;`, `&quot;budget_exhausted&quot;`, `&quot;structured_output_retry_exhausted&quot;`, `&quot;tool_deferred_unavailable&quot;`, or `&quot;turn_setup_failed&quot;`.
 * `fast_mode_state`: one of `&quot;on&quot;`, `&quot;off&quot;`, or `&quot;cooldown&quot;`.
 
 The `origin` field forwards the [`SDKMessageOrigin`](#sdkmessageorigin) of the user message that triggered this result. When a background task finishes and the SDK injects a synthetic follow-up turn, the resulting `SDKResultMessage` carries `origin: { kind: &quot;task-notification&quot; }`. Check this field to distinguish results that answer your prompt from results emitted for background-task follow-ups, so you can route or suppress the latter. The field is absent for results emitted before any user turn, such as startup errors.
@@ -9160,13 +9219,11 @@ type ToolInputSchemas =
 type AgentInput = {
   description: string;
   prompt: string;
-  subagent_type: string;
+  subagent_type?: string;
   model?: &quot;sonnet&quot; | &quot;opus&quot; | &quot;haiku&quot; | &quot;fable&quot;;
-  resume?: string;
   run_in_background?: boolean;
-  max_turns?: number;
   name?: string;
-  mode?: &quot;acceptEdits&quot; | &quot;bypassPermissions&quot; | &quot;default&quot; | &quot;dontAsk&quot; | &quot;plan&quot;;
+  mode?: &quot;acceptEdits&quot; | &quot;auto&quot; | &quot;bypassPermissions&quot; | &quot;default&quot; | &quot;dontAsk&quot; | &quot;plan&quot;;
   isolation?: &quot;worktree&quot;;
 };
 </code></pre></div></p>
@@ -9530,7 +9587,8 @@ type AgentOutput =
   | {
       status: "completed";
       agentId: string;
-      content: Array&lt;{ type: "text"; text: string }&gt;;
+      agentType?: string;
+      content: Array&lt;{ type: "text"; text: string; citations?: unknown[] | null }&gt;;
       resolvedModel?: string;
       totalToolUseCount: number;
       totalDurationMs: number;
@@ -9544,16 +9602,32 @@ type AgentOutput =
           web_search_requests: number;
           web_fetch_requests: number;
         } | null;
-        service_tier: ("standard" | "priority" | "batch") | null;
+        service_tier: string | null;
         cache_creation: {
           ephemeral_1h_input_tokens: number;
           ephemeral_5m_input_tokens: number;
         } | null;
+        inference_geo?: string | null;
+        speed?: string | null;
+        iterations?: unknown;
+      };
+      toolStats?: {
+        readCount: number;
+        searchCount: number;
+        bashCount: number;
+        editFileCount: number;
+        linesAdded: number;
+        linesRemoved: number;
+        otherToolCount: number;
+        frameCount?: number;
       };
       prompt: string;
+      worktreePath?: string;
+      worktreeBranch?: string;
     }
   | {
       status: "async_launched";
+      isAsync?: true;
       agentId: string;
       description: string;
       resolvedModel?: string;
@@ -9562,13 +9636,20 @@ type AgentOutput =
       canReadOutputFile?: boolean;
     }
   | {
-      status: "sub_agent_entered";
+      status: "remote_launched";
+      taskId: string;
+      sessionUrl: string;
       description: string;
-      message: string;
+      prompt: string;
+      outputFile: string;
     };
-<div class="highlight"><pre><span></span><code>Returns the result from the subagent. Discriminated on the `status` field: `&quot;completed&quot;` for finished tasks, `&quot;async_launched&quot;` for background tasks, and `&quot;sub_agent_entered&quot;` for interactive subagents.
+<div class="highlight"><pre><span></span><code>Returns the result from the subagent. Discriminated on the `status` field: `&quot;completed&quot;` for finished tasks, `&quot;async_launched&quot;` for background tasks, and `&quot;remote_launched&quot;` for tasks Claude Code dispatched to a remote cloud session, where `sessionUrl` links to that session and `taskId` identifies it.
 
 The `resolvedModel` field on the `completed` and `async_launched` variants names the model the subagent actually ran on, which can differ from the requested `model` input when [`availableModels`](/en/model-config#restrict-model-selection) or another override applies. {/* min-version: 2.1.174 */}This field requires Claude Code v2.1.174 or later.
+
+On the `completed` variant, `worktreePath` is set when the subagent ran in an isolated git worktree, and `worktreeBranch` names that worktree&#39;s branch when Claude Code created it. `usage.service_tier` carries the service tier string the API reported for the subagent&#39;s requests.
+
+Before v2.1.207, the published type was narrower. It omitted `worktreePath`, `worktreeBranch`, `citations`, `toolStats.frameCount`, and the `inference_geo`, `speed`, and `iterations` usage fields, and it typed `service_tier` as `&quot;standard&quot; | &quot;priority&quot; | &quot;batch&quot;`. Fields the type marks optional can be absent on results recorded by earlier versions.
 
 ### AskUserQuestion
 
@@ -10393,6 +10474,7 @@ type SDKToolUseSummaryMessage = {
 </code></pre></div></p>
 <h3 id="sdkhookstartedmessage"><code>SDKHookStartedMessage</code></h3>
 <p>Emitted when a hook begins executing.</p>
+<p>Claude Code delivers this message, <a href="#sdkhookprogressmessage"><code>SDKHookProgressMessage</code></a>, and <a href="#sdkhookresponsemessage"><code>SDKHookResponseMessage</code></a> to the message stream immediately, including while a <code>SessionStart</code> or <code>Setup</code> hook is still running during session startup. Claude Code v2.1.169 through v2.1.203 delivered these messages in one batch after a <code>SessionStart</code> or <code>Setup</code> hook completed; v2.1.204 restored live delivery.</p>
 <p>```typescript theme={null}
 type SDKHookStartedMessage = {
   type: "system";

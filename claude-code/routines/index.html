@@ -225,6 +225,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../admin-setup/" class="md-nav__link">
         
   
@@ -2088,6 +2115,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../desktop-wsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop wsl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../desktop/" class="md-nav__link">
         
   
@@ -3823,10 +3877,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#schedule-shows-no-commands-match-or-unknown-command" class="md-nav__link">
+  <a href="#schedule-returns-unknown-command" class="md-nav__link">
     <span class="md-ellipsis">
       
-        /schedule shows "No commands match" or "Unknown command"
+        /schedule returns "Unknown command"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schedule-asks-you-to-authenticate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        /schedule asks you to authenticate
       
     </span>
   </a>
@@ -5361,10 +5426,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#schedule-shows-no-commands-match-or-unknown-command" class="md-nav__link">
+  <a href="#schedule-returns-unknown-command" class="md-nav__link">
     <span class="md-ellipsis">
       
-        /schedule shows "No commands match" or "Unknown command"
+        /schedule returns "Unknown command"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#schedule-asks-you-to-authenticate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        /schedule asks you to authenticate
       
     </span>
   </a>
@@ -5511,6 +5587,7 @@ Under Permissions, enable **Allow unrestricted branch pushes** for any repositor
 </Steps></p>
 <h3 id="create-from-the-cli">Create from the CLI</h3>
 <p>Run <code>/schedule</code> in any session to create a scheduled routine conversationally. You can also pass a description directly, for a recurring routine like <code>/schedule daily PR review at 9am</code> or a one-off like <code>/schedule clean up feature flag in one week</code>. Claude walks through the same information the web form collects, then saves the routine to your account.</p>
+<p>A successful start looks like a conversation: Claude asks follow-up questions about the schedule, repositories, and prompt before saving. If Claude instead replies that you need to authenticate or that it can't connect to your remote claude.ai account, no routine was created; see <a href="#troubleshooting">Troubleshooting</a>.</p>
 <p><code>/schedule</code> in the CLI creates scheduled routines only. To add an API or GitHub trigger, edit the routine on the web at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a>.</p>
 <p>The CLI also supports managing existing routines. Run <code>/schedule list</code> to see all routines, <code>/schedule update</code> to change one, or <code>/schedule run</code> to trigger it immediately.</p>
 <h2 id="configure-triggers">Configure triggers</h2>
@@ -5521,6 +5598,9 @@ Under Permissions, enable **Allow unrestricted branch pushes** for any repositor
 <p>For a custom interval such as every two hours or the first of each month, pick the closest preset in the form, then run <code>/schedule update</code> in the CLI to set a specific cron expression. The minimum interval is one hour; expressions that run more frequently are rejected.</p>
 <h4 id="schedule-a-one-off-run">Schedule a one-off run</h4>
 <p>A one-off schedule fires the routine a single time at a specific timestamp. Use it to remind yourself later in the week, to open a cleanup PR after a rollout finishes, or to kick off a follow-up task when an upstream change lands. After the routine fires, it auto-disables and the web UI marks it as <strong>Ran</strong>. To run it again, edit the routine and set a new one-off time.</p>
+<p><Note>
+  One-off scheduling from the CLI is rolling out gradually and may not be available on your account yet. If <code>/schedule</code> only offers recurring schedules, create the one-off run from the web at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a> instead.
+</Note></p>
 <p>Create a one-off run from the CLI by describing the time in natural language. Claude resolves the phrase against the current time and confirms the absolute timestamp before saving.</p>
 <p>```text theme={null}
 /schedule tomorrow at 9am, summarize yesterday's merged PRs
@@ -5549,7 +5629,7 @@ Under Permissions, enable **Allow unrestricted branch pushes** for any repositor
 <p>Each routine has its own token, scoped to triggering that routine only. To rotate or revoke it, return to the same modal and click <strong>Regenerate</strong> or <strong>Revoke</strong>.</p>
 <h4 id="trigger-a-routine">Trigger a routine</h4>
 <p>Send a POST request to the <code>/fire</code> endpoint with the bearer token in the <code>Authorization</code> header. The request body accepts an optional <code>text</code> field for run-specific context such as an alert body or a failing log, passed to the routine alongside its saved prompt. The value is freeform text and is not parsed: if you send JSON or another structured payload, the routine receives it as a literal string.</p>
-<p>The example below triggers a routine from a shell:</p>
+<p>The example below triggers a routine from a shell. The routine ID and token shown are placeholders: replace them with the URL and token you copied when <a href="#add-an-api-trigger">adding the API trigger</a>, or the request fails with a <code>401</code> authentication error:</p>
 <p>```bash theme={null}
 curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJKLMNOPQRSTUVW/fire \
   -H "Authorization: Bearer sk-ant-oat01-xxxxx" \
@@ -5722,15 +5802,16 @@ curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJK
 <p>When a routine hits the daily cap or your subscription usage limit, organizations with usage credits turned on can keep running routines on metered overage. Without usage credits, additional runs are rejected until the window resets. Turn on usage credits from <strong>Settings &gt; Billing</strong> on claude.ai.</p>
 <p>One-off runs do not count against the daily routine cap. They draw down your regular subscription usage like any other session, but they are exempt from the per-account daily routine run allowance.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="schedule-shows-no-commands-match-or-unknown-command"><code>/schedule</code> shows "No commands match" or "Unknown command"</h3>
-<p>The CLI hides <code>/schedule</code> when one of its requirements isn't met, so the command menu shows <code>No commands match "/schedule"</code> while you type, and submitting it returns <code>Unknown command: /schedule</code>. The cause is usually one of the following:</p>
+<h3 id="schedule-returns-unknown-command"><code>/schedule</code> returns "Unknown command"</h3>
+<p>The CLI hides <code>/schedule</code> when one of its requirements isn't met: the command menu shows <code>No commands match "/schedule"</code> while you type, and submitting it returns <code>Unknown command: /schedule</code>. The cause is usually one of the following:</p>
 <ul>
 <li>You are authenticated with a Console API key or a cloud provider such as Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry. <code>/schedule</code> requires a claude.ai subscription login. If <code>ANTHROPIC_API_KEY</code> or <code>ANTHROPIC_AUTH_TOKEN</code> is set in your shell, or <code>apiKeyHelper</code> is set in <code>settings.json</code>, remove it first, since these take precedence over a claude.ai login</li>
 <li><code>DISABLE_TELEMETRY</code>, <code>DO_NOT_TRACK</code>, <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code>, or <code>DISABLE_GROWTHBOOK</code> is set in your shell environment or in the <code>env</code> block of a <a href="/en/settings#available-settings"><code>settings.json</code> file</a>. These disable feature-flag fetching, which <code>/schedule</code> depends on</li>
 <li>You are inside a Claude Code on the web session. Manage routines from the <a href="https://claude.ai/code/routines">web UI</a> instead</li>
-<li>{/<em> min-version: 2.1.81 </em>/}Your CLI is older than v2.1.81. Run <code>claude update</code></li>
 </ul>
 <p>You can always create and manage routines at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a> regardless of how the CLI is configured.</p>
+<h3 id="schedule-asks-you-to-authenticate"><code>/schedule</code> asks you to authenticate</h3>
+<p>If <code>/schedule</code> runs but Claude responds that you need to authenticate with a claude.ai account first, the CLI has no stored claude.ai login. API accounts aren't supported for routines. Run <code>/login</code>, sign in with your claude.ai account, then run <code>/schedule</code> again.</p>
 <h3 id="routines-are-disabled-by-your-organizations-policy">"Routines are disabled by your organization's policy"</h3>
 <p>An Owner in your Team or Enterprise organization has likely turned off the <strong>Routines</strong> toggle at <a href="https://claude.ai/admin-settings/claude-code">claude.ai/admin-settings/claude-code</a>. This is a server-side organization setting, so it cannot be overridden from your local configuration. Ask an Owner to enable routines for your organization.</p>
 <h2 id="related-resources">Related resources</h2>

@@ -225,6 +225,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../admin-setup/" class="md-nav__link">
         
   
@@ -2069,6 +2096,33 @@
     
   
     Desktop scheduled tasks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../desktop-wsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop wsl
   
 
     
@@ -7182,7 +7236,9 @@ This example logs all memory server operations and validates write operations fr
   &quot;command&quot;: &quot;node \&quot;${CLAUDE_PLUGIN_ROOT}\&quot;/scripts/format.js --fix&quot;
 }
 </code></pre></div></p>
-<p>Both forms support the same <a href="#reference-scripts-by-path">path placeholders</a>, and both export them as the environment variables <code>CLAUDE_PROJECT_DIR</code>, <code>CLAUDE_PLUGIN_ROOT</code>, and <code>CLAUDE_PLUGIN_DATA</code> on the spawned process, so a script can read <code>process.env.CLAUDE_PLUGIN_ROOT</code> regardless of how it was launched. Plugin hooks additionally substitute <code>${user_config.*}</code> values; see <a href="/en/plugins-reference#user-configuration">User configuration</a>.</p>
+<p>Both forms support the same <a href="#reference-scripts-by-path">path placeholders</a>, and both export them as the environment variables <code>CLAUDE_PROJECT_DIR</code>, <code>CLAUDE_PLUGIN_ROOT</code>, and <code>CLAUDE_PLUGIN_DATA</code> on the spawned process, so a script can read <code>process.env.CLAUDE_PLUGIN_ROOT</code> regardless of how it was launched.</p>
+<p>Plugin hooks additionally substitute <a href="/en/plugins-reference#user-configuration"><code>${user_config.*}</code></a> values, in exec form only: the value is substituted into <code>command</code> and into each <code>args</code> element as a plain string, so no shell re-parses it.</p>
+<p>A shell-form plugin hook whose <code>command</code> references <code>${user_config.*}</code> fails with an <a href="/en/errors#plugin-command-references-user-config">error</a> instead of running. To use an option value from a shell-form hook, read the <code>$CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;</code> environment variable, such as <code>$CLAUDE_PLUGIN_OPTION_WEBHOOK_URL</code> for a <code>webhook_url</code> option, or set <code>args</code> to switch the hook to exec form. Before v2.1.207, shell-form plugin hook commands also substituted <code>${user_config.*}</code>.</p>
 <p><Note>
   In exec form, <code>command</code> is the executable name or path only. If <code>command</code> is a bare name with no path separator and contains whitespace alongside <code>args</code>, Claude Code logs a warning because the spawn will fail: there is no executable named <code>node script.js</code>. Move the extra tokens into <code>args</code>. Absolute paths with spaces, such as <code>C:\Program Files\nodejs\node.exe</code>, are a single valid executable and don't trigger the warning.
 </Note></p>
@@ -8359,9 +8415,6 @@ When a hook returns `&quot;ask&quot;`, the permission prompt displayed to the us
 </Note></p>
 <h4 id="defer-a-tool-call-for-later">Defer a tool call for later</h4>
 <p><code>"defer"</code> is for integrations that run <code>claude -p</code> as a subprocess and read its JSON output, such as an Agent SDK app or a custom UI built on top of Claude Code. It lets that calling process pause Claude at a tool call, collect input through its own interface, and resume where it left off. Claude Code honors this value only in <a href="/en/headless">non-interactive mode</a> with the <code>-p</code> flag. In interactive sessions it logs a warning and ignores the hook result.</p>
-<p><Note>
-  The <code>defer</code> value requires Claude Code v2.1.89 or later. Earlier versions don't recognize it and the tool proceeds through the normal permission flow.
-</Note></p>
 <p>The <code>AskUserQuestion</code> tool is the typical case: Claude wants to ask the user something, but there is no terminal to answer in. The round trip works like this:</p>
 <ol>
 <li>Claude calls <code>AskUserQuestion</code>. The <code>PreToolUse</code> hook fires.</li>
@@ -8596,9 +8649,13 @@ Matches on tool name, same values as PreToolUse.
 
 ### PostToolUseFailure
 
-Runs when a tool execution fails. This event fires for tool calls that throw errors or return failure results. Use this to log failures, send alerts, or provide corrective feedback to Claude.
+Runs when a tool that started executing fails: the tool threw an error, or an MCP tool returned an error result. Use this to log failures, send alerts, or provide corrective feedback to Claude.
 
 Matches on tool name, same values as PreToolUse.
+
+&lt;Note&gt;
+  This event doesn&#39;t fire for tool calls rejected before execution: an unknown tool name, input that fails schema or tool-specific validation, or a permission denial. Validation rejections are returned as `tool_use_error` results and happen before hooks run, so they fire neither `PreToolUse` nor `PostToolUseFailure`. Permission denials fire `PreToolUse` but not this event; see [PermissionDenied](#permissiondenied).
+&lt;/Note&gt;
 
 #### PostToolUseFailure input
 

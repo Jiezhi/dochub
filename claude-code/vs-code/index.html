@@ -225,6 +225,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../admin-setup/" class="md-nav__link">
         
   
@@ -2069,6 +2096,33 @@
     
   
     Desktop scheduled tasks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../desktop-wsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop wsl
   
 
     
@@ -5728,26 +5782,26 @@ These guides cover configuring your provider in `~/.claude/settings.json`, which
 <p>When the extension is active, it runs a local MCP server that the CLI connects to automatically. This is how the CLI opens diffs in VS Code's native diff viewer, reads your current selection for <code>@</code>-mentions, and — when you're working in a Jupyter notebook — asks VS Code to execute cells.</p>
 <p>The server is named <code>ide</code> and is hidden from <code>/mcp</code> because there's nothing to configure. If your organization uses a <code>PreToolUse</code> hook to allowlist MCP tools, though, you'll need to know it exists.</p>
 <p><strong>Selection and open-file context.</strong> While connected, the CLI includes your current editor selection and the path of the active file as context on each prompt you send. The transcript shows a <code>⧉ Selected N lines from &lt;file&gt;</code> line when this happens. To exclude a sensitive file such as <code>.env</code>, add a <a href="/en/permissions#read-and-edit"><code>Read</code> deny rule</a> for its path. A matching deny rule prevents both the selected text and the open-file notice for that file from reaching Claude.</p>
-<p><strong>Transport and authentication.</strong> The server binds to <code>127.0.0.1</code> on a random high port and is not reachable from other machines. Each extension activation generates a fresh random auth token that the CLI must present to connect. The token is written to a lock file under <code>~/.claude/ide/</code> with <code>0600</code> permissions in a <code>0700</code> directory, so only the user running VS Code can read it.</p>
+<p><strong>Transport and authentication.</strong> The server binds to <code>127.0.0.1</code> on a random port in the range 10000–65535, and the port is not configurable. The transport is unencrypted <code>ws://</code>; because the socket is loopback-only, any process that could capture the traffic can also read the token from the lock file, so TLS would not add protection. Each extension activation generates a fresh random auth token, writes it to a lock file at <code>~/.claude/ide/&lt;port&gt;.lock</code>, and the CLI must present it as the <code>X-Claude-Code-Ide-Authorization</code> header to connect. The lock file has <code>0600</code> permissions in a <code>0700</code> directory, so only the user running VS Code can read it. If <code>CLAUDE_CONFIG_DIR</code> is set, the lock file is written to <code>$CLAUDE_CONFIG_DIR/ide/</code> instead.</p>
 <p><strong>Tools exposed to the model.</strong> The server hosts a dozen tools, but only two are visible to the model. The rest are internal RPC the CLI uses for its own UI — opening diffs, reading selections, saving files — and are filtered out before the tool list reaches Claude.</p>
 <table>
 <thead>
 <tr>
 <th>Tool name (as seen by hooks)</th>
 <th>What it does</th>
-<th>Writes?</th>
+<th>Read-only</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>mcp__ide__getDiagnostics</code></td>
 <td>Returns language-server diagnostics — the errors and warnings in VS Code's Problems panel. Optionally scoped to one file.</td>
-<td>No</td>
+<td>Yes</td>
 </tr>
 <tr>
 <td><code>mcp__ide__executeCode</code></td>
 <td>Runs Python code in the active Jupyter notebook's kernel. See confirmation flow below.</td>
-<td>Yes</td>
+<td>No</td>
 </tr>
 </tbody>
 </table>
