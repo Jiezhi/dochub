@@ -5221,6 +5221,8 @@ claude --permission-mode plan
 
 Auto mode lets Claude execute without routine permission prompts. A separate classifier model reviews actions before they run, blocking anything that escalates beyond your request, targets unrecognized infrastructure, or appears driven by hostile content Claude read. Explicit [ask rules](/en/permissions#manage-permissions) still force a prompt.
 
+Removals targeting the filesystem root or home directory, such as `rm -rf /` and `rm -rf ~`, prompt for approval instead of going to the classifier. {/* min-version: 2.1.208 */}This prompt also fires when the command contains command substitution with `$(...)` or backticks, or process substitution with `&lt;(...)`, whether the removal sits inside the substitution, as in `echo &quot;$(rm -rf ~)&quot;`, or elsewhere in the same command. Before v2.1.208, commands containing those forms went to the classifier instead of prompting.
+
 Auto mode also nudges Claude to keep working without stopping for clarifying questions, though Claude still asks when your prompt or a skill explicitly relies on it. For stronger autonomous behavior while keeping permission prompts, set the [Proactive output style](/en/output-styles) instead.
 
 &lt;Warning&gt;
@@ -5402,7 +5404,12 @@ Set it at startup with the flag:
 claude --permission-mode dontAsk
 </code></pre></div></p>
 <h2 id="skip-all-checks-with-bypasspermissions-mode">Skip all checks with bypassPermissions mode</h2>
-<p><code>bypassPermissions</code> mode disables permission prompts and safety checks so tool calls execute immediately. As of v2.1.126 this includes writes to <a href="#protected-paths">protected paths</a>, which earlier versions still prompted for. Explicit <a href="/en/permissions#manage-permissions">ask rules</a> still force a prompt in this mode, and removals targeting the filesystem root or home directory, such as <code>rm -rf /</code> and <code>rm -rf ~</code>, still prompt as a circuit breaker against model error. {/<em> min-version: 2.1.199 </em>/}As of v2.1.199, MCP tools marked with <a href="/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a> also still prompt. Only use this mode in isolated environments like containers, VMs, or dev containers without internet access, where Claude Code cannot damage your host system.</p>
+<p><code>bypassPermissions</code> mode disables permission prompts and safety checks so tool calls execute immediately, including writes to <a href="#protected-paths">protected paths</a>. Before v2.1.126, protected-path writes still prompted in this mode.</p>
+<p>Explicit <a href="/en/permissions#manage-permissions">ask rules</a> still force a prompt in this mode. {/<em> min-version: 2.1.199 </em>/}MCP tools marked with <a href="/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a> also still prompt; this requires Claude Code v2.1.199 or later.</p>
+<p>Removals targeting the filesystem root or home directory, such as <code>rm -rf /</code> and <code>rm -rf ~</code>, still prompt as a circuit breaker against model error. {/<em> min-version: 2.1.208 </em>/}The circuit breaker also fires when the command contains command substitution with <code>$(...)</code> or backticks, or process substitution with <code>&lt;(...)</code>, whether the removal sits inside the substitution, as in <code>echo "$(rm -rf ~)"</code>, or elsewhere in the same command. The plain form, typed as its own command, has prompted in this mode since the circuit breaker was introduced; before v2.1.208, commands containing those forms didn't prompt.</p>
+<p><Warning>
+  Only use this mode in isolated environments like containers, VMs, or dev containers without internet access, where Claude Code cannot damage your host system.
+</Warning></p>
 <p>You cannot enter <code>bypassPermissions</code> from a session that was started without one of the enabling flags; restart with one to enable it:</p>
 <p>```bash theme={null}
 claude --permission-mode bypassPermissions

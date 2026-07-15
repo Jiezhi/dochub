@@ -1801,6 +1801,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#organization-shared-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organization-shared environments
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5324,6 +5335,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#organization-shared-environments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organization-shared environments
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5980,6 +6002,15 @@ NODE_ENV=development
 LOG_LEVEL=debug
 DATABASE_URL=postgres://localhost:5432/myapp
 </code></pre></div></p>
+<h3 id="organization-shared-environments">Organization-shared environments</h3>
+<p>Owners and admins on Team and Enterprise plans can create cloud environments that are shared with every member of the organization. Shared environments appear in each member's environment selector alongside their personal ones, so a team can standardize on one configuration instead of each member recreating it.</p>
+<p>Manage shared environments from the <strong>Cloud environments</strong> page in <a href="https://claude.ai/admin-settings">admin settings</a>. From there you can:</p>
+<ul>
+<li>Create, edit, and archive shared environments. Each one has the same fields as a personal environment: a name, a <a href="#access-levels">network access level</a>, <a href="#configure-your-environment">environment variables</a> in <code>.env</code> format, and a <a href="#setup-scripts">setup script</a>.</li>
+<li>Set the default environment for the organization.</li>
+</ul>
+<p>Values in a shared environment reach every member's sessions in that environment. Like personal environments, shared environments have no dedicated secrets store, so don't include secrets.</p>
+<p>Organizations in the self-hosted runners program also manage their runner pools from the same page.</p>
 <h2 id="setup-scripts">Setup scripts</h2>
 <p>A setup script is a Bash script that runs when a new cloud session starts, before Claude Code launches. Use setup scripts to install dependencies, configure tools, or fetch anything the session needs that isn't pre-installed.</p>
 <p>Scripts run as root on Ubuntu 24.04, so <code>apt install</code> and most language package managers work.</p>
@@ -6095,12 +6126,14 @@ api.example.com
 registry.example.com
 </code></pre></div></p>
 <p>Use <code>*.</code> for wildcard subdomain matching. Check <strong>Also include default list of common package managers</strong> to keep the <a href="#default-allowed-domains">Trusted domains</a> alongside your custom entries, or leave it unchecked to allow only what you list.</p>
+<p>Allowed domains are configured per environment. There's no organization-level allowlist that Owners can push to all users' environments; <a href="/en/server-managed-settings">server-managed settings</a> can restrict cloud sessions but can't add allowed domains.</p>
 <h3 id="github-proxy">GitHub proxy</h3>
 <p>For security, all GitHub operations go through a dedicated proxy service that transparently handles all git interactions. Inside the sandbox, the git client authenticates using a custom-built scoped credential. This proxy:</p>
 <ul>
 <li>Manages GitHub authentication securely: the git client uses a scoped credential inside the sandbox, which the proxy verifies and translates to your actual GitHub authentication token</li>
 <li>Restricts git push operations to the current working branch for safety</li>
 <li>Enables cloning, fetching, and PR operations while maintaining security boundaries</li>
+<li>Limits GitHub API and release-asset requests to repositories attached to the session, regardless of the environment's <a href="#access-levels">network access level</a>. Setup scripts that download release assets from unattached repositories return a 403. Committed files from public repositories are fetched through <code>raw.githubusercontent.com</code>, which the <a href="#security-proxy">security proxy</a> handles instead. That domain is in the default <a href="#default-allowed-domains">Trusted list</a>, so the files stay reachable unless the environment's <a href="#access-levels">access level</a> excludes it</li>
 </ul>
 <h3 id="security-proxy">Security proxy</h3>
 <p>Environments run behind an HTTP/HTTPS network proxy for security and abuse prevention purposes. All outbound internet traffic passes through this proxy, which provides:</p>

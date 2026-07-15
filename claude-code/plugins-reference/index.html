@@ -5673,8 +5673,7 @@ Plugins can bundle Model Context Protocol (MCP) servers to connect Claude Code w
     },
     &quot;plugin-api-client&quot;: {
       &quot;command&quot;: &quot;npx&quot;,
-      &quot;args&quot;: [&quot;@company/mcp-server&quot;, &quot;--plugin-mode&quot;],
-      &quot;cwd&quot;: &quot;${CLAUDE_PLUGIN_ROOT}&quot;
+      &quot;args&quot;: [&quot;@company/mcp-server&quot;, &quot;--plugin-mode&quot;]
     }
   }
 }
@@ -5838,9 +5837,6 @@ Plugins can bundle Model Context Protocol (MCP) servers to connect Claude Code w
 <h3 id="monitors">Monitors</h3>
 <p>Plugins can declare background monitors that Claude Code starts automatically when the plugin is active. Each monitor runs a shell command for the lifetime of the session and delivers every stdout line to Claude as a notification, so Claude can react to log entries, status changes, or polled events without being asked to start the watch itself.</p>
 <p>Plugin monitors use the same mechanism as the <a href="/en/tools-reference#monitor-tool">Monitor tool</a> and share its availability constraints. They run only in interactive CLI sessions, run unsandboxed at the same trust level as <a href="#hooks">hooks</a>, and are skipped on hosts where the Monitor tool is unavailable.</p>
-<p><Note>
-  Plugin monitors require Claude Code v2.1.105 or later.
-</Note></p>
 <p><strong>Location</strong>: <code>monitors/monitors.json</code> in the plugin root, or inline in <code>plugin.json</code></p>
 <p><strong>Format</strong>: JSON array of monitor entries</p>
 <p>The following <code>monitors/monitors.json</code> watches a deployment status endpoint and a local error log:</p>
@@ -5876,7 +5872,7 @@ Plugins can bundle Model Context Protocol (MCP) servers to connect Claude Code w
 
 The `command` value supports the [path substitutions](#environment-variables) `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`, plus any `${ENV_VAR}` from the environment. Prefix the command with `cd &quot;${CLAUDE_PLUGIN_ROOT}&quot; &amp;&amp; ` if the script needs to run from the plugin&#39;s own directory.
 
-A monitor `command` can&#39;t reference [`${user_config.*}`](#user-configuration) values. The command runs through a shell, so Claude Code rejects the monitor with an [error](/en/errors#plugin-command-references-user-config) instead of substituting the value. Have the monitor script read the value from a config file it owns. Before v2.1.207, monitor commands substituted `${user_config.*}` values.
+A monitor `command` can&#39;t reference [`${user_config.*}`](#user-configuration) values. The command runs through a shell, so Claude Code rejects the monitor with an [error](/en/errors#plugin-command-references-user-config) instead of substituting the value. Monitor processes don&#39;t receive `CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;` environment variables, so have the monitor script read the value from a config file it owns. Before v2.1.207, monitor commands substituted `${user_config.*}` values.
 
 Disabling a plugin mid-session does not stop monitors that are already running. They stop when the session ends.
 
@@ -6197,8 +6193,31 @@ The `userConfig` field declares values that Claude Code prompts the user for whe
 </tr>
 </tbody>
 </table>
-<p>Each value is available for substitution as <code>${user_config.KEY}</code> in MCP and LSP server configs, except the MCP <a href="/en/mcp#use-dynamic-headers-for-custom-authentication"><code>headersHelper</code></a> field, and in <a href="/en/hooks#exec-form-and-shell-form">exec-form</a> hook commands. Non-sensitive values can also be substituted in skill and agent content. All values are exported to hook processes as <code>CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;</code> environment variables, where <code>&lt;KEY&gt;</code> is the option key uppercased.</p>
-<p>Claude Code rejects a <code>${user_config.KEY}</code> reference in any command string it passes to a shell: a shell-form hook command, a <a href="#monitors">monitor</a> command, or an MCP <code>headersHelper</code>. Substituting a configured value into a shell command would let the shell run whatever that value contains, so the component fails with an <a href="/en/errors#plugin-command-references-user-config">error</a> instead. For a hook, switch to exec form or read <code>$CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;</code> from the environment. For a monitor or <code>headersHelper</code>, read the value inside the script. Before v2.1.207, these command strings substituted <code>${user_config.KEY}</code> values.</p>
+<p>Each value is available for substitution as <code>${user_config.KEY}</code> in MCP and LSP server configs and hook commands. Non-sensitive values can also be substituted in skill and agent content. All values are exported to hook processes as <code>CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;</code> environment variables, where <code>&lt;KEY&gt;</code> is the option key uppercased.</p>
+<p>Fields that run in a shell reject <code>${user_config.*}</code>: substituting a configured value into a shell command would let the shell run whatever that value contains, so the component fails with an <a href="/en/errors#plugin-command-references-user-config">error</a> instead. Each rejected field has an alternative way to pass the value:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Rejected field</th>
+<th style="text-align: left;">How to pass the value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Shell-form hook commands</td>
+<td style="text-align: left;">Use <a href="/en/hooks#exec-form-and-shell-form">exec form</a> with <code>args</code>, or read <code>CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;</code> from the hook's environment</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#monitors">Monitor</a> commands</td>
+<td style="text-align: left;">Read the value from a config file in the script</td>
+</tr>
+<tr>
+<td style="text-align: left;">MCP <a href="/en/mcp#use-dynamic-headers-for-custom-authentication"><code>headersHelper</code></a></td>
+<td style="text-align: left;">Read the value from a config file in the script</td>
+</tr>
+</tbody>
+</table>
+<p>Before v2.1.207, these fields substituted <code>${user_config.KEY}</code> values; update plugins that relied on this.</p>
 <p>Non-sensitive values are stored under the <a href="/en/settings#pluginconfigs"><code>pluginConfigs</code></a> key in <code>settings.json</code> as <code>pluginConfigs[&lt;plugin-id&gt;].options</code>. {/<em> min-version: 2.1.207 </em>/}Claude Code writes the key to user settings and reads it back from user settings, the <code>--settings</code> flag, and managed settings only; entries in a project's <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code> are ignored. Before v2.1.207, Claude Code also read project and local settings.</p>
 <p>Sensitive values go to the macOS Keychain, or to <code>~/.claude/.credentials.json</code> on platforms where no supported keychain is available. Keychain storage is shared with OAuth tokens and has an approximately 2 KB total limit, so keep sensitive values small.</p>
 <h3 id="channels">Channels</h3>
@@ -6260,12 +6279,65 @@ A plugin that has a `SKILL.md` at its root, no `skills/` subdirectory, and no `s
 }
 </code></pre></div></p>
 <h3 id="environment-variables">Environment variables</h3>
-<p>Claude Code provides three variables for referencing paths. All are substituted inline anywhere they appear in skill content, agent content, hook commands, monitor commands, and MCP or LSP server configs. All are also exported as environment variables to hook processes and MCP or LSP server subprocesses.</p>
-<p><strong><code>${CLAUDE_PLUGIN_ROOT}</code></strong>: the absolute path to your plugin's installation directory. Use this to reference scripts, binaries, and config files bundled with the plugin. In hook commands, use <a href="/en/hooks#exec-form-and-shell-form">exec form</a> with <code>args</code> so the path is passed as one argument with no quoting. In shell-form hooks and monitor commands, wrap it in double quotes, as in <code>"${CLAUDE_PLUGIN_ROOT}"</code>. This path changes when the plugin updates. The previous version's directory remains on disk for about seven days after an update before cleanup, but treat it as ephemeral and do not write state here.</p>
-<p>When a plugin updates mid-session, hook commands, monitors, MCP servers, and LSP servers keep using the previous version's path. Run <code>/reload-plugins</code> to switch hooks, MCP servers, and LSP servers to the new path; monitors require a session restart.</p>
-<p><strong><code>${CLAUDE_PLUGIN_DATA}</code></strong>: a persistent directory for plugin state that survives updates. Use this for installed dependencies such as <code>node_modules</code> or Python virtual environments, generated code, caches, and any other files that should persist across plugin versions. The directory is created automatically the first time this variable is referenced.</p>
-<p><strong><code>${CLAUDE_PROJECT_DIR}</code></strong>: the project root. This is the same directory hooks receive in their <code>CLAUDE_PROJECT_DIR</code> variable. Use this to reference project-local scripts or config files. Wrap in quotes to handle paths with spaces, for example <code>"${CLAUDE_PROJECT_DIR}/scripts/server.sh"</code>.</p>
-<p>MCP servers can also call the <code>roots/list</code> request to read the session's working directories at runtime. See <a href="/en/mcp#option-3-add-a-local-stdio-server">what <code>roots/list</code> returns and when Claude Code notifies the server of changes</a>.</p>
+<p>Claude Code provides three variables for referencing paths:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Variable</th>
+<th style="text-align: left;">Resolves to</th>
+<th style="text-align: left;">Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>${CLAUDE_PLUGIN_ROOT}</code></td>
+<td style="text-align: left;">Absolute path to the plugin's installation directory</td>
+<td style="text-align: left;">Scripts, binaries, and config files bundled with the plugin</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>${CLAUDE_PLUGIN_DATA}</code></td>
+<td style="text-align: left;"><a href="#persistent-data-directory">Persistent directory</a> that survives plugin updates, created on first reference</td>
+<td style="text-align: left;">Installed dependencies such as <code>node_modules</code> or Python virtual environments, generated code, and caches</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>${CLAUDE_PROJECT_DIR}</code></td>
+<td style="text-align: left;">The project root</td>
+<td style="text-align: left;">Project-local scripts and config files</td>
+</tr>
+</tbody>
+</table>
+<p>All three are exported as environment variables to hook processes and to MCP and LSP server subprocesses. Which fields substitute them inline depends on the plugin component:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Plugin component</th>
+<th style="text-align: left;">Fields where placeholders resolve</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Skill and agent content</td>
+<td style="text-align: left;">Anywhere the placeholder appears</td>
+</tr>
+<tr>
+<td style="text-align: left;">Hook and monitor commands</td>
+<td style="text-align: left;">Anywhere the placeholder appears</td>
+</tr>
+<tr>
+<td style="text-align: left;">MCP <code>stdio</code> servers</td>
+<td style="text-align: left;"><code>command</code>, <code>args</code>, <code>env</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">MCP <code>http</code>, <code>sse</code>, <code>ws</code> servers</td>
+<td style="text-align: left;"><code>url</code>, <code>headers</code>, <code>headersHelper</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">LSP servers</td>
+<td style="text-align: left;"><code>command</code>, <code>args</code>, <code>env</code>, <code>workspaceFolder</code></td>
+</tr>
+</tbody>
+</table>
+<p>In hook commands, use <a href="/en/hooks#exec-form-and-shell-form">exec form</a> with <code>args</code> so each path is passed as one argument with no quoting. In shell-form hooks and monitor commands, wrap the variables in double quotes, as in <code>"${CLAUDE_PROJECT_DIR}/scripts/server.sh"</code>. This shell-form hook runs a script bundled with a plugin:</p>
 <p>```json theme={null}
 {
   "hooks": {
@@ -6281,7 +6353,13 @@ A plugin that has a `SKILL.md` at its root, no `skills/` subdirectory, and no `s
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>#### Persistent data directory
+<div class="highlight"><pre><span></span><code>`${CLAUDE_PLUGIN_ROOT}` changes when the plugin updates. The previous version&#39;s directory remains on disk for about seven days after an update before cleanup, but treat it as ephemeral and don&#39;t write state there.
+
+When a plugin updates mid-session, hook commands, monitors, MCP servers, and LSP servers keep using the previous version&#39;s path. Run `/reload-plugins` to switch hooks, MCP servers, and LSP servers to the new path; monitors require a session restart.
+
+MCP servers can also call the `roots/list` request to read the session&#39;s working directories at runtime. See [what `roots/list` returns and when Claude Code notifies the server of changes](/en/mcp#option-3-add-a-local-stdio-server).
+
+#### Persistent data directory
 
 The `${CLAUDE_PLUGIN_DATA}` directory resolves to `~/.claude/plugins/data/{id}/`, where `{id}` is the plugin identifier with characters outside `a-z`, `A-Z`, `0-9`, `_`, and `-` replaced by `-`. For a plugin installed as `formatter@my-marketplace`, the directory is `~/.claude/plugins/data/formatter-my-marketplace/`.
 

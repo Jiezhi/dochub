@@ -1499,6 +1499,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#streaming-errors-behind-a-gateway-or-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming errors behind a gateway or proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#zero-token-counts-in-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5303,6 +5314,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#streaming-errors-behind-a-gateway-or-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming errors behind a gateway or proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#zero-token-counts-in-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5489,7 +5511,9 @@ export AWS_SESSION_TOKEN=your-session-token
 <p>```bash theme={null}
 aws sso login --profile=<your-profile-name></p>
 <p>export AWS_PROFILE=your-profile-name
-<div class="highlight"><pre><span></span><code>**Option D: AWS Management Console credentials**
+<div class="highlight"><pre><span></span><code>Claude Code requests role credentials from the IAM Identity Center region named by the profile&#39;s `sso_region`, which doesn&#39;t need to match the region you run Amazon Bedrock in. {/* min-version: 2.1.208 */}In v2.1.207, the Amazon Bedrock region overrode `sso_region`, so a profile whose IAM Identity Center instance is in a different region failed to authenticate with a `Session token not found or invalid` error.
+
+**Option D: AWS Management Console credentials**
 
 ```bash theme={null}
 aws login
@@ -5803,6 +5827,10 @@ export ANTHROPIC_BEDROCK_MANTLE_BASE_URL=https://your-gateway.example.com</code>
 <li>Specify the model as an <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html">inference profile</a> ID</li>
 </ul>
 <p>Claude Code uses the Amazon Bedrock <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html">Invoke API</a> and does not support the Converse API.</p>
+<h3 id="streaming-errors-behind-a-gateway-or-proxy">Streaming errors behind a gateway or proxy</h3>
+<p>If streaming requests fail with an error that begins <code>Bedrock streaming response has content-type</code>, a gateway or proxy between Claude Code and Amazon Bedrock is transforming the streaming response. Amazon Bedrock streams responses in a binary event-stream format with the content-type <code>application/vnd.amazon.eventstream</code>, and Claude Code rejects a successful streaming response that reports a different content-type instead of decoding a body it can't read. The error names the content-type it received, commonly <code>text/event-stream</code> from an Amazon API Gateway and Lambda integration that re-emits the stream as server-sent events.</p>
+<p>Before v2.1.208, the same misconfiguration surfaced as <code>API Error: Truncated event message received</code> after the whole response had been buffered.</p>
+<p>To fix it, configure the gateway to pass the <code>InvokeModelWithResponseStream</code> response body and its <code>Content-Type</code> header through unmodified. If the gateway rewrites only the header and passes the binary body through intact, set <a href="/en/env-vars"><code>CLAUDE_CODE_DISABLE_BEDROCK_CONTENT_TYPE_GUARD=1</code></a> to skip the check until the gateway is fixed. With the check off, a response body that was transformed fails with <code>Truncated event message received</code> again.</p>
 <h3 id="zero-token-counts-in-context">Zero token counts in /context</h3>
 <p>The <code>/context</code> command counts tokens for each tool group by sending the tool schemas to the Amazon Bedrock count-tokens API. {/<em> min-version: 2.1.196 </em>/}On Claude Code versions before v2.1.196, Amazon Bedrock rejected that request because the schemas carried fields its count-tokens API doesn't accept, so every tool group showed 0 tokens. Other rows in the breakdown, such as messages and memory files, aren't affected.</p>
 <p>Update to v2.1.196 or later.</p>
