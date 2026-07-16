@@ -5535,16 +5535,17 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>dontAsk</code></td>
-<td style="text-align: left;">Auto-denies tools unless pre-approved via <code>/permissions</code> or <code>permissions.allow</code> rules</td>
+<td style="text-align: left;">Auto-denies tools unless pre-approved via <code>/permissions</code> or <code>permissions.allow</code> rules. <code>AskUserQuestion</code>, connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and MCP tools marked <a href="/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> are denied even if you've allowed them</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>bypassPermissions</code></td>
-<td style="text-align: left;">Skips permission prompts, except those forced by explicit <code>ask</code> rules. Root and home directory removals such as <code>rm -rf /</code> also still prompt as a circuit breaker</td>
+<td style="text-align: left;">Skips permission prompts, except those forced by explicit <code>ask</code> rules, connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and MCP tools marked <a href="/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>. Root and home directory removals such as <code>rm -rf /</code> also still prompt as a circuit breaker</td>
 </tr>
 </tbody>
 </table>
 <p><Warning>
-  <code>bypassPermissions</code> mode skips permission prompts, including for writes to <code>.git</code>, <code>.config/git</code>, <code>.claude</code>, <code>.vscode</code>, <code>.idea</code>, <code>.husky</code>, <code>.cargo</code>, <code>.devcontainer</code>, <code>.yarn</code>, and <code>.mvn</code>. Explicit <code>ask</code> rules still force a prompt, and removals targeting the filesystem root or home directory, such as <code>rm -rf /</code> and <code>rm -rf ~</code>, still prompt as a circuit breaker against model error, {/<em> min-version: 2.1.208 </em>/}including in commands that contain command substitution with <code>$(...)</code> or backticks, or process substitution with <code>&lt;(...)</code>. The plain form, such as <code>rm -rf ~</code> typed as its own command, has prompted in this mode since the circuit breaker was introduced; v2.1.208 extends the same check to commands that reach the removal through a substitution. Before v2.1.208, commands containing those forms didn't prompt in this mode. Only use this mode in isolated environments like containers or VMs where Claude Code can't cause damage.
+  <code>bypassPermissions</code> mode skips permission prompts, including for writes to <code>.git</code>, <code>.config/git</code>, <code>.claude</code>, <code>.vscode</code>, <code>.idea</code>, <code>.husky</code>, <code>.cargo</code>, <code>.devcontainer</code>, <code>.yarn</code>, and <code>.mvn</code>. Only use this mode in isolated environments like containers or VMs where Claude Code can't cause damage.</p>
+<p>A few prompts still fire in this mode. Explicit <code>ask</code> rules, connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and MCP tools marked <a href="/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> still prompt. Removals targeting the filesystem root or home directory, such as <code>rm -rf /</code> and <code>rm -rf ~</code>, also prompt as a circuit breaker against model error, {/<em> min-version: 2.1.208 </em>/}including when the command contains command substitution with <code>$(...)</code> or backticks, or process substitution with <code>&lt;(...)</code>. Before v2.1.208, only the plain form, such as <code>rm -rf ~</code> typed as its own command, prompted; commands that reached the removal through a substitution didn't.
 </Warning></p>
 <p>To prevent <code>bypassPermissions</code> or <code>auto</code> mode from being used, set <code>permissions.disableBypassPermissionsMode</code> or <code>permissions.disableAutoMode</code> to <code>"disable"</code> in any <a href="/en/settings#settings-files">settings file</a>. These are most useful in <a href="#managed-settings">managed settings</a> where they can't be overridden.</p>
 <h2 id="permission-rule-syntax">Permission rule syntax</h2>
@@ -5812,6 +5813,8 @@ MCP rules use the server name as configured in Claude Code, optionally followed 
 * `mcp__puppeteer__*` uses wildcard syntax and also matches all tools from the `puppeteer` server
 * `mcp__puppeteer__puppeteer_navigate` matches the `puppeteer_navigate` tool provided by the `puppeteer` server
 
+If your organization has set a [claude.ai connector](/en/mcp#organization-controls-on-connector-tools) tool to `ask`, allow rules for that tool don&#39;t take effect: Claude Code prompts on every call, even in `auto` and `bypassPermissions` modes. In `dontAsk` mode, which never prompts, Claude Code denies the call instead. Connector tools appear as `mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;`.
+
 ### Agent (subagents)
 
 Use `Agent(AgentName)` rules to control which [subagents](/en/sub-agents) Claude can use:
@@ -5862,7 +5865,8 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 </table>
 <h2 id="extend-permissions-with-hooks">Extend permissions with hooks</h2>
 <p><a href="/en/hooks-guide">Claude Code hooks</a> provide a way to register custom shell commands to perform permission evaluation at runtime. When Claude Code makes a tool call, PreToolUse hooks run before the permission prompt. The hook output can deny the tool call, force a prompt, or skip the prompt to let the call proceed.</p>
-<p>Hook decisions don't bypass permission rules. Deny and ask rules are evaluated regardless of what a PreToolUse hook returns, so a matching deny rule blocks the call and a matching ask rule still prompts even when the hook returned <code>"allow"</code> or <code>"ask"</code>. This preserves the deny-first precedence described in <a href="#manage-permissions">Manage permissions</a>, including deny rules set in managed settings.</p>
+<p>Hook decisions don't bypass permission rules. Claude Code evaluates deny and ask rules regardless of what a PreToolUse hook returns: a matching deny rule blocks the call, and a matching ask rule still prompts even when the hook returned <code>"allow"</code> or <code>"ask"</code>. This preserves the deny-first precedence described in <a href="#manage-permissions">Manage permissions</a>, including deny rules set in managed settings.</p>
+<p>Connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and MCP tools marked <a href="/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> also still prompt when a hook returns <code>"allow"</code>.</p>
 <p>A blocking hook also takes precedence over allow rules. A hook that exits with code 2 stops the tool call before permission rules are evaluated, so the block applies even when an allow rule would otherwise let the call proceed. To run all Bash commands without prompts except for a few you want blocked, add <code>"Bash"</code> to your allow list and register a PreToolUse hook that rejects those specific commands. See <a href="/en/hooks-guide#block-edits-to-protected-files">Block edits to protected files</a> for a hook script you can adapt.</p>
 <h2 id="working-directories">Working directories</h2>
 <p>By default, Claude has access to files in the directory where you launched it. You can extend this access:</p>
@@ -5872,6 +5876,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <li><strong>Persistent configuration</strong>: add to <code>additionalDirectories</code> in <a href="/en/settings#settings-files">settings files</a></li>
 </ul>
 <p>Files in additional directories follow the same permission rules as the original working directory: they become readable without prompts, and file editing permissions follow the current permission mode.</p>
+<p>In background sessions on macOS, the session host requests access to protected folders such as <code>~/Desktop</code>, <code>~/Documents</code>, and <code>~/Downloads</code> separately from your terminal when Claude needs to read or write files there; if reads there fail with <code>Operation not permitted</code>, see <a href="/en/agent-view#background-sessions-can’t-read-desktop-documents-or-downloads-on-macos">how to grant folder access to background sessions</a>.</p>
 <p>To change the session's primary working directory instead of adding another, use <a href="/en/commands"><code>/cd</code></a>. The <code>/cd</code> command requires Claude Code v2.1.169 or later. Unlike <code>/add-dir</code>, it relocates the session: the new directory's <code>CLAUDE.md</code> is loaded and <code>--resume</code> finds the session from there.</p>
 <h3 id="additional-directories-grant-file-access-not-configuration">Additional directories grant file access, not configuration</h3>
 <p>Adding a directory extends where Claude can read and edit files. It doesn't make that directory a full configuration root: most <code>.claude/</code> configuration is not discovered from additional directories, though a few types are loaded as exceptions.</p>

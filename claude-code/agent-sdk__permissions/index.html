@@ -5131,6 +5131,8 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Step title="Ask rules">
     Check <code>ask</code> rules from <a href="/en/settings#permission-settings">settings.json</a>. If an ask rule matches, the call falls through to your <a href="/en/agent-sdk/user-input"><code>canUseTool</code> callback</a> for confirmation, even in <code>bypassPermissions</code> mode.</p>
 <pre><code>Tools that require user interaction behave the same way: `AskUserQuestion` and MCP tools whose server sets [`_meta["anthropic/requiresUserInteraction"]`](/en/mcp#require-approval-for-a-specific-tool) always fall through to the callback, even when an allow rule matches. In `dontAsk` mode both cases are denied instead, because that mode never prompts. {/* min-version: 2.1.199 */}The MCP annotation requires Claude Code v2.1.199 or later.
+
+[claude.ai connector](/en/mcp#organization-controls-on-connector-tools) tools your organization has set to `ask` also leave the flow at this step. Every call falls through to the callback, even in `bypassPermissions` mode and even when an allow rule matches. The callback receives the reason `Your organization requires approval for this tool`. In `dontAsk` mode the call is denied instead, because that mode never prompts.
 </code></pre>
 <p></Step></p>
 <p><Step title="Permission mode">
@@ -5185,10 +5187,13 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <p>Allow rules accept tool-name globs only after a literal <code>mcp__&lt;server&gt;__</code> prefix. The server segment must be glob-free so the rule names a specific server you configured: <code>mcp__puppeteer__*</code> matches every tool from the <code>puppeteer</code> server, and <code>mcp__github__get_*</code> matches its <code>get_</code> tools. An unanchored entry like <code>allowed_tools=["*"]</code> or <code>allowed_tools=["mcp__*"]</code> is ignored with a startup warning and does not auto-approve anything.</p>
+<p>Scoped rules for <code>Read</code> and <code>Edit</code> take a path pattern. <code>Edit(path)</code> rules govern all built-in tools that write files, including <code>Write</code> and <code>NotebookEdit</code>; a <code>Write(path)</code> rule is never matched by the file permission checks.</p>
+<p>Use <code>//path</code> for an absolute filesystem path: a deny rule of <code>Edit(//secrets/**)</code> blocks writes anywhere under <code>/secrets</code> on disk. With a single leading slash, <code>Edit(/secrets/**)</code> anchors at the rule's source instead. For rules passed through <code>allowed_tools</code> or <code>disallowed_tools</code>, that means the session's working directory, so the rule doesn't block <code>/secrets</code> on disk. See <a href="/en/permissions#read-and-edit">Read and Edit rules</a> for the four anchor forms and how rules from settings files resolve.</p>
 <p><Warning>
-  <strong>Auto-approved tools never reach <code>canUseTool</code>.</strong> A tool call approved at any earlier step, by <code>acceptEdits</code> or <code>bypassPermissions</code>, or by an allow rule, skips your <code>canUseTool</code> callback, so permission checks you put there are silently bypassed for that tool. The exception is tools that require user interaction, <code>AskUserQuestion</code> and MCP tools marked with <a href="/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a>, which reach the callback even when an allow rule matches. Coverage depends on the entry's form: a bare name like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool, while a scoped rule like <code>Bash(ls *)</code> auto-approves only matching calls and other <code>Bash</code> calls still fall through to the callback. For checks that must run on every tool call, use a <a href="/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.
+  <strong>Auto-approved tools never reach <code>canUseTool</code>.</strong> A tool call approved at any earlier step, by <code>acceptEdits</code> or <code>bypassPermissions</code>, or by an allow rule, skips your <code>canUseTool</code> callback, so permission checks you put there are silently bypassed for that tool. <code>AskUserQuestion</code>, MCP tools marked <a href="/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a>, and connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> still reach the callback, even when an allow rule matches.</p>
+<p>Coverage depends on the entry's form: a bare name like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool, while a scoped rule like <code>Bash(ls *)</code> auto-approves only matching calls and other <code>Bash</code> calls still fall through to the callback. For checks that must run on every tool call, use a <a href="/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.
 </Warning></p>
-<p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>. Listed tools are approved; anything else is denied outright instead of prompting:</p>
+<p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>. Listed tools are approved, apart from the always-prompt tools in the Warning above; anything else is denied outright instead of prompting:</p>
 <p><code>typescript theme={null}
 const options = {
   allowedTools: ["Read", "Glob", "Grep"],
@@ -5219,7 +5224,7 @@ const options = {
 <tr>
 <td style="text-align: left;"><code>dontAsk</code></td>
 <td style="text-align: left;">Deny instead of prompting</td>
-<td style="text-align: left;">Anything not pre-approved by <code>allowed_tools</code> or rules is denied; <code>canUseTool</code> is never called</td>
+<td style="text-align: left;">Anything not pre-approved by <code>allowed_tools</code> or rules is denied; connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and tools that require user interaction are denied even if you've pre-approved them. <code>canUseTool</code> is never called</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>acceptEdits</code></td>
@@ -5229,7 +5234,7 @@ const options = {
 <tr>
 <td style="text-align: left;"><code>bypassPermissions</code></td>
 <td style="text-align: left;">Bypass permission checks</td>
-<td style="text-align: left;">Tools run without permission prompts, unless an explicit <a href="#how-permissions-are-evaluated"><code>ask</code> rule</a> matches (use with caution)</td>
+<td style="text-align: left;">Tools run without permission prompts, except tools matched by an explicit <a href="#how-permissions-are-evaluated"><code>ask</code> rule</a>, connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and tools that require user interaction (use with caution)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>plan</code></td>
@@ -5244,7 +5249,7 @@ const options = {
 </tbody>
 </table>
 <p><Warning>
-  <strong>Subagent inheritance:</strong> When the parent uses <code>bypassPermissions</code>, <code>acceptEdits</code>, or <code>auto</code>, all subagents inherit that mode and it cannot be overridden per subagent. Subagents may have different system prompts and less constrained behavior than your main agent, so inheriting <code>bypassPermissions</code> grants them full, autonomous system access. An explicit <a href="#how-permissions-are-evaluated"><code>ask</code> rule</a> still forces a prompt.
+  <strong>Subagent inheritance:</strong> When the parent uses <code>bypassPermissions</code>, <code>acceptEdits</code>, or <code>auto</code>, all subagents inherit that mode and it cannot be overridden per subagent. Subagents may have different system prompts and less constrained behavior than your main agent, so inheriting <code>bypassPermissions</code> grants them full, autonomous system access. Explicit <a href="#how-permissions-are-evaluated"><code>ask</code> rules</a>, connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and tools that require user interaction still force a prompt.
 </Warning></p>
 <h3 id="set-permission-mode">Set permission mode</h3>
 <p>You can set the permission mode once when starting a query, or change it dynamically while the session is active.</p>
@@ -5359,13 +5364,13 @@ const options = {
 <p>Both apply only to paths inside the working directory or <code>additionalDirectories</code>. Paths outside that scope and writes to protected paths still prompt.</p>
 <p><strong>Use when:</strong> you trust Claude's edits and want faster iteration, such as during prototyping or when working in an isolated directory.</p>
 <h4 id="dont-ask-mode-dontask">Don't ask mode (<code>dontAsk</code>)</h4>
-<p>Converts any permission prompt into a denial. Tools pre-approved by <code>allowed_tools</code>, <code>settings.json</code> allow rules, or a hook run as normal. Everything else is denied without calling <code>canUseTool</code>.</p>
+<p>Converts any permission prompt into a denial. Tools pre-approved by <code>allowed_tools</code>, <code>settings.json</code> allow rules, or a hook run as normal. Connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and tools that require user interaction are denied even when an allow rule matches. Everything else is denied without calling <code>canUseTool</code>.</p>
 <p><strong>Use when:</strong> you want a fixed, explicit tool surface for a headless agent and prefer a hard deny over silent reliance on <code>canUseTool</code> being absent.</p>
 <h4 id="bypass-permissions-mode-bypasspermissions">Bypass permissions mode (<code>bypassPermissions</code>)</h4>
 <p>Auto-approves all tool uses without prompts. Hooks still execute and can block operations if needed.</p>
 <p><Warning>
   Use with extreme caution. Claude has full system access in this mode. Only use in controlled environments where you trust all possible operations.</p>
-<p><code>allowed_tools</code> does not constrain this mode. Every tool is approved, not just the ones you listed. Deny rules (<code>disallowed_tools</code>), explicit <code>ask</code> rules, and hooks are evaluated before the mode check and can still block a tool.
+<p><code>allowed_tools</code> does not constrain this mode. Every tool is approved, not just the ones you listed. Deny rules (<code>disallowed_tools</code>), explicit <code>ask</code> rules, and hooks are evaluated before the mode check and can still block a tool. Connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and tools that require user interaction still fall through to your <code>canUseTool</code> callback.
 </Warning></p>
 <h4 id="plan-mode-plan">Plan mode (<code>plan</code>)</h4>
 <p>Claude explores the codebase and produces a plan without editing your source files. Read-only tools run as in default mode. File edits are never auto-approved in plan mode, even when an allow rule matches. They prompt through your <code>canUseTool</code> callback instead. Claude may use <code>AskUserQuestion</code> to clarify requirements before finalizing the plan. See <a href="/en/agent-sdk/user-input#handle-clarifying-questions">Handle approvals and user input</a> for handling these prompts.</p>

@@ -5942,13 +5942,19 @@ Use this file to discover all available pages before exploring further.</p>
 <p>For exact versions, ask Claude to run <code>check-tools</code> in a cloud session. This command only exists in cloud sessions.</p>
 <h3 id="work-with-github-issues-and-pull-requests">Work with GitHub issues and pull requests</h3>
 <p>Cloud sessions include built-in GitHub tools that let Claude read issues, list pull requests, fetch diffs, and post comments without any setup. These tools authenticate through the <a href="#github-proxy">GitHub proxy</a> using whichever method you configured under <a href="#github-authentication-options">GitHub authentication options</a>, so your token never enters the container.</p>
+<p>You can set <code>GH_TOKEN</code> or <code>GITHUB_TOKEN</code> yourself in <a href="#configure-your-environment">environment settings</a>, or leave both unset and let the <a href="#github-proxy">GitHub proxy</a> authenticate for you:</p>
+<ul>
+<li>If you set a token, it passes through to the container unchanged, so <code>gh</code> and your scripts use it directly.</li>
+<li>If you set neither, the container sets both variables to the placeholder string <code>proxy-injected</code> and the proxy substitutes your real credentials on outbound GitHub requests. <code>gh</code> works without a token of your own, but a script that reads <code>GITHUB_TOKEN</code> directly gets the placeholder, not a usable token.</li>
+</ul>
+<p>To check which case applies to your session, ask Claude to run <code>echo $GH_TOKEN</code>.</p>
 <p>The <code>gh</code> CLI isn't pre-installed. If you need a <code>gh</code> command the built-in tools don't cover, like <code>gh release</code> or <code>gh workflow run</code>, install and authenticate it yourself:</p>
 <p><Steps>
   <Step title="Install gh in your setup script">
     Add <code>apt update &amp;&amp; apt install -y gh</code> to your <a href="#setup-scripts">setup script</a>.
   </Step></p>
-<p><Step title="Provide a token">
-    Add a <code>GH_TOKEN</code> environment variable to your <a href="#configure-your-environment">environment settings</a> with a GitHub personal access token. <code>gh</code> reads <code>GH_TOKEN</code> automatically, so no <code>gh auth login</code> step is needed.
+<p><Step title="Provide a token if the proxy is not handling authentication">
+    If <code>echo $GH_TOKEN</code> prints <code>proxy-injected</code>, the <a href="#github-proxy">GitHub proxy</a> authenticates <code>gh</code> for you and this step is unnecessary. Otherwise, add a <code>GH_TOKEN</code> environment variable to your <a href="#configure-your-environment">environment settings</a> with a GitHub personal access token. <code>gh</code> reads <code>GH_TOKEN</code> automatically, so no <code>gh auth login</code> step is needed.
   </Step>
 </Steps></p>
 <h3 id="link-output-back-to-the-session">Link output back to the session</h3>
@@ -6128,13 +6134,13 @@ registry.example.com
 <p>Use <code>*.</code> for wildcard subdomain matching. Check <strong>Also include default list of common package managers</strong> to keep the <a href="#default-allowed-domains">Trusted domains</a> alongside your custom entries, or leave it unchecked to allow only what you list.</p>
 <p>Allowed domains are configured per environment. There's no organization-level allowlist that Owners can push to all users' environments; <a href="/en/server-managed-settings">server-managed settings</a> can restrict cloud sessions but can't add allowed domains.</p>
 <h3 id="github-proxy">GitHub proxy</h3>
-<p>For security, all GitHub operations go through a dedicated proxy service that transparently handles all git interactions. Inside the sandbox, the git client authenticates using a custom-built scoped credential. This proxy:</p>
+<p>For security, all GitHub operations go through a dedicated proxy service that keeps your real GitHub credentials outside the sandbox. The proxy authenticates two kinds of traffic:</p>
 <ul>
-<li>Manages GitHub authentication securely: the git client uses a scoped credential inside the sandbox, which the proxy verifies and translates to your actual GitHub authentication token</li>
-<li>Restricts git push operations to the current working branch for safety</li>
-<li>Enables cloning, fetching, and PR operations while maintaining security boundaries</li>
-<li>Limits GitHub API and release-asset requests to repositories attached to the session, regardless of the environment's <a href="#access-levels">network access level</a>. Setup scripts that download release assets from unattached repositories return a 403. Committed files from public repositories are fetched through <code>raw.githubusercontent.com</code>, which the <a href="#security-proxy">security proxy</a> handles instead. That domain is in the default <a href="#default-allowed-domains">Trusted list</a>, so the files stay reachable unless the environment's <a href="#access-levels">access level</a> excludes it</li>
+<li>Git interactions: the git client inside the sandbox uses a custom-built scoped credential, which the proxy verifies and translates to your actual GitHub authentication token</li>
+<li>GitHub API requests: the proxy substitutes your real credentials on requests from the built-in GitHub tools, and from <code>gh</code> when your session sets the <code>proxy-injected</code> placeholder described in <a href="#work-with-github-issues-and-pull-requests">Work with GitHub issues and pull requests</a></li>
 </ul>
+<p>The proxy also restricts git push operations to the current working branch for safety, and enables cloning, fetching, and PR operations while maintaining security boundaries.</p>
+<p>The proxy limits GitHub API and release-asset requests to repositories attached to the session, regardless of the environment's <a href="#access-levels">network access level</a>. Setup scripts that download release assets from unattached repositories return a 403. Committed files from public repositories are fetched through <code>raw.githubusercontent.com</code>, which the <a href="#security-proxy">security proxy</a> handles instead. That domain is in the default <a href="#default-allowed-domains">Trusted list</a>, so the files stay reachable unless the environment's <a href="#access-levels">access level</a> excludes it.</p>
 <h3 id="security-proxy">Security proxy</h3>
 <p>Environments run behind an HTTP/HTTPS network proxy for security and abuse prevention purposes. All outbound internet traffic passes through this proxy, which provides:</p>
 <ul>
@@ -6479,7 +6485,11 @@ CCR_FORCE_BUNDLE=1 claude --cloud "Run the test suite and fix any failures"</cod
 <h2 id="work-with-sessions">Work with sessions</h2>
 <p>Sessions appear in the sidebar at claude.ai/code. From there you can review changes, share with teammates, archive finished work, or delete sessions permanently.</p>
 <h3 id="manage-context">Manage context</h3>
-<p>Cloud sessions support <a href="/en/commands">built-in commands</a> that produce text output. Commands that only run in the terminal interface, such as <code>/plugin</code> or <code>/resume</code>, aren't available. {/<em> min-version: 2.1.205 </em>/}<code>/model</code>, <code>/effort</code>, <code>/fast</code>, <code>/color</code>, and <code>/rename</code> work with the value as an argument, for example <code>/model sonnet</code>, instead of opening the terminal picker or slider; the argument forms require Claude Code v2.1.205 or later in the session's environment and follow each command's <a href="/en/commands#all-commands">availability notes</a>, so <code>/effort</code> reports <code>Not applied</code> while a model's <a href="/en/model-config#adjust-effort-level">launch-default effort hold</a> is in force and <code>/fast</code> works only in a session that started with fast mode turned on. <code>/config</code> sets a setting when you pass <code>key=value</code>.</p>
+<p>Cloud sessions support <a href="/en/commands">built-in commands</a> that produce text output. Commands that only run in the terminal interface, such as <code>/plugin</code> or <code>/resume</code>, aren't available. Commands that open a picker or panel in the terminal behave differently in cloud sessions:</p>
+<ul>
+<li>{/<em> min-version: 2.1.205 </em>/}<strong><code>/model</code>, <code>/effort</code>, <code>/fast</code>, <code>/color</code>, and <code>/rename</code></strong>: pass the value as an argument, for example <code>/model sonnet</code>, instead of opening the terminal picker or slider. The argument forms require Claude Code v2.1.205 or later in the session's environment and follow each command's <a href="/en/commands#all-commands">availability notes</a>: <code>/effort</code> reports <code>Not applied</code> while a model's <a href="/en/model-config#adjust-effort-level">launch-default effort hold</a> is in force, and <code>/fast</code> works only in a session that started with fast mode turned on.</li>
+<li><strong><code>/config</code></strong>: on the web, opens the Claude Code section of your settings instead of setting a value, and text after the command, including <code>key=value</code>, is ignored. To change settings for a cloud session, use <a href="#configure-your-environment">environment variables</a> or commit <a href="/en/settings">settings files</a> to the repository.</li>
+</ul>
 <p>For context management specifically:</p>
 <table>
 <thead>

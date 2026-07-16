@@ -5490,7 +5490,12 @@ Path prefixes control how paths are resolved:
 
 This syntax differs from [Read and Edit permission rules](/en/permissions#read-and-edit), which use `//path` for absolute and `/path` for project-relative. Sandbox filesystem paths use standard conventions: `/tmp/build` is absolute.
 
-You can also deny write or read access using `sandbox.filesystem.denyWrite` and `sandbox.filesystem.denyRead`, and re-allow specific paths within a denied region using `sandbox.filesystem.allowRead`.
+You can also deny write or read access using `sandbox.filesystem.denyWrite` and `sandbox.filesystem.denyRead`, and re-allow specific paths within a denied region using `sandbox.filesystem.allowRead`. When read rules overlap, the more specific path wins:
+
+| Example rules                                           | Result                                                                                                                                                              |
+| :------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `&quot;denyRead&quot;: [&quot;~/&quot;]` with `&quot;allowRead&quot;: [&quot;~/projects&quot;]` | `~/projects` is readable and the rest of the home directory stays blocked. The narrower allow re-opens that part of the denied region                               |
+| `&quot;allowRead&quot;: [&quot;~/&quot;]` with `&quot;denyRead&quot;: [&quot;~/.env&quot;]`     | `~/.env` stays blocked and the rest of the home directory is readable. An exact deny holds inside a wider allow, so a broad allow can&#39;t silently re-expose a secret |
 
 The example below blocks reading from the entire home directory while still allowing reads from the current project. Place it in your project&#39;s `.claude/settings.json`, because the relative path `.` resolves to the project root only when the configuration lives in project settings:
 
@@ -5670,7 +5675,7 @@ The example below masks two tokens. `GH_TOKEN` is substituted only on requests t
 <tr>
 <td style="text-align: left;"><code>--dangerously-skip-permissions</code></td>
 <td style="text-align: left;">Whether each tool call runs</td>
-<td style="text-align: left;">Nothing. <a href="/en/permission-modes#protected-paths">Protected path</a> checks are also skipped; only explicit <a href="/en/permissions#manage-permissions">ask rules</a> and removing <code>/</code> or your home directory still prompt</td>
+<td style="text-align: left;">Nothing. <a href="/en/permission-modes#protected-paths">Protected path</a> checks are also skipped; only explicit <a href="/en/permissions#manage-permissions">ask rules</a>, connector tools <a href="/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, MCP tools marked <a href="/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>, and removing <code>/</code> or your home directory still prompt</td>
 </tr>
 </tbody>
 </table>

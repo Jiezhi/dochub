@@ -5189,7 +5189,7 @@ We give you the choice to allow your data to be used to improve future Claude mo
 <p>For all first party users, you can learn more about what data is logged for <a href="#local-claude-code-data-flow-and-dependencies">local Claude Code</a> and <a href="#cloud-execution-data-flow-and-dependencies">remote Claude Code</a>. <a href="/en/remote-control">Remote Control</a> sessions follow the local data flow since all execution happens on your machine; while connected, the session transcript is also stored on Anthropic servers to sync the conversation across devices, as described in <a href="/en/remote-control#connection-and-security">Connection and security</a>. Note for remote Claude Code, Claude accesses the repository where you initiate your Claude Code session. Claude does not access repositories that you have connected but have not started a session in.</p>
 <h2 id="local-claude-code-data-flow-and-dependencies">Local Claude Code: Data flow and dependencies</h2>
 <p>The diagram below shows how Claude Code connects to external services during installation and normal operation. Solid lines indicate required connections, while dashed lines represent optional or user-initiated data flows.</p>
-<p><img src="https://mintcdn.com/claude-code/ikqp3_70mqIahteV/images/claude-code-data-flow.svg?fit=max&auto=format&n=ikqp3_70mqIahteV&q=85&s=5b1131530bdfdd415700a0cb4d4070c4" alt="Diagram showing Claude Code's external connections: install/update connects to the distribution server, and user requests connect to Anthropic services including Console auth, public-api, and optionally metrics and Sentry. Feedback sent with /feedback goes to Google Cloud Storage and optionally creates a GitHub issue" width="720" height="520" data-path="images/claude-code-data-flow.svg" /></p>
+<p><img src="https://mintcdn.com/claude-code/YR4DRZyI3CdsXkiT/images/claude-code-data-flow.svg?fit=max&auto=format&n=YR4DRZyI3CdsXkiT&q=85&s=2846ea92cfc2297b8620c31c82b482ad" alt="Diagram showing Claude Code's external connections: install/update connects to the distribution server, and user requests connect to Anthropic's Console auth and public-api, with optional telemetry flows carrying metrics and error reports to Anthropic and third-party services. Feedback sent with /feedback goes to Google Cloud Storage and optionally creates a GitHub issue" width="720" height="520" data-path="images/claude-code-data-flow.svg" /></p>
 <p>Claude Code runs locally. To interact with the LLM, Claude Code sends data over the network. This data includes all user prompts and model outputs, encrypted in transit via TLS 1.2+. Claude Code is compatible with most popular VPNs and LLM proxies.</p>
 <p>Encryption at rest depends on your model provider:</p>
 <table>
@@ -5229,8 +5229,16 @@ We give you the choice to allow your data to be used to improve future Claude mo
 </ul>
 <p>For security details about cloud execution, see <a href="/en/security#cloud-execution-security">Security</a>.</p>
 <h2 id="telemetry-services">Telemetry services</h2>
-<p>Claude Code connects from users' machines to Anthropic to log operational metrics such as latency, reliability, and usage patterns. This logging does not include any code or file paths. Data is encrypted in transit and at rest. To opt out of telemetry, set the <code>DISABLE_TELEMETRY</code> environment variable.</p>
-<p>Claude Code connects from users' machines to Sentry for operational error logging. The data is encrypted in transit using TLS and at rest using 256-bit AES encryption. Read more in the <a href="https://sentry.io/security/">Sentry security documentation</a>. To opt out of error logging, set the <code>DISABLE_ERROR_REPORTING</code> environment variable.</p>
+<p>Claude Code sends two kinds of operational telemetry: usage metrics and error reports. You can turn each off individually with the environment variables below, or disable all non-essential traffic at once by setting <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code>.</p>
+<p><strong>Metrics</strong>: latency, reliability, and usage patterns, sent to Anthropic and to third-party logging infrastructure over TLS. Metrics never include your code, prompts, or file paths. Set <code>DISABLE_TELEMETRY=1</code> to opt out.</p>
+<p><strong>Error reports</strong>: error messages and stack traces from Claude Code's own internals, sent to a third-party error tracking service over TLS. Claude Code redacts known patterns of secrets, file paths, email addresses, and other personal information before anything leaves your machine. Set <code>DISABLE_ERROR_REPORTING=1</code> to opt out.</p>
+<p>Error reporting is on only when all of these apply:</p>
+<ul>
+<li>you sign in with a Claude Pro or Max subscription</li>
+<li>you're running Claude Code v2.1.198 or later</li>
+<li>you're connecting directly to the Claude API</li>
+<li>your organization doesn't have a zero data retention or HIPAA agreement</li>
+</ul>
 <p>When you run the <code>/feedback</code> command, a copy of your conversation history including code is sent to Anthropic. Before submitting, you choose how much history to include: the current session only, which is the default, or also other sessions from the same project over the last 24 hours or 7 days. The data is encrypted in transit via TLS and stored in Google Cloud Storage, which encrypts stored data at rest by default. Optionally, a GitHub issue is created in the public repository. To opt out, set the <code>DISABLE_FEEDBACK_COMMAND</code> environment variable to <code>1</code>.</p>
 <p>When you use a third-party provider such as Amazon Bedrock or Google Cloud's Agent Platform, or have no Anthropic credentials configured, <code>/feedback</code> writes the report to a local archive under <code>~/.claude/feedback-bundles/</code> instead of sending it to Anthropic. Known API key and token patterns are redacted before the archive is written. Nothing leaves your machine until you send that file to your Anthropic account representative or attach it to a support request.</p>
 <h2 id="default-behaviors-by-api-provider">Default behaviors by API provider</h2>
@@ -5248,7 +5256,7 @@ We give you the choice to allow your data to be used to improve future Claude mo
 </thead>
 <tbody>
 <tr>
-<td><strong>Anthropic (Metrics)</strong></td>
+<td><strong>Metrics</strong></td>
 <td>Default on.<br /><code>DISABLE_TELEMETRY=1</code> to disable.</td>
 <td>Default off.<br /><code>CLAUDE_CODE_USE_VERTEX</code> must be 1.</td>
 <td>Default off.<br /><code>CLAUDE_CODE_USE_BEDROCK</code> must be 1.</td>
@@ -5256,8 +5264,8 @@ We give you the choice to allow your data to be used to improve future Claude mo
 <td>Default off.<br /><code>CLAUDE_CODE_USE_ANTHROPIC_AWS</code> must be 1.</td>
 </tr>
 <tr>
-<td><strong>Sentry (Errors)</strong></td>
-<td>Default on.<br /><code>DISABLE_ERROR_REPORTING=1</code> to disable.</td>
+<td><strong>Error reports</strong></td>
+<td>On for Pro and Max sign-ins on v2.1.198+, otherwise off.<br /><code>DISABLE_ERROR_REPORTING=1</code> to disable.</td>
 <td>Default off.<br /><code>CLAUDE_CODE_USE_VERTEX</code> must be 1.</td>
 <td>Default off.<br /><code>CLAUDE_CODE_USE_BEDROCK</code> must be 1.</td>
 <td>Default off.<br /><code>CLAUDE_CODE_USE_FOUNDRY</code> must be 1.</td>
@@ -5290,7 +5298,7 @@ We give you the choice to allow your data to be used to improve future Claude mo
 </tbody>
 </table>
 <p>All environment variables can be checked into <code>settings.json</code> (see <a href="/en/settings">settings reference</a>).</p>
-<p>As of v2.1.126, when a host platform sets <code>CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST</code>, metrics default to on for Google Cloud's Agent Platform, Amazon Bedrock, and Microsoft Foundry, and follow the standard <code>DISABLE_TELEMETRY</code> opt-out. Sentry error reporting and <code>/feedback</code> reports remain off by default on those providers.</p>
+<p>As of v2.1.126, when a host platform sets <code>CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST</code>, metrics default to on for Google Cloud's Agent Platform, Amazon Bedrock, and Microsoft Foundry, and follow the standard <code>DISABLE_TELEMETRY</code> opt-out. Error reporting and <code>/feedback</code> reports remain off by default on those providers.</p>
 <h3 id="webfetch-domain-safety-check">WebFetch domain safety check</h3>
 <p>Before fetching a URL, the WebFetch tool sends the requested hostname to <code>api.anthropic.com</code> to check it against a safety blocklist maintained by Anthropic. Only the hostname is sent, not the full URL, path, or page contents. Results are cached per hostname for five minutes.</p>
 <p>This check runs regardless of which model provider you use and is not affected by <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code>. If your network blocks <code>api.anthropic.com</code>, WebFetch requests fail until you either allowlist the domain or set <code>skipWebFetchPreflight: true</code> in <a href="/en/settings">settings</a>. Disabling the check means WebFetch attempts to retrieve any URL without consulting the blocklist, so combine it with <a href="/en/permissions#webfetch"><code>WebFetch</code> permission rules</a> if you need to restrict which domains Claude can reach.</p>
