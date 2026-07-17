@@ -2074,6 +2074,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5057,20 +5084,26 @@ To use this in your app, you'd need to parse out the title, convert "15 minutes"
     },
     required: ["company_name"]
   };</p>
-<p>for await (const message of query({
-    prompt: "Research Anthropic and provide key company information",
-    options: {
-      outputFormat: {
-        type: "json_schema",
-        schema: schema
+<p>try {
+    for await (const message of query({
+      prompt: "Research Anthropic and provide key company information",
+      options: {
+        outputFormat: {
+          type: "json_schema",
+          schema: schema
+        }
+      }
+    })) {
+      // The result message contains structured_output with validated data
+      if (message.type === "result" &amp;&amp; message.subtype === "success" &amp;&amp; message.structured_output) {
+        console.log(message.structured_output);
+        // { company_name: "Anthropic", founded_year: 2021, headquarters: "San Francisco, CA" }
       }
     }
-  })) {
-    // The result message contains structured_output with validated data
-    if (message.type === "result" &amp;&amp; message.subtype === "success" &amp;&amp; message.structured_output) {
-      console.log(message.structured_output);
-      // { company_name: "Anthropic", founded_year: 2021, headquarters: "San Francisco, CA" }
-    }
+  } catch (error) {
+    // A single-shot query() throws after yielding an error result, such as
+    // error_max_structured_output_retries; see the Error handling section.
+    console.error(<code>Session ended with an error: ${error}</code>);
   }
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
 import asyncio
@@ -5089,16 +5122,21 @@ schema = {
 
 
 async def main():
-    async for message in query(
-        prompt=&quot;Research Anthropic and provide key company information&quot;,
-        options=ClaudeAgentOptions(
-            output_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;schema&quot;: schema}
-        ),
-    ):
-        # The result message contains structured_output with validated data
-        if isinstance(message, ResultMessage) and message.structured_output:
-            print(message.structured_output)
-            # {&#39;company_name&#39;: &#39;Anthropic&#39;, &#39;founded_year&#39;: 2021, &#39;headquarters&#39;: &#39;San Francisco, CA&#39;}
+    try:
+        async for message in query(
+            prompt=&quot;Research Anthropic and provide key company information&quot;,
+            options=ClaudeAgentOptions(
+                output_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;schema&quot;: schema}
+            ),
+        ):
+            # The result message contains structured_output with validated data
+            if isinstance(message, ResultMessage) and message.structured_output:
+                print(message.structured_output)
+                # {&#39;company_name&#39;: &#39;Anthropic&#39;, &#39;founded_year&#39;: 2021, &#39;headquarters&#39;: &#39;San Francisco, CA&#39;}
+    except Exception as error:
+        # A single-shot query() raises after yielding an error result, such as
+        # error_max_structured_output_retries; see the Error handling section.
+        print(f&quot;Session ended with an error: {error}&quot;)
 
 
 asyncio.run(main())
@@ -5128,28 +5166,34 @@ asyncio.run(main())
 <p>// Convert to JSON Schema
   const schema = z.toJSONSchema(FeaturePlan);</p>
 <p>// Use in query
-  for await (const message of query({
-    prompt:
-      "Plan how to add dark mode support to a React app. Break it into implementation steps.",
-    options: {
-      outputFormat: {
-        type: "json_schema",
-        schema: schema
+  try {
+    for await (const message of query({
+      prompt:
+        "Plan how to add dark mode support to a React app. Break it into implementation steps.",
+      options: {
+        outputFormat: {
+          type: "json_schema",
+          schema: schema
+        }
+      }
+    })) {
+      if (message.type === "result" &amp;&amp; message.subtype === "success" &amp;&amp; message.structured_output) {
+        // Validate and get fully typed result
+        const parsed = FeaturePlan.safeParse(message.structured_output);
+        if (parsed.success) {
+          const plan: FeaturePlan = parsed.data;
+          console.log(<code>Feature: ${plan.feature_name}</code>);
+          console.log(<code>Summary: ${plan.summary}</code>);
+          plan.steps.forEach((step) =&gt; {
+            console.log(<code>${step.step_number}. [${step.estimated_complexity}] ${step.description}</code>);
+          });
+        }
       }
     }
-  })) {
-    if (message.type === "result" &amp;&amp; message.subtype === "success" &amp;&amp; message.structured_output) {
-      // Validate and get fully typed result
-      const parsed = FeaturePlan.safeParse(message.structured_output);
-      if (parsed.success) {
-        const plan: FeaturePlan = parsed.data;
-        console.log(<code>Feature: ${plan.feature_name}</code>);
-        console.log(<code>Summary: ${plan.summary}</code>);
-        plan.steps.forEach((step) =&gt; {
-          console.log(<code>${step.step_number}. [${step.estimated_complexity}] ${step.description}</code>);
-        });
-      }
-    }
+  } catch (error) {
+    // A single-shot query() throws after yielding an error result, such as
+    // error_max_structured_output_retries; see the Error handling section.
+    console.error(<code>Session ended with an error: ${error}</code>);
   }
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
 import asyncio
@@ -5171,24 +5215,29 @@ class FeaturePlan(BaseModel):
 
 
 async def main():
-    async for message in query(
-        prompt=&quot;Plan how to add dark mode support to a React app. Break it into implementation steps.&quot;,
-        options=ClaudeAgentOptions(
-            output_format={
-                &quot;type&quot;: &quot;json_schema&quot;,
-                &quot;schema&quot;: FeaturePlan.model_json_schema(),
-            }
-        ),
-    ):
-        if isinstance(message, ResultMessage) and message.structured_output:
-            # Validate and get fully typed result
-            plan = FeaturePlan.model_validate(message.structured_output)
-            print(f&quot;Feature: {plan.feature_name}&quot;)
-            print(f&quot;Summary: {plan.summary}&quot;)
-            for step in plan.steps:
-                print(
-                    f&quot;{step.step_number}. [{step.estimated_complexity}] {step.description}&quot;
-                )
+    try:
+        async for message in query(
+            prompt=&quot;Plan how to add dark mode support to a React app. Break it into implementation steps.&quot;,
+            options=ClaudeAgentOptions(
+                output_format={
+                    &quot;type&quot;: &quot;json_schema&quot;,
+                    &quot;schema&quot;: FeaturePlan.model_json_schema(),
+                }
+            ),
+        ):
+            if isinstance(message, ResultMessage) and message.structured_output:
+                # Validate and get fully typed result
+                plan = FeaturePlan.model_validate(message.structured_output)
+                print(f&quot;Feature: {plan.feature_name}&quot;)
+                print(f&quot;Summary: {plan.summary}&quot;)
+                for step in plan.steps:
+                    print(
+                        f&quot;{step.step_number}. [{step.estimated_complexity}] {step.description}&quot;
+                    )
+    except Exception as error:
+        # A single-shot query() raises after yielding an error result, such as
+        # error_max_structured_output_retries; see the Error handling section.
+        print(f&quot;Session ended with an error: {error}&quot;)
 
 
 asyncio.run(main())
@@ -5239,25 +5288,31 @@ asyncio.run(main())
     required: ["todos", "total_count"]
   };</p>
 <p>// Agent uses Grep to find TODOs, Bash to get git blame info
-  for await (const message of query({
-    prompt: "Find all TODO comments in this codebase and identify who added them",
-    options: {
-      outputFormat: {
-        type: "json_schema",
-        schema: todoSchema
+  try {
+    for await (const message of query({
+      prompt: "Find all TODO comments in this codebase and identify who added them",
+      options: {
+        outputFormat: {
+          type: "json_schema",
+          schema: todoSchema
+        }
+      }
+    })) {
+      if (message.type === "result" &amp;&amp; message.subtype === "success" &amp;&amp; message.structured_output) {
+        const data = message.structured_output as { total_count: number; todos: Array&lt;{ file: string; line: number; text: string; author?: string; date?: string }&gt; };
+        console.log(<code>Found ${data.total_count} TODOs</code>);
+        data.todos.forEach((todo) =&gt; {
+          console.log(<code>${todo.file}:${todo.line} - ${todo.text}</code>);
+          if (todo.author) {
+            console.log(<code>Added by ${todo.author} on ${todo.date}</code>);
+          }
+        });
       }
     }
-  })) {
-    if (message.type === "result" &amp;&amp; message.subtype === "success" &amp;&amp; message.structured_output) {
-      const data = message.structured_output as { total_count: number; todos: Array&lt;{ file: string; line: number; text: string; author?: string; date?: string }&gt; };
-      console.log(<code>Found ${data.total_count} TODOs</code>);
-      data.todos.forEach((todo) =&gt; {
-        console.log(<code>${todo.file}:${todo.line} - ${todo.text}</code>);
-        if (todo.author) {
-          console.log(<code>Added by ${todo.author} on ${todo.date}</code>);
-        }
-      });
-    }
+  } catch (error) {
+    // A single-shot query() throws after yielding an error result, such as
+    // error_max_structured_output_retries; see the Error handling section.
+    console.error(<code>Session ended with an error: ${error}</code>);
   }
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
 import asyncio
@@ -5289,19 +5344,24 @@ todo_schema = {
 
 async def main():
     # Agent uses Grep to find TODOs, Bash to get git blame info
-    async for message in query(
-        prompt=&quot;Find all TODO comments in this codebase and identify who added them&quot;,
-        options=ClaudeAgentOptions(
-            output_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;schema&quot;: todo_schema}
-        ),
-    ):
-        if isinstance(message, ResultMessage) and message.structured_output:
-            data = message.structured_output
-            print(f&quot;Found {data[&#39;total_count&#39;]} TODOs&quot;)
-            for todo in data[&quot;todos&quot;]:
-                print(f&quot;{todo[&#39;file&#39;]}:{todo[&#39;line&#39;]} - {todo[&#39;text&#39;]}&quot;)
-                if &quot;author&quot; in todo:
-                    print(f&quot;  Added by {todo[&#39;author&#39;]} on {todo[&#39;date&#39;]}&quot;)
+    try:
+        async for message in query(
+            prompt=&quot;Find all TODO comments in this codebase and identify who added them&quot;,
+            options=ClaudeAgentOptions(
+                output_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;schema&quot;: todo_schema}
+            ),
+        ):
+            if isinstance(message, ResultMessage) and message.structured_output:
+                data = message.structured_output
+                print(f&quot;Found {data[&#39;total_count&#39;]} TODOs&quot;)
+                for todo in data[&quot;todos&quot;]:
+                    print(f&quot;{todo[&#39;file&#39;]}:{todo[&#39;line&#39;]} - {todo[&#39;text&#39;]}&quot;)
+                    if &quot;author&quot; in todo:
+                        print(f&quot;  Added by {todo[&#39;author&#39;]} on {todo[&#39;date&#39;]}&quot;)
+    except Exception as error:
+        # A single-shot query() raises after yielding an error result, such as
+        # error_max_structured_output_retries; see the Error handling section.
+        print(f&quot;Session ended with an error: {error}&quot;)
 
 
 asyncio.run(main())
@@ -5331,39 +5391,80 @@ asyncio.run(main())
 <p>The example below checks the <code>subtype</code> field to determine whether the output was generated successfully or if you need to handle a failure:</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
-  for await (const msg of query({
-    prompt: "Extract contact info from the document",
-    options: {
-      outputFormat: {
-        type: "json_schema",
-        schema: contactSchema
+  import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>const contactSchema = {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      email: { type: "string" }
+    },
+    required: ["name"]
+  };</p>
+<p>try {
+    for await (const msg of query({
+      prompt: "Extract contact info from the document",
+      options: {
+        outputFormat: {
+          type: "json_schema",
+          schema: contactSchema
+        }
+      }
+    })) {
+      if (msg.type === "result") {
+        if (msg.subtype === "success" &amp;&amp; msg.structured_output) {
+          // Use the validated output
+          console.log(msg.structured_output);
+        } else if (msg.subtype === "error_max_structured_output_retries") {
+          console.error("Could not produce valid output");
+        }
       }
     }
-  })) {
-    if (msg.type === "result") {
-      if (msg.subtype === "success" &amp;&amp; msg.structured_output) {
-        // Use the validated output
-        console.log(msg.structured_output);
-      } else if (msg.subtype === "error_max_structured_output_retries") {
-        // Handle the failure - retry with simpler prompt, fall back to unstructured, etc.
-        console.error("Could not produce valid output");
-      }
-    }
+  } catch (error) {
+    // A single-shot query() throws after yielding an error result.
+    // If the failure was an error result, the subtype branches above
+    // have already run; connection or process failures yield no result
+    // message. Handle the failure here - retry with a simpler prompt,
+    // fall back to unstructured, etc.
+    console.log(<code>Session ended with an error: ${error}</code>);
   }
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
-async for message in query(
-    prompt=&quot;Extract contact info from the document&quot;,
-    options=ClaudeAgentOptions(
-        output_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;schema&quot;: contact_schema}
-    ),
-):
-    if isinstance(message, ResultMessage):
-        if message.subtype == &quot;success&quot; and message.structured_output:
-            # Use the validated output
-            print(message.structured_output)
-        elif message.subtype == &quot;error_max_structured_output_retries&quot;:
-            # Handle the failure
-            print(&quot;Could not produce valid output&quot;)
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+
+contact_schema = {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+        &quot;name&quot;: {&quot;type&quot;: &quot;string&quot;},
+        &quot;email&quot;: {&quot;type&quot;: &quot;string&quot;},
+    },
+    &quot;required&quot;: [&quot;name&quot;],
+}
+
+
+async def main():
+    try:
+        async for message in query(
+            prompt=&quot;Extract contact info from the document&quot;,
+            options=ClaudeAgentOptions(
+                output_format={&quot;type&quot;: &quot;json_schema&quot;, &quot;schema&quot;: contact_schema}
+            ),
+        ):
+            if isinstance(message, ResultMessage):
+                if message.subtype == &quot;success&quot; and message.structured_output:
+                    # Use the validated output
+                    print(message.structured_output)
+                elif message.subtype == &quot;error_max_structured_output_retries&quot;:
+                    print(&quot;Could not produce valid output&quot;)
+    except Exception as error:
+        # A single-shot query() raises after yielding an error result.
+        # If the failure was an error result, the subtype branches above
+        # have already run; connection or process failures yield no
+        # result message. Handle the failure here - retry with a simpler
+        # prompt, fall back to unstructured, etc.
+        print(f&quot;Session ended with an error: {error}&quot;)
+
+
+asyncio.run(main())
 </code></pre></div>
 </CodeGroup></p>
 <p><strong>Tips for avoiding errors:</strong></p>

@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5522,7 +5549,7 @@ Use this file to discover all available pages before exploring further.</p>
 <h2 id="example-use-cases">Example use cases</h2>
 <p>Each example pairs a trigger type with the kind of work routines are suited to: unattended, repeatable, and tied to a clear outcome.</p>
 <p><strong>Backlog maintenance.</strong> A schedule trigger runs every weeknight against your issue tracker via a connector. The routine reads issues opened since the last run, applies labels, assigns owners based on the area of code referenced, and posts a summary to Slack so the team starts the day with a groomed queue.</p>
-<p><strong>Alert triage.</strong> Your monitoring tool calls the routine's API endpoint when an error threshold is crossed, passing the alert body as <code>text</code>. The routine pulls the stack trace, correlates it with recent commits in the repository, and opens a draft pull request with a proposed fix and a link back to the alert. On-call reviews the PR instead of starting from a blank terminal.</p>
+<p><strong>Alert triage.</strong> Your monitoring tool calls the routine's API endpoint when an error threshold is crossed, passing the alert body as <code>text</code>. The routine's prompt tells Claude to investigate the alert in the fire payload, so it pulls the stack trace, correlates it with recent commits in the repository, and opens a draft pull request with a proposed fix and a link back to the alert. On-call reviews the PR instead of starting from a blank terminal.</p>
 <p><strong>Bespoke code review.</strong> A GitHub trigger runs on <code>pull_request.opened</code>. The routine applies your team's own review checklist, leaves inline comments for security, performance, and style issues, and adds a summary comment so human reviewers can focus on design instead of mechanical checks.</p>
 <p><strong>Deploy verification.</strong> Your CD pipeline calls the routine's API endpoint after each production deploy. The routine runs smoke checks against the new build, scans error logs for regressions, and posts a go or no-go to the release channel before the deploy window closes.</p>
 <p><strong>Docs drift.</strong> A schedule trigger runs weekly. The routine scans merged PRs since the last run, flags documentation that references changed APIs, and opens update PRs against the docs repository for an editor to review.</p>
@@ -5590,6 +5617,7 @@ Under Permissions, enable **Allow unrestricted branch pushes** for any repositor
 <p>A successful start looks like a conversation: Claude asks follow-up questions about the schedule, repositories, and prompt before saving. If Claude instead replies that you need to authenticate or that it can't connect to your remote claude.ai account, no routine was created; see <a href="#troubleshooting">Troubleshooting</a>.</p>
 <p><code>/schedule</code> in the CLI creates scheduled routines only. To add an API or GitHub trigger, edit the routine on the web at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a>.</p>
 <p>The CLI also supports managing existing routines. Run <code>/schedule list</code> to see all routines, <code>/schedule update</code> to change one, or <code>/schedule run</code> to trigger it immediately.</p>
+<p>A routine with no schedule trigger, such as one started only by API calls or GitHub events, has no next run time, and the CLI shows none when Claude saves or updates it. Before v2.1.211, the CLI reported a next run time in the year 1 for these routines.</p>
 <h2 id="configure-triggers">Configure triggers</h2>
 <p>A routine starts when one of its triggers matches. You can attach any combination of schedule, API, and GitHub triggers to the same routine, and add or remove them at any time from the <strong>Select a trigger</strong> section of the routine's edit form.</p>
 <h3 id="add-a-schedule-trigger">Add a schedule trigger</h3>
@@ -5629,6 +5657,8 @@ Under Permissions, enable **Allow unrestricted branch pushes** for any repositor
 <p>Each routine has its own token, scoped to triggering that routine only. To rotate or revoke it, return to the same modal and click <strong>Regenerate</strong> or <strong>Revoke</strong>.</p>
 <h4 id="trigger-a-routine">Trigger a routine</h4>
 <p>Send a POST request to the <code>/fire</code> endpoint with the bearer token in the <code>Authorization</code> header. The request body accepts an optional <code>text</code> field for run-specific context such as an alert body or a failing log, passed to the routine alongside its saved prompt. The value is freeform text and is not parsed: if you send JSON or another structured payload, the routine receives it as a literal string.</p>
+<p>The <code>text</code> value doesn't reach the routine as a bare message. It arrives wrapped in a <code>&lt;routine-fire-payload&gt;</code> block that labels it as untrusted data and tells Claude not to follow instructions inside it unless the routine's own prompt says to. The same wrapping applies to text supplied with <strong>Run now</strong> in the web UI.</p>
+<p>This means a routine's saved prompt must opt in to acting on fire text: write the prompt to reference the payload explicitly, for example "Investigate the alert described in the routine-fire-payload block", or the routine treats the text as inert context. Anyone holding the bearer token can send <code>text</code>, so the wrapper makes fire text from a leaked token arrive labeled as untrusted data rather than as direct instructions to your routine.</p>
 <p>The example below triggers a routine from a shell. The routine ID and token shown are placeholders: replace them with the URL and token you copied when <a href="#add-an-api-trigger">adding the API trigger</a>, or the request fails with a <code>401</code> authentication error:</p>
 <p>```bash theme={null}
 curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJKLMNOPQRSTUVW/fire \
@@ -5761,7 +5791,7 @@ curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJK
 <h3 id="edit-and-control-routines">Edit and control routines</h3>
 <p>From the routine detail page you can:</p>
 <ul>
-<li>Click <strong>Run now</strong> to start a run immediately without waiting for the next scheduled time.</li>
+<li>Click <strong>Run now</strong> to start a run immediately without waiting for the next scheduled time. You can optionally supply run-specific text, which reaches the routine the same way as the API trigger's <code>text</code> field.</li>
 <li>Use the toggle in the <strong>Repeats</strong> section to pause or resume the schedule. Paused routines keep their configuration but don't run until you re-enable them.</li>
 <li>Click the pencil icon to open <strong>Edit routine</strong> and change the name, prompt, repositories, environment, connectors, or any of the routine's triggers. The <strong>Select a trigger</strong> section is where you add or remove schedules, API tokens, and GitHub event triggers.</li>
 <li>Click the delete icon to remove the routine. Past sessions created by the routine remain in your session list.</li>

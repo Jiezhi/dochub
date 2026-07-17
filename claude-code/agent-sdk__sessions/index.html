@@ -2125,6 +2125,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5198,7 +5225,9 @@ from claude_agent_sdk import (
         print_response(message)
 </code></pre>
 <p>asyncio.run(main())
-<div class="highlight"><pre><span></span><code>See the [Python SDK reference](/en/agent-sdk/python#choosing-between-query-and-claudesdkclient) for details on when to use `ClaudeSDKClient` vs the standalone `query()` function.
+<div class="highlight"><pre><span></span><code>Each query prints the agent&#39;s text response followed by a status line from the result message, such as `[done: success, cost: $0.0042]`.
+
+See the [Python SDK reference](/en/agent-sdk/python#choosing-between-query-and-claudesdkclient) for details on when to use `ClaudeSDKClient` vs the standalone `query()` function.
 
 ### TypeScript: `continue: true`
 
@@ -5210,13 +5239,19 @@ This example makes two separate `query()` calls. The first creates a fresh sessi
 import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 
 // First query: creates a new session
-for await (const message of query({
-  prompt: &quot;Analyze the auth module&quot;,
-  options: { allowedTools: [&quot;Read&quot;, &quot;Glob&quot;, &quot;Grep&quot;] }
-})) {
-  if (message.type === &quot;result&quot; &amp;&amp; message.subtype === &quot;success&quot;) {
-    console.log(message.result);
+try {
+  for await (const message of query({
+    prompt: &quot;Analyze the auth module&quot;,
+    options: { allowedTools: [&quot;Read&quot;, &quot;Glob&quot;, &quot;Grep&quot;] }
+  })) {
+    if (message.type === &quot;result&quot; &amp;&amp; message.subtype === &quot;success&quot;) {
+      console.log(message.result);
+    }
   }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result,
+  // so the follow-up query below still runs.
+  console.error(`Session ended with an error: ${error}`);
 }
 
 // Second query: continue: true resumes the most recent session
@@ -5244,16 +5279,23 @@ for await (const message of query({
   from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage</p>
 <p>async def main():
       session_id = None</p>
-<pre><code>  async for message in query(
-      prompt="Analyze the auth module and suggest improvements",
-      options=ClaudeAgentOptions(
-          allowed_tools=["Read", "Glob", "Grep"],
-      ),
-  ):
-      if isinstance(message, ResultMessage):
-          session_id = message.session_id
-          if message.subtype == "success":
-              print(message.result)
+<pre><code>  try:
+      async for message in query(
+          prompt="Analyze the auth module and suggest improvements",
+          options=ClaudeAgentOptions(
+              allowed_tools=["Read", "Glob", "Grep"],
+          ),
+      ):
+          if isinstance(message, ResultMessage):
+              session_id = message.session_id
+              if message.subtype == "success":
+                  print(message.result)
+  except Exception as error:
+      # A single-shot query() raises after yielding an error result.
+      # If the failure was an error result, session_id was already
+      # captured by the loop above; connection or process failures
+      # yield no result message.
+      print(f"Session ended with an error: {error}")
 
   print(f"Session ID: {session_id}")
   return session_id
@@ -5264,41 +5306,55 @@ import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 
 let sessionId: string | undefined;
 
-for await (const message of query({
-  prompt: &quot;Analyze the auth module and suggest improvements&quot;,
-  options: { allowedTools: [&quot;Read&quot;, &quot;Glob&quot;, &quot;Grep&quot;] }
-})) {
-  if (message.type === &quot;result&quot;) {
-    sessionId = message.session_id;
-    if (message.subtype === &quot;success&quot;) {
-      console.log(message.result);
+try {
+  for await (const message of query({
+    prompt: &quot;Analyze the auth module and suggest improvements&quot;,
+    options: { allowedTools: [&quot;Read&quot;, &quot;Glob&quot;, &quot;Grep&quot;] }
+  })) {
+    if (message.type === &quot;result&quot;) {
+      sessionId = message.session_id;
+      if (message.subtype === &quot;success&quot;) {
+        console.log(message.result);
+      }
     }
   }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result.
+  // If the failure was an error result, sessionId was already captured
+  // by the loop above; connection or process failures yield no result
+  // message.
+  console.error(`Session ended with an error: ${error}`);
 }
 
 console.log(`Session ID: ${sessionId}`);
 </code></pre></div>
 </CodeGroup></p>
+<p>When the query completes, the script prints the agent's response followed by a line such as <code>Session ID: 5b3f2c1a-8d4e-4f6b-9a7c-2e1d0f9b8a6c</code>. In the next sections, you pass this ID to <code>resume</code>.</p>
 <h3 id="resume-by-id">Resume by ID</h3>
 <p>Pass a session ID to <code>resume</code> to return to that specific session. The agent picks up with full context from wherever the session left off. Common reasons to resume:</p>
 <ul>
 <li><strong>Follow up on a completed task.</strong> The agent already analyzed something; now you want it to act on that analysis without re-reading files.</li>
-<li><strong>Recover from a limit.</strong> The first run ended with <code>error_max_turns</code> or <code>error_max_budget_usd</code> (see <a href="/en/agent-sdk/agent-loop#handle-the-result">Handle the result</a>); resume with a higher limit.</li>
+<li><strong>Recover from a limit.</strong> The first run ended with <code>error_max_turns</code> or <code>error_max_budget_usd</code> (see <a href="/en/agent-sdk/agent-loop#handle-the-result">Handle the result</a>); resume with a higher limit. In a single-shot <code>query()</code> call the SDK raises after yielding that error result, so catch the error before resuming.</li>
 <li><strong>Restart your process.</strong> You captured the ID before shutdown and want to restore the conversation.</li>
 </ul>
 <p>This example resumes the session from <a href="#capture-the-session-id">Capture the session ID</a> with a follow-up prompt. Because you're resuming, the agent already has the prior analysis in context:</p>
 <p><CodeGroup>
   ```python Python theme={null}
-  # Earlier session analyzed the code; now build on that analysis
-  async for message in query(
-      prompt="Now implement the refactoring you suggested",
-      options=ClaudeAgentOptions(
-          resume=session_id,
-          allowed_tools=["Read", "Edit", "Write", "Glob", "Grep"],
-      ),
-  ):
-      if isinstance(message, ResultMessage) and message.subtype == "success":
-          print(message.result)
+  import asyncio
+  from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage</p>
+<p>session_id = "..."  # The ID you captured in the previous example</p>
+<p>async def main():
+      # Earlier session analyzed the code; now build on that analysis
+      async for message in query(
+          prompt="Now implement the refactoring you suggested",
+          options=ClaudeAgentOptions(
+              resume=session_id,
+              allowed_tools=["Read", "Edit", "Write", "Glob", "Grep"],
+          ),
+      ):
+          if isinstance(message, ResultMessage) and message.subtype == "success":
+              print(message.result)</p>
+<p>asyncio.run(main())
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 
@@ -5331,28 +5387,45 @@ for await (const message of query({
 <p>This example builds on <a href="#capture-the-session-id">Capture the session ID</a>: you've already analyzed an auth module in <code>session_id</code> and want to explore OAuth2 without losing the JWT-focused thread. The first block forks the session and captures the fork's ID (<code>forked_id</code>); the second block resumes the original <code>session_id</code> to continue down the JWT path. You now have two session IDs pointing at two separate histories:</p>
 <p><CodeGroup>
   ```python Python theme={null}
-  # Fork: branch from session_id into a new session
-  forked_id = None
-  async for message in query(
-      prompt="Instead of JWT, outline how OAuth2 would work for the auth module",
-      options=ClaudeAgentOptions(
-          resume=session_id,
-          fork_session=True,
-          max_turns=5,
-      ),
-  ):
-      if isinstance(message, ResultMessage):
-          forked_id = message.session_id  # The fork's ID, distinct from session_id
-          if message.subtype == "success":
-              print(message.result)</p>
-<p>print(f"Forked session: {forked_id}")</p>
-<p># Original session is untouched; resuming it continues the JWT thread
-  async for message in query(
-      prompt="Continue with the JWT approach",
-      options=ClaudeAgentOptions(resume=session_id),
-  ):
-      if isinstance(message, ResultMessage) and message.subtype == "success":
-          print(message.result)
+  import asyncio
+  from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage</p>
+<p>session_id = "..."  # The ID you captured in the previous example</p>
+<p>async def main():
+      # Fork: branch from session_id into a new session
+      forked_id = None
+      try:
+          async for message in query(
+              prompt="Instead of JWT, outline how OAuth2 would work for the auth module",
+              options=ClaudeAgentOptions(
+                  resume=session_id,
+                  fork_session=True,
+                  max_turns=5,
+              ),
+          ):
+              if isinstance(message, ResultMessage):
+                  forked_id = message.session_id  # The fork's ID, distinct from session_id
+                  if message.subtype == "success":
+                      print(message.result)
+      except Exception as error:
+          # A single-shot query() raises after yielding an error result. If the
+          # failure was an error result, forked_id was already captured by the
+          # loop above; connection or process failures yield no result message.
+          print(f"Session ended with an error: {error}")</p>
+<pre><code>  print(f"Forked session: {forked_id}")
+
+  # Original session is untouched; resuming it continues the JWT thread
+  try:
+      async for message in query(
+          prompt="Continue with the JWT approach",
+          options=ClaudeAgentOptions(resume=session_id),
+      ):
+          if isinstance(message, ResultMessage) and message.subtype == "success":
+              print(message.result)
+  except Exception as error:
+      # A single-shot query() raises after yielding an error result.
+      print(f"Session ended with an error: {error}")
+</code></pre>
+<p>asyncio.run(main())
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 
@@ -5361,32 +5434,44 @@ const sessionId = &quot;...&quot;; // The ID you captured in the previous exampl
 // Fork: branch from sessionId into a new session
 let forkedId: string | undefined;
 
-for await (const message of query({
-  prompt: &quot;Instead of JWT, outline how OAuth2 would work for the auth module&quot;,
-  options: {
-    resume: sessionId,
-    forkSession: true,
-    maxTurns: 5
+try {
+  for await (const message of query({
+    prompt: &quot;Instead of JWT, outline how OAuth2 would work for the auth module&quot;,
+    options: {
+      resume: sessionId,
+      forkSession: true,
+      maxTurns: 5
+    }
+  })) {
+    if (message.type === &quot;system&quot; &amp;&amp; message.subtype === &quot;init&quot;) {
+      forkedId = message.session_id; // The fork&#39;s ID, distinct from sessionId
+    }
+    if (message.type === &quot;result&quot; &amp;&amp; message.subtype === &quot;success&quot;) {
+      console.log(message.result);
+    }
   }
-})) {
-  if (message.type === &quot;system&quot; &amp;&amp; message.subtype === &quot;init&quot;) {
-    forkedId = message.session_id; // The fork&#39;s ID, distinct from sessionId
-  }
-  if (message.type === &quot;result&quot; &amp;&amp; message.subtype === &quot;success&quot;) {
-    console.log(message.result);
-  }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result. If the
+  // failure was an error result, forkedId was already captured by the loop
+  // above; connection or process failures yield no result message.
+  console.error(`Session ended with an error: ${error}`);
 }
 
 console.log(`Forked session: ${forkedId}`);
 
 // Original session is untouched; resuming it continues the JWT thread
-for await (const message of query({
-  prompt: &quot;Continue with the JWT approach&quot;,
-  options: { resume: sessionId }
-})) {
-  if (message.type === &quot;result&quot; &amp;&amp; message.subtype === &quot;success&quot;) {
-    console.log(message.result);
+try {
+  for await (const message of query({
+    prompt: &quot;Continue with the JWT approach&quot;,
+    options: { resume: sessionId }
+  })) {
+    if (message.type === &quot;result&quot; &amp;&amp; message.subtype === &quot;success&quot;) {
+      console.log(message.result);
+    }
   }
+} catch (error) {
+  // A single-shot query() throws after yielding an error result.
+  console.error(`Session ended with an error: ${error}`);
 }
 </code></pre></div>
 </CodeGroup></p>

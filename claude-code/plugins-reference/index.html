@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -6635,6 +6662,11 @@ claude plugin install &lt;plugin&gt; [options]
 <td style="text-align: left;"><code>user</code></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>--config &lt;key=value&gt;</code></td>
+<td style="text-align: left;">Set a <a href="#user-configuration"><code>userConfig</code></a> option declared in the plugin's manifest. Repeat the flag to set multiple options</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>-h, --help</code></td>
 <td style="text-align: left;">Display help for command</td>
 <td style="text-align: left;"></td>
@@ -6744,8 +6776,8 @@ claude plugin enable &lt;plugin&gt; [options]
 <tbody>
 <tr>
 <td style="text-align: left;"><code>-s, --scope &lt;scope&gt;</code></td>
-<td style="text-align: left;">Scope to enable: <code>user</code>, <code>project</code>, or <code>local</code></td>
-<td style="text-align: left;"><code>user</code></td>
+<td style="text-align: left;">Scope to enable: <code>user</code>, <code>project</code>, or <code>local</code>. When omitted, Claude Code detects the scope where the plugin is installed</td>
+<td style="text-align: left;">Auto-detect</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>-h, --help</code></td>
@@ -6757,17 +6789,18 @@ claude plugin enable &lt;plugin&gt; [options]
 <h3 id="plugin-disable">plugin disable</h3>
 <p>Disable a plugin without uninstalling it. Fails when another enabled plugin <a href="/en/plugin-dependencies#enable-or-disable-a-plugin-with-dependencies">depends on</a> the target. The error message includes a chained command that disables every dependent first.</p>
 <p>```bash theme={null}
-claude plugin disable <plugin> [options]
+claude plugin disable [plugin] [options]
 <div class="highlight"><pre><span></span><code>**Arguments:**
 
-* `&lt;plugin&gt;`: Plugin name or `plugin-name@marketplace-name`
+* `[plugin]`: Plugin name or `plugin-name@marketplace-name`. Optional when using `--all`
 
 **Options:**
 
-| Option                | Description                                     | Default |
-| :-------------------- | :---------------------------------------------- | :------ |
-| `-s, --scope &lt;scope&gt;` | Scope to disable: `user`, `project`, or `local` | `user`  |
-| `-h, --help`          | Display help for command                        |         |
+| Option                | Description                                                                                                                | Default     |
+| :-------------------- | :------------------------------------------------------------------------------------------------------------------------- | :---------- |
+| `-a, --all`           | Disable all enabled plugins. Can&#39;t be combined with `--scope`                                                              |             |
+| `-s, --scope &lt;scope&gt;` | Scope to disable: `user`, `project`, or `local`. When omitted, Claude Code detects the scope where the plugin is installed | Auto-detect |
+| `-h, --help`          | Display help for command                                                                                                   |             |
 
 ### plugin update
 
@@ -6815,7 +6848,12 @@ claude plugin list [options]
 | `--available` | Include available plugins from marketplaces. Requires `--json` |         |
 | `-h, --help`  | Display help for command                                       |         |
 
-Within an interactive session, `/plugin list` prints the same listing inline. The interactive form accepts `--enabled` or `--disabled` to show only plugins in that state, and `ls` as a shorthand for `list`.
+Within an interactive session, `/plugin list` prints a similar listing inline, but it covers marketplace-installed plugins only:
+
+* Plugins loaded from skills directories appear in the `/plugin` interface and in `claude plugin list`, but not in the inline `/plugin list` output.
+* Plugins loaded for the session with `--plugin-dir` or `--plugin-url` appear in the `/plugin` interface, and in `claude plugin list` only when the same flag precedes the subcommand, as in `claude --plugin-dir &lt;dir&gt; plugin list`. They have no installed record, so a bare `claude plugin list` doesn&#39;t show them.
+
+The interactive form accepts `--enabled` or `--disabled` to show only plugins in that state, and `ls` as a shorthand for `list`.
 
 ### plugin details
 
@@ -6858,7 +6896,7 @@ claude plugin details &lt;name&gt;
 Component inventory
   Skills (2)  scan-dependencies, review-changes
   Agents (0)
-  Hooks (1)  (harness-only — no model context cost)
+  Hooks (1)  SessionStart  (harness-only — no model context cost)
   MCP servers (0)
   LSP servers (0)
 
@@ -6875,17 +6913,23 @@ Per-component (rounded)
 </code></pre></div>
 <p>The always-on total is computed via the <code>count_tokens</code> API for your active model. Per-component numbers are proportionally scaled from that total. If the API is unreachable, the command falls back to a character-based estimate.</p>
 <h3 id="plugin-tag">plugin tag</h3>
-<p>Create a release git tag for the plugin in the current directory. Run from inside the plugin's folder. See <a href="/en/plugin-dependencies#tag-plugin-releases-for-version-resolution">Tag plugin releases</a>.</p>
+<p>Create a release git tag for a plugin. By default the command tags the plugin in the current directory; pass a path to tag a plugin elsewhere. See <a href="/en/plugin-dependencies#tag-plugin-releases-for-version-resolution">Tag plugin releases</a>.</p>
 <p>```bash theme={null}
-claude plugin tag [options]
-<div class="highlight"><pre><span></span><code>**Options:**
+claude plugin tag [path] [options]
+<div class="highlight"><pre><span></span><code>**Arguments:**
 
-| Option        | Description                                                                | Default |
-| :------------ | :------------------------------------------------------------------------- | :------ |
-| `--push`      | Push the tag to the remote after creating it                               |         |
-| `--dry-run`   | Print what would be tagged without creating the tag                        |         |
-| `-f, --force` | Create the tag even if the working tree is dirty or the tag already exists |         |
-| `-h, --help`  | Display help for command                                                   |         |
+* `[path]`: Path to the plugin directory. Defaults to the current directory.
+
+**Options:**
+
+| Option                | Description                                                                | Default  |
+| :-------------------- | :------------------------------------------------------------------------- | :------- |
+| `--push`              | Push the tag to the remote after creating it                               |          |
+| `--dry-run`           | Print what would be tagged without creating the tag                        |          |
+| `-f, --force`         | Create the tag even if the working tree is dirty or the tag already exists |          |
+| `-m, --message &lt;msg&gt;` | Tag annotation message. Use `%s` as a placeholder for the version          |          |
+| `--remote &lt;name&gt;`     | Remote to push to with `--push`                                            | `origin` |
+| `-h, --help`          | Display help for command                                                   |          |
 
 ***
 
@@ -6918,8 +6962,8 @@ This shows:
 **Manifest validation errors**:
 
 * `Invalid JSON syntax: Unexpected token } in JSON at position 142`: check for missing commas, extra commas, or unquoted strings
-* `Plugin has an invalid manifest file at .claude-plugin/plugin.json. Validation errors: name: Required`: a required field is missing
-* `Plugin has a corrupt manifest file at .claude-plugin/plugin.json. JSON parse error: ...`: JSON syntax error
+* `Plugin &lt;name&gt; has an invalid manifest file at .claude-plugin/plugin.json. Validation errors: name: Invalid input: expected string, received undefined`: a required field is missing
+* `Plugin &lt;name&gt; has a corrupt manifest file at .claude-plugin/plugin.json. JSON parse error: ...`: JSON syntax error
 
 **Plugin loading errors**:
 

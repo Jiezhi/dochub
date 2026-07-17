@@ -2219,6 +2219,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5332,10 +5359,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p>This example uses <a href="https://bun.sh">Bun</a> as the runtime for its built-in HTTP server and TypeScript support. You can use <a href="https://nodejs.org">Node</a> or <a href="https://deno.com">Deno</a> instead; the only requirement is the <a href="https://www.npmjs.com/package/@modelcontextprotocol/sdk">MCP SDK</a>.</p>
 <p><Steps>
   <Step title="Create the project">
-    Create a new directory and install the MCP SDK:</p>
+    The permission relay examples later on this page import <code>zod</code> directly, so it installs alongside the MCP SDK. Create a new directory and install both:</p>
 <pre><code>```bash theme={null}
 mkdir webhook-channel &amp;&amp; cd webhook-channel
-bun add @modelcontextprotocol/sdk
+bun add @modelcontextprotocol/sdk zod
 ```
 </code></pre>
 <p></Step></p>
@@ -5406,9 +5433,11 @@ Claude Code reads your MCP config at startup and spawns each server as a subproc
 claude --dangerously-load-development-channels server:webhook
 ```
 
-The first time you start a session in this project, Claude Code asks for consent before using the new server from `.mcp.json`. The dialog reports "New MCP server found in this project: webhook". Select **Use this MCP server** to continue.
+Claude Code first shows a full-screen warning dialog listing the development channels you're loading. Select **I am using this for local development** to continue, or **Exit** to quit.
 
-When Claude Code starts, it reads your MCP config, spawns your `webhook.ts` as a subprocess, and the HTTP listener starts automatically on the port you configured (8788 in this example). You don't need to run the server yourself.
+The first time you start a session in this project, Claude Code also asks for consent before using the new server from `.mcp.json`. The dialog reports "New MCP server found in this project: webhook". Select **Use this MCP server** to continue.
+
+After you accept, Claude Code spawns your `webhook.ts` as a subprocess, and the HTTP listener starts automatically on the port you configured, 8788 in this example. You don't need to run the server yourself.
 
 A dim notice below the startup banner confirms the channel is registered: `Channels (experimental) messages from server:webhook inject directly in this session · restart without --dangerously-load-development-channels to stop`.
 
@@ -5420,13 +5449,13 @@ In a separate terminal, simulate a webhook by sending an HTTP POST with a messag
 curl -X POST localhost:8788 -d "build failed on main: https://ci.example.com/run/1234"
 ```
 
-The payload arrives in your Claude Code session as a `&lt;channel&gt;` tag:
+The payload arrives in Claude's context as a `&lt;channel&gt;` tag:
 
 ```text theme={null}
 &lt;channel source="webhook" path="/" method="POST"&gt;build failed on main: https://ci.example.com/run/1234&lt;/channel&gt;
 ```
 
-In your Claude Code terminal, you'll see Claude receive the message and start responding: reading files, running commands, or whatever the message calls for. This is a one-way channel, so Claude acts in your session but doesn't send anything back through the webhook. To add replies, see [Expose a reply tool](#expose-a-reply-tool).
+Your terminal renders the event as a one-line summary, `← webhook: build failed on main: https://ci.example.com/run/1234`, rather than the raw tag. You'll then see Claude start responding: reading files, running commands, or whatever the message calls for. This is a one-way channel, so Claude acts in your session but doesn't send anything back through the webhook. To add replies, see [Expose a reply tool](#expose-a-reply-tool).
 
 If the event doesn't arrive, the diagnosis depends on what `curl` returned:
 
@@ -5451,7 +5480,7 @@ If the event doesn't arrive, the diagnosis depends on what `curl` returned:
 
 ## Server options
 
-A channel sets these options in the [`Server`](https://modelcontextprotocol.io/docs/concepts/servers) constructor. The `instructions` and `capabilities.tools` fields are [standard MCP](https://modelcontextprotocol.io/docs/concepts/servers); `capabilities.experimental[&#39;claude/channel&#39;]` and `capabilities.experimental[&#39;claude/channel/permission&#39;]` are the channel-specific additions:
+A channel sets these options in the [`Server`](https://modelcontextprotocol.io/docs/learn/server-concepts) constructor. The `instructions` and `capabilities.tools` fields are [standard MCP](https://modelcontextprotocol.io/docs/learn/server-concepts); `capabilities.experimental[&#39;claude/channel&#39;]` and `capabilities.experimental[&#39;claude/channel/permission&#39;]` are the channel-specific additions:
 
 | Field                                                    | Type     | Description                                                                                                                                                                                                                                                             |
 | :------------------------------------------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -5718,14 +5747,15 @@ await mcp.notification({ ... })</code></p>
 </tr>
 <tr>
 <td><code>description</code></td>
-<td>Human-readable summary of what this specific tool call does, the same text the local terminal dialog shows. For a Bash call this is Claude's description of the command, or the command itself if none was given.</td>
+<td>Human-readable summary of what this specific tool call does, never the command itself. For a Bash call this is Claude's description of the command; when the model gives no description, the field is the constant <code>Run shell command</code> and carries zero command detail. Render <code>input_preview</code> when you have room.</td>
 </tr>
 <tr>
 <td><code>input_preview</code></td>
-<td>The tool's arguments as a JSON string, truncated to 200 characters. For Bash this is the command; for Write it's the file path and a prefix of the content. Omit it from your prompt if you only have room for a one-line message. Your server decides what to show.</td>
+<td>The tool's arguments as JSON-shaped display text, keyed per top-level field. For Bash this is the command; for Write, the file path and the content. Omit it from your prompt if you only have room for a one-line message. Your server decides what to show.</td>
 </tr>
 </tbody>
 </table>
+<p>Clients on Claude Code v2.1.211 or later sanitize both fields before relaying them: they neutralize direction-override and invisible characters and quote and angle-bracket lookalikes, fold whitespace runs to a single space, and relay text whole up to 3,500 code points, applied per top-level field for <code>input_preview</code>, which also keeps the JSON's own structural quotes. A longer value keeps its start and end visible around a counted <code>⋯ N code points elided ⋯</code> marker, so the end of a long command still reaches the approver. Earlier clients relay <code>description</code> raw and cut <code>input_preview</code> to 200 UTF-16 units with a trailing ellipsis. Treat both fields as untrusted unless you control the client fleet.</p>
 <p>The verdict your server sends back is <code>notifications/claude/channel/permission</code> with two fields: <code>request_id</code> echoing the ID above, and <code>behavior</code> set to <code>'allow'</code> or <code>'deny'</code>. Allow lets the tool call proceed; deny rejects it, the same as answering No in the local dialog. Neither verdict affects future calls.</p>
 <h3 id="add-relay-to-a-chat-bridge">Add relay to a chat bridge</h3>
 <p>Adding permission relay to a two-way channel takes three components:</p>
@@ -5762,8 +5792,8 @@ const PermissionRequestSchema = z.object({
   params: z.object({
     request_id: z.string(),     // five lowercase letters, include verbatim in your prompt
     tool_name: z.string(),      // e.g. "Bash", "Write"
-    description: z.string(),    // human-readable summary of this call
-    input_preview: z.string(),  // tool args as JSON, truncated to ~200 chars
+    description: z.string(),    // summary of this call. Treat as untrusted.
+    input_preview: z.string(),  // tool args as JSON-shaped text. Treat as untrusted.
   }),
 })
 
@@ -5771,7 +5801,11 @@ mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) =&gt; {
   // send() is your outbound: POST to your chat platform, or for local
   // testing the SSE broadcast shown in the full example below.
   send(
-    `Claude wants to run ${params.tool_name}: ${params.description}\n\n` +
+    `Claude wants to run ${params.tool_name}: ${params.description}\n` +
+    // input_preview carries the actual arguments; render it when you
+    // have room: for Bash the description alone may be just
+    // "Run shell command" with zero command detail
+    `${params.input_preview}\n\n` +
     // the ID in the instruction is what your inbound handler parses in Step 3
     `Reply "yes ${params.request_id}" or "no ${params.request_id}"`,
   )
@@ -5894,7 +5928,8 @@ const PermissionRequestSchema = z.object({
 })</p>
 <p>mcp.setNotificationHandler(PermissionRequestSchema, async ({ params }) =&gt; {
   send(
-    <code>Claude wants to run ${params.tool_name}: ${params.description}\n\n</code> +
+    <code>Claude wants to run ${params.tool_name}: ${params.description}\n</code> +
+    <code>${params.input_preview}\n\n</code> +
     <code>Reply "yes ${params.request_id}" or "no ${params.request_id}"</code>,
   )
 })</p>

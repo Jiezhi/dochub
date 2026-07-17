@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5922,7 +5949,7 @@ Use this file to discover all available pages before exploring further.</p>
 /plugin install mcp-server-dev@claude-plugins-official
 ```
 
-If Claude Code reports that the marketplace is not found, run `/plugin marketplace add anthropics/claude-plugins-official` first, then retry the install. Once installed, run `/reload-plugins` to activate it in the current session.
+If Claude Code reports `Marketplace "claude-plugins-official" not found`, add the marketplace with `/plugin marketplace add anthropics/claude-plugins-official`. If it reports that the plugin is not found in the marketplace, your local copy is outdated: refresh it with `/plugin marketplace update claude-plugins-official`. Then retry the install. Once installed, run `/reload-plugins` to activate it in the current session.
 </code></pre>
 <p></Step></p>
 <p><Step title="Run the build skill">
@@ -5969,7 +5996,7 @@ claude mcp add --transport sse private-api https://api.company.com/sse \
 <p>Stdio servers run as local processes on your machine. They're ideal for tools that need direct system access or custom scripts.</p>
 <p>Claude Code sets <code>CLAUDE_PROJECT_DIR</code> in the spawned server's environment to the project root, so your server can resolve project-relative paths without depending on the working directory. This is the same directory hooks receive in their <code>CLAUDE_PROJECT_DIR</code> variable. Read it from inside your server process, for example <code>process.env.CLAUDE_PROJECT_DIR</code> in Node or <code>os.environ["CLAUDE_PROJECT_DIR"]</code> in Python.</p>
 <p><code>CLAUDE_PROJECT_DIR</code> is the stable project root and doesn't change when you add or remove working directories mid-session. A server that limits its own filesystem access to a set of allowed directories should implement the MCP <code>roots/list</code> request instead. Claude Code answers <code>roots/list</code> with the session's launch directory plus every <a href="/en/permissions#working-directories">additional working directory</a> you've granted with <code>--add-dir</code>, <code>/add-dir</code>, or the <code>additionalDirectories</code> setting. Claude Code sends <code>notifications/roots/list_changed</code> when that set changes. Before v2.1.203, <code>roots/list</code> returned only the launch directory and Claude Code didn't send <code>notifications/roots/list_changed</code>.</p>
-<p>This variable is set in the server's environment, not in Claude Code's own environment, so referencing it via <code>${VAR}</code> expansion in a project- or user-scoped <code>.mcp.json</code> <code>command</code> or <code>args</code> requires a default such as <code>${CLAUDE_PROJECT_DIR:-.}</code>. Plugin-provided MCP configurations substitute <code>${CLAUDE_PROJECT_DIR}</code> directly and don't need the default.</p>
+<p>This variable is set in the server's environment, not in Claude Code's own environment, so referencing it via <code>${VAR}</code> expansion in the <code>command</code> or <code>args</code> of a project-scoped <code>.mcp.json</code> entry or a local- or user-scoped server entry in <code>~/.claude.json</code> requires a default such as <code>${CLAUDE_PROJECT_DIR:-.}</code>. Plugin-provided MCP configurations substitute <code>${CLAUDE_PROJECT_DIR}</code> directly and don't need the default.</p>
 <p>```bash theme={null}</p>
 <h1 id="basic-syntax_1">Basic syntax</h1>
 <p>claude mcp add [options] <name> -- <command> [args...]</p>
@@ -6013,7 +6040,7 @@ claude mcp add-json events-server \
 <p>claude mcp remove github</p>
 <h1 id="within-claude-code-check-server-status">(within Claude Code) Check server status</h1>
 <p>/mcp
-<div class="highlight"><pre><span></span><code>Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list` as `⏸ Pending approval`. Run `claude` interactively to review and approve them. `claude mcp get &lt;name&gt;` shows pending servers as `⏸ Pending approval` and rejected servers as `✗ Rejected`.
+<div class="highlight"><pre><span></span><code>Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list` and `claude mcp get &lt;name&gt;` as ``⏸ Pending approval (run `claude` to approve)``. Run `claude` interactively to review and approve them. `claude mcp get &lt;name&gt;` shows rejected servers as `✘ Rejected (see disabledMcpjsonServers in settings)`.
 
 As of v2.1.196, `claude mcp list` and `claude mcp get` read `.mcp.json` approvals only from settings files that aren&#39;t checked into the repository until you trust the workspace by running `claude` in it and accepting the workspace trust dialog. A cloned repository can&#39;t approve its own servers: [`enableAllProjectMcpServers` or `enabledMcpjsonServers`](/en/settings#available-settings) committed to the project&#39;s `.claude/settings.json` is ignored in an untrusted folder, and the server stays at `⏸ Pending approval` instead of being connected and health-checked.
 
@@ -6119,7 +6146,10 @@ In `.mcp.json` at plugin root:
 }
 <div class="highlight"><pre><span></span><code>**Plugin MCP features**:
 
-* **Automatic lifecycle**: at session startup, servers for enabled plugins connect automatically. If you enable or disable a plugin during a session, run `/reload-plugins` to connect or disconnect its MCP servers
+* **Automatic lifecycle**: servers connect and disconnect at these points:
+  * At session startup, servers for enabled plugins connect automatically
+  * If you enable or disable a plugin during a session, run `/reload-plugins` to connect or disconnect its MCP servers
+  * In [web sessions](/en/claude-code-on-the-web), an MCP call to a plugin server that isn&#39;t connected yet, such as right after an idle session wakes, starts the server on demand and waits for it to connect. {/* min-version: 2.1.211 */}Before v2.1.211, plugin servers in a web session reconnected only when the next message started a turn, so MCP calls after an idle session woke failed until then
 * **Path placeholders**: `${CLAUDE_PLUGIN_ROOT}` resolves to the plugin&#39;s installation directory, `${CLAUDE_PLUGIN_DATA}` to its [persistent state](/en/plugins-reference#persistent-data-directory) directory, and `${CLAUDE_PROJECT_DIR}` to the stable project root. Substitution applies to:
   * `stdio` servers: `command`, `args`, `env`
   * `http`, `sse`, and `ws` servers: `url`, `headers`, and `headersHelper`. {/* min-version: 2.1.195 */}Before v2.1.195, `headersHelper` passed the placeholder through as a literal string
@@ -6273,7 +6303,7 @@ Environment variables can be expanded in:
   }
 }
 </code></pre></div></p>
-<p>If a referenced environment variable isn't set and has no default value, Claude Code leaves the literal <code>${VAR}</code> text in the value and reports a missing-variable warning for that server. The config still loads, so set the variable or add a <code>:-default</code> fallback so the server starts with the value you intend.</p>
+<p>If a referenced environment variable isn't set and has no default value, the config still loads: Claude Code reports a missing-variable warning for that server in <code>claude mcp list</code> output and uses the unexpanded <code>${VAR}</code> text as-is. Set the variable or add a <code>:-default</code> fallback so the server starts with the value you intend.</p>
 <h2 id="practical-examples">Practical examples</h2>
 <h3 id="example-monitor-errors-with-sentry">Example: Monitor errors with Sentry</h3>
 <p>```bash theme={null}

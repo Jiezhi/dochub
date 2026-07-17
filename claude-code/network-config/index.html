@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -3300,6 +3327,45 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-network-settings-to-background-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Apply network settings to background agents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Apply network settings to background agents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-network-variables-in-settings-not-the-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set network variables in settings, not the shell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-a-corporate-launcher-as-a-setting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure a corporate launcher as a setting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5080,6 +5146,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#apply-network-settings-to-background-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Apply network settings to background agents
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Apply network settings to background agents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-network-variables-in-settings-not-the-shell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set network variables in settings, not the shell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-a-corporate-launcher-as-a-setting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure a corporate launcher as a setting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#network-access-requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5217,6 +5322,17 @@ export CLAUDE_CODE_CLIENT_KEY=/path/to/client-key.pem
 export CLAUDE_CODE_CLIENT_KEY_PASSPHRASE=&quot;your-passphrase&quot;
 </code></pre></div></p>
 <p>Claude Code reads the certificate and key files at startup and re-reads them each time it applies settings, including when settings change during a session. To rotate the certificate and key, replace the files at the same paths.</p>
+<h2 id="apply-network-settings-to-background-agents">Apply network settings to background agents</h2>
+<p><a href="/en/agent-view">Background agents</a> don't run inside the terminal that dispatched them. A per-user supervisor process starts on demand, outlives your shell, and hosts every <code>claude agents</code>, <code>--bg</code>, and <code>/background</code> session. See <a href="/en/agent-view#how-background-sessions-are-hosted">How background sessions are hosted</a>. This changes how the configuration on this page reaches those sessions.</p>
+<h3 id="set-network-variables-in-settings-not-the-shell">Set network variables in settings, not the shell</h3>
+<p>The supervisor is one process shared by every terminal. It inherits the environment of whichever shell starts it first, and an OS-installed supervisor receives no shell environment at all. If you export a proxy, CA path, or mTLS variable only in your shell, it reaches background agents when that shell happened to cold-start the supervisor, and silently doesn't when a different shell did.</p>
+<p>Put the same variables in the <code>env</code> block of <code>~/.claude/settings.json</code> or <a href="/en/settings">managed settings</a> instead. Every variable on this page can be set there, and settings are the only configuration that reaches every background session on every machine.</p>
+<h3 id="configure-a-corporate-launcher-as-a-setting">Configure a corporate launcher as a setting</h3>
+<p>Some organizations require every Claude Code process to start through a corporate launcher that applies sandboxing, network controls, or credential injection. The supervisor and its workers start Claude Code from a fixed path rather than by looking up <code>claude</code> on <code>PATH</code>, so every background agent bypasses a wrapper you place earlier on <code>PATH</code>.</p>
+<p>Set the <a href="/en/settings#available-settings"><code>processWrapper</code></a> setting to prefix the supervisor, its workers, and the other background processes listed under <a href="/en/corporate-launcher#what-the-launcher-covers">What the launcher covers</a> with your launcher. The equivalent <a href="/en/env-vars"><code>CLAUDE_CODE_PROCESS_WRAPPER</code></a> environment variable takes precedence when both are set, and it is subject to the same rule: deliver it through managed settings or <code>~/.claude/settings.json</code>, not a shell export. <a href="/en/corporate-launcher">Run Claude Code behind a corporate launcher</a> covers the contract the launcher must satisfy, what it does and doesn't reach, and how to roll it out.</p>
+<p><Note>
+  An already-running supervisor keeps the launch configuration it started with. After deploying the launcher setting, run <a href="/en/agent-view#the-supervisor-process"><code>claude daemon stop --any</code></a> so the next <code>claude agents</code> or <code>--bg</code> starts a supervisor that honors it. An installed service takes <code>claude daemon stop</code> without <code>--any</code>.
+</Note></p>
 <h2 id="network-access-requirements">Network access requirements</h2>
 <p>Claude Code requires access to the following URLs. Allowlist these in your proxy configuration and firewall rules, especially in containerized or restricted network environments.</p>
 <table>

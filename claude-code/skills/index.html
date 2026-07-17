@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5574,7 +5601,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>{/<em> min-version: 2.1.145 </em>/}All three skills require Claude Code v2.1.145 or later.</p>
+<p>{/<em> min-version: 2.1.145 </em>/}All three skills require Claude Code v2.1.145 or later. Check your version with <code>claude --version</code> or the <code>/status</code> command.</p>
 <p><code>/run</code> and <code>/verify</code> work without setup. They infer the launch from your project type (CLI, server, TUI, browser-driven) and from what's in your README, <code>package.json</code>, or <code>Makefile</code>. That inference gets unreliable for projects that need anything beyond a standard launch: a database, an env file, a graphical session, a multi-step build.</p>
 <p><code>/run-skill-generator</code> records the recipe instead. It gets your app running from a clean environment, captures what worked (the install commands, the env vars, the launch script), and commits it as a per-project skill at <code>.claude/skills/run-&lt;name&gt;/</code>. After that, <code>/run</code>, <code>/verify</code>, and any other agent in the repo follow the recorded recipe instead of rediscovering it. Run <code>/run-skill-generator</code> once per project, and again if the build or launch process changes.</p>
 <h2 id="getting-started">Getting started</h2>
@@ -5727,7 +5754,7 @@ When writing API endpoints:
 - Return consistent error formats
 - Include request validation
 </code></pre></div></p>
-<p><strong>Task content</strong> gives Claude step-by-step instructions for a specific action, like deployments, commits, or code generation. These are often actions you want to invoke directly with <code>/skill-name</code> rather than letting Claude decide when to run them. Add <code>disable-model-invocation: true</code> to prevent Claude from triggering it automatically.</p>
+<p><strong>Task content</strong> gives Claude step-by-step instructions for a specific action, like deployments, commits, or code generation. These are often actions you want to invoke directly with <code>/skill-name</code> rather than letting Claude decide when to run them. Add <code>disable-model-invocation: true</code> to prevent Claude from triggering it automatically. The example below adds <code>context: fork</code>, which runs the skill in its own subagent context; see <a href="#run-skills-in-a-subagent">Run skills in a subagent</a>.</p>
 <h2 id="yaml-themenull">```yaml theme={null}</h2>
 <p>name: deploy
 description: Deploy the application to production
@@ -5804,7 +5831,7 @@ Your skill instructions here...
 <tr>
 <td style="text-align: left;"><code>allowed-tools</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Tools Claude can use without asking permission when this skill is active. Accepts a space- or comma-separated string, or a YAML list.</td>
+<td style="text-align: left;">Tools Claude can use without asking permission during the turn that invokes this skill. The grant clears when you send your next message. Accepts a space- or comma-separated string, or a YAML list. See <a href="#pre-approve-tools-for-a-skill">Pre-approve tools for a skill</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>disallowed-tools</code></td>
@@ -5824,7 +5851,7 @@ Your skill instructions here...
 <tr>
 <td style="text-align: left;"><code>context</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Set to <code>fork</code> to run in a forked subagent context.</td>
+<td style="text-align: left;">Set to <code>fork</code> to run in a forked subagent context. See <a href="#run-skills-in-a-subagent">Run skills in a subagent</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>agent</code></td>
@@ -5844,7 +5871,7 @@ Your skill instructions here...
 <tr>
 <td style="text-align: left;"><code>shell</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Shell to use for <code>!`command`</code> and <code>```!</code> blocks in this skill. Accepts <code>bash</code> (default) or <code>powershell</code>. Setting <code>powershell</code> runs inline shell commands via PowerShell on Windows. Requires <code>CLAUDE_CODE_USE_POWERSHELL_TOOL=1</code>.</td>
+<td style="text-align: left;">Shell to use for <code>!`command`</code> and <code>```!</code> blocks in this skill. Accepts <code>bash</code> (default) or <code>powershell</code>. Setting <code>powershell</code> runs inline shell commands via PowerShell when the <a href="/en/tools-reference#powershell-tool">PowerShell tool</a> is enabled: it's on by default on Windows without Git Bash, and <code>CLAUDE_CODE_USE_POWERSHELL_TOOL=1</code> enables it elsewhere.</td>
 </tr>
 </tbody>
 </table>
@@ -5934,6 +5961,7 @@ Your skill instructions here...
 </table>
 <p>The <code>${CLAUDE_PROJECT_DIR}</code> substitution requires Claude Code v2.1.196 or later. It applies to both the skill body and the <a href="#frontmatter-reference"><code>allowed-tools</code></a> frontmatter, so a permission rule like <code>Bash(${CLAUDE_PROJECT_DIR}/scripts/lint.sh *)</code> resolves to the same path the skill body uses.</p>
 <p>Indexed arguments use shell-style quoting, so wrap multi-word values in quotes to pass them as a single argument. For example, <code>/my-skill "hello world" second</code> makes <code>$0</code> expand to <code>hello world</code> and <code>$1</code> to <code>second</code>. The <code>$ARGUMENTS</code> placeholder always expands to the full argument string as typed.</p>
+<p>An indexed placeholder with no corresponding argument, such as <code>$2</code> when only one argument was passed, stays in the content unchanged. A named placeholder from the <a href="#frontmatter-reference"><code>arguments</code></a> frontmatter with no matching argument expands to an empty string.</p>
 <p>To include a literal <code>$</code> before a digit, <code>ARGUMENTS</code>, or a declared argument name, such as <code>$1.00</code> in prose, escape it with a backslash: <code>\$1.00</code>. A backslash before any other <code>$</code> is left unchanged. Only a single backslash directly before the token escapes it. A doubled backslash such as <code>\\$1</code> leaves both backslashes in place, and <code>$1</code> still expands to the argument value.</p>
 <p><strong>Example using substitutions:</strong></p>
 <h2 id="yaml-themenull_1">```yaml theme={null}</h2>
@@ -6022,12 +6050,12 @@ Deploy $ARGUMENTS to production:
   In a regular session, skill descriptions are loaded into context so Claude knows what's available, but full skill content only loads when invoked. <a href="/en/sub-agents#preload-skills-into-subagents">Subagents with preloaded skills</a> work differently: the full skill content is injected at startup.
 </Note></p>
 <h3 id="skill-content-lifecycle">Skill content lifecycle</h3>
-<p>When you or Claude invoke a skill, the rendered <code>SKILL.md</code> content enters the conversation as a single message and stays there for the rest of the session. Claude Code does not re-read the skill file on later turns, so write guidance that should apply throughout a task as standing instructions rather than one-time steps.</p>
+<p>When you or Claude invoke a skill, the rendered <code>SKILL.md</code> content enters the conversation as a single message and stays there for the rest of the session. This persistence applies to the skill's instructions, not its permissions: an <a href="#pre-approve-tools-for-a-skill"><code>allowed-tools</code></a> grant clears when you send your next message. Claude Code does not re-read the skill file on later turns, so write guidance that should apply throughout a task as standing instructions rather than one-time steps.</p>
 <p>When Claude re-invokes a skill whose rendered content is identical to the copy already in context, Claude Code adds a short note that the skill is already loaded rather than a second copy of the content. When the rendered content differs, because the arguments changed or a <a href="#inject-dynamic-context">dynamic context</a> command produced new output, Claude Code appends the full content again. Before v2.1.202, every re-invocation appended another full copy of the skill's instructions.</p>
 <p><a href="/en/how-claude-code-works#when-context-fills-up">Auto-compaction</a> carries invoked skills forward within a token budget. When the conversation is summarized to free context, Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first 5,000 tokens of each. Re-attached skills share a combined budget of 25,000 tokens. Claude Code fills this budget starting from the most recently invoked skill, so older skills can be dropped entirely after compaction if you have invoked many in one session.</p>
 <p>If a skill seems to stop influencing behavior after the first response, the content is usually still present and the model is choosing other tools or approaches. Strengthen the skill's <code>description</code> and instructions so the model keeps preferring it, or use <a href="/en/hooks">hooks</a> to enforce behavior deterministically. If the skill is large or you invoked several others after it, re-invoke it after compaction to restore the full content.</p>
 <h3 id="pre-approve-tools-for-a-skill">Pre-approve tools for a skill</h3>
-<p>The <code>allowed-tools</code> field grants permission for the listed tools while the skill is active, so Claude can use them without prompting you for approval. It does not restrict which tools are available: every tool remains callable, and your <a href="/en/permissions">permission settings</a> still govern tools that are not listed.</p>
+<p>The <code>allowed-tools</code> field grants permission for the listed tools during the turn that invokes the skill, so Claude can use them without prompting you for approval. The grant clears when you send your next message, even though the skill content <a href="#skill-content-lifecycle">stays in context</a>; invoking the skill again re-applies it for that turn. It does not restrict which tools are available: every tool remains callable, and your <a href="/en/permissions">permission settings</a> still govern tools that are not listed. To pre-approve tools for the whole session rather than a single turn, add allow rules to those permission settings instead.</p>
 <p>For skills checked into a project's <code>.claude/skills/</code> directory, <code>allowed-tools</code> takes effect after you accept the workspace trust dialog for that folder, the same as permission rules in <code>.claude/settings.json</code>. Review project skills before trusting a repository, since a skill can grant itself broad tool access.</p>
 <p>This skill lets Claude run git commands without per-use approval whenever you invoke it:</p>
 <h2 id="yaml-themenull_2">```yaml theme={null}</h2>
@@ -6174,7 +6202,7 @@ The `agent` field specifies which subagent configuration to use. Options include
 
 ### Restrict Claude&#39;s skill access
 
-By default, Claude can invoke any skill that doesn&#39;t have `disable-model-invocation: true` set. Skills that define `allowed-tools` grant Claude access to those tools without per-use approval when the skill is active. Your [permission settings](/en/permissions) still govern baseline approval behavior for all other tools. A few built-in commands are also available through the Skill tool, including `/init`, `/review`, and `/security-review`. Other built-in commands such as `/compact` are not.
+By default, Claude can invoke any skill that doesn&#39;t have `disable-model-invocation: true` set. Skills that define `allowed-tools` grant Claude access to those tools without per-use approval during the turn that invokes the skill; the grant clears when you send your next message. Your [permission settings](/en/permissions) still govern baseline approval behavior for all other tools. A few built-in commands are also available through the Skill tool, including `/init`, `/review`, and `/security-review`. Other built-in commands such as `/compact` are not.
 
 Three ways to control which skills Claude can invoke:
 
@@ -6206,7 +6234,7 @@ Permission syntax: `Skill(name)` for exact match, `Skill(name *)` for prefix mat
 
 ### Override skill visibility from settings
 
-The `skillOverrides` setting controls skill visibility from your [settings](/en/settings) instead of the skill&#39;s own frontmatter. Use it for skills whose SKILL.md you don&#39;t want to edit, such as ones checked into a shared project repo or provided by an MCP server. The `/skills` menu writes it for you: highlight a skill and press `Space` to cycle states, then `Enter` to save to `.claude/settings.local.json`.
+The `skillOverrides` setting controls skill visibility from your [settings](/en/settings) instead of the skill&#39;s own frontmatter. Use it for skills whose SKILL.md you don&#39;t want to edit, such as ones checked into a shared project repo. The `/skills` menu writes it for you: highlight a skill and press `Space` to cycle states, then `Enter` to save to `.claude/settings.local.json`.
 
 Each key is a skill name and each value is one of four states:
 
@@ -6216,6 +6244,8 @@ Each key is a skill name and each value is one of four states:
 | `&quot;name-only&quot;`           | Name only            | Yes         |
 | `&quot;user-invocable-only&quot;` | Hidden               | Yes         |
 | `&quot;off&quot;`                 | Hidden               | Hidden      |
+
+The `/skills` menu labels the `&quot;user-invocable-only&quot;` state `user-only`.
 
 As of v2.1.199, `&quot;off&quot;` also hides the skill from the command lists advertised to [Remote Control](/en/remote-control) clients and to [Agent SDK](/en/agent-sdk/slash-commands) callers, not only the terminal `/` menu. Invoking a hidden skill by its full name still returns the `skillOverrides` error instead of running it.
 
@@ -6246,7 +6276,7 @@ The [`skill-creator` plugin](https://github.com/anthropics/claude-plugins-offici
 /plugin install skill-creator@claude-plugins-official
 ```
 
-If Claude Code reports that the plugin is not found in any marketplace, your marketplace is either missing or outdated. Run `/plugin marketplace update claude-plugins-official` to refresh it, or `/plugin marketplace add anthropics/claude-plugins-official` if you haven&#39;t added it before. Then retry the install.
+If Claude Code reports `Marketplace &quot;claude-plugins-official&quot; not found`, add the marketplace with `/plugin marketplace add anthropics/claude-plugins-official`. If it reports that the plugin is not found in the marketplace, your local copy is outdated: refresh it with `/plugin marketplace update claude-plugins-official`. Then retry the install.
 
 After installing, run `/reload-plugins` to make the plugin&#39;s skills available in the current session. Then ask Claude to evaluate an existing skill, for example `evaluate my summarize-changes skill with skill-creator`. The plugin walks you through writing test cases and runs the loop:
 
@@ -6448,7 +6478,7 @@ from collections import Counter</p>
     print(f'Generated {out.absolute()}')
     webbrowser.open(f'file://{out.absolute()}')
 ```</p>
-<p>To test, open Claude Code in any project and ask "Visualize this codebase." Claude runs the script, generates <code>codebase-map.html</code>, and opens it in your browser.</p>
+<p>To test, open Claude Code in any project and ask "Visualize this codebase." Claude runs the script, which prints the generated file's path, such as <code>Generated /path/to/codebase-map.html</code>, and opens it in your browser.</p>
 <p>This pattern works for any visual output: dependency graphs, test coverage reports, API documentation, or database schema visualizations. The bundled script does the work while Claude handles orchestration.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="skill-not-triggering">Skill not triggering</h3>

@@ -1839,10 +1839,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#route-through-a-corporate-proxy" class="md-nav__link">
+  <a href="#use-the-agent-sdk" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Route through a corporate proxy
+        Use the Agent SDK
       
     </span>
   </a>
@@ -2100,6 +2100,33 @@
     
   
     Context window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
   
 
     
@@ -4991,10 +5018,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#route-through-a-corporate-proxy" class="md-nav__link">
+  <a href="#use-the-agent-sdk" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Route through a corporate proxy
+        Use the Agent SDK
       
     </span>
   </a>
@@ -5294,13 +5321,14 @@ aws sso login --profile my-profile
 export AWS_PROFILE=my-profile
 <div class="highlight"><pre><span></span><code>For CI and automation, give the runner an IAM role with permission to invoke the Anthropic service and set `AWS_REGION`. The credential chain picks the role up automatically.
 
-If your SSO credentials expire mid-session, configure [`awsAuthRefresh`](/en/amazon-bedrock#advanced-credential-configuration) so Claude Code re-runs your login command and retries instead of failing. Automatic refresh on Claude Platform on AWS requires Claude Code v2.1.198 or later; earlier versions stop with a prompt to run `/login`, which can&#39;t refresh AWS credentials. Add the command to your `settings.json`:
+If your SSO credentials expire mid-session, configure [`awsAuthRefresh`](/en/amazon-bedrock#advanced-credential-configuration) so Claude Code re-runs your login command and retries instead of failing. Automatic refresh on Claude Platform on AWS requires Claude Code v2.1.198 or later; earlier versions stop with a prompt to run `/login`, which can&#39;t refresh AWS credentials. Add the command to your [settings file](/en/settings), such as `~/.claude/settings.json`:
 
 ```json theme={null}
 {
   &quot;awsAuthRefresh&quot;: &quot;aws sso login --profile my-profile&quot;
 }
 </code></pre></div></p>
+<p>Claude Code also runs this command at startup when it can't validate your existing AWS credentials, and shows the command's output in a Cloud authentication panel until the login completes.</p>
 <p>With <code>awsAuthRefresh</code> configured, <code>/login</code> shows a <strong>Claude Platform on AWS · refresh credentials</strong> option under <strong>Using 3rd-party platforms</strong>. Selecting it runs the configured command and re-reads your AWS credentials without restarting Claude Code.</p>
 <p><strong>Option B: Workspace API key</strong></p>
 <p>A workspace API key is a long-lived secret, useful when you don't want to manage federated AWS credentials. Generate one in the AWS Console under <strong>Claude Platform on AWS → API keys</strong> and set it as <code>ANTHROPIC_AWS_API_KEY</code>:</p>
@@ -5323,7 +5351,7 @@ export CLAUDE_CODE_USE_ANTHROPIC_AWS=1
 export ANTHROPIC_AWS_WORKSPACE_ID=wrkspc_01ABCDEFGHIJKLMN
 export AWS_REGION=us-east-1
 </code></pre></div></p>
-<p><code>ANTHROPIC_AWS_WORKSPACE_ID</code> is required and is sent on every request as the <code>anthropic-workspace-id</code> header. The base URL is computed from <code>AWS_REGION</code> as <code>https://aws-external-anthropic.{region}.api.aws</code>. To override the URL directly, set <code>ANTHROPIC_AWS_BASE_URL</code>.</p>
+<p><code>ANTHROPIC_AWS_WORKSPACE_ID</code> is required and is sent on every request as the <code>anthropic-workspace-id</code> header. Replace the example <code>wrkspc_01ABCDEFGHIJKLMN</code> value with your own workspace ID from your Claude Platform on AWS setup. The base URL is computed from <code>AWS_REGION</code> as <code>https://aws-external-anthropic.{region}.api.aws</code>. To override the URL directly, set <code>ANTHROPIC_AWS_BASE_URL</code>.</p>
 <p>Claude Platform on AWS is opt-in even when AWS credentials are present in your environment. Amazon Bedrock and Microsoft Foundry take precedence in provider routing, so unset <code>CLAUDE_CODE_USE_BEDROCK</code> and <code>CLAUDE_CODE_USE_FOUNDRY</code> if they're set.</p>
 <h3 id="3-pin-model-versions">3. Pin model versions</h3>
 <p>Claude Platform on AWS uses the same model IDs as the direct Claude API.</p>
@@ -5338,43 +5366,48 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-4-5
 
 [Prompt caching](/en/prompt-caching) is enabled automatically. To request a 1-hour cache TTL instead of the 5-minute default, set `ENABLE_PROMPT_CACHING_1H=1`. The API bills 1-hour cache writes at a higher rate. See [prompt caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing) for the rates.
 
-## Use the Agent SDK
+### 4. Launch and verify
 
-The [Agent SDK](/en/agent-sdk/overview) reads the same environment variables as the CLI, so any program that spawns the Claude Code subprocess can target Claude Platform on AWS by exporting `CLAUDE_CODE_USE_ANTHROPIC_AWS`, `ANTHROPIC_AWS_WORKSPACE_ID`, and either `ANTHROPIC_AWS_API_KEY` or AWS credentials before the call.
+Start Claude Code and confirm the routing:
 
-```typescript theme={null}
-import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
-
-process.env.CLAUDE_CODE_USE_ANTHROPIC_AWS = &quot;1&quot;;
-process.env.ANTHROPIC_AWS_WORKSPACE_ID = &quot;wrkspc_01ABCDEFGHIJKLMN&quot;;
-process.env.AWS_REGION = &quot;us-east-1&quot;;
-
-for await (const msg of query({ prompt: &quot;What&#39;s in this repo?&quot; })) {
+```bash theme={null}
+claude
+</code></pre></div></p>
+<p>The startup banner shows <code>Claude Platform on AWS</code> when the provider is active. Run <code>/status</code> to check the details: the <code>API provider</code> line reads <code>Claude Platform on AWS</code>, and the output includes your <code>Workspace ID</code>, the <code>AWS region</code>, and the <code>Claude Platform on AWS base URL</code> if you set an override.</p>
+<h2 id="use-the-agent-sdk">Use the Agent SDK</h2>
+<p>The <a href="/en/agent-sdk/overview">Agent SDK</a> reads the same environment variables as the CLI, so any program that spawns the Claude Code subprocess can target Claude Platform on AWS by exporting <code>CLAUDE_CODE_USE_ANTHROPIC_AWS</code>, <code>ANTHROPIC_AWS_WORKSPACE_ID</code>, and either <code>ANTHROPIC_AWS_API_KEY</code> or AWS credentials before the call.</p>
+<p>```typescript theme={null}
+import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>process.env.CLAUDE_CODE_USE_ANTHROPIC_AWS = "1";
+process.env.ANTHROPIC_AWS_WORKSPACE_ID = "wrkspc_01ABCDEFGHIJKLMN";
+process.env.AWS_REGION = "us-east-1";</p>
+<p>for await (const msg of query({ prompt: "What's in this repo?" })) {
   console.log(msg);
 }
-</code></pre></div></p>
-<p>This example relies on the ambient AWS credential chain for SigV4. To authenticate with a workspace API key instead, set <code>ANTHROPIC_AWS_API_KEY</code> the same way. For the broader Agent SDK surface, see <a href="/en/agent-sdk/overview">Agent SDK overview</a>.</p>
-<h2 id="route-through-a-corporate-proxy">Route through a corporate proxy</h2>
-<p>To route traffic through a proxy or <a href="/en/llm-gateway">LLM gateway</a>, set <code>ANTHROPIC_AWS_BASE_URL</code> to the proxy's address. Claude Code sends requests to that URL with the same workspace and authentication headers, so any gateway that forwards them unchanged works.</p>
-<p>```bash theme={null}
-export CLAUDE_CODE_USE_ANTHROPIC_AWS=1
-export ANTHROPIC_AWS_WORKSPACE_ID=wrkspc_01ABCDEFGHIJKLMN
-export ANTHROPIC_AWS_BASE_URL=https://anthropic-proxy.example.com
-<div class="highlight"><pre><span></span><code>If your gateway signs requests itself, set `CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH=1` so Claude Code sends unsigned requests and lets the gateway add SigV4 headers before forwarding to AWS. If the gateway requires its own token, set it in `ANTHROPIC_AUTH_TOKEN`.
+<div class="highlight"><pre><span></span><code>This example relies on the ambient AWS credential chain for SigV4. To authenticate with a workspace API key instead, set `ANTHROPIC_AWS_API_KEY` the same way. For the broader Agent SDK surface, see [Agent SDK overview](/en/agent-sdk/overview).
+
+## Route through a corporate proxy
+
+To route traffic through a proxy or [LLM gateway](/en/llm-gateway), set `ANTHROPIC_AWS_BASE_URL` to the proxy&#39;s address. Claude Code sends requests to that URL with the same workspace and authentication headers, so any gateway that forwards them unchanged works.
 
 ```bash theme={null}
 export CLAUDE_CODE_USE_ANTHROPIC_AWS=1
-export CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH=1
 export ANTHROPIC_AWS_WORKSPACE_ID=wrkspc_01ABCDEFGHIJKLMN
 export ANTHROPIC_AWS_BASE_URL=https://anthropic-proxy.example.com
 </code></pre></div></p>
+<p>If your gateway signs requests itself, set <code>CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH=1</code> so Claude Code sends unsigned requests and lets the gateway add SigV4 headers before forwarding to AWS. If the gateway requires its own token, set it in <code>ANTHROPIC_AUTH_TOKEN</code>.</p>
+<p><code>bash theme={null}
+export CLAUDE_CODE_USE_ANTHROPIC_AWS=1
+export CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH=1
+export ANTHROPIC_AWS_WORKSPACE_ID=wrkspc_01ABCDEFGHIJKLMN
+export ANTHROPIC_AWS_BASE_URL=https://anthropic-proxy.example.com</code></p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>Run <code>/status</code> to see the resolved provider and any explicitly configured workspace ID, region, base URL override, and auth-skip setting. This is the fastest way to confirm Claude Code is targeting Claude Platform on AWS at all.</p>
 <h3 id="403-forbidden-or-accessdenied-on-every-request"><code>403 Forbidden</code> or <code>AccessDenied</code> on every request</h3>
 <p>The IAM principal Claude Code resolved likely lacks permission to invoke the Anthropic service in your workspace. Check the role attached to your AWS profile or the runner that started Claude Code, and verify it has the <code>aws-external-anthropic</code> actions documented in the <a href="https://platform.claude.com/docs/en/api/claude-platform-on-aws-iam-actions">IAM action reference</a>.</p>
 <p>If you set <code>ANTHROPIC_AWS_API_KEY</code>, the key takes precedence over SigV4 and a stale key produces the same error. Regenerate the key in the AWS Console under <strong>Claude Platform on AWS → API keys</strong> or unset the variable to fall back to your AWS credentials.</p>
 <h3 id="requests-fail-with-a-missing-workspace-error">Requests fail with a missing-workspace error</h3>
-<p><code>ANTHROPIC_AWS_WORKSPACE_ID</code> is likely unset or empty. Every Claude Platform on AWS request must include the workspace ID. It is not implied by your AWS credentials. Find the ID under <strong>Workspaces</strong> on the AWS Console service page and export it before starting Claude Code.</p>
+<p><code>ANTHROPIC_AWS_WORKSPACE_ID</code> is likely unset or empty. Every Claude Platform on AWS request must include the workspace ID. It is not implied by your AWS credentials. Find the ID in your Claude Platform on AWS setup and export it before starting Claude Code.</p>
 <h3 id="requests-still-go-to-apianthropiccom">Requests still go to <code>api.anthropic.com</code></h3>
 <p><code>CLAUDE_CODE_USE_ANTHROPIC_AWS</code> is likely unset or set to a value that doesn't parse as truthy. Set it to <code>1</code> and run <code>/status</code> to confirm the resolved provider. If <code>CLAUDE_CODE_USE_BEDROCK</code> or <code>CLAUDE_CODE_USE_FOUNDRY</code> is also set, those take precedence over Claude Platform on AWS.</p>
 <h2 id="additional-resources">Additional resources</h2>

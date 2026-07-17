@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5001,6 +5028,7 @@ cat build-error.txt | claude -p &#39;concisely explain the root cause of this bu
 <p><Note>
   As of Claude Code v2.1.128, piped stdin is capped at 10MB. If you exceed the cap, Claude Code exits with a clear error and a non-zero status. To work with larger inputs, write the content to a file and reference the file path in your prompt instead of piping it.
 </Note></p>
+<p>If Claude Code can't read stdin, for example because the process that started it disconnected its end, Claude Code prints a warning to stderr and continues with the prompt from the command line. Before v2.1.211, an unreadable stdin on Windows crashed the session or made it exit silently with no output.</p>
 <h3 id="add-claude-to-a-build-script">Add Claude to a build script</h3>
 <p>You can wrap a non-interactive call in a script to use Claude as a project-specific linter or reviewer.</p>
 <p>This <code>package.json</code> script pipes the diff against <code>main</code> into Claude and asks it to report typos. Piping the diff means Claude doesn't need Bash permission to read it, and the escaped double quotes keep the script portable to Windows:</p>
@@ -5032,7 +5060,7 @@ claude -p "Extract the main function names from auth.py" \
 <div class="highlight"><pre><span></span><code>If the value isn&#39;t a valid JSON Schema, `claude` exits with `Error: --json-schema is not a valid JSON Schema` followed by the validator&#39;s diagnostic. Claude Code accepts schemas that use the `format` keyword, such as `&quot;format&quot;: &quot;email&quot;`, but treats `format` as an annotation and doesn&#39;t enforce it. Before v2.1.205, Claude Code silently ignored an invalid schema and returned unstructured text, and treated any schema containing `format` as invalid.
 
 &lt;Tip&gt;
-  Use a tool like [jq](https://jqlang.github.io/jq/) to parse the response and extract specific fields:
+  Use a tool like [jq](https://jqlang.org/) to parse the response and extract specific fields:
 
   ```bash theme={null}
   # Extract the text result
@@ -5054,7 +5082,9 @@ Use `--output-format stream-json` with `--verbose` and `--include-partial-messag
 claude -p &quot;Explain recursion&quot; --output-format stream-json --verbose --include-partial-messages
 </code></pre></div></p>
 <p>The last line of the stream is a <code>result</code> message with the final response text, cost, and session metadata. {/<em> min-version: 2.1.208 </em>/}Before v2.1.208, piping a large response could truncate the final line and omit the <code>result</code> message.</p>
-<p>The following example uses <a href="https://jqlang.github.io/jq/">jq</a> to filter for text deltas and display just the streaming text. The <code>-r</code> flag outputs raw strings (no quotes) and <code>-j</code> joins without newlines so tokens stream continuously:</p>
+<p>Messages from <a href="/en/sub-agents">subagents</a> appear in the stream as <code>assistant</code> and <code>user</code> messages whose <code>parent_tool_use_id</code> field is the ID of the tool call that spawned the subagent. Messages from the main conversation carry <code>null</code> in that field.</p>
+<p>By default, Claude Code emits only subagent <code>tool_use</code> and <code>tool_result</code> blocks. {/<em> min-version: 2.1.211 </em>/}Pass <a href="/en/cli-reference#cli-flags"><code>--forward-subagent-text</code></a> or set <a href="/en/env-vars"><code>CLAUDE_CODE_FORWARD_SUBAGENT_TEXT</code></a> to also emit subagent text and thinking blocks, so you can reconstruct each subagent's transcript. This requires Claude Code v2.1.211 or later.</p>
+<p>The following example uses <a href="https://jqlang.org/">jq</a> to filter for text deltas and display just the streaming text. The <code>-r</code> flag outputs raw strings (no quotes) and <code>-j</code> joins without newlines so tokens stream continuously:</p>
 <p>```bash theme={null}
 claude -p "Write a poem" --output-format stream-json --verbose --include-partial-messages | \
   jq -rj 'select(.type == "stream_event" and .event.delta.type? == "text_delta") | .event.delta.text'

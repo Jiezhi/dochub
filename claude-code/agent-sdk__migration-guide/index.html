@@ -2130,6 +2130,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5181,7 +5208,7 @@ Before:
 <p>```json theme={null}
 {
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.0"
+    "@anthropic-ai/claude-agent-sdk": "^0.3.0"
   }
 }
 <div class="highlight"><pre><span></span><code>**5. Review [breaking changes](#breaking-changes)**
@@ -5193,8 +5220,9 @@ Make any code changes needed to complete the migration.
 **1. Uninstall the old package:**
 
 ```bash theme={null}
-pip uninstall claude-code-sdk
+pip uninstall -y claude-code-sdk
 </code></pre></div></p>
+<p>If the old package isn't installed, pip prints <code>WARNING: Skipping claude-code-sdk as it is not installed.</code> That's expected and you can continue to the next step.</p>
 <p><strong>2. Install the new package:</strong></p>
 <p>```bash theme={null}
 pip install claude-agent-sdk
@@ -5270,28 +5298,34 @@ options = ClaudeAgentOptions(model=&quot;claude-opus-4-7&quot;, permission_mode=
     }
   });
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
-# BEFORE (v0.0.x) - Used Claude Code&#39;s system prompt by default
-async for message in query(prompt=&quot;Hello&quot;):
-    print(message)
-
-# AFTER (v0.1.0) - Uses minimal system prompt by default
-# To get the old behavior, explicitly request Claude Code&#39;s preset:
 from claude_agent_sdk import query, ClaudeAgentOptions
+import asyncio
 
-async for message in query(
-    prompt=&quot;Hello&quot;,
-    options=ClaudeAgentOptions(
-        system_prompt={&quot;type&quot;: &quot;preset&quot;, &quot;preset&quot;: &quot;claude_code&quot;}  # Use the preset
-    ),
-):
-    print(message)
 
-# Or use a custom system prompt:
-async for message in query(
-    prompt=&quot;Hello&quot;,
-    options=ClaudeAgentOptions(system_prompt=&quot;You are a helpful coding assistant&quot;),
-):
-    print(message)
+async def main():
+    # BEFORE (v0.0.x) - Used Claude Code&#39;s system prompt by default
+    async for message in query(prompt=&quot;Hello&quot;):
+        print(message)
+
+    # AFTER (v0.1.0) - Uses minimal system prompt by default
+    # To get the old behavior, explicitly request Claude Code&#39;s preset:
+    async for message in query(
+        prompt=&quot;Hello&quot;,
+        options=ClaudeAgentOptions(
+            system_prompt={&quot;type&quot;: &quot;preset&quot;, &quot;preset&quot;: &quot;claude_code&quot;}  # Use the preset
+        ),
+    ):
+        print(message)
+
+    # Or use a custom system prompt:
+    async for message in query(
+        prompt=&quot;Hello&quot;,
+        options=ClaudeAgentOptions(system_prompt=&quot;You are a helpful coding assistant&quot;),
+    ):
+        print(message)
+
+
+asyncio.run(main())
 </code></pre></div>
 </CodeGroup></p>
 <p><strong>Why this changed:</strong> Provides better control and isolation for SDK applications. You can now build agents with custom behavior without inheriting Claude Code's CLI-focused instructions.</p>
@@ -5317,21 +5351,27 @@ async for message in query(
   });
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
 from claude_agent_sdk import query, ClaudeAgentOptions
+import asyncio
 
-async for message in query(
-    prompt=&quot;Hello&quot;,
-    options=ClaudeAgentOptions(setting_sources=[]),  # No filesystem settings loaded
-):
-    print(message)
 
-# Or load only specific sources:
-async for message in query(
-    prompt=&quot;Hello&quot;,
-    options=ClaudeAgentOptions(
-        setting_sources=[&quot;project&quot;]  # Only project settings
-    ),
-):
-    print(message)
+async def main():
+    async for message in query(
+        prompt=&quot;Hello&quot;,
+        options=ClaudeAgentOptions(setting_sources=[]),  # No filesystem settings loaded
+    ):
+        print(message)
+
+    # Or load only specific sources:
+    async for message in query(
+        prompt=&quot;Hello&quot;,
+        options=ClaudeAgentOptions(
+            setting_sources=[&quot;project&quot;]  # Only project settings
+        ),
+    ):
+        print(message)
+
+
+asyncio.run(main())
 </code></pre></div>
 </CodeGroup></p>
 <p>Isolation is especially important for CI/CD pipelines, deployed applications, test environments, and multi-tenant systems where local customizations should not leak in.</p>

@@ -1392,6 +1392,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Common boundaries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#add-a-human-checkpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a human checkpoint
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2022,6 +2039,33 @@
     
   
     Context window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
   
 
     
@@ -4871,6 +4915,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Common boundaries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#add-a-human-checkpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a human checkpoint
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4939,13 +5000,13 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <p><a href="/en/permission-modes#eliminate-prompts-with-auto-mode">Auto mode</a> lets Claude Code run without routine permission prompts by routing tool calls through a classifier that blocks anything irreversible, destructive, or aimed outside your environment. Deny and explicit ask rules are evaluated before the classifier and still block or prompt. Use the <code>autoMode</code> settings block to tell that classifier which repos, buckets, and domains your organization trusts, so it stops blocking routine internal operations.</p>
 <p><Note>
-  Auto mode is available to all users on every provider, including the Anthropic API, Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and signed-in <a href="/en/claude-apps-gateway">Claude apps gateway</a> sessions. If Claude Code reports auto mode as unavailable for your account, check the <a href="/en/permission-modes#eliminate-prompts-with-auto-mode">full requirements</a>, which also cover the supported models and Owner enablement on Team and Enterprise plans. {/<em> min-version: 2.1.207 </em>/}In v2.1.158 through v2.1.206, auto mode on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and Claude apps gateway sessions required setting <code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code>; v2.1.207 removed the requirement.
+  Auto mode is available to all users on every provider, including the Anthropic API, <a href="/en/claude-platform-on-aws">Claude Platform on AWS</a>, Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and signed-in <a href="/en/claude-apps-gateway">Claude apps gateway</a> sessions. If Claude Code reports auto mode as unavailable for your account, check the <a href="/en/permission-modes#eliminate-prompts-with-auto-mode">full requirements</a>, which also cover the supported models and Owner enablement on Team and Enterprise plans. {/<em> min-version: 2.1.207 </em>/}In v2.1.158 through v2.1.206, auto mode on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and Claude apps gateway sessions required setting <code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code>; v2.1.207 removed the requirement.
 </Note></p>
 <p>By default, the classifier trusts only the working directory and the current repo's configured remotes. Actions like pushing to your company's source-control org or writing to a team cloud bucket are blocked until you add them to <code>autoMode.environment</code>.</p>
 <p>For how to enable auto mode and what it blocks by default, see <a href="/en/permission-modes#eliminate-prompts-with-auto-mode">Permission modes</a>. This page is the configuration reference.</p>
 <p>This page covers how to:</p>
 <ul>
-<li><a href="#common-boundaries">Add a human checkpoint</a> for pushes and pull requests with <code>permissions.ask</code></li>
+<li><a href="#add-a-human-checkpoint">Add a human checkpoint</a> for pushes and pull requests with <code>permissions.ask</code></li>
 <li><a href="#where-the-classifier-reads-configuration">Choose where to set rules</a> across CLAUDE.md, user settings, and managed settings</li>
 <li><a href="#define-trusted-infrastructure">Define trusted infrastructure</a> with <code>autoMode.environment</code></li>
 <li><a href="#override-the-block-and-allow-rules">Override the block and allow rules</a> when the defaults don't fit your pipeline</li>
@@ -4954,7 +5015,10 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#review-denials">Review denials</a> so you know what to add next</li>
 </ul>
 <h2 id="common-boundaries">Common boundaries</h2>
-<p>Auto mode allows pushes to your working branch, routine pushes to the repository default branch, and pull request creation by default. The classifier blocks a push only when it carries risk, such as a force push or content that routes around a review you set up. If you want a human checkpoint before every push or pull request, add permission rules: the recipes below keep auto mode on for everything else.</p>
+<p>Auto mode allows pushes to any branch of the repository you're working in, including the default branch, and pull request creation by default. A non-default branch whose name marks it as a deploy or publication target, such as <code>production</code>, <code>release</code>, or <code>gh-pages</code>, isn't covered by that default: the classifier judges a push there on its own terms, including as a production deploy. The push's content is also still checked, so a force push, a secret entering the commit, or a change that would send secrets outside the repository when CI or a deploy pipeline runs it stays blocked.</p>
+<p><Info>Before v2.1.211, the classifier allowed pushes only to your working branch, branches Claude created, and routine pushes to the default branch.</Info></p>
+<p>If you want a human checkpoint before every push or pull request, add permission rules: the <a href="#add-a-human-checkpoint">recipes below</a> keep auto mode on for everything else.</p>
+<h3 id="add-a-human-checkpoint">Add a human checkpoint</h3>
 <p>The most direct mechanism is <a href="/en/permissions#permission-rule-syntax"><code>permissions.ask</code></a>. Content-scoped ask rules like the ones below are evaluated before the classifier and always force a permission prompt, even in auto mode, because an explicit ask rule is your stated intent to be prompted for that action. Add the rules in your <a href="/en/settings#settings-files">settings</a>:</p>
 <p>```json theme={null}
 {
@@ -5007,13 +5071,14 @@ As of Claude Code v2.1.198, `claude auto-mode defaults` prints three kinds of en
   * **Internal sharing / snippet hosting**: public paste and gist services are treated as outside the trust boundary until you name one
   * **Org-specific CLIs**
   * **Secrets management**
-  * **Default / protected branches**: `main` and `master` are treated as protected until you name others
   * **CI/CD deploy targets**
   * **Network posture**
   * **Protected deployment namespaces / environments**: falls back to the Sensitive remote targets heuristic until you name them
   * **Data retention / declassification**
 * **Trust slots**: name what the classifier treats as inside your boundary. The slots are Trusted repo, Source control, Trusted internal domains, Trusted cloud buckets, Key internal services, and Internal package registry. The repo and source-control entries default to the working repository and its configured remotes. Every other trust slot defaults to `None configured`, so nothing else is trusted until you add it. {/* min-version: 2.1.203 */}A repository&#39;s visibility scopes only confidential material: a private repository is an acceptable destination for confidential material, but making a repository private never clears secrets or personal or entrusted data into it, and the classifier treats content ported, repointed, or first read from outside the working repository as not that repository&#39;s own work. This scoping requires Claude Code v2.1.203 or later.
 * **Sensitivity slots**: name what the protective rules treat as high-risk. The slots are Sensitive data locations &amp; audiences, Sensitive remote targets, and Protected IaC scopes. Each defaults to a broad heuristic, such as treating any host or namespace whose name carries `prod` or `production` as a sensitive remote target, so the protective rules are active before you configure anything. Naming concrete targets in a sensitivity slot makes those rules apply to the named targets instead of the heuristic.
+
+&lt;Info&gt;Before v2.1.211, the context slots also included a Default / protected branches entry that treated `main` and `master` as protected until you named others. v2.1.211 removed it: [pushes to any branch of the repository you&#39;re working in](#common-boundaries) are allowed by default, so there is no protected-branch default to configure.&lt;/Info&gt;
 
 To add your own entries alongside the defaults, include the literal string `&quot;$defaults&quot;` in the array. The default entries are spliced in at that position, so your custom entries can go before or after them.
 

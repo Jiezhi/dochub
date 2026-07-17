@@ -2295,6 +2295,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5503,15 +5530,15 @@ Use this file to discover all available pages before exploring further.</p>
         oneLiner: 'Project-scoped MCP servers, shared with your team',
         when: &lt;&gt;Servers connect when the session begins. Tool schemas are deferred by default and load on demand via &lt;A href="/en/mcp#scale-with-mcp-tool-search"&gt;tool search&lt;/A&gt;&lt;/&gt;,
         description: &lt;&gt;Configures Model Context Protocol (MCP) servers that give Claude access to external tools: databases, APIs, browsers, and more. This file holds the project-scoped servers your whole team uses. Personal servers you want to keep to yourself go in &lt;C&gt;~/.claude.json&lt;/C&gt; instead.&lt;/&gt;,
-        tips: [&lt;&gt;Use environment variable references for secrets: &lt;C&gt;{'${GITHUB_TOKEN}'}&lt;/C&gt;&lt;/&gt;, &lt;&gt;Lives at the project root, not inside &lt;C&gt;.claude/&lt;/C&gt;&lt;/&gt;, &lt;&gt;For servers only you need, run &lt;C&gt;claude mcp add --scope user&lt;/C&gt;. This writes to &lt;C&gt;~/.claude.json&lt;/C&gt; instead of &lt;C&gt;.mcp.json&lt;/C&gt;&lt;/&gt;],
-        exampleIntro: &lt;&gt;This example configures the GitHub MCP server so Claude can read issues and open pull requests. The &lt;C&gt;{'${GITHUB_TOKEN}'}&lt;/C&gt; reference is read from your shell environment when Claude Code starts the server, so the token never lands in the file.&lt;/&gt;,
+        tips: [&lt;&gt;Use environment variable references for secrets: &lt;C&gt;{'${NOTION_TOKEN}'}&lt;/C&gt;&lt;/&gt;, &lt;&gt;Lives at the project root, not inside &lt;C&gt;.claude/&lt;/C&gt;&lt;/&gt;, &lt;&gt;For servers only you need, run &lt;C&gt;claude mcp add --scope user&lt;/C&gt;. This writes to &lt;C&gt;~/.claude.json&lt;/C&gt; instead of &lt;C&gt;.mcp.json&lt;/C&gt;&lt;/&gt;],
+        exampleIntro: &lt;&gt;This example configures the Notion MCP server so Claude can read and update pages in your workspace. The &lt;C&gt;{'${NOTION_TOKEN}'}&lt;/C&gt; reference is read from your shell environment when Claude Code starts the server, so the token never lands in the file.&lt;/&gt;,
         example:</code>{
   "mcpServers": {
-    "github": {
+    "notion": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "args": ["-y", "@notionhq/notion-mcp-server"],
       "env": {
-        "GITHUB_TOKEN": "\${GITHUB_TOKEN}"
+        "NOTION_TOKEN": "\${NOTION_TOKEN}"
       }
     }
   }
@@ -7178,6 +7205,7 @@ marginTop: '20px'
 </tr>
 </tbody>
 </table>
+<p><code>sessions/</code> holds one small file per running session, used to detect concurrent sessions and crashes. It isn't part of the age-based sweep: Claude Code removes each file when its session exits and clears crash leftovers on the next launch.</p>
 <h3 id="kept-until-you-delete-them">Kept until you delete them</h3>
 <p>The following paths are not covered by automatic cleanup and persist indefinitely.</p>
 <table>
@@ -7200,6 +7228,14 @@ marginTop: '20px'
 <td><code>remote-settings.json</code></td>
 <td>Cached copy of <a href="/en/server-managed-settings">server-managed settings</a> for your organization. Only present when your organization has configured them. Refreshed on each launch.</td>
 </tr>
+<tr>
+<td><code>cache/changelog.md</code></td>
+<td>Cached copy of the Claude Code changelog, used to show release notes after an update. Refreshed in the background.</td>
+</tr>
+<tr>
+<td><code>policy-limits.json</code></td>
+<td>Cached feature policy settings for your organization. Only present for some account types. Refreshed automatically.</td>
+</tr>
 </tbody>
 </table>
 <p>Other small cache and lock files appear depending on which features you use and are safe to delete.</p>
@@ -7219,20 +7255,40 @@ marginTop: '20px'
 <li>The project's entry in <code>~/.claude.json</code></li>
 </ul>
 <p>The command prints the full deletion plan and asks for confirmation before removing anything.</p>
+<p>The examples below use <code>~/work/my-repo</code> as a placeholder. Replace it with the path to your project. If no state matches the path, the command prints an error and exits with status 1.</p>
 <p>Preview the plan without deleting anything:</p>
 <p>```bash theme={null}
 claude project purge ~/work/my-repo --dry-run
-<div class="highlight"><pre><span></span><code>Delete with a single confirmation prompt:
+<div class="highlight"><pre><span></span><code>The plan lists each matching item and why it is included:
+
+```text theme={null}
+Purge plan for /home/user/work/my-repo:
+
+  dir:    /home/user/.claude/projects/-home-user-work-my-repo
+           project transcripts (.jsonl) and memory/
+  config: projects[&quot;/home/user/work/my-repo&quot;]
+           project entry in ~/.claude.json (trust, history, MCP servers)
+  filter: /home/user/.claude/history.jsonl
+           12 prompt(s) typed in this project
+
+shell-snapshots/ are not project-scoped and will not be touched
+backups/ may still contain this project entry in old .claude.json snapshots (/home/user/.claude/backups); at most 5 are kept and they rotate out automatically
+Dry run: 3 item(s) would be deleted.
+</code></pre></div></p>
+<p>Delete with a single confirmation prompt:</p>
+<p>```bash theme={null}
+claude project purge ~/work/my-repo
+<div class="highlight"><pre><span></span><code>The command prints the same plan, then asks `Delete 3 item(s) for /home/user/work/my-repo? This cannot be undone. [y/N]` and deletes only if you answer `y`.
+
+Omit the path to pick a project from an interactive list.
+
+Skip the confirmation prompt for use in scripts:
 
 ```bash theme={null}
-claude project purge ~/work/my-repo
+claude project purge ~/work/my-repo --yes
 </code></pre></div></p>
-<p>Omit the path to pick a project from an interactive list.</p>
-<p>Skip the confirmation prompt for use in scripts:</p>
-<p><code>bash theme={null}
-claude project purge ~/work/my-repo --yes</code></p>
 <p>Pass <code>--all</code> instead of a path to purge state for every project at once, which deletes <code>history.jsonl</code> outright rather than filtering it. Pass <code>-i</code> to step through the deletion plan one item at a time.</p>
-<p>The command leaves <code>shell-snapshots/</code> and <code>backups/</code> alone because those are not project-scoped, and warns about them in the plan output. It exits with status 1 if no state matches the given path.</p>
+<p>The command leaves <code>shell-snapshots/</code> and <code>backups/</code> alone because those are not project-scoped, and warns about them in the plan output.</p>
 <p>You can also delete any of the application-data paths above by hand. New sessions are unaffected. The table below shows what you lose for past sessions.</p>
 <table>
 <thead>
@@ -7261,6 +7317,14 @@ claude project purge ~/work/my-repo --yes</code></p>
 <tr>
 <td><code>~/.claude/remote-settings.json</code></td>
 <td>Nothing. Re-fetched on next launch.</td>
+</tr>
+<tr>
+<td><code>~/.claude/cache/changelog.md</code></td>
+<td>Nothing. Refreshed in the background.</td>
+</tr>
+<tr>
+<td><code>~/.claude/policy-limits.json</code></td>
+<td>Nothing. Refreshed automatically.</td>
 </tr>
 <tr>
 <td><code>~/.claude/debug/</code>, <code>~/.claude/plans/</code>, <code>~/.claude/paste-cache/</code>, <code>~/.claude/image-cache/</code>, <code>~/.claude/session-env/</code>, <code>~/.claude/tasks/</code>, <code>~/.claude/shell-snapshots/</code>, <code>~/.claude/backups/</code></td>

@@ -1412,6 +1412,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#restrict-login-to-your-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restrict login to your organization
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2089,6 +2100,33 @@
     
   
     Context window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
   
 
     
@@ -4985,6 +5023,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#restrict-login-to-your-organization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restrict login to your organization
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5085,7 +5134,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Cloud providers</strong>: if your organization uses <a href="/en/amazon-bedrock">Amazon Bedrock</a>, <a href="/en/google-vertex-ai">Google Cloud's Agent Platform</a>, or <a href="/en/microsoft-foundry">Microsoft Foundry</a>, set the required environment variables before running <code>claude</code>, or select <strong>3rd-party platform</strong> at the login prompt, which launches an interactive setup wizard for Bedrock and Vertex AI. No browser login is needed.</li>
 <li><strong>Cloud gateway</strong>: if your organization runs a self-hosted <a href="/en/claude-apps-gateway">Claude apps gateway</a>, sign in with corporate SSO through <code>/login</code>. The gateway-issued token is the session's only credential.</li>
 </ul>
-<p>Admins can restrict interactive login with the <a href="/en/settings#available-settings"><code>forceLoginMethod</code> and <code>forceLoginOrgUUID</code></a> managed settings. When either is set, sessions authenticated by <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code> are blocked at startup; cloud provider sessions aren't affected.</p>
+<p>Admins can restrict which login methods and organizations are accepted; see <a href="#restrict-login-to-your-organization">Restrict login to your organization</a>.</p>
 <p>To log out and re-authenticate, type <code>/logout</code> at the Claude Code prompt. Logging out also resets your first-launch setup state, so the next time you run <code>claude</code> it walks you through login and setup again.</p>
 <p>If you're having trouble logging in, see <a href="/en/troubleshoot-install#login-and-authentication">authentication troubleshooting</a>.</p>
 <h2 id="set-up-team-authentication">Set up team authentication</h2>
@@ -5155,6 +5204,10 @@ Use this file to discover all available pages before exploring further.</p>
     Users can <a href="/en/setup#install-claude-code">install Claude Code</a>.
   </Step>
 </Steps></p>
+<h3 id="restrict-login-to-your-organization">Restrict login to your organization</h3>
+<p>To require that developer sessions authenticate into a specific Anthropic organization, set <a href="/en/settings#available-settings"><code>forceLoginMethod</code> and <code>forceLoginOrgUUID</code></a> in <a href="/en/settings#settings-files">managed settings</a>. Set <code>forceLoginOrgUUID</code> to your organization ID, shown in <a href="https://claude.ai/admin-settings/organization">claude.ai admin settings</a> for Claude for Teams or Enterprise organizations, or at <a href="https://platform.claude.com/settings/organization">platform.claude.com/settings/organization</a> for Console organizations. With both keys set, Claude Code restricts login to the listed organization and exits at startup if the active credential belongs to a different one.</p>
+<p>Deploy the keys through your device management tooling. <a href="/en/server-managed-settings">Server-managed settings</a> reach only accounts that are already authenticated into your organization, so they can't redirect a developer's first login. If your organization distributes server-managed settings as well, set the keys in both places: managed-settings sources <a href="/en/server-managed-settings#settings-precedence">don't merge</a>, and cached server-managed settings replace the device-managed file entirely.</p>
+<p>The keys also block sessions authenticated by <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code>, since organization membership can't be verified for an environment credential. Cloud provider sessions such as Amazon Bedrock authenticate against your cloud provider and aren't blocked; restrict those through your cloud IAM policies. See <a href="/en/settings#available-settings"><code>forceLoginOrgUUID</code></a> in the settings reference for the full behavior. Before v2.1.146, the pin applied only to the login flow and didn't block API-key credentials.</p>
 <h2 id="credential-management">Credential management</h2>
 <p>Claude Code securely manages your authentication credentials:</p>
 <ul>
@@ -5175,6 +5228,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>When the login you created with <code>/login</code> is within five days of expiring, Claude Code shows a warning at startup: <code>Your login expires in 3 days · run /login to renew</code>. Requires Claude Code v2.1.203 or later.</p>
 <p>Run <code>/login</code> to renew. The warning is informational and never blocks a request: authentication keeps working until the login actually expires. The login lifetime itself is unchanged; the advance warning is what v2.1.203 adds.</p>
 <p>{/<em> min-version: 2.1.206 </em>/}Once the stored login expires and can't be refreshed, each request fails with <a href="/en/errors#login-expired"><code>Login expired · Please run /login</code></a> until you sign in again. Before v2.1.206, an expired login surfaced as a model error instead.</p>
+<p>{/<em> min-version: 2.1.210 </em>/}You can check for this state before a request fails: <a href="/en/commands"><code>/status</code></a> shows a <code>Login</code> row reading <code>Expired — log in again</code>, plus the organization and email it has saved for the expired login. The row appears only when the saved claude.ai or Claude Console login is the active credential. The row requires Claude Code v2.1.210 or later.</p>
 <p>The warning appears only when a claude.ai or Claude Console login is the active credential, and not when a cloud provider, <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code> supplies the credential.</p>
 <p>Renewing early matters most for sessions that run unattended. A <a href="/en/agent-view">background session in agent view</a> or a <a href="/en/remote-control">Remote Control</a> session that outlives the login stops making progress once the credential expires and can't recover until you sign in again.</p>
 <h3 id="authentication-precedence">Authentication precedence</h3>

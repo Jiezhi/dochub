@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -4060,6 +4087,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Bash tool behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-persists-between-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What persists between commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeout-and-output-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeout and output limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5004,6 +5070,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Bash tool behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-persists-between-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What persists between commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeout-and-output-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeout and output limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5468,7 +5573,8 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>To limit what a subagent can reach in the first place, narrow its <code>tools</code> field, leave Bash off the list, or set deny rules in your settings, as described in <a href="/en/sub-agents#control-subagent-capabilities">Control subagent capabilities</a>. For more on choosing between foreground and background, see <a href="/en/sub-agents#run-subagents-in-foreground-or-background">Run subagents in foreground or background</a>.</p>
 <h2 id="bash-tool-behavior">Bash tool behavior</h2>
-<p>The Bash tool runs each command in a separate process with the following persistence behavior:</p>
+<p>The Bash tool runs each command in a separate process.</p>
+<h3 id="what-persists-between-commands">What persists between commands</h3>
 <ul>
 <li>When Claude runs <code>cd</code> in the main session, the new working directory carries over to later Bash commands as long as it stays inside the project directory or an <a href="/en/permissions#working-directories">additional working directory</a> you added with <code>--add-dir</code>, <code>/add-dir</code>, or <code>additionalDirectories</code> in settings. Subagent sessions never carry over working directory changes.</li>
 <li>If <code>cd</code> lands outside those directories, Claude Code resets to the project directory and appends <code>Shell cwd was reset to &lt;dir&gt;</code> to the tool result.</li>
@@ -5477,12 +5583,19 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Aliases and shell functions defined in your shell startup file are available. At session start, Claude Code sources <code>~/.zshrc</code>, <code>~/.bashrc</code>, or <code>~/.profile</code> depending on your shell, captures the resulting aliases, functions, and shell options, and applies them to every Bash command.</li>
 </ul>
 <p>Activate your virtualenv or conda environment before launching Claude Code. To make environment variables persist across Bash commands, set <a href="/en/env-vars"><code>CLAUDE_ENV_FILE</code></a> to a shell script before launching Claude Code, or use a <a href="/en/hooks#persist-environment-variables">SessionStart hook</a> to populate it dynamically.</p>
+<h3 id="timeout-and-output-limits">Timeout and output limits</h3>
 <p>Two limits bound each command:</p>
 <ul>
 <li><strong>Timeout</strong>: two minutes by default. Claude can request up to 10 minutes per command with the <code>timeout</code> parameter. Override the default and ceiling with <a href="/en/env-vars"><code>BASH_DEFAULT_TIMEOUT_MS</code> and <code>BASH_MAX_TIMEOUT_MS</code></a>.</li>
 <li><strong>Output length</strong>: 30,000 characters by default. When a command produces more than that, Claude Code saves the full output to a file in the session directory and gives Claude the file path plus a short preview from the start. Claude reads or searches that file when it needs the rest. Raise the limit with <a href="/en/env-vars"><code>BASH_MAX_OUTPUT_LENGTH</code></a>, up to a hard ceiling of 150,000 characters.</li>
 </ul>
+<h3 id="background-commands">Background commands</h3>
 <p>For long-running processes such as dev servers or watch builds, Claude can set <code>run_in_background: true</code> to start the command as a background task and continue working while it runs. List and stop background tasks with <code>/tasks</code>. In non-interactive mode with the <code>-p</code> flag, <a href="/en/headless#background-tasks-at-exit">background tasks end shortly after the run's final result</a>.</p>
+<p>When a command reaches its timeout without finishing, Claude Code moves it to the background instead of stopping it, so Claude keeps working while the command runs to completion. Claude Code never auto-backgrounds a command that starts with <code>sleep</code>, and setting <a href="/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1</code></a> disables auto-backgrounding along with the rest of the background task functionality. The result of a command moved this way states what happened:</p>
+<ul>
+<li>{/<em> min-version: 2.1.210 </em>/}When the timeout triggers the move, the result reports it explicitly: <code>Command did not complete within its 120s timeout and was moved to the background</code>, with the seconds matching the timeout that applied, followed by the task ID and the path of the file the output is being written to.</li>
+<li>{/<em> min-version: 2.1.210 </em>/}A <code>cd</code>, <code>pushd</code>, <code>popd</code>, or <code>chdir</code> inside a command that is moved to the background never carries over: the result states <code>Session cwd remains &lt;dir&gt;; directory changes made by the backgrounded command do not apply to subsequent commands.</code>, so Claude doesn't act on a directory change that didn't happen.</li>
+</ul>
 <h2 id="edit-tool-behavior">Edit tool behavior</h2>
 <p>The Edit tool performs exact string replacement. It takes an <code>old_string</code> and a <code>new_string</code> and replaces the first with the second. It doesn't use regex or fuzzy matching.</p>
 <p>Three checks must pass for an edit to apply. {/<em> min-version: 2.1.208 </em>/}Before any of them, a path matched by a <a href="/en/permissions#tool-specific-permission-rules"><code>Read</code> deny rule</a> is refused, including creating a new file there. The refusal requires Claude Code v2.1.208 or later.</p>
@@ -5511,7 +5624,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Three output modes control what comes back:</p>
 <ul>
 <li><code>files_with_matches</code>: file paths only, no line content. This is the default.</li>
-<li><code>content</code>: matching lines with file and line number.</li>
+<li><code>content</code>: matching lines with file and line number. {/<em> min-version: 2.1.210 </em>/}When the tool's <code>offset</code> parameter points past the last match for a pattern that has matches, Grep returns <code>No entries at this offset</code>, so Claude widens or resets the offset instead of concluding the pattern doesn't match.</li>
 <li><code>count</code>: match count per file, followed by a total across all matching files. {/<em> min-version: 2.1.208 </em>/}The total covers every match even when the tool's <code>head_limit</code> or <code>offset</code> parameters truncate the listed per-file entries. Before v2.1.208, the total only summed the listed entries.</li>
 </ul>
 <p>Claude can scope results by file with the <code>glob</code> parameter, such as <code>**/*.tsx</code>, or by language with the <code>type</code> parameter, such as <code>py</code> or <code>rust</code>. By default, patterns match within a single line. Claude can set <code>multiline: true</code> to match across line boundaries.</p>

@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -3434,6 +3461,39 @@
     <span class="md-ellipsis">
       
         PowerShell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#webfetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebFetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-subagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent (subagents)
       
     </span>
   </a>
@@ -5291,6 +5351,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#webfetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebFetch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-subagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent (subagents)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cd" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5482,7 +5575,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Bash commands</td>
 <td style="text-align: left;">Shell execution</td>
 <td style="text-align: left;">Yes, except a built-in set of <a href="#read-only-commands">read-only commands</a></td>
-<td style="text-align: left;">Permanently per project directory and command</td>
+<td style="text-align: left;">Permanently per repository and command</td>
 </tr>
 <tr>
 <td style="text-align: left;">File modification</td>
@@ -5492,6 +5585,8 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
+<p>When you choose "Yes, don't ask again" and the approval saves permanently, such as for a Bash command, Claude Code saves the rule to <code>.claude/settings.local.json</code> at the root of the git repository, resolved through <a href="/en/worktrees">worktrees</a> to the main checkout. The rule applies to future sessions anywhere in that repository, including sessions started in subdirectories and in worktrees. A file-modification approval isn't saved to the file: as the table shows, it lasts until the session ends. Outside a git repository, and when the repository root is your home directory, Claude Code saves the rule in the directory you started it from.</p>
+<p>Before v2.1.211, Claude Code always saved the rule in the starting directory, so an approval granted in a worktree or subdirectory didn't apply to the rest of the repository. Rules that earlier versions saved in a subdirectory or worktree still apply to sessions started there.</p>
 <p>On a Bash or PowerShell permission prompt, press <code>Ctrl+E</code> to show an explanation of the command: what it does, why Claude is running it, and what could go wrong, labeled <strong>Low risk</strong>, <strong>Med risk</strong>, or <strong>High risk</strong>. Claude Code sends the command and Claude's own description of the call to the model to generate the explanation only when you press <code>Ctrl+E</code>, not on every prompt. Showing the explanation doesn't run the command; press <code>Ctrl+E</code> again to hide it.</p>
 <p>To turn the shortcut off, set <a href="/en/settings#global-config-settings"><code>permissionExplainerEnabled</code></a> to <code>false</code> in <code>~/.claude.json</code>.</p>
 <h2 id="manage-permissions">Manage permissions</h2>
@@ -5702,7 +5797,7 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <ul>
 <li>Options before URL: <code>curl -X GET http://github.com/...</code></li>
 <li>Different protocol: <code>curl https://github.com/...</code></li>
-<li>Redirects: <code>curl -L http://bit.ly/xyz</code>, which redirects to GitHub</li>
+<li>Redirects: <code>curl -L http://short.example.com/xyz</code>, which redirects to GitHub</li>
 <li>Variables: <code>URL=http://github.com &amp;&amp; curl $URL</code></li>
 <li>Extra spaces: <code>curl  http://github.com</code></li>
 </ul>
@@ -5738,100 +5833,159 @@ Claude Code parses the PowerShell AST and checks each command in a compound comm
 
 {/* min-version: 2.1.208 */}A `Read` deny rule also blocks the [Edit tool](/en/errors#file-is-covered-by-a-read-deny-rule) on the same path, including creating a new file there. Write and NotebookEdit aren&#39;t covered, so add an `Edit` deny rule for paths no tool may change. Requires Claude Code v2.1.208 or later.
 
-&lt;Warning&gt;
-  Read and Edit deny rules apply to Claude&#39;s built-in file tools and to file commands Claude Code recognizes in Bash, such as `cat`, `head`, `tail`, and `sed`. They don&#39;t apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, [enable the sandbox](/en/sandboxing).
-&lt;/Warning&gt;
+{/* min-version: 2.1.210 */}The file permission checks match only `Edit(path)` and `Read(path)` rules. A `Write(path)`, `NotebookEdit(path)`, or `Glob(path)` rule is accepted but never matched by those checks, so Claude Code warns at startup for each allow, deny, or ask rule in one of these unmatched forms. Use `Edit(docs/**)` in place of `Write(docs/**)` or `NotebookEdit(docs/**)`, and `Read(docs/**)` in place of `Glob(docs/**)`. A tool-name rule with no path, such as a deny rule for `Write`, isn&#39;t affected: it matches the tool everywhere and produces no warning. Requires Claude Code v2.1.210 or later.
 
-Read and Edit rules both follow the [gitignore](https://git-scm.com/docs/gitignore) specification with four distinct pattern types:
+A deny rule `Write(docs/**)` in project settings produces this startup warning:
 
-| Pattern            | Meaning                              | Example                          | Matches                                          |
-| ------------------ | ------------------------------------ | -------------------------------- | ------------------------------------------------ |
-| `//path`           | Absolute path from filesystem root   | `Read(//Users/alice/secrets/**)` | `/Users/alice/secrets/**`                        |
-| `~/path`           | Path from home directory             | `Read(~/Documents/*.pdf)`        | `/Users/alice/Documents/*.pdf`                   |
-| `/path`            | Path relative to the settings source | `Edit(/src/**/*.ts)`             | `&lt;project root&gt;/src/**/*.ts` in project settings |
-| `path` or `./path` | Path relative to current directory   | `Read(*.env)`                    | `&lt;cwd&gt;/*.env`                                    |
-
-&lt;Warning&gt;
-  A pattern like `/Users/alice/file` isn&#39;t an absolute path. The single leading slash anchors at the settings source, not the filesystem root. Use `//Users/alice/file` for absolute paths.
-&lt;/Warning&gt;
-
-A `/path` pattern anchors at the directory associated with the settings file that defines it, so the same rule matches different locations depending on where you put it:
-
-| Rule defined in                                            | `/path` resolves to        |
-| :--------------------------------------------------------- | :------------------------- |
-| Project or local settings, such as `.claude/settings.json` | `&lt;project root&gt;/path`      |
-| User settings at `~/.claude/settings.json`                 | `~/.claude/path`           |
-| A file passed with `--settings &lt;file&gt;`                     | `&lt;directory of file&gt;/path` |
-| CLI flags, `/permissions`, or session rules                | `&lt;original cwd&gt;/path`      |
-
-A deny rule such as `Read(/secrets/**)` in user settings blocks `~/.claude/secrets/**`, not a `secrets` directory in your project. To write a rule in user settings that applies inside every project, use a `//` absolute path or a `~/` home-relative path instead.
-
-On Windows, paths are normalized to POSIX form before matching. `C:\Users\alice` becomes `/c/Users/alice`, so use `//c/**/.env` to match `.env` files anywhere on that drive. To match across all drives, use `//**/.env`.
-
-Examples:
-
-* `Edit(/docs/**)`: edits in `&lt;project&gt;/docs/`, not `/docs/` or `&lt;project&gt;/.claude/docs/`
-* `Read(~/.zshrc)`: reads your home directory&#39;s `.zshrc`
-* `Edit(//tmp/scratch.txt)`: edits the absolute path `/tmp/scratch.txt`
-* `Read(src/**)`: reads from `&lt;current-directory&gt;/src/`
-
-A rule only matches files under its anchor, so the anchor determines how far a deny rule reaches. Bare filenames follow gitignore semantics and match at any depth, so `Read(.env)` and `Read(**/.env)` are equivalent:
-
-| Deny rule                       | Blocks                                       | Does not block                                       |
-| ------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
-| `Read(.env)` or `Read(**/.env)` | any `.env` at or under the current directory | `.env` in a parent directory or another project      |
-| `Read(//**/.env)`               | any `.env` anywhere on the filesystem        | nothing; the rule is anchored at the filesystem root |
-
-&lt;Note&gt;
-  In gitignore patterns, `*` matches within a single path segment and can appear at any position in the pattern, while `**` matches across directories. To allow all file access, use only the tool name without parentheses: `Read`, `Edit`, or `Write`.
-&lt;/Note&gt;
-
-When you approve a file path with &quot;Yes, don&#39;t ask again&quot;, Claude Code escapes gitignore pattern characters in that path, such as `[`, `]`, and `*`, so the generated rule matches only the literal path you approved. Rules you write yourself aren&#39;t escaped. Before v2.1.202, Claude Code saved the path unescaped, so a generated rule for a directory named `[2024-06] Reports` could fail to match its own path or match unintended sibling directories.
-
-When Claude accesses a symlink, permission rules check two paths: the symlink itself and the file it resolves to. Allow and deny rules treat that pair differently: allow rules fall back to prompting you, while deny rules block outright.
-
-* **Allow rules**: apply only when both the symlink path and its target match. A symlink inside an allowed directory that points outside it still prompts you.
-* **Deny rules**: apply when either the symlink path or its target matches. A symlink that points to a denied file is itself denied.
-
-For example, with `Read(./project/**)` allowed and `Read(~/.ssh/**)` denied, a symlink at `./project/key` pointing to `~/.ssh/id_rsa` is blocked: the target fails the allow rule and matches the deny rule.
-
-### WebFetch
-
-WebFetch rules use a `domain:` prefix and match against the hostname of the requested URL. Matching is case-insensitive, supports `*` wildcards, and strips a trailing `.` from both the rule and the hostname so `example.com.` and `example.com` are treated the same.
-
-* `WebFetch(domain:example.com)` matches requests to `example.com`
-* `WebFetch(domain:*.example.com)` matches any subdomain at any depth, such as `api.example.com` or `a.b.example.com`, but not `example.com` itself
-* `WebFetch(domain:*)` matches every domain and is equivalent to a bare `WebFetch` rule
-
-In any position other than a leading `*.` or a bare `*`, the wildcard matches only the text between two dots. `WebFetch(domain:example.*)` matches `example.org`, where `*` becomes `org`, but not `example.evil.com`, where `*` would have to become `evil.com` and cross a dot. This keeps a trailing wildcard from matching domains an attacker could register.
-
-### MCP
-
-MCP rules use the server name as configured in Claude Code, optionally followed by the name of a tool from that server.
-
-* `mcp__puppeteer` matches any tool provided by the `puppeteer` server
-* `mcp__puppeteer__*` uses wildcard syntax and also matches all tools from the `puppeteer` server
-* `mcp__puppeteer__puppeteer_navigate` matches the `puppeteer_navigate` tool provided by the `puppeteer` server
-
-If your organization has set a [claude.ai connector](/en/mcp#organization-controls-on-connector-tools) tool to `ask`, allow rules for that tool don&#39;t take effect: Claude Code prompts on every call, even in `auto` and `bypassPermissions` modes. In `dontAsk` mode, which never prompts, Claude Code denies the call instead. Connector tools appear as `mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;`.
-
-### Agent (subagents)
-
-Use `Agent(AgentName)` rules to control which [subagents](/en/sub-agents) Claude can use:
-
-* `Agent(Explore)` matches the Explore subagent
-* `Agent(Plan)` matches the Plan subagent
-* `Agent(my-custom-agent)` matches a custom subagent named `my-custom-agent`
-
-Add these rules to the `deny` array in your settings or use the `--disallowedTools` CLI flag to disable specific agents. To disable the Explore agent:
-
-```json theme={null}
-{
-  &quot;permissions&quot;: {
-    &quot;deny&quot;: [&quot;Agent(Explore)&quot;]
-  }
-}
+```text theme={null}
+Permission deny rule (.claude/settings.json): Write(docs/**) is not matched by file permission checks — only Edit(path) rules are. Use Edit(docs/**) instead (Edit rules cover all file-editing tools).
 </code></pre></div></p>
+<p><Warning>
+  Read and Edit deny rules apply to Claude's built-in file tools and to file commands Claude Code recognizes in Bash, such as <code>cat</code>, <code>head</code>, <code>tail</code>, and <code>sed</code>. They don't apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, <a href="/en/sandboxing">enable the sandbox</a>.
+</Warning></p>
+<p>Read and Edit rules both follow the <a href="https://git-scm.com/docs/gitignore">gitignore</a> specification with four distinct pattern types:</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Meaning</th>
+<th>Example</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>//path</code></td>
+<td>Absolute path from filesystem root</td>
+<td><code>Read(//Users/alice/secrets/**)</code></td>
+<td><code>/Users/alice/secrets/**</code></td>
+</tr>
+<tr>
+<td><code>~/path</code></td>
+<td>Path from home directory</td>
+<td><code>Read(~/Documents/*.pdf)</code></td>
+<td><code>/Users/alice/Documents/*.pdf</code></td>
+</tr>
+<tr>
+<td><code>/path</code></td>
+<td>Path relative to the settings source</td>
+<td><code>Edit(/src/**/*.ts)</code></td>
+<td><code>&lt;project root&gt;/src/**/*.ts</code> in project settings</td>
+</tr>
+<tr>
+<td><code>path</code> or <code>./path</code></td>
+<td>Path relative to current directory</td>
+<td><code>Read(*.env)</code></td>
+<td><code>&lt;cwd&gt;/*.env</code></td>
+</tr>
+</tbody>
+</table>
+<p><Warning>
+  A pattern like <code>/Users/alice/file</code> isn't an absolute path. The single leading slash anchors at the settings source, not the filesystem root. Use <code>//Users/alice/file</code> for absolute paths.
+</Warning></p>
+<p>A <code>/path</code> pattern anchors at a directory associated with the settings source that defines it, so the same rule matches different locations depending on where you put it:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Rule defined in</th>
+<th style="text-align: left;"><code>/path</code> resolves to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Project settings at <code>.claude/settings.json</code></td>
+<td style="text-align: left;"><code>&lt;project root&gt;/path</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">Local settings at <code>.claude/settings.local.json</code></td>
+<td style="text-align: left;"><code>&lt;original cwd&gt;/path</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">User settings at <code>~/.claude/settings.json</code></td>
+<td style="text-align: left;"><code>~/.claude/path</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">A file passed with <code>--settings &lt;file&gt;</code></td>
+<td style="text-align: left;"><code>&lt;directory of file&gt;/path</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">CLI flags, <code>/permissions</code>, or session rules</td>
+<td style="text-align: left;"><code>&lt;original cwd&gt;/path</code></td>
+</tr>
+</tbody>
+</table>
+<p>Local settings rules anchor at the directory you started Claude Code from, not at the repository root where Claude Code <a href="#permission-system">stores the file</a> in v2.1.211 and later. In a session started at the repository root, the two directories are the same; in a <a href="/en/worktrees">worktree</a> session, a shared rule such as <code>Edit(/src/**)</code> matches that worktree's own <code>src/</code> directory.</p>
+<p>A deny rule such as <code>Read(/secrets/**)</code> in user settings blocks <code>~/.claude/secrets/**</code>, not a <code>secrets</code> directory in your project. To write a rule in user settings that applies inside every project, use a <code>//</code> absolute path or a <code>~/</code> home-relative path instead.</p>
+<p>On Windows, paths are normalized to POSIX form before matching. <code>C:\Users\alice</code> becomes <code>/c/Users/alice</code>, so use <code>//c/**/.env</code> to match <code>.env</code> files anywhere on that drive. To match across all drives, use <code>//**/.env</code>.</p>
+<p>Examples:</p>
+<ul>
+<li><code>Edit(/docs/**)</code>: edits in <code>&lt;project&gt;/docs/</code>, not <code>/docs/</code> or <code>&lt;project&gt;/.claude/docs/</code></li>
+<li><code>Read(~/.zshrc)</code>: reads your home directory's <code>.zshrc</code></li>
+<li><code>Edit(//tmp/scratch.txt)</code>: edits the absolute path <code>/tmp/scratch.txt</code></li>
+<li><code>Read(src/**)</code>: reads from <code>&lt;current-directory&gt;/src/</code></li>
+</ul>
+<p>A rule only matches files under its anchor, so the anchor determines how far a deny rule reaches. Bare filenames follow gitignore semantics and match at any depth, so <code>Read(.env)</code> and <code>Read(**/.env)</code> are equivalent:</p>
+<table>
+<thead>
+<tr>
+<th>Deny rule</th>
+<th>Blocks</th>
+<th>Does not block</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Read(.env)</code> or <code>Read(**/.env)</code></td>
+<td>any <code>.env</code> at or under the current directory</td>
+<td><code>.env</code> in a parent directory or another project</td>
+</tr>
+<tr>
+<td><code>Read(//**/.env)</code></td>
+<td>any <code>.env</code> anywhere on the filesystem</td>
+<td>nothing; the rule is anchored at the filesystem root</td>
+</tr>
+</tbody>
+</table>
+<p><Note>
+  In gitignore patterns, <code>*</code> matches within a single path segment and can appear at any position in the pattern, while <code>**</code> matches across directories. To allow all file access, use only the tool name without parentheses: <code>Read</code>, <code>Edit</code>, or <code>Write</code>.
+</Note></p>
+<p>When you approve a file path with "Yes, don't ask again", Claude Code escapes gitignore pattern characters in that path, such as <code>[</code>, <code>]</code>, and <code>*</code>, so the generated rule matches only the literal path you approved. Rules you write yourself aren't escaped. Before v2.1.202, Claude Code saved the path unescaped, so a generated rule for a directory named <code>[2024-06] Reports</code> could fail to match its own path or match unintended sibling directories.</p>
+<p>When Claude accesses a symlink, permission rules check two paths: the symlink itself and the file it resolves to. Allow and deny rules treat that pair differently: allow rules fall back to prompting you, while deny rules block outright.</p>
+<ul>
+<li><strong>Allow rules</strong>: apply only when both the symlink path and its target match. A symlink inside an allowed directory that points outside it still prompts you.</li>
+<li><strong>Deny rules</strong>: apply when either the symlink path or its target matches. A symlink that points to a denied file is itself denied.</li>
+</ul>
+<p>For example, with <code>Read(./project/**)</code> allowed and <code>Read(~/.ssh/**)</code> denied, a symlink at <code>./project/key</code> pointing to <code>~/.ssh/id_rsa</code> is blocked: the target fails the allow rule and matches the deny rule.</p>
+<h3 id="webfetch">WebFetch</h3>
+<p>WebFetch rules use a <code>domain:</code> prefix and match against the hostname of the requested URL. Matching is case-insensitive, supports <code>*</code> wildcards, and strips a trailing <code>.</code> from both the rule and the hostname so <code>example.com.</code> and <code>example.com</code> are treated the same.</p>
+<ul>
+<li><code>WebFetch(domain:example.com)</code> matches requests to <code>example.com</code></li>
+<li><code>WebFetch(domain:*.example.com)</code> matches any subdomain at any depth, such as <code>api.example.com</code> or <code>a.b.example.com</code>, but not <code>example.com</code> itself</li>
+<li><code>WebFetch(domain:*)</code> matches every domain and is equivalent to a bare <code>WebFetch</code> rule</li>
+</ul>
+<p>In any position other than a leading <code>*.</code> or a bare <code>*</code>, the wildcard matches only the text between two dots. <code>WebFetch(domain:example.*)</code> matches <code>example.org</code>, where <code>*</code> becomes <code>org</code>, but not <code>example.evil.com</code>, where <code>*</code> would have to become <code>evil.com</code> and cross a dot. This keeps a trailing wildcard from matching domains an attacker could register.</p>
+<h3 id="mcp">MCP</h3>
+<p>MCP rules use the server name as configured in Claude Code, optionally followed by the name of a tool from that server.</p>
+<ul>
+<li><code>mcp__puppeteer</code> matches any tool provided by the <code>puppeteer</code> server</li>
+<li><code>mcp__puppeteer__*</code> uses wildcard syntax and also matches all tools from the <code>puppeteer</code> server</li>
+<li><code>mcp__puppeteer__puppeteer_navigate</code> matches the <code>puppeteer_navigate</code> tool provided by the <code>puppeteer</code> server</li>
+</ul>
+<p>If your organization has set a <a href="/en/mcp#organization-controls-on-connector-tools">claude.ai connector</a> tool to <code>ask</code>, allow rules for that tool don't take effect: Claude Code prompts on every call, even in <code>auto</code> and <code>bypassPermissions</code> modes. In <code>dontAsk</code> mode, which never prompts, Claude Code denies the call instead. Connector tools appear as <code>mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;</code>.</p>
+<h3 id="agent-subagents">Agent (subagents)</h3>
+<p>Use <code>Agent(AgentName)</code> rules to control which <a href="/en/sub-agents">subagents</a> Claude can use:</p>
+<ul>
+<li><code>Agent(Explore)</code> matches the Explore subagent</li>
+<li><code>Agent(Plan)</code> matches the Plan subagent</li>
+<li><code>Agent(my-custom-agent)</code> matches a custom subagent named <code>my-custom-agent</code></li>
+</ul>
+<p>Add these rules to the <code>deny</code> array in your settings or use the <code>--disallowedTools</code> CLI flag to disable specific agents. To disable the Explore agent:</p>
+<p><code>json theme={null}
+{
+  "permissions": {
+    "deny": ["Agent(Explore)"]
+  }
+}</code></p>
 <h3 id="cd">Cd</h3>
 <p><code>Cd</code> rules control which directories the <a href="/en/commands"><code>/cd</code> command</a> can move the session to. <code>Cd</code> is not a model-invocable tool: Claude can't call it, and the rules apply only when you run <code>/cd</code> yourself.</p>
 <p>A bare <code>Cd</code> deny rule disables <code>/cd</code> entirely. A <code>Cd(&lt;path-pattern&gt;)</code> deny rule blocks matching targets. Deny rules check every spelling of the target, including each symlink hop it resolves through, so a rule written for one path also blocks targets that resolve to it.</p>
@@ -5908,7 +6062,8 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 </tr>
 </tbody>
 </table>
-<p>Commands and output styles are discovered from the current working directory and its parents, your user directory at <code>~/.claude/</code>, and managed settings. Hooks and other <code>settings.json</code> keys load from the current working directory's <code>.claude/</code> folder with no parent-directory fallback, alongside your user <code>~/.claude/settings.json</code> and managed settings. To share that configuration across projects, use one of these approaches:</p>
+<p>Claude Code discovers commands and output styles from the current working directory and its parents, your user directory at <code>~/.claude/</code>, and managed settings. Hooks and other <code>.claude/settings.json</code> keys load from the current working directory's <code>.claude/</code> folder with no parent-directory fallback, alongside your user <code>~/.claude/settings.json</code> and managed settings. {/<em> min-version: 2.1.211 </em>/}<code>.claude/settings.local.json</code> loads from the git repository root instead, even when you start Claude Code in a subdirectory; before v2.1.211, it too loaded only from the current working directory. <a href="/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources">Agent SDK</a> sessions load it from the working directory in all versions.</p>
+<p>To share that configuration across projects, use one of these approaches:</p>
 <ul>
 <li><strong>User-level configuration</strong>: place files in <code>~/.claude/agents/</code>, <code>~/.claude/output-styles/</code>, or <code>~/.claude/settings.json</code> to make them available in every project</li>
 <li><strong>Plugins</strong>: package and distribute configuration as a <a href="/en/plugins">plugin</a> that teams can install</li>

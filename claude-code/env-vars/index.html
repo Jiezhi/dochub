@@ -1926,6 +1926,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../corporate-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Corporate launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../costs/" class="md-nav__link">
         
   
@@ -5027,8 +5054,23 @@ Use this file to discover all available pages before exploring further.</p>
 </code></pre>
 <p></Tab>
 </Tabs></p>
+<p>The assignment line prints nothing on success, so confirm the variable is set by printing it in the same shell before you run <code>claude</code>:</p>
+<p><Tabs>
+  <Tab title="macOS, Linux, WSL">
+    <code>bash theme={null}
+    echo $API_TIMEOUT_MS</code>
+  </Tab></p>
+<p><Tab title="Windows PowerShell">
+    <code>powershell theme={null}
+    echo $env:API_TIMEOUT_MS</code>
+  </Tab></p>
+<p><Tab title="Windows CMD">
+    <code>batch theme={null}
+    echo %API_TIMEOUT_MS%</code>
+  </Tab>
+</Tabs></p>
 <h3 id="in-settings-files">In settings files</h3>
-<p>Add variables under the <code>env</code> key in a <code>settings.json</code> file. Claude Code reads them directly from the file at startup, so they take effect no matter how <code>claude</code> was launched.</p>
+<p>Add variables under the <code>env</code> key in a <code>settings.json</code> file, creating the file if it doesn't exist. Claude Code reads them directly from the file, so they take effect no matter how <code>claude</code> was launched. A running session applies new and changed values to its environment when you save the file, but a feature that reads its variables once at startup, such as <a href="/en/monitoring-usage">OpenTelemetry monitoring</a>, keeps its startup values until you relaunch. Removing a variable from the file doesn't unset it in a running session; the removal takes effect the next time you launch <code>claude</code>.</p>
 <p><code>json ~/.claude/settings.json theme={null}
 {
   "env": {
@@ -5066,11 +5108,12 @@ Use this file to discover all available pages before exploring further.</p>
 <p>See <a href="/en/settings#settings-files">Settings files</a> for where each file lives and <a href="/en/settings#settings-precedence">Settings precedence</a> for how they combine when more than one sets the same variable.</p>
 <h2 id="precedence">Precedence</h2>
 <p>Where the same behavior has both an environment variable and a settings field, the environment variable takes precedence. For example, <code>ANTHROPIC_MODEL</code> overrides the <code>model</code> setting, and <code>CLAUDE_CODE_AUTO_CONNECT_IDE</code> overrides <code>autoConnectIde</code>. The settings field applies when the environment variable is not set.</p>
-<p>When the same variable is set in both your shell and a settings file <code>env</code> block, the settings file value applies. Claude Code writes each <code>env</code> entry into the process environment at startup, replacing the value inherited from the shell. A few variables are special-cased; the <a href="/en/settings#available-settings"><code>env</code> setting</a> lists the exceptions.</p>
+<p>When the same variable is set in both your shell and a settings file <code>env</code> block, the settings file value applies. Claude Code writes each <code>env</code> entry into the process environment at startup and again when the file changes, replacing the value inherited from the shell. A few variables are special-cased; the <a href="/en/settings#available-settings"><code>env</code> setting</a> lists the exceptions.</p>
 <p>Between settings files, <code>env</code> values follow <a href="/en/settings#settings-precedence">settings precedence</a>, so a managed settings entry overrides the same variable in user or project settings.</p>
 <p>How an environment variable interacts with CLI flags and in-session commands varies per feature: <code>--model</code> and <code>/model</code> override <code>ANTHROPIC_MODEL</code>, while <code>CLAUDE_CODE_EFFORT_LEVEL</code> overrides <code>/effort</code>. When a variable interacts with another configuration source, its row in the <a href="#variables">Variables</a> list states the precedence or links to the page that documents it.</p>
-<p>Claude Code reads environment variables at startup, so changes take effect the next time you launch <code>claude</code>.</p>
+<p>Claude Code reads shell environment variables at startup, so changes to them take effect the next time you launch <code>claude</code>. Variables set under the <code>env</code> key in settings files are reapplied to a running session when the file changes, with the startup-only exception described in <a href="#in-settings-files">In settings files</a>.</p>
 <h2 id="variables">Variables</h2>
+<p>Numeric variables such as timeouts, token budgets, and retry counts accept scientific notation and digit-separator spellings in addition to plain digits. For example, Claude Code reads <code>2e3</code> as 2000 and <code>64_000</code> as 64000. Before v2.1.211, these spellings could silently set a much smaller value, such as <code>1e6</code> setting a timeout to 1.</p>
 <table>
 <thead>
 <tr>
@@ -5604,6 +5647,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Set to <code>1</code> to let Claude spawn <a href="/en/sub-agents#fork-the-current-conversation">forked subagents</a>, or <code>0</code> to disable them, overriding any server-side rollout. When enabled, Claude can request the <code>fork</code> subagent type to spawn a fork, a subagent that inherits the full conversation context instead of starting fresh. Spawns without a subagent type still use the general-purpose subagent, and all subagent spawns run in the background. The explicit <a href="/en/commands"><code>/fork</code></a> command works without this variable. Works in interactive mode and via the SDK or <code>claude -p</code></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>CLAUDE_CODE_FORWARD_SUBAGENT_TEXT</code></td>
+<td style="text-align: left;">{/<em> min-version: 2.1.211 </em>/}Set to <code>1</code> to emit <a href="/en/sub-agents">subagent</a> text and thinking blocks in <code>claude -p --output-format stream-json</code> output, the same behavior as the <a href="/en/cli-reference#cli-flags"><code>--forward-subagent-text</code></a> flag. Use the variable when a harness invokes <code>claude</code> and can't pass the flag itself. Unlike the flag, which exits with an error outside non-interactive mode with stream-json output, the variable is ignored there so that nested invocations keep working when it's set process-wide. Requires Claude Code v2.1.211 or later</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_GIT_BASH_PATH</code></td>
 <td style="text-align: left;">Windows only: path to the Git Bash executable (<code>bash.exe</code>). Use when Git Bash is installed but not in your PATH. See <a href="/en/setup#set-up-on-windows">Windows setup</a></td>
 </tr>
@@ -5745,7 +5792,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_PROCESS_WRAPPER</code></td>
-<td style="text-align: left;">{/<em> min-version: 2.1.208 </em>/}Launch the processes Claude Code starts from its own binary through a wrapper executable, given as an argv prefix such as <code>/opt/corp/launcher</code>. Covers the background service that hosts <a href="/en/agent-view">agent view</a> sessions, every session it spawns, and the relaunch Claude Code performs of itself to finish installing an update. The first token must be the absolute path of an executable that ends by running <code>exec "$@"</code>, and most launchers are that single path. The value is an argument list, not a shell command: whitespace separates tokens, double quotes group a path that contains spaces, and a value that starts with <code>[</code> is read as a JSON string array. Set it in the <code>env</code> block of user or <a href="/en/permissions#managed-settings">managed settings</a>, not as a shell export, so the detached background service inherits it; project and local settings can't set it. The VS Code extension configures its own launcher separately through its <code>claudeProcessWrapper</code> setting. Ignored on Windows. <code>CLAUDE_CODE_SHELL_PREFIX</code> is a separate control: it wraps the shell commands Claude runs as a single quoted string, while this variable wraps Claude Code's own processes as an argv prefix. See <a href="/en/corporate-launcher">Run Claude Code behind a corporate launcher</a></td>
+<td style="text-align: left;">{/<em> min-version: 2.1.208 </em>/}Launch the processes Claude Code starts from its own binary, such as the background service that hosts <a href="/en/agent-view">agent view</a> sessions, through a corporate launcher given as an argv prefix like <code>/opt/corp/launcher</code>. Set it in the <code>env</code> block of user or <a href="/en/permissions#managed-settings">managed settings</a>, not as a shell export, so the detached background service inherits it; project and local settings can't set it. {/<em> min-version: 2.1.210 </em>/}Equivalent to the <a href="/en/settings#available-settings"><code>processWrapper</code> setting</a>, which requires Claude Code v2.1.210 or later; this variable takes precedence when both are set. The VS Code extension configures its own launcher separately through its <code>claudeProcessWrapper</code> setting. Ignored on Windows. See <a href="/en/corporate-launcher">Run Claude Code behind a corporate launcher</a> for the value format, what the launcher covers, and the contract the launcher must satisfy. Requires Claude Code v2.1.208 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_PROPAGATE_TRACEPARENT</code></td>
@@ -5772,6 +5819,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Set to <code>1</code> to automatically resume if the previous session ended mid-turn. Used in SDK mode so the model continues without requiring the SDK to re-send the prompt</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>CLAUDE_CODE_RESUME_INTERRUPTED_TURN_MAX_AGE_MS</code></td>
+<td style="text-align: left;">{/<em> min-version: 2.1.211 </em>/}Maximum age in milliseconds of the last transcript message for a session that ended mid-turn to continue automatically on resume. When the last message is older than this bound, Claude Code skips both the <code>CLAUDE_CODE_RESUME_INTERRUPTED_TURN</code> automatic resume and the injected <code>CLAUDE_CODE_RESUME_PROMPT</code> continuation message, and the session starts idle so you continue explicitly. Unset or <code>0</code> means no bound; a negative or non-numeric value applies a one-hour bound. Spawn scripts for long-running agents can set this so a restart against an old transcript doesn't re-run a stale prompt. Claude Code sets a one-hour bound itself when it restarts a crashed <a href="/en/agent-view">agent view</a> session that inherited its conversation from an interactive session. Requires Claude Code v2.1.211 or later</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_RESUME_PROMPT</code></td>
 <td style="text-align: left;">Override the continuation message injected when resuming a session that ended mid-turn. Defaults to <code>Continue from where you left off.</code>. Spawn scripts for long-running agents can set this to a more directive boot message. An empty string uses the default</td>
 </tr>
@@ -5789,7 +5840,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SCROLL_SPEED</code></td>
-<td style="text-align: left;">Set the mouse wheel scroll multiplier in <a href="/en/fullscreen#mouse-wheel-scrolling">fullscreen rendering</a>. Accepts values from 1 to 20, and fractional values below 1 such as <code>0.5</code> to slow accelerated trackpad and wheel scrolling in terminals that already amplify wheel events. Set to <code>3</code> to match <code>vim</code> if your terminal sends one wheel event per notch without amplification. Ignored in the JetBrains IDE terminal, where Claude Code uses its own scroll handling</td>
+<td style="text-align: left;">Set the mouse wheel scroll multiplier in <a href="/en/fullscreen#mouse-wheel-scrolling">fullscreen rendering</a>. Accepts any positive value up to 20, including fractional values below 1 such as <code>0.5</code> to slow accelerated trackpad and wheel scrolling in terminals that already amplify wheel events. Set to <code>3</code> to match <code>vim</code> if your terminal sends one wheel event per notch without amplification. Ignored in the JetBrains IDE terminal, where Claude Code uses its own scroll handling</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS</code></td>
@@ -5882,10 +5933,6 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_TASK_LIST_ID</code></td>
 <td style="text-align: left;">Share a task list across sessions. Set the same ID in multiple Claude Code instances to coordinate on a shared task list. See <a href="/en/interactive-mode#task-list">Task list</a></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>CLAUDE_CODE_TEAM_NAME</code></td>
-<td style="text-align: left;">Name of the agent team this teammate belongs to. Set automatically on <a href="/en/agent-teams">agent team</a> members</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_TEAM_TEARDOWN_PARK_TIMEOUT_MS</code></td>
