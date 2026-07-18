@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -5875,13 +5875,41 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#filesystem-path-safety" class="md-nav__link">
+  <a href="#path-security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Filesystem Path Safety
+        Path Security
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Path Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exempting-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exempting parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disabling-screening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling screening
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -10302,13 +10330,41 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#filesystem-path-safety" class="md-nav__link">
+  <a href="#path-security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Filesystem Path Safety
+        Path Security
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Path Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exempting-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exempting parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disabling-screening" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Disabling screening
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -10846,9 +10902,67 @@ Functions with <code>*args</code> are not supported as resource templates. Howev
 <li>Building URL-like patterns similar to REST APIs</li>
 </ul>
 <p>Note that like regular parameters, each wildcard parameter must still be a named parameter in your function signature, and all required function parameters must appear in the URI template.</p>
-<h4 id="filesystem-path-safety">Filesystem Path Safety</h4>
-<p>Template parameters are decoded before your function receives them. A standard <code>{filename}</code> parameter matches one URI segment before decoding, so a request like <code>files://a%2Fb</code> passes <code>filename="a/b"</code> to the handler. Treat template values as untrusted decoded URI data whenever they determine filesystem paths.</p>
-<p>Validate the final resolved path against an allowed root before reading:</p>
+<h4 id="path-security">Path Security</h4>
+<p>Template parameters are extracted from the request URI and decoded before your function receives them, so a path-traversal payload like <code>../</code> or an absolute path can reach a handler that builds filesystem paths or upstream URLs. FastMCP screens every templated resource's parameter values <strong>before the handler runs</strong>, and this screening is <strong>on by default</strong>.</p>
+<p>By default, a parameter value is rejected if its <code>..</code> path segments would escape the value's own starting depth, if it looks like an absolute path, or if it contains a null byte. A rejected read surfaces a clean "resource not found" error to the client and logs the reason at debug level, so the failing parameter and policy are never revealed on the wire.</p>
+<p>The traversal check is component-based and tracks net depth: <code>..</code> only counts against you when it climbs above where the value starts. <code>../secret</code>, a bare <code>..</code>, and <code>a/../../b</code> are rejected; <code>foo/../bar</code> is allowed because it never leaves the starting directory, and values that merely <em>contain</em> dots — <code>HEAD~3..HEAD</code>, <code>v1..v2</code>, <code>file.tar.gz</code>, dotfiles like <code>.env</code> — all pass. Screening runs on the decoded value, so <code>..%2F</code> is caught the same as a literal <code>../</code>. This bounds relative escapes; anchoring the <em>final</em> path inside a root directory is still your handler's job (for example with <code>safe_join</code>), since only the handler knows what the value is joined to.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;DocsServer&quot;</span><span class="p">)</span>
+
+<span class="n">DOCS_ROOT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/srv/docs&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">resource</span><span class="p">(</span><span class="s2">&quot;docs://{path*}&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">read_doc</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="c1"># A request for docs://../secret is rejected before this runs.</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">DOCS_ROOT</span> <span class="o">/</span> <span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h5 id="exempting-parameters">Exempting parameters</h5>
+<p>Some parameters legitimately carry values that look like traversal — a git ref, a version range, an opaque token. Exempt them by name with <code>ResourceSecurity</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResourceSecurity</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;DocsServer&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">resource</span><span class="p">(</span>
+    <span class="s2">&quot;git://diff/</span><span class="si">{ref}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">security</span><span class="o">=</span><span class="n">ResourceSecurity</span><span class="p">(</span><span class="n">exempt_params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ref&quot;</span><span class="p">}),</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">git_diff</span><span class="p">(</span><span class="n">ref</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="c1"># ref=&quot;HEAD~3..HEAD&quot; is allowed</span>
+    <span class="o">...</span>
+</code></pre></div>
+<h5 id="disabling-screening">Disabling screening</h5>
+<p>Pass <code>security=None</code> to turn screening off for a single component:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;DocsServer&quot;</span><span class="p">)</span>
+
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">resource</span><span class="p">(</span><span class="s2">&quot;raw://</span><span class="si">{value}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">security</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">raw</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Or set a server-wide default with <code>resource_security</code>, which applies to every templated resource that does not set its own <code>security</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResourceSecurity</span>
+
+<span class="c1"># Relax one check across the whole server:</span>
+<span class="n">relaxed</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;DocsServer&quot;</span><span class="p">,</span>
+    <span class="n">resource_security</span><span class="o">=</span><span class="n">ResourceSecurity</span><span class="p">(</span><span class="n">reject_absolute_paths</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># Or disable screening entirely across the server:</span>
+<span class="n">unscreened</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;DocsServer&quot;</span><span class="p">,</span> <span class="n">resource_security</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+<p>A per-component <code>security</code> always overrides the server default.</p>
+<p><Warning>
+Screening rejects the obvious injection shapes, but it does not know your filesystem root. When a parameter determines a real path, still resolve it against an allowed root and confirm containment before reading — screening and containment are complementary layers.
+</Warning></p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
@@ -10867,7 +10981,6 @@ Functions with <code>*args</code> are not supported as resource templates. Howev
 
     <span class="k">return</span> <span class="n">requested_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>Use wildcard parameters (<code>{path*}</code>) for resources whose URI shape intentionally includes slashes, and apply the same containment check before accessing the filesystem.</p>
 <h4 id="query-parameters">Query Parameters</h4>
 <p><VersionBadge version="2.13.0" /></p>
 <p>FastMCP supports RFC 6570 form-style query parameters using the <code>{?param1,param2}</code> syntax. Query parameters provide a clean way to pass optional configuration to resources without cluttering the path.</p>
@@ -11084,7 +11197,7 @@ Functions with <code>*args</code> are not supported as resource templates. Howev
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

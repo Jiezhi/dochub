@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -3219,6 +3219,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../mobile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../model-config/" class="md-nav__link">
         
   
@@ -4785,6 +4812,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w29
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5097,6 +5151,7 @@ The following example keeps the default entries and adds an organization&#39;s r
   }
 }
 </code></pre></div></p>
+<p>After you save your settings, run <code>claude auto-mode config</code> to <a href="#inspect-the-defaults-and-your-effective-config">confirm the effective rules</a> include your entries.</p>
 <p>Entries are prose, not regex or tool patterns. The classifier reads them as natural-language rules. Write them the way you would describe your infrastructure to a new engineer. A thorough environment section covers:</p>
 <ul>
 <li><strong>Organization</strong>: your company name and what Claude Code is primarily used for, like software development, infrastructure automation, or data engineering</li>
@@ -5208,7 +5263,7 @@ The setting applies only while auto mode is active, and your allow rules behave 
 
 ## Inspect the defaults and your effective config
 
-Three CLI subcommands help you inspect and validate your configuration.
+The `claude auto-mode` subcommands help you inspect, validate, and reset your configuration.
 
 Print the built-in `environment`, `allow`, `soft_deny`, and `hard_deny` rules as JSON:
 
@@ -5219,13 +5274,40 @@ claude auto-mode defaults
 <p>Print what the classifier actually uses as JSON, with your settings applied where set and defaults otherwise:</p>
 <p>```bash theme={null}
 claude auto-mode config
-<div class="highlight"><pre><span></span><code>Get AI feedback on your custom `allow`, `soft_deny`, and `hard_deny` rules:
+<div class="highlight"><pre><span></span><code>Both `defaults` and `config` print the four rule lists as a single JSON object, with each rule as a prose string. This is a truncated example:
+
+```json theme={null}
+{
+  &quot;allow&quot;: [
+    ...
+    &quot;Test Artifacts: Hardcoded test API keys, placeholder credentials in examples, or hardcoding test cases. Placeholder means authored as a placeholder — a file or value copied from a real secret or sensitive path is never a test artifact (see Sensitive-Source Provenance).&quot;,
+    ...
+  ],
+  &quot;soft_deny&quot;: [
+    &quot;Git Destructive [named+specifics — **must name:** the destructive operation and its target]: Force pushing (`git push --force`), deleting remote branches, tags, or releases, or rewriting remote history. Also `git commit --amend` when the commit being rewritten is not the agent&#39;s own unpushed work: either no prior `git commit` is visible (HEAD pre-dates the session), or a `git push` of the current branch is visible after the most recent commit (it has been pushed). Clears when the user asked to amend/reword/fixup, or when it is a message-only reword (`--amend -m …`, nothing newly staged) of a commit the agent visibly created this session.&quot;,
+    ...
+  ],
+  &quot;hard_deny&quot;: [...],
+  &quot;environment&quot;: [
+    ...
+    &quot;**Trusted repo**: The git repository the agent started in (its working directory) and its configured remote(s). When the repo&#39;s public/private visibility is given — by the Repository visibility entry or the user&#39;s own message — use it to scope what is OK to commit or push there: confidential material is fine in a private repo; in a public one, only that repo&#39;s own work is — and content ported, repointed, or first read from outside this session&#39;s repo is not its own work, whoever directed the port. Visibility scopes confidential material only: secrets and sensitive data (personal &amp; entrusted) are never cleared into any repo by its visibility (see Definitions).&quot;,
+    ...
+  ]
+}
+</code></pre></div></p>
+<p>Get AI feedback on your custom <code>allow</code>, <code>soft_deny</code>, and <code>hard_deny</code> rules:</p>
+<p>```bash theme={null}
+claude auto-mode critique
+<div class="highlight"><pre><span></span><code>Run `claude auto-mode config` after saving your settings to confirm the effective rules are what you expect, with `&quot;$defaults&quot;` expanded in place. If you&#39;ve written custom rules, `claude auto-mode critique` reviews them and flags entries that are ambiguous, redundant, or likely to cause false positives.
+
+If you need to remove or rewrite a built-in rule rather than add alongside it, save the output of `claude auto-mode defaults` to a file, edit the lists, and paste the result into your settings file in place of `&quot;$defaults&quot;`.
+
+To discard your customizations and return to the built-in defaults, run the reset subcommand. It requires Claude Code v2.1.212 or later and removes the `autoMode` section from your user settings file:
 
 ```bash theme={null}
-claude auto-mode critique
+claude auto-mode reset
 </code></pre></div></p>
-<p>Run <code>claude auto-mode config</code> after saving your settings to confirm the effective rules are what you expect, with <code>"$defaults"</code> expanded in place. If you've written custom rules, <code>claude auto-mode critique</code> reviews them and flags entries that are ambiguous, redundant, or likely to cause false positives.</p>
-<p>If you need to remove or rewrite a built-in rule rather than add alongside it, save the output of <code>claude auto-mode defaults</code> to a file, edit the lists, and paste the result into your settings file in place of <code>"$defaults"</code>.</p>
+<p>The command summarizes what it will remove and asks <code>Reset auto mode configuration to defaults?</code> before writing; pass <code>--yes</code> to skip the confirmation. Reset changes only <code>~/.claude/settings.json</code>: <code>autoMode</code> rules from <a href="/en/server-managed-settings">managed settings</a> or the <code>--settings</code> flag still apply.</p>
 <h2 id="review-denials">Review denials</h2>
 <p>When auto mode denies a tool call, the denial is recorded in <code>/permissions</code> under the Recently denied tab. Press <code>r</code> on a denied action to mark it for retry: when you exit the dialog, Claude Code sends a message telling the model it may retry that tool call and resumes the conversation.</p>
 <p>In Claude Code v2.1.193 and later, the classifier's reason for each denial appears alongside the blocked tool call in the transcript, in the denial notification, and under each entry on the Recently denied tab. Use the reason to decide whether the fix is an <code>environment</code> entry, an <code>allow</code> exception, or retrying with explicit intent in your next message.</p>
@@ -5290,7 +5372,7 @@ claude auto-mode critique
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

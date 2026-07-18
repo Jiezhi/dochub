@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -2524,6 +2524,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#telemetry-on-by-default-with-an-explicit-off-switch-absorbed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Telemetry on by default, with an explicit off-switch — Absorbed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#spec-correct-error-codes-via-a-central-translator-breaking-wire-error-code" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2633,6 +2644,17 @@
     <span class="md-ellipsis">
       
         Proxy request-context stash — Absorbed (post-review fix)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-response-cache-via-keyvalueresponsecachestore-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared response cache via KeyValueResponseCacheStore — New
       
     </span>
   </a>
@@ -2783,6 +2805,17 @@
     <span class="md-ellipsis">
       
         Retained OAuth / DCR hardening — Absorbed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#templated-resource-parameters-are-path-screened-by-default-breaking-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Templated resource parameters are path-screened by default — Breaking (behavior)
       
     </span>
   </a>
@@ -10538,6 +10571,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#telemetry-on-by-default-with-an-explicit-off-switch-absorbed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Telemetry on by default, with an explicit off-switch — Absorbed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#spec-correct-error-codes-via-a-central-translator-breaking-wire-error-code" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10647,6 +10691,17 @@
     <span class="md-ellipsis">
       
         Proxy request-context stash — Absorbed (post-review fix)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-response-cache-via-keyvalueresponsecachestore-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared response cache via KeyValueResponseCacheStore — New
       
     </span>
   </a>
@@ -10797,6 +10852,17 @@
     <span class="md-ellipsis">
       
         Retained OAuth / DCR hardening — Absorbed
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#templated-resource-parameters-are-path-screened-by-default-breaking-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Templated resource parameters are path-screened by default — Breaking (behavior)
       
     </span>
   </a>
@@ -10961,6 +11027,9 @@
 <h3 id="single-server-span-per-request-absorbed-post-migration-fix">Single SERVER span per request — Absorbed (post-migration fix)</h3>
 <p>SDK v2 seeds an <code>OpenTelemetryMiddleware</code> into every lowlevel <code>Server</code>, so each inbound request already emits a SERVER span. FastMCP emits its own richer SERVER span per request (with <code>fastmcp.*</code> and auth/session attributes), so a server with an OTel exporter installed would export <strong>two</strong> SERVER spans per request under different attribute conventions. <code>LowLevelServer.__init__</code> now drops the SDK's seeded <code>OpenTelemetryMiddleware</code> (matched by type, not position, leaving any other seeded middleware intact) and keeps FastMCP's spans. Inbound W3C trace-context extraction is unaffected — FastMCP's telemetry reads <code>traceparent</code> from <code>_meta</code> itself, so distributed traces still link client to server. Client-side is not double-counted: the SDK's <code>ClientSession</code> emits a low-level <code>MCP send &lt;method&gt;</code> CLIENT span that nests <em>under</em> FastMCP's high-level client span, a legitimate parent/child hierarchy rather than a duplicate.</p>
 <p><em>Verify:</em> <code>fastmcp_slim/fastmcp/server/low_level.py</code> (the <code>OpenTelemetryMiddleware</code> filter); <code>tests/server/telemetry/test_server_tracing.py::TestSingleServerSpan</code>.</p>
+<h3 id="telemetry-on-by-default-with-an-explicit-off-switch-absorbed">Telemetry on by default, with an explicit off-switch — Absorbed</h3>
+<p>FastMCP's OpenTelemetry instrumentation is on by default. Because FastMCP uses only the OpenTelemetry API, span creation is a no-op with negligible overhead (the API's <code>NonRecordingSpan</code>) unless the user configures an SDK and exporter — so being always-on costs nothing until you opt into collection. The new <code>FASTMCP_ENABLE_TELEMETRY</code> setting (<code>fastmcp.settings.enable_telemetry</code>, default <code>true</code>) is the explicit off-switch: set it to <code>false</code> and <code>get_tracer()</code> returns a genuine no-op tracer, so no FastMCP spans are created even when an SDK is configured. The off-switch governs FastMCP's own spans (all SERVER spans, plus FastMCP's high-level CLIENT span); the SDK's low-level <code>mcp-python-sdk</code> <code>MCP send &lt;method&gt;</code> CLIENT spans are governed by the user's OpenTelemetry SDK, not this setting. FastMCP's SERVER span now also carries <code>mcp.protocol.version</code> — the attribute the dropped SDK <code>OpenTelemetryMiddleware</code> set — restoring parity with the SDK's semantic conventions.</p>
+<p><em>Verify:</em> <code>fastmcp_slim/fastmcp/settings.py</code> (<code>enable_telemetry</code>); <code>fastmcp_slim/fastmcp/telemetry.py</code> (<code>get_tracer</code> off-switch); <code>fastmcp_slim/fastmcp/server/telemetry.py</code> (<code>get_protocol_span_attributes</code>); <code>tests/server/telemetry/test_server_tracing.py::TestTelemetryEnabledByDefault</code>, <code>::TestProtocolVersionAttribute</code>.</p>
 <h3 id="spec-correct-error-codes-via-a-central-translator-breaking-wire-error-code">Spec-correct error codes via a central translator — Breaking (wire error code)</h3>
 <p>Resource-not-found responses from the core <code>resources/read</code> handler previously used <code>-32002</code>. SEP-2164 (and the SDK's own mcpserver, which maps <code>ResourceNotFoundError</code> → <code>INVALID_PARAMS</code>) makes this <code>-32602</code>. The per-adapter <code>MCPError(code=..., ...)</code> literals in <code>server/mixins/mcp_operations.py</code> are replaced by a single <code>fastmcp.exceptions.to_mcp_error()</code> translator that maps FastMCP's public exceptions to the <code>mcp_types</code> code constants (<code>NotFoundError</code>/<code>DisabledError</code>/<code>ValidationError</code> → <code>INVALID_PARAMS</code>, else <code>INTERNAL_ERROR</code>). Clients that string-matched on the old <code>-32002</code> for resource-not-found must switch to <code>-32602</code>; the human-readable message ("Resource not found: ...") is unchanged. The opt-in <code>ErrorHandlingMiddleware</code>, which has its own documented per-method-prefix code mapping, is intentionally left as-is.</p>
 <p><em>Verify:</em> <code>fastmcp_slim/fastmcp/exceptions.py</code> (<code>to_mcp_error</code>); <code>fastmcp_slim/fastmcp/server/mixins/mcp_operations.py</code>; <code>tests/test_exceptions.py</code>.</p>
@@ -10997,6 +11066,16 @@
 <h3 id="proxy-request-context-stash-absorbed-post-review-fix">Proxy request-context stash — Absorbed (post-review fix)</h3>
 <p>Proxy forwarding handlers stash the request context so a backend that issues a server-initiated request (list_roots/sampling/elicitation) can relay it back to the proxy's own client. This stash was initially applied only on the tool path; commit <code>1ac166bd</code> extended it to proxied resources, templates, and prompts.</p>
 <p><em>Verify:</em> commit <code>1ac166bd</code>, <code>server/providers/proxy.py</code>.</p>
+<h3 id="shared-response-cache-via-keyvalueresponsecachestore-new">Shared response cache via <code>KeyValueResponseCacheStore</code> — New</h3>
+<p>The SDK's client response cache (SEP-2549) reads and writes through a pluggable <code>ResponseCacheStore</code>; the default is a per-client in-memory LRU. FastMCP adds <code>KeyValueResponseCacheStore</code>, an adapter over the same <code>AsyncKeyValue</code> key-value abstraction the event store and OAuth proxy already use, so a fleet of clients (e.g. proxy replicas) can share one Redis-backed response cache. Pass it via <code>CacheConfig(store=...)</code>; a custom store requires an explicit <code>partition</code> (SDK) and <code>target_id</code> (FastMCP). Results serialize through a type-tagged envelope validated against an allowlist of cacheable result models — an unknown tag is a cache miss, never an import-by-name — and each adapter owns its own collection so <code>clear()</code> never touches another tenant.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">KeyValueResponseCacheStore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.client.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">key_value.aio.stores.redis</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisStore</span>
+
+<span class="n">store</span> <span class="o">=</span> <span class="n">KeyValueResponseCacheStore</span><span class="p">(</span><span class="n">storage</span><span class="o">=</span><span class="n">RedisStore</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;redis://localhost&quot;</span><span class="p">))</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">store</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="s2">&quot;tenant-a&quot;</span><span class="p">,</span> <span class="n">target_id</span><span class="o">=</span><span class="s2">&quot;weather-api&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><em>Verify:</em> <code>fastmcp_slim/fastmcp/client/caching.py</code>, <code>tests/client/client/test_kv_response_cache.py</code>.</p>
 <h2 id="http">HTTP</h2>
 <p>The maintainer asked whether FastMCP can now delete its custom HTTP app and let the SDK's <code>Server.streamable_http_app()</code> handle everything. The answer for this PR is <strong>no</strong> — every override earns its keep. Convergence is a v4 project gated on three upstream additions (see <a href="/development/v4-notes/feature-program">Feature Program</a>).</p>
 <h3 id="kept-overrides-absorbed">Kept overrides — Absorbed</h3>
@@ -11079,6 +11158,10 @@
 <h3 id="retained-oauth-dcr-hardening-absorbed">Retained OAuth / DCR hardening — Absorbed</h3>
 <p>FastMCP keeps its own DCR redirect-URI hardening (PRs #4419, #4408) regardless of the SDK's validation, which still accepts unsafe <code>javascript:</code>/<code>data:</code> redirect schemes at the model level (sdk-feedback #4). The streamable-HTTP DNS-rebinding protection above is a second retained security surface.</p>
 <p><em>Verify:</em> recent commits <code>67527c1f</code> (block unsafe OAuth redirect schemes), <code>57a27992</code> (DNS rebinding), <code>cccb529f</code> (DCR redirect URI validation) on <code>main</code>.</p>
+<h3 id="templated-resource-parameters-are-path-screened-by-default-breaking-behavior">Templated resource parameters are path-screened by default — Breaking (behavior)</h3>
+<p>Every templated resource now has its extracted parameter values screened for path-traversal (<code>..</code> segments), absolute paths, and null bytes <strong>before the handler runs</strong> — on by default, at the server's read chokepoint, covering local and provider-sourced (mounted/proxied) templates alike. Previously these payloads reached handlers raw; a template whose parameter flowed into a filesystem path or upstream URL was exposed unless the author added their own check. A rejected read now surfaces a non-leaky "resource not found" error (<code>-32602</code>) and a debug log.</p>
+<p>The check is component-based, matching the SDK's <code>contains_path_traversal</code>: only a standalone <code>..</code> segment is traversal, so values that merely contain dots (<code>HEAD~3..HEAD</code>, <code>file.tar.gz</code>) and dotfiles (<code>.env</code>) still pass. This can break a template that legitimately accepts <code>..</code>-bearing or absolute values — exempt the parameter with <code>ResourceSecurity(exempt_params={...})</code>, disable per-component with <code>security=None</code>, or set a server-wide default with <code>FastMCP(resource_security=...)</code>. See <a href="/servers/resources#path-security">Resources → Path Security</a>.</p>
+<p><em>Verify:</em> <code>fastmcp_slim/fastmcp/resources/security.py</code> (<code>ResourceSecurity</code>), the screening block in <code>FastMCP.read_resource</code> (<code>fastmcp_slim/fastmcp/server/server.py</code>), and <code>tests/resources/test_resource_security.py</code>.</p>
 <h2 id="removed-in-40">Removed in 4.0</h2>
 <p>Deprecations that warned in 3.x are removed in 4.0. Each entry below is a hard removal — the old surface raises <code>TypeError</code> / <code>AttributeError</code> rather than warning, unless noted otherwise.</p>
 <h3 id="module-and-class-shims">Module and class shims</h3>
@@ -11165,7 +11248,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

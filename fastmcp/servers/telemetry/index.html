@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -5827,6 +5827,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#turning-telemetry-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turning Telemetry Off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5879,6 +5896,17 @@
     <span class="md-ellipsis">
       
         Span Hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background tasks
       
     </span>
   </a>
@@ -10069,6 +10097,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How It Works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#turning-telemetry-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turning Telemetry Off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -10121,6 +10166,17 @@
     <span class="md-ellipsis">
       
         Span Hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background tasks
       
     </span>
   </a>
@@ -10323,15 +10379,18 @@
 
   <h1>OpenTelemetry</h1>
 
-<p>FastMCP includes native OpenTelemetry instrumentation for observability. Traces are automatically generated for tool, prompt, resource, and resource template operations, providing visibility into server behavior, request handling, and provider delegation chains.</p>
+<p>FastMCP includes native OpenTelemetry instrumentation for observability. Traces are automatically generated for tool, prompt, resource, resource template, and task management operations, providing visibility into server behavior, request handling, and provider delegation chains.</p>
 <h2 id="how-it-works">How It Works</h2>
 <p>FastMCP uses the OpenTelemetry API for instrumentation. This means:</p>
 <ul>
-<li><strong>Zero configuration required</strong> - Instrumentation is always active</li>
+<li><strong>On by default</strong> - Instrumentation is active out of the box, no opt-in required</li>
 <li><strong>No overhead when unused</strong> - Without an SDK, all operations are no-ops</li>
 <li><strong>Bring your own SDK</strong> - You control collection, export, and sampling</li>
 <li><strong>Works with any OTEL backend</strong> - Jaeger, Zipkin, Datadog, New Relic, etc.</li>
 </ul>
+<p>Because FastMCP only depends on the OpenTelemetry API, span creation is a no-op until you configure an SDK and exporter — so being on by default costs nothing until you opt into collection.</p>
+<h3 id="turning-telemetry-off">Turning Telemetry Off</h3>
+<p>To disable FastMCP's instrumentation entirely, set <code>FASTMCP_ENABLE_TELEMETRY=false</code> (or <code>fastmcp.settings.enable_telemetry = False</code>). When disabled, FastMCP creates no spans even if an SDK is configured.</p>
 <h2 id="enabling-telemetry">Enabling Telemetry</h2>
 <p>The easiest way to export traces is using <code>opentelemetry-instrument</code>, which configures the SDK automatically:</p>
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>opentelemetry-distro<span class="w"> </span>opentelemetry-exporter-otlp
@@ -10377,11 +10436,15 @@ opentelemetry-instrument<span class="w"> </span>fastmcp<span class="w"> </span>r
 <td><code>prompts/get {name}</code></td>
 <td>Prompt render (e.g., <code>prompts/get greeting</code>)</td>
 </tr>
+<tr>
+<td><code>tasks/{operation}</code></td>
+<td>Task management (<code>tasks/get</code>, <code>tasks/result</code>, <code>tasks/list</code>, or <code>tasks/cancel</code>)</td>
+</tr>
 </tbody>
 </table>
 <p>For mounted servers, an additional <code>delegate {name}</code> span shows the delegation to the child server.</p>
 <h3 id="client-spans">Client Spans</h3>
-<p>The FastMCP client creates spans for outgoing requests with the same naming pattern (<code>tools/call {name}</code>, <code>resources/read</code>, <code>prompts/get {name}</code>).</p>
+<p>The FastMCP client creates spans for outgoing requests with the same naming pattern (<code>tools/call {name}</code>, <code>resources/read</code>, <code>prompts/get {name}</code>, and <code>tasks/{operation}</code>).</p>
 <h3 id="span-hierarchy">Span Hierarchy</h3>
 <p>Spans form a hierarchy showing the request flow. For mounted servers:</p>
 <div class="highlight"><pre><span></span><code>tools/call weather_forecast (CLIENT)
@@ -10394,6 +10457,48 @@ opentelemetry-instrument<span class="w"> </span>fastmcp<span class="w"> </span>r
   └── tools/call remote_search (SERVER, provider=ProxyProvider)
         └── [remote server spans via trace context propagation]
 </code></pre></div>
+<h3 id="background-tasks">Background tasks</h3>
+<p>Background task traces have two parts:</p>
+<ul>
+<li>Task submission and management requests use normal client-to-server context propagation. <code>tasks/get</code>, <code>tasks/result</code>, <code>tasks/list</code>, and <code>tasks/cancel</code> server spans are descendants of the corresponding FastMCP client spans.</li>
+<li>Deferred execution runs in a Docket worker. Docket records its <code>CONSUMER</code> span as a new trace root with a span link to the submission context, rather than making it a child of the submission span. Custom spans created inside the task are children of that worker span.</li>
+</ul>
+<p>Span links preserve the causal relationship without forcing worker sampling to inherit the submit trace's sampling decision. Some tracing backends do not display links prominently, so the worker trace may look disconnected even though the link is present.</p>
+<p>Frequent status and list polling can produce more detail than you need. You can drop those client and server spans with a sampler that checks the span name before delegating to <code>ParentBased</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry.sdk.trace</span><span class="w"> </span><span class="kn">import</span> <span class="n">TracerProvider</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry.sdk.trace.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ALWAYS_ON</span><span class="p">,</span>
+    <span class="n">Decision</span><span class="p">,</span>
+    <span class="n">ParentBased</span><span class="p">,</span>
+    <span class="n">Sampler</span><span class="p">,</span>
+    <span class="n">SamplingResult</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">DropTaskPolls</span><span class="p">(</span><span class="n">Sampler</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_delegate</span> <span class="o">=</span> <span class="n">ParentBased</span><span class="p">(</span><span class="n">ALWAYS_ON</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">should_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent_context</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;tasks/get&quot;</span><span class="p">,</span> <span class="s2">&quot;tasks/list&quot;</span><span class="p">}:</span>
+            <span class="k">return</span> <span class="n">SamplingResult</span><span class="p">(</span><span class="n">Decision</span><span class="o">.</span><span class="n">DROP</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_delegate</span><span class="o">.</span><span class="n">should_sample</span><span class="p">(</span>
+            <span class="n">parent_context</span><span class="p">,</span>
+            <span class="n">trace_id</span><span class="p">,</span>
+            <span class="n">name</span><span class="p">,</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;DropTaskPolls&quot;</span>
+
+
+<span class="n">provider</span> <span class="o">=</span> <span class="n">TracerProvider</span><span class="p">(</span><span class="n">sampler</span><span class="o">=</span><span class="n">DropTaskPolls</span><span class="p">())</span>
+<span class="n">trace</span><span class="o">.</span><span class="n">set_tracer_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+</code></pre></div>
+<p>The name check must happen before <code>ParentBased</code> delegates. If the name-based sampler is nested inside <code>ParentBased</code>, it is not consulted for child spans whose parent was already sampled.</p>
 <h2 id="programmatic-configuration">Programmatic Configuration</h2>
 <p>For more control, configure the SDK in your Python code before importing FastMCP:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace</span>
@@ -10547,7 +10652,11 @@ opentelemetry-instrument<span class="w"> </span>fastmcp<span class="w"> </span>r
 <tbody>
 <tr>
 <td><code>mcp.method.name</code></td>
-<td>The MCP method being called (<code>tools/call</code>, <code>resources/read</code>, <code>prompts/get</code>)</td>
+<td>The MCP method being called (<code>tools/call</code>, <code>resources/read</code>, <code>prompts/get</code>, <code>tasks/get</code>, etc.)</td>
+</tr>
+<tr>
+<td><code>mcp.protocol.version</code></td>
+<td>The negotiated MCP protocol version for the request</td>
 </tr>
 <tr>
 <td><code>mcp.session.id</code></td>
@@ -10735,7 +10844,7 @@ opentelemetry-instrument<span class="w"> </span>fastmcp<span class="w"> </span>r
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

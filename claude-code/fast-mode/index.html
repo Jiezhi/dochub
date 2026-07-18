@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -2456,6 +2456,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#use-fast-mode-behind-proxies-and-llm-gateways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use fast mode behind proxies and LLM gateways
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#require-per-session-opt-in" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3261,6 +3272,33 @@
     
   
     Microsoft foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mobile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile
   
 
     
@@ -4846,6 +4884,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w29
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5034,6 +5099,17 @@
     <span class="md-ellipsis">
       
         Enable fast mode for your organization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-fast-mode-behind-proxies-and-llm-gateways" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use fast mode behind proxies and LLM gateways
       
     </span>
   </a>
@@ -5234,6 +5310,23 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Claude AI</strong> (Team and Enterprise): an Owner enables it at <a href="https://claude.ai/admin-settings/claude-code">Admin Settings &gt; Claude Code</a></li>
 </ul>
 <p>Another option to disable fast mode entirely is to set <code>CLAUDE_CODE_DISABLE_FAST_MODE=1</code>. See <a href="/en/env-vars">Environment variables</a>.</p>
+<h3 id="use-fast-mode-behind-proxies-and-llm-gateways">Use fast mode behind proxies and LLM gateways</h3>
+<p>Before offering fast mode, Claude Code checks your organization's fast mode availability with a request directly to <code>api.anthropic.com</code>. The check doesn't follow <a href="/en/llm-gateway-connect#set-the-base-url-and-credential"><code>ANTHROPIC_BASE_URL</code></a>, so on a network that routes Claude traffic through an <a href="/en/llm-gateway">LLM gateway</a> and blocks direct egress to <code>api.anthropic.com</code>, the check fails even though inference requests work. The check does use a configured <a href="/en/network-config#proxy-configuration">HTTP proxy</a>, so a network block fails the check only where <code>api.anthropic.com</code> is unreachable even through the proxy.</p>
+<p>When the check fails, <code>/fast</code> reports "Fast mode unavailable due to network connectivity issues", and requests run at standard speed, even when your organization has fast mode enabled. A check that succeeded in the past keeps working from its cached result, so a blocked check mostly affects new installations.</p>
+<p>The same connectivity message appears on an open network when the check reaches <code>api.anthropic.com</code> but presents a credential Anthropic rejects. A session whose resolved key is a gateway-issued credential, held in <a href="/en/llm-gateway-connect#set-the-base-url-and-credential"><code>ANTHROPIC_API_KEY</code></a> or produced by an <a href="/en/settings#available-settings"><code>apiKeyHelper</code></a>, sends the check with that key, and the rejected request is reported as a connectivity failure.</p>
+<p>To restore fast mode, allowlist direct egress to <code>api.anthropic.com</code> where a network block is the cause, or set whichever variable matches how the check fails:</p>
+<ul>
+<li><code>CLAUDE_CODE_SKIP_FAST_MODE_NETWORK_ERRORS=1</code> treats a failed check as available and still honors a "disabled by your organization" response. Use it when your network refuses the connection, or when Anthropic rejects a gateway credential; allowlisting doesn't help the credential case, since nothing is blocked.</li>
+<li><code>CLAUDE_CODE_SKIP_FAST_MODE_ORG_CHECK=1</code> skips the check entirely. Use it when your network intercepts the request rather than refusing it.</li>
+</ul>
+<p>Two gateway configurations report "Fast mode has been disabled by your organization" rather than the connectivity message, even when your organization has fast mode enabled:</p>
+<ul>
+<li>A session that authenticates with <a href="/en/llm-gateway-connect#set-the-base-url-and-credential"><code>ANTHROPIC_AUTH_TOKEN</code></a> alone skips the check: without a claude.ai login or an Anthropic API key, and without a cached successful check, Claude Code treats fast mode as disabled by your organization without sending the request.</li>
+<li>A proxy that intercepts the check and answers with its own page, for example a TLS-inspecting proxy returning an HTTP 200 block page, is read as a response saying your organization has fast mode disabled.</li>
+</ul>
+<p>In both cases, set <code>CLAUDE_CODE_SKIP_FAST_MODE_ORG_CHECK=1</code> to restore fast mode. <code>CLAUDE_CODE_SKIP_FAST_MODE_NETWORK_ERRORS</code> doesn't apply to either case, since it only bypasses failed checks and both of these produce a disabled response instead. Allowlisting direct egress doesn't help the bearer-token case, which never sends the request.</p>
+<p>The variables affect only the client-side check. When your organization has fast mode disabled, the API rejects fast mode requests whether or not they're set.</p>
+<p>Setting <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code> also suppresses the availability check. Without a previously cached successful check, <code>/fast</code> reports "Fast mode is currently unavailable"; both skip variables restore fast mode in that configuration too.</p>
 <h3 id="require-per-session-opt-in">Require per-session opt-in</h3>
 <p>By default, fast mode a user turns on in an interactive session persists across sessions: it stays on in future sessions. To change this, set <code>fastModePerSessionOptIn</code> to <code>true</code> in any <a href="/en/settings#settings-files">settings file</a>, which causes each session to start with fast mode off and requires users to explicitly enable it with <code>/fast</code>. Owners on <a href="https://claude.com/pricing?utm_source=claude_code\&amp;utm_medium=docs\&amp;utm_content=fast_mode_teams#team-&amp;-enterprise">Team</a> or <a href="https://anthropic.com/contact-sales?utm_source=claude_code\&amp;utm_medium=docs\&amp;utm_content=fast_mode_enterprise">Enterprise</a> plans can deploy it organization-wide through <a href="/en/server-managed-settings">server-managed settings</a>.</p>
 <p><code>json theme={null}
@@ -5316,7 +5409,7 @@ Use this file to discover all available pages before exploring further.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

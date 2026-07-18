@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -1795,6 +1795,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Set the gateway URL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lock-behavior-across-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lock behavior across sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-the-locks-dont-cover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings the locks don't cover
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -3289,6 +3317,33 @@
     
   
     Microsoft foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mobile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile
   
 
     
@@ -4874,6 +4929,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w29
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5082,6 +5164,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Set the gateway URL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lock-behavior-across-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lock behavior across sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings-the-locks-dont-cover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings the locks don't cover
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5422,14 +5532,91 @@ Use the first failing check to locate the problem:
 <p>When the certificate rotates, every developer sees the trust prompt again, so treat rotations as a planned event and republish the fingerprint.</p>
 <p>Once signed in, the <a href="/en/model-config">model picker</a> shows the models in the developer's <code>availableModels</code> allowlist, managed settings apply at startup and refresh hourly, and telemetry routes to your collector. Sessions refresh silently before <code>ttl_hours</code> expiry, and a failed refresh after IdP deprovisioning prompts a re-login.</p>
 <h3 id="set-the-gateway-url">Set the gateway URL</h3>
-<p>Set both keys in the per-OS <a href="/en/settings#settings-files">managed settings file</a> you deploy via MDM or directly on disk, and <code>/login</code> opens directly on the <strong>Cloud gateway</strong> screen with the URL filled in:</p>
-<p><code>json theme={null}
+<p>Three keys go in the per-OS <a href="/en/settings#settings-files">managed settings file</a> you deploy via MDM or directly on disk. <code>forceLoginMethod</code> and <code>forceLoginGatewayUrl</code> open <code>/login</code> directly on the <strong>Cloud gateway</strong> screen with the URL filled in, and <code>parentSettingsBehavior: "merge"</code> lets Claude Desktop deliver the gateway's policy to the Claude Code sessions it launches, explained in <a href="#deliver-policy-to-claude-desktop-sessions">Deliver policy to Claude Desktop sessions</a>:</p>
+<p>```json theme={null}
 {
   "forceLoginMethod": "gateway",
-  "forceLoginGatewayUrl": "https://claude-gateway.internal.example.com"
-}</code></p>
-<p>The developer presses Enter to connect. The first-connect TLS fingerprint prompt still appears.</p>
-<p>There is no gateway option in the login picker for a developer to select manually, and <code>forceLoginGatewayUrl</code> is ignored in a developer's own settings files. <code>forceLoginMethod</code> alone, without a URL, leaves the developer at a "Contact your IT administrator" message. Both keys belong in the file you push to machines, not in the gateway's <code>managed.policies[].cli</code> block, which only reaches clients that are already connected.</p>
+  "forceLoginGatewayUrl": "https://claude-gateway.internal.example.com",
+  "parentSettingsBehavior": "merge"
+}
+<div class="highlight"><pre><span></span><code>The developer presses Enter to connect. The [first-connect TLS fingerprint prompt](#connect-developers) still appears.
+
+A developer can&#39;t set this up manually. The login picker has no gateway option, and `forceLoginGatewayUrl` is ignored in a developer&#39;s own settings files. `forceLoginMethod` alone, without a URL, leaves the developer at a &quot;Contact your IT administrator&quot; message. The login keys belong in the file you push to machines, not in the gateway&#39;s `managed.policies[].cli` block, which only reaches clients that are already connected.
+
+### Deliver policy to Claude Desktop sessions
+
+Claude Desktop runs embedded Claude Code sessions and passes the gateway&#39;s policy to each session it launches. Claude Desktop gets that policy from the gateway itself. It&#39;s pointed at the gateway through its own managed configuration and signs in with its own flow, separate from the `forceLoginMethod` and `forceLoginGatewayUrl` keys in [Set the gateway URL](#set-the-gateway-url).
+
+Settings passed by a launching process are parent settings. Claude Code ignores parent settings on any machine that has an admin-deployed managed source, unless the highest-priority source sets `parentSettingsBehavior: &quot;merge&quot;`.
+
+#### Which machines need the opt-in
+
+Machines that only run Claude Desktop need it, because parent settings are the only way the gateway&#39;s policy reaches embedded sessions. Without the opt-in those sessions run with none of the gateway&#39;s restrictions, and nothing warns you.
+
+Machines where developers sign in through `/login` don&#39;t need it; every Claude Code invocation fetches its policy from the gateway directly. Fleets that configure a [`policyHelper`](/en/settings#compute-managed-settings-with-a-policy-helper) can&#39;t use it, because the helper&#39;s output replaces every other managed source and parent settings are never merged while a helper is configured.
+
+#### Set the opt-in
+
+Deploy the key, mirror it to the source that wins on each machine, then verify.
+
+&lt;Steps&gt;
+  &lt;Step title=&quot;Deploy the opt-in in the managed settings file&quot;&gt;
+    The [snippet above](#set-the-gateway-url) already includes `parentSettingsBehavior: &quot;merge&quot;`, so the file you push to machines carries it.
+  &lt;/Step&gt;
+
+  &lt;Step title=&quot;Set the same key in any source that outranks the file&quot;&gt;
+    Only the highest-priority admin source&#39;s value counts. A managed-preferences plist on macOS or an HKLM policy on Windows outranks the `managed-settings.json` file, and the gateway&#39;s own remote managed settings outrank both, so on machines that sign in to the gateway, also set the key in the gateway policy&#39;s [`cli` block](/en/claude-apps-gateway-config#managed).
+  &lt;/Step&gt;
+
+  &lt;Step title=&quot;Check which source won&quot;&gt;
+    Call the Agent SDK&#39;s [`resolveSettings()`](/en/agent-sdk/typescript#resolvesettings). Its result includes a `sources` list; the managed policy entry there carries a `policyOrigin` field naming the active source. `resolveSettings()` doesn&#39;t execute a configured `policyHelper`, so on helper fleets its answer doesn&#39;t reflect the live session.
+  &lt;/Step&gt;
+&lt;/Steps&gt;
+
+### Restrict parent settings
+
+Once you deploy `parentSettingsBehavior: &quot;merge&quot;`, any host process that launches Claude Code can supply parent settings, not only Claude Desktop but also an Agent SDK application or an IDE extension.
+
+Claude Code filters parent settings against an allowlist of restrictive keys, but some allowed keys can grant access rather than restrict it. Unless you set the `allowManaged*Only` locks, permission allow rules and sandbox allowlists supplied by the host still apply. Your policy&#39;s deny and ask rules stay in force either way; [they&#39;re evaluated before any allow rule](/en/permissions#manage-permissions).
+
+#### Deploy the locks
+
+To keep parent settings as close to restriction-only as the filter supports, add all five `allowManaged*Only` locks, and the allowlists they govern, to the same sources as the merge opt-in:
+
+```json theme={null}
+{
+  &quot;forceLoginMethod&quot;: &quot;gateway&quot;,
+  &quot;forceLoginGatewayUrl&quot;: &quot;https://claude-gateway.internal.example.com&quot;,
+  &quot;parentSettingsBehavior&quot;: &quot;merge&quot;,
+  &quot;allowManagedPermissionRulesOnly&quot;: true,
+  &quot;allowManagedMcpServersOnly&quot;: true,
+  &quot;allowManagedHooksOnly&quot;: true,
+  &quot;allowedMcpServers&quot;: [{ &quot;serverUrl&quot;: &quot;https://mcp.internal.example.com/*&quot; }],
+  &quot;sandbox&quot;: {
+    &quot;network&quot;: {
+      &quot;allowManagedDomainsOnly&quot;: true,
+      &quot;allowedDomains&quot;: [&quot;github.com&quot;, &quot;*.npmjs.org&quot;]
+    },
+    &quot;filesystem&quot;: {
+      &quot;allowManagedReadPathsOnly&quot;: true,
+      &quot;denyRead&quot;: [&quot;~/&quot;],
+      &quot;allowRead&quot;: [&quot;~/projects&quot;]
+    }
+  }
+}
+</code></pre></div></p>
+<p>An OS policy, such as an HKLM registry policy or a managed-preferences plist, outranks this file, so deliver the whole snippet through it instead of the file. The gateway's remote managed settings outrank the OS policy and file sources but reach only connected clients. Mirror the locks, the allowlists, and the merge opt-in into the policy's <a href="/en/claude-apps-gateway-config#managed"><code>cli</code> block</a> and keep this file deployed, because machines that never connect, including ones that only run Claude Desktop, get their policy from the file alone.</p>
+<h4 id="lock-behavior-across-sources">Lock behavior across sources</h4>
+<p>Setting one lock doesn't restrict the others; each key is documented in the <a href="/en/settings#available-settings">settings reference</a>. From an admin source below the winner, the two sandbox locks still apply, and <code>allowManagedPermissionRulesOnly</code> still blocks parent-supplied allow rules and <code>additionalDirectories</code>. The hooks and MCP server locks, and <code>allowManagedPermissionRulesOnly</code>'s effect on the developer's own rules, need the winning source. On <a href="/en/settings#compute-managed-settings-with-a-policy-helper"><code>policyHelper</code></a> fleets, the locks are read from the helper's output alone.</p>
+<p>Each lock makes Claude Code ignore the developer's own entries for that setting, so include your organization's allowlists next to the locks. Locking network domains with an empty managed domain list blocks all sandboxed outbound traffic, and locking MCP servers with no managed or parent-supplied <code>allowedMcpServers</code> loads every server that <code>deniedMcpServers</code> doesn't block. <code>allowRead</code> entries only re-allow paths inside <code>denyRead</code> regions, so pair them with a managed <code>denyRead</code>.</p>
+<h4 id="settings-the-locks-dont-cover">Settings the locks don't cover</h4>
+<p>Four parent-supplied settings are honored even with all five locks set:</p>
+<ul>
+<li><strong><code>forceLoginOrgUUID</code></strong>: Claude Code honors a parent-supplied value when no admin source sets an org UUID. Gateway sign-in doesn't check this key, so it matters only for fleets that also use first-party Anthropic logins. An org UUID in any admin source blocks the parent's value, but the value Claude Code enforces comes from the highest-priority source, so set <code>forceLoginOrgUUID</code> there.</li>
+<li><strong><code>allowedMcpServers</code></strong>: Claude Code honors a parent-supplied allowlist when no admin source sets one, and <code>allowManagedMcpServersOnly</code> doesn't block it, because the lock enforces whichever list wins as the managed value, including a parent-supplied list when no admin source sets one. A list in any admin source blocks the parent's, but the list Claude Code enforces comes from the highest-priority source, so set <code>allowedMcpServers</code> there, next to the lock.</li>
+<li><strong><code>availableModels</code></strong>: Claude Code honors a parent-supplied model list when the winning managed source doesn't set one. If your fleet restricts models, set <code>availableModels</code> in the winning source.</li>
+<li><strong><code>strictPluginOnlyCustomization</code></strong>: this key passes the filter regardless of any lock, and it makes Claude Code ignore the developer's own customization, including protective hooks. No lock blocks it.</li>
+</ul>
 <h3 id="ci-pipelines-and-remote-machines">CI pipelines and remote machines</h3>
 <p>There is no service-token flow for unattended pipelines. Gateway sign-in always runs the browser device flow, so a CI job with no developer to approve the sign-in can't authenticate; configure those against your provider directly.</p>
 <p>Once a developer has signed in, every Claude Code invocation on that machine uses the gateway session, including non-interactive <code>claude -p</code> runs and sessions started by the Agent SDK, and the <a href="/en/claude-apps-gateway-config#managed">gateway policy applies to all of them</a>.</p>
@@ -5601,7 +5788,7 @@ Use the first failing check to locate the problem:
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

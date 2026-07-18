@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -3087,6 +3087,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../mobile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../model-config/" class="md-nav__link">
         
   
@@ -4801,6 +4828,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w29
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5115,7 +5169,14 @@ Tag each release as `{plugin-name}--v{version}`, where `{version}` matches the `
 ```bash theme={null}
 claude plugin tag --push
 </code></pre></div></p>
-<p>The <code>claude plugin tag</code> command derives the tag name from the plugin's manifest and the enclosing marketplace entry. Before creating the tag, it validates the plugin contents, checks that <code>plugin.json</code> and the marketplace entry agree on the version, requires a clean working tree under the plugin directory, and refuses if the tag already exists. Add <code>--dry-run</code> to see what would be tagged without creating it. Running <code>git tag secrets-vault--v2.1.0</code> directly is equivalent if you keep <code>plugin.json</code> and the marketplace entry in sync yourself.</p>
+<p>The <code>claude plugin tag</code> command derives the tag name from the plugin's manifest and the enclosing marketplace entry. Before creating the tag, it validates the plugin contents, checks that <code>plugin.json</code> and the marketplace entry agree on the version, requires a clean working tree under the plugin directory, and refuses if the tag already exists.</p>
+<ul>
+<li><code>--push</code> pushes the tag to the <code>origin</code> remote, so the repository needs a configured <code>origin</code> remote. Pass <code>--remote</code> to push to a different one.</li>
+<li>If the push fails, the tag is still created locally and the command exits with an error.</li>
+<li>With <code>--push</code>, a successful run ends with <code>Created tag secrets-vault--v2.1.0</code> and <code>Pushed to origin</code>, where the last line names the remote it pushed to. Without <code>--push</code>, the command prints the <code>git push</code> command to run instead.</li>
+<li><code>--dry-run</code> prints what would be tagged without creating it.</li>
+</ul>
+<p>Running <code>git tag secrets-vault--v2.1.0</code> directly is equivalent if you keep <code>plugin.json</code> and the marketplace entry in sync yourself.</p>
 <p>The plugin name prefix lets one marketplace repository host multiple plugins with independent version lines. The <code>--v</code> separator is parsed as a prefix match on the full plugin name, so plugin names that contain hyphens are handled correctly.</p>
 <p>When you install a plugin that declares <code>{ "name": "secrets-vault", "version": "~2.1.0" }</code>, Claude Code lists the marketplace's tags, filters to those starting with <code>secrets-vault--v</code>, and fetches the highest version satisfying <code>~2.1.0</code>. If no matching tag exists, the dependent plugin is disabled with an error listing the available versions.</p>
 <p>A marketplace added as a local folder path resolves tags the same way when the folder is a git repository. This requires Claude Code v2.1.196 or later. In two cases Claude Code installs the dependency from the folder's current contents instead:</p>
@@ -5201,13 +5262,20 @@ Auto-installed dependencies stay on disk after the plugins that installed them a
 ```bash theme={null}
 claude plugin prune
 </code></pre></div></p>
-<p>By default, prune operates at user scope. Use <code>--scope project</code> or <code>--scope local</code> to target a different scope. Pass <code>--dry-run</code> to list what would be removed without changing anything. Pass <code>-y</code> to skip the confirmation prompt. When stdin or stdout is not a terminal, prune lists the orphans and exits without removing them unless <code>-y</code> is passed.</p>
+<p>If nothing qualifies for removal, the command prints <code>Nothing to prune</code> with the reason and exits. This is the expected output on a fresh install, not an error.</p>
+<p>By default, prune operates at user scope and asks for confirmation before removing anything:</p>
+<ul>
+<li><code>--scope project</code> or <code>--scope local</code> targets a different scope.</li>
+<li><code>--dry-run</code> lists what would be removed without changing anything.</li>
+<li><code>-y</code> skips the confirmation prompt. When stdin or stdout isn't a terminal, prune lists the orphans and exits without removing them unless you pass <code>-y</code>.</li>
+</ul>
 <p>To prune as part of an uninstall, pass <code>--prune</code> to <code>claude plugin uninstall</code>. After removing the named plugin, Claude Code scans for and removes any auto-installed dependencies that are now orphaned. Plugins you installed yourself are never pruned, only those installed automatically through another plugin's <code>dependencies</code> array.</p>
+<p>The same confirmation behavior applies: pass <code>-y</code> to skip the prompt. When stdin or stdout isn't a terminal, the uninstall still completes, but the prune step lists the orphans and removes nothing unless you pass <code>-y</code>.</p>
 <p>For example, to uninstall <code>deploy-kit</code> and clean up the dependencies it leaves behind:</p>
 <p><code>bash theme={null}
 claude plugin uninstall deploy-kit --prune</code></p>
 <h2 id="resolve-dependency-errors">Resolve dependency errors</h2>
-<p>Dependency problems appear in <code>claude plugin list</code> and in the <code>/plugin</code> interface. Claude Code disables the affected plugin until you resolve the error. The table below lists the most common errors and how to resolve them.</p>
+<p>Dependency problems appear in <code>claude plugin list</code> and in the <code>/plugin</code> interface, as descriptive error messages rather than the literal codes in this table. Claude Code disables the affected plugin until you resolve the error. The table below lists the most common errors and how to resolve them.</p>
 <table>
 <thead>
 <tr>
@@ -5239,7 +5307,7 @@ claude plugin uninstall deploy-kit --prune</code></p>
 </tr>
 </tbody>
 </table>
-<p>To check for these errors programmatically, run <code>claude plugin list --json</code> and read the <code>errors</code> field on each plugin.</p>
+<p>To check for these errors programmatically, run <code>claude plugin list --json</code>. Plugins with problems include an <code>errors</code> field listing them. Plugins that loaded cleanly omit the field.</p>
 <h2 id="see-also">See also</h2>
 <ul>
 <li><a href="/en/plugins">Create plugins</a>: build plugins with skills, agents, and hooks</li>
@@ -5299,7 +5367,7 @@ claude plugin uninstall deploy-kit --prune</code></p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

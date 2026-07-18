@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -1227,6 +1227,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Response caching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharing-a-cache-across-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sharing a cache across clients
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9968,6 +9985,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Response caching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharing-a-cache-across-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sharing a cache across clients
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -10177,6 +10211,21 @@ This is a programmatic client that requires explicit function calls and provides
 <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">fresh</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools_mcp</span><span class="p">(</span><span class="n">cache_mode</span><span class="o">=</span><span class="s2">&quot;refresh&quot;</span><span class="p">)</span>
 </code></pre></div>
+<h3 id="sharing-a-cache-across-clients">Sharing a cache across clients</h3>
+<p>The default cache lives in each client's process. To share cached responses across a fleet — a set of proxy replicas backed by one Redis, for example — pass a <code>KeyValueResponseCacheStore</code>, FastMCP's adapter over the same <code>AsyncKeyValue</code> key-value abstraction the event store and OAuth proxy use. It accepts any compatible backend (memory, Redis, and more).</p>
+<p>A shared store mingles responses from different principals, so it requires an explicit <code>partition</code> that isolates them. Derive the partition from a verified credential — never from request data or the server URL — and construct a new client when the principal changes. Only responses the server marks <code>"public"</code> are ever served across partitions.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">KeyValueResponseCacheStore</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.client.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">key_value.aio.stores.redis</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisStore</span>
+
+<span class="n">backend</span> <span class="o">=</span> <span class="n">RedisStore</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;redis://localhost&quot;</span><span class="p">)</span>
+<span class="n">store</span> <span class="o">=</span> <span class="n">KeyValueResponseCacheStore</span><span class="p">(</span><span class="n">storage</span><span class="o">=</span><span class="n">backend</span><span class="p">)</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">store</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="s2">&quot;tenant-a&quot;</span><span class="p">,</span> <span class="n">target_id</span><span class="o">=</span><span class="s2">&quot;weather-api&quot;</span><span class="p">)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div>
+<p>The adapter serializes each result through a type-tagged envelope validated against an allowlist of cacheable result models, so a value naming an unknown type is treated as a cache miss rather than deserialized blindly. Each store instance owns its own collection namespace; <code>clear()</code> affects only that namespace, never another tenant's entries.</p>
 <h2 id="operations">Operations</h2>
 <p>FastMCP clients interact with three types of server components.</p>
 <p><strong>Tools</strong> are server-side functions that the client can execute with arguments. Call them with <code>call_tool()</code> and receive structured results.</p>
@@ -10289,7 +10338,7 @@ The FastMCP Client is designed as a foundational tool. Use it directly for deter
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

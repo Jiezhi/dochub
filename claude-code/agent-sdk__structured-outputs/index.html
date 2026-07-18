@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -3235,6 +3235,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../mobile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mobile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../model-config/" class="md-nav__link">
         
   
@@ -4801,6 +4828,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w29/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w29
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5145,6 +5199,7 @@ asyncio.run(main())
 <h2 id="type-safe-schemas-with-zod-and-pydantic">Type-safe schemas with Zod and Pydantic</h2>
 <p>Instead of writing JSON Schema by hand, you can use <a href="https://zod.dev/">Zod</a> (TypeScript) or <a href="https://docs.pydantic.dev/latest/">Pydantic</a> (Python) to define your schema. These libraries generate the JSON Schema for you and let you parse the response into a fully-typed object you can use throughout your codebase with autocomplete and type checking.</p>
 <p>The example below defines a schema for a feature implementation plan with a summary, list of steps (each with complexity level), and potential risks. The agent plans the feature and returns a typed <code>FeaturePlan</code> object. You can then access properties like <code>plan.summary</code> and iterate over <code>plan.steps</code> with full type safety.</p>
+<p>The SDK validates schemas with JSON Schema draft-07, so schemas that declare a newer version are rejected. Zod targets draft 2020-12 by default, so pass <code>target: "draft-7"</code> when converting your schema.</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
   import { z } from "zod";
@@ -5163,8 +5218,8 @@ asyncio.run(main())
     risks: z.array(z.string())
   });</p>
 <p>type FeaturePlan = z.infer<typeof FeaturePlan>;</p>
-<p>// Convert to JSON Schema
-  const schema = z.toJSONSchema(FeaturePlan);</p>
+<p>// Convert to JSON Schema using the draft-07 target the SDK expects
+  const schema = z.toJSONSchema(FeaturePlan, { target: "draft-7" });</p>
 <p>// Use in query
   try {
     for await (const message of query({
@@ -5254,7 +5309,7 @@ asyncio.run(main())
 <p>The <code>outputFormat</code> (TypeScript) or <code>output_format</code> (Python) option accepts an object with:</p>
 <ul>
 <li><code>type</code>: Set to <code>"json_schema"</code> for structured outputs</li>
-<li><code>schema</code>: A <a href="https://json-schema.org/understanding-json-schema/about">JSON Schema</a> object defining your output structure. You can generate this from a Zod schema with <code>z.toJSONSchema()</code> or a Pydantic model with <code>.model_json_schema()</code></li>
+<li><code>schema</code>: A <a href="https://json-schema.org/understanding-json-schema/about">JSON Schema</a> object defining your output structure. You can generate this from a Zod schema with <code>z.toJSONSchema(schema, { target: "draft-7" })</code> or a Pydantic model with <code>.model_json_schema()</code></li>
 </ul>
 <p>The SDK supports standard JSON Schema features including all basic types (object, array, string, number, boolean, null), <code>enum</code>, <code>const</code>, <code>required</code>, nested objects, and <code>$ref</code> definitions. For the full list of supported features and limitations, see <a href="https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations">JSON Schema limitations</a>.</p>
 <p>A schema that isn't valid JSON Schema fails the run at startup with an error naming the problem. Before v2.1.205, an invalid schema was silently ignored and the agent returned unstructured text.</p>
@@ -5368,7 +5423,7 @@ asyncio.run(main())
 </code></pre></div>
 </CodeGroup></p>
 <h2 id="error-handling">Error handling</h2>
-<p>Structured output generation can fail when the agent cannot produce valid JSON matching your schema. This typically happens when the schema is too complex for the task, the task itself is ambiguous, or the agent hits its retry limit trying to fix validation errors. It can also happen without any validation failure: a <a href="/en/model-config#automatic-model-fallback">model fallback</a> can retract an already-completed output mid-stream, and if no retry replaces it the run ends with the same error. Check the <code>errors</code> field on the result message to tell the two causes apart before debugging your schema.</p>
+<p>Structured output generation can fail when the agent cannot produce valid JSON matching your schema. This typically happens when the schema is too complex for the task, the task itself is ambiguous, or the agent hits its retry limit trying to fix validation errors. It can also happen without any validation failure: a <a href="/en/model-config#automatic-model-fallback">model fallback</a> can retract an already-completed output mid-stream, and if no retry replaces it the run ends with the same error. Check the <code>errors</code> list on the result message to tell the two causes apart before debugging your schema.</p>
 <p>When an error occurs, the result message has a <code>subtype</code> indicating what went wrong:</p>
 <table>
 <thead>
@@ -5388,7 +5443,7 @@ asyncio.run(main())
 </tr>
 </tbody>
 </table>
-<p>The example below checks the <code>subtype</code> field to determine whether the output was generated successfully or if you need to handle a failure:</p>
+<p>A result can also end with subtype <code>success</code> but no <code>structured_output</code> value, for example when the run completes without the agent producing a structured output. Treat that case as a failure as well. The example below treats a result as successful only when the <code>subtype</code> is <code>success</code> and <code>structured_output</code> is present, and handles every other result as a failure:</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
   import { query } from "@anthropic-ai/claude-agent-sdk";</p>
@@ -5416,6 +5471,8 @@ asyncio.run(main())
           console.log(msg.structured_output);
         } else if (msg.subtype === "error_max_structured_output_retries") {
           console.error("Could not produce valid output");
+        } else {
+          console.error("Run ended without a structured output");
         }
       }
     }
@@ -5455,6 +5512,8 @@ async def main():
                     print(message.structured_output)
                 elif message.subtype == &quot;error_max_structured_output_retries&quot;:
                     print(&quot;Could not produce valid output&quot;)
+                else:
+                    print(&quot;Run ended without a structured output&quot;)
     except Exception as error:
         # A single-shot query() raises after yielding an error result.
         # If the failure was an error result, the subtype branches above
@@ -5531,7 +5590,7 @@ asyncio.run(main())
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
