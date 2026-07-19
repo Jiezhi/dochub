@@ -2343,6 +2343,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/v4-notes/protocol-2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-07-28 Protocol Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -10136,6 +10164,34 @@
 </code></pre></div>
 <p>Catching and <code>err.error.code</code> are unchanged — only construction moved.</p>
 <p><strong>Raw session access sees v2 objects.</strong> If you reach past FastMCP's client and server surfaces into <code>client.session</code>, <code>ctx.session</code>, or the internals of <code>ctx.request_context</code>, you're now holding raw SDK v2 objects with snake_case fields and the v2 method signatures. FastMCP does not wrap these; code that depends on their v1 shape needs updating.</p>
+<p><strong>FastMCP now uses httpx2 exclusively.</strong> FastMCP has replaced <code>httpx</code> with <a href="https://pypi.org/project/httpx2/">httpx2</a>, a next-generation httpx fork, across its entire HTTP stack — client transports and every server-side path (auth providers, the OpenAPI integration, the version check). <code>httpx</code> is no longer a FastMCP dependency. If you pass a custom client or factory into a FastMCP client transport — <code>StreamableHttpTransport(httpx_client_factory=...)</code>, <code>SSETransport(httpx_client_factory=...)</code>, <code>OAuth(httpx_client_factory=...)</code>, or a custom <code>httpx.Auth</code> as <code>Client(auth=...)</code> — those objects must now be httpx2. httpx2 is a drop-in fork with the same public API, so the change is an import swap:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Before</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
+
+<span class="n">transport</span> <span class="o">=</span> <span class="n">StreamableHttpTransport</span><span class="p">(</span>
+    <span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span>
+    <span class="n">httpx_client_factory</span><span class="o">=</span><span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span><span class="n">verify</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="c1"># After</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">httpx2</span>
+
+<span class="n">transport</span> <span class="o">=</span> <span class="n">StreamableHttpTransport</span><span class="p">(</span>
+    <span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span>
+    <span class="n">httpx_client_factory</span><span class="o">=</span><span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">httpx2</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span><span class="n">verify</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The <code>client</code> you pass to <code>FastMCP.from_openapi(client=...)</code> (and <code>OpenAPIProvider(client=...)</code>) is now type-hinted <code>httpx2.AsyncClient</code>. FastMCP does not gate on the type, so an existing <code>httpx.AsyncClient</code> keeps working at runtime via duck-typing this release — but switching it to <code>httpx2.AsyncClient</code> clears the type hint and is the supported path going forward. HTTP made inside your own tools is entirely yours and is unaffected either way.</p>
+<p><strong>The subtlest break is exception handlers, and no type checker will catch it.</strong> <code>httpx</code> very likely remains installed in your environment (the Anthropic, OpenAI, and Google SDKs all depend on it), so code that catches old-httpx exceptions around FastMCP calls still imports and still type-checks — it just never matches, because FastMCP now raises <code>httpx2</code> exceptions. The handler silently becomes dead code:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>  <span class="c1"># still installed transitively — this import works</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;fetch&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">})</span>
+<span class="k">except</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ConnectError</span><span class="p">:</span>  <span class="c1"># dead code: FastMCP now raises httpx2.ConnectError</span>
+    <span class="k">return</span> <span class="n">fallback</span><span class="p">()</span>
+</code></pre></div>
+<p>Grep your codebase for <code>except httpx.</code> and move those handlers to <code>httpx2</code>. The exception hierarchies match name-for-name, so the fix is an import swap — the hard part is remembering to look. One place you are covered automatically: exceptions raised <em>inside your tools and resources</em> (for example, a tool whose own old-httpx call gets a 429) are still mapped to <code>ToolError</code>/<code>ResourceError</code> by FastMCP's error boundary, which recognizes both libraries' exceptions during the transition.</p>
+<p>Two runtime behaviors shift with httpx2, and because the switch is now wholesale they apply to <strong>all</strong> FastMCP HTTP — including server-auth upstream calls, not just the client path. TLS verification uses the operating system's trust store (via <code>truststore</code>, honoring <code>SSL_CERT_FILE</code>/<code>SSL_CERT_DIR</code>) instead of the bundled certifi CA set, so corporate-CA or certifi-pinned setups may verify differently. And the FastMCP HTTP loggers are renamed from <code>httpx</code>/<code>httpcore.*</code> to <code>httpx2</code>/<code>httpcore2.*</code> — update any logging filters that select the HTTP stack by logger name.</p>
 <h2 id="deprecation-timeline">Deprecation timeline</h2>
 <p>The camelCase bridge is a migration aid, not a permanent fixture. It works today and warns on every bridged read so you can find and update the affected call sites. Plan to migrate your reads to snake_case: the shims will be removed in a future release, after which only the snake_case names resolve — the same state you get today by setting <code>mcp_camelcase_compat = False</code>. Turning the setting off is a good way to surface every remaining camelCase read in your code as a hard <code>AttributeError</code> before the shims go away.</p>
 <h2 id="sdk-deprecation-warnings-you-may-see">SDK deprecation warnings you may see</h2>

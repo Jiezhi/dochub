@@ -2343,6 +2343,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/v4-notes/protocol-2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-07-28 Protocol Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -6357,6 +6385,34 @@
     <span class="md-ellipsis">
       
         Security Considerations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#identity-assertion-sep-990" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity Assertion (SEP-990)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Identity Assertion (SEP-990)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-validation-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Validation Works
       
     </span>
   </a>
@@ -10434,6 +10490,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#identity-assertion-sep-990" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity Assertion (SEP-990)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Identity Assertion (SEP-990)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-validation-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Validation Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11060,6 +11144,66 @@
     <span class="n">enable_cimd</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
+<h2 id="identity-assertion-sep-990">Identity Assertion (SEP-990)</h2>
+<p><VersionBadge version="4.0.0" /></p>
+<p><Tip>
+Identity assertion is a beta feature. The API may change in a future release.
+</Tip></p>
+<p>Identity assertion enables an enterprise "on-behalf-of" flow. A corporate identity provider (Okta, Microsoft Entra, etc.) issues an <em>ID-JAG</em> — a signed JWT that asserts an employee's identity to a specific MCP authorization server. The client presents that ID-JAG at the token endpoint using the RFC 7523 <code>jwt-bearer</code> grant, and the proxy validates it and mints a short-lived access token for the asserted user. No refresh token is issued: the identity provider controls session lifetime, and the client re-exchanges a fresh ID-JAG when its access token expires. This lets a workforce reach your MCP server with corporate-managed identity and centralized revocation, without each user running an interactive browser login.</p>
+<p>To enable it, pass an <code>IdentityAssertion</code> configuration listing the issuers you trust:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">OAuthProxy</span><span class="p">,</span> <span class="n">IdentityAssertion</span>
+
+<span class="n">auth</span> <span class="o">=</span> <span class="n">OAuthProxy</span><span class="p">(</span>
+    <span class="n">upstream_authorization_endpoint</span><span class="o">=</span><span class="s2">&quot;https://accounts.example.com/authorize&quot;</span><span class="p">,</span>
+    <span class="n">upstream_token_endpoint</span><span class="o">=</span><span class="s2">&quot;https://accounts.example.com/token&quot;</span><span class="p">,</span>
+    <span class="n">upstream_client_id</span><span class="o">=</span><span class="s2">&quot;your-client-id&quot;</span><span class="p">,</span>
+    <span class="n">upstream_client_secret</span><span class="o">=</span><span class="s2">&quot;your-client-secret&quot;</span><span class="p">,</span>
+    <span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;https://your-server.com&quot;</span><span class="p">,</span>
+    <span class="n">identity_assertion</span><span class="o">=</span><span class="n">IdentityAssertion</span><span class="p">(</span>
+        <span class="n">trusted_issuers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://login.acme-corp.com&quot;</span><span class="p">],</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;Internal API&quot;</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">whoami</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.dependencies</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_access_token</span>
+
+    <span class="n">token</span> <span class="o">=</span> <span class="n">get_access_token</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">token</span><span class="o">.</span><span class="n">subject</span> <span class="ow">or</span> <span class="s2">&quot;unknown&quot;</span>
+</code></pre></div>
+<p>When identity assertion is configured, the proxy advertises the <code>urn:ietf:params:oauth:grant-type:jwt-bearer</code> grant type and the <code>urn:ietf:params:oauth:grant-profile:id-jag</code> grant profile in its authorization server metadata, so compatible clients can discover the capability. When it is not configured, the grant is rejected as unsupported.</p>
+<h3 id="how-validation-works">How Validation Works</h3>
+<p>For each ID-JAG presented at the token endpoint, the proxy checks that:</p>
+<ul>
+<li>the JOSE header <code>typ</code> is <code>oauth-id-jag+jwt</code>;</li>
+<li>the <code>iss</code> claim is one of the configured <code>trusted_issuers</code>;</li>
+<li>the signature verifies against the issuer's published keys;</li>
+<li>the <code>aud</code> claim identifies this authorization server;</li>
+<li>the signed <code>client_id</code> claim matches the client presenting the assertion — an assertion the IdP minted for one client cannot be redeemed by another;</li>
+<li>the signed <code>resource</code> claim names this server — an assertion minted for a different MCP server behind the same IdP is rejected;</li>
+<li><code>exp</code> (and <code>iat</code>/<code>nbf</code>, when present) place the assertion within a short lifetime and its validity window; and</li>
+<li>the <code>jti</code> has not been seen before, preventing replay.</li>
+</ul>
+<p>The issuer's signing keys are discovered automatically via OIDC (<code>{issuer}/.well-known/openid-configuration</code>). For issuers that do not publish a discovery document, provide the JWKS URI explicitly per issuer:</p>
+<div class="highlight"><pre><span></span><code><span class="n">identity_assertion</span><span class="o">=</span><span class="n">IdentityAssertion</span><span class="p">(</span>
+    <span class="n">trusted_issuers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://login.acme-corp.com&quot;</span><span class="p">],</span>
+    <span class="n">jwks_uris</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;https://login.acme-corp.com&quot;</span><span class="p">:</span> <span class="s2">&quot;https://login.acme-corp.com/keys&quot;</span><span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Verification assumes <code>RS256</code> unless the issuer signs with another algorithm, in which case set <code>algorithm</code> explicitly (any asymmetric JWS algorithm — <code>RS*</code>, <code>PS*</code>, or <code>ES*</code> — since assertions are verified against a published JWKS, not a shared secret). When trusted issuers use different algorithms, override per issuer with <code>algorithms</code>, keyed the same way as <code>jwks_uris</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">identity_assertion</span><span class="o">=</span><span class="n">IdentityAssertion</span><span class="p">(</span>
+    <span class="n">trusted_issuers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://login.acme-corp.com&quot;</span><span class="p">,</span> <span class="s2">&quot;https://sso.other-corp.com&quot;</span><span class="p">],</span>
+    <span class="n">algorithm</span><span class="o">=</span><span class="s2">&quot;ES256&quot;</span><span class="p">,</span>
+    <span class="n">algorithms</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;https://sso.other-corp.com&quot;</span><span class="p">:</span> <span class="s2">&quot;RS256&quot;</span><span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The subject asserted in the ID-JAG flows into the normal FastMCP auth context. Tools read it through <code>get_access_token()</code> exactly as they would for any other token, because the proxy issues the access token through its own token factory.</p>
+<p><Warning>
+Replay protection is per-process. Each server process tracks seen <code>jti</code> values in memory, so a horizontally-scaled deployment running multiple workers or replicas could accept the same assertion once per process. The same applies to revocation of ID-JAG access tokens: they are self-contained, so revocation is tracked in-process until the token's (short, 5-minute default) natural expiry. For deployments that require strict single-use enforcement across replicas, configure sticky routing so a given client's requests reach the same process, or place a shared store in front of the token endpoint. This mirrors the posture of CIMD <code>private_key_jwt</code> replay protection, which is also per-process.
+</Warning></p>
 <h2 id="security">Security</h2>
 <h3 id="key-and-storage-management">Key and Storage Management</h3>
 <p><VersionBadge version="2.13.0" />
