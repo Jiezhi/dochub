@@ -1049,34 +1049,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../clients/cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Client CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../clients/client-only-package/" class="md-nav__link">
         
   
@@ -1169,34 +1141,6 @@
     
   
     fastmcp-remote
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../clients/generate-cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Generate CLI
   
 
     
@@ -1505,10 +1449,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_15" >
         
           
-          <label class="md-nav__link" for="__nav_6_17" id="__nav_6_17_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_15" id="__nav_6_15_label" tabindex="0">
             
   
   
@@ -1526,8 +1470,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_17">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_15">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3832,34 +3776,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../patterns/cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    FastMCP CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../patterns/contrib/" class="md-nav__link">
         
   
@@ -3868,34 +3784,6 @@
     
   
     Contrib Modules
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../patterns/testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing your FastMCP Server
   
 
     
@@ -10015,8 +9903,9 @@
 <p>The client-side provider handlers (Anthropic, OpenAI, Google GenAI) are <strong>retained</strong> regardless: MRTR needs them to answer sampling input-requests from the client side. What is removed is the server-side push emitter, which the SDK never built for the modern era.</p>
 <p>In this PR, sampling still functions on the legacy eras. Users already see an SDK-level <code>MCPDeprecationWarning</code> on ordinary <code>ctx.sample</code> usage (the SDK deprecated the capability wire-side per SEP-2577, verified empirically by WS2), but FastMCP's own deprecation — warnings with migration guidance, plus the era-gating — lands as the first follow-up PR.</p>
 <h2 id="mrtr-elicitation">MRTR elicitation</h2>
-<p><strong>Status: Designed. Flagship feature.</strong></p>
-<p>Elicitation survives the modern era, but only declaratively. The 2026 wire envelope still carries elicitation as a multi-round input-request (MRTR — multi-round tool result). Imperative <code>ctx.elicit</code> relies on the session back-channel, which is gone on <code>2026-07-28</code> foreground calls; on the modern era, elicitation is reachable only through a declarative resolver.</p>
+<p><strong>Status: Guard form shipped (4.0). Declarative <code>Resolve</code> layer designed.</strong></p>
+<p>Elicitation survives the modern era through multi-round-trip (MRTR). The 2026 wire envelope carries elicitation as a multi-round input-request: a tool returns an <code>InputRequiredResult</code> and re-runs per round, each round a complete request→response cycle. Imperative <code>ctx.elicit</code> relies on the session back-channel, which is gone on <code>2026-07-28</code> foreground calls; on the modern era, elicitation is reachable through MRTR instead.</p>
+<p>The <strong>guard form</strong> of this is shipped in 4.0 (see <a href="/servers/elicitation#elicitation-on-the-modern-protocol">Elicitation on the modern protocol</a>): a tool returns an <code>InputRequiredResult</code> and reads the client's answers off <code>ctx.input_responses</code> / <code>ctx.request_state</code>, re-running each round. It mirrors the SDK's base guard model exactly — no FastMCP-invented DX, the framework owns <code>request_state</code> sealing, and returning this result on a handshake-era connection produces a clear era error. The declarative <code>Resolve(...)</code> layer below sits <em>on top of</em> this primitive and remains designed but not yet built.</p>
 <p>The design does both, so the imperative DX survives where it can and a declarative surface covers the modern era:</p>
 <p><strong>1. Keep <code>ctx.elicit</code> as the primary imperative DX,</strong> re-plumbed to be era-aware: legacy connections use the session elicit-form path; background tasks on any era use the existing Redis relay (the task's <code>input_required</code> status <em>is</em> the MRTR suspension boundary); foreground calls on <code>2026-07-28</code> raise a clear era-aware error pointing at the declarative form.</p>
 <p><strong>2. Add a declarative surface</strong> in a new <code>fastmcp.elicitation</code> module — <code>Resolve</code>, <code>Elicit</code>, and <code>ElicitationResult</code> — thin wrappers over the SDK's resolver, wired into FastMCP's own tool layer (FastMCP tools do not inherit the SDK's auto-resolver wiring).</p>

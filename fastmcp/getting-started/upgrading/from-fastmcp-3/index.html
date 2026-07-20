@@ -1051,34 +1051,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../clients/cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Client CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../clients/client-only-package/" class="md-nav__link">
         
   
@@ -1171,34 +1143,6 @@
     
   
     fastmcp-remote
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../clients/generate-cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Generate CLI
   
 
     
@@ -1507,10 +1451,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_17" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_15" >
         
           
-          <label class="md-nav__link" for="__nav_6_17" id="__nav_6_17_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_15" id="__nav_6_15_label" tabindex="0">
             
   
   
@@ -1528,8 +1472,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_17_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_17">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_15">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3884,34 +3828,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../patterns/cli/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    FastMCP CLI
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../patterns/contrib/" class="md-nav__link">
         
   
@@ -3920,34 +3836,6 @@
     
   
     Contrib Modules
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../patterns/testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing your FastMCP Server
   
 
     
@@ -10201,8 +10089,8 @@
 <p>These warnings come from the MCP SDK, not from FastMCP. For logging they are benign: <code>ctx.info</code> keeps working on session-based connections exactly as the protocol table below describes, and the SDK is only signaling the protocol's direction. For sampling, FastMCP additionally emits its own <code>FastMCPDeprecationWarning</code>: <code>ctx.sample</code> and <code>ctx.sample_step</code> are deprecated and slated for removal, so treat that warning as a prompt to migrate to server-side LLM calls rather than as informational.</p>
 <h2 id="protocol-version-support">Protocol version support</h2>
 <p>FastMCP servers built on the SDK v2 serve multiple protocol eras from the same server. The SDK negotiates the era each client speaks: the sessionless <code>2026-07-28</code> era (which discovers capabilities through <code>server/discover</code>) and earlier session-based handshake versions are all handled simultaneously. This formally supersedes FastMCP's earlier "latest protocol only" stance — a single server now works with clients across the protocol transition.</p>
-<p>Not every Context feature is available on every era yet. The push-style interactions that require the server to call back into the client — elicitation, sampling, and listing roots — depend on the session-based request/response flow of the earlier eras. On a <code>2026-07-28</code> connection these raise a clear, era-aware error rather than reaching the client. Logging notifications and the request/response features flow on every era.</p>
-<p>Sampling is the exception that does not come back. <code>ctx.sample</code> and <code>ctx.sample_step</code> are <strong>deprecated</strong> and will be removed in a future FastMCP release: server-initiated sampling was removed from the wire by SEP-2577, and unlike elicitation it has no multi-round-trip replacement (the agentic loop would exhaust the round-trip budget). The migration is to call an LLM directly from your server rather than borrowing the client's model. See <a href="/servers/sampling">Sampling</a> for details.</p>
+<p>Not every Context feature is available on every era yet. The imperative push APIs that call back into the client mid-execution — <code>ctx.elicit</code>, <code>ctx.sample</code>, and <code>ctx.list_roots</code> — depend on the session-based back-channel of the earlier eras, so on a <code>2026-07-28</code> connection they raise a clear, era-aware error rather than reaching the client. Elicitation itself still reaches the user on the modern era, through the guard pattern: a tool <em>returns</em> an <code>InputRequiredResult</code> describing what it needs, and the client answers with a fresh call (see <a href="/servers/elicitation#elicitation-on-the-modern-protocol">Elicitation on the modern protocol</a>). Logging notifications and the request/response features flow on every era.</p>
+<p>Sampling is the exception that does not come back, and the reason is the protocol rather than an unfinished FastMCP feature. SEP-2577 deprecated server-initiated sampling, so <code>ctx.sample</code> and <code>ctx.sample_step</code> are <strong>deprecated</strong> and will be removed in a future FastMCP release. Elicitation moved to the guard pattern because the modern protocol still carries elicitation requests; sampling has no equivalent path because the protocol deprecated the pattern itself. The migration is to call an LLM directly from your server rather than borrowing the client's model. See <a href="/servers/sampling">Sampling</a> for details.</p>
 <table>
 <thead>
 <tr>
@@ -10225,7 +10113,7 @@
 <tr>
 <td><code>ctx.elicit</code></td>
 <td>Supported</td>
-<td>Not yet — MRTR rewrite pending</td>
+<td>Use the guard pattern (return <code>InputRequiredResult</code>)</td>
 </tr>
 <tr>
 <td><code>ctx.sample</code> / <code>ctx.sample_step</code></td>
@@ -10235,7 +10123,7 @@
 <tr>
 <td><code>ctx.list_roots</code></td>
 <td>Supported</td>
-<td>Not yet — MRTR rewrite pending</td>
+<td>Via the guard pattern (<code>input_requests</code> carries roots requests)</td>
 </tr>
 <tr>
 <td>Tasks (via the FastMCP client)</td>
@@ -10244,7 +10132,7 @@
 </tr>
 </tbody>
 </table>
-<p>If your tools rely on <code>ctx.elicit</code> or <code>ctx.list_roots</code>, they continue to work against clients on the earlier eras, and the sessionless replacements will expand this table as they land. Sampling is deprecated on every era and will not return on modern connections — migrate those tools to server-side LLM calls.</p>
+<p>If your tools rely on <code>ctx.elicit</code> or <code>ctx.list_roots</code>, they continue to work against clients on the earlier eras; on the modern era, reach for the guard pattern instead (see <a href="/servers/elicitation#elicitation-on-the-modern-protocol">Elicitation on the modern protocol</a>). Sampling is deprecated on every era and will not return on modern connections — migrate those tools to server-side LLM calls.</p>
 
 
 
