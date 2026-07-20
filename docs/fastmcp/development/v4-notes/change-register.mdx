@@ -124,6 +124,12 @@ Server-side middleware is a new first-class SDK concept: `Server.middleware` is 
 
 *Verify:* `fastmcp_slim/fastmcp/server/low_level.py` (`FastMCPServerMiddleware`).
 
+### Middleware observes every inbound message — New (coverage)
+
+FastMCP's `Middleware` chain used to begin *inside* the per-method handlers, so `on_message`/`on_request`/`on_notification` only fired for messages that reached a tool/resource/prompt handler. Notifications, cancellations, and malformed or unroutable requests were invisible to middleware. `FastMCPServerMiddleware` — FastMCP's entry in the SDK's own middleware list — is now the dispatch root: it runs the `on_message`/`on_request`/`on_notification` pass for every message the interior handlers do not dispatch (all notifications including `notifications/cancelled`, `ping`, `logging/setLevel`, unknown methods, and component requests that fail validation before the handler runs). The component methods keep their interior dispatch unchanged, so `on_call_tool` and friends still receive the typed component result and a tool exception still propagates through `on_message`/`on_request` exactly where the built-in error/logging/timing middleware expect it — each hook fires exactly once per message. Multi-round (SEP-2322) calls compose cleanly with this: each round is a complete request→response cycle through the full chain, and an asking round's `call_next` returns the ask as an ordinary `InputRequiredToolResult` value (see the MRTR entry below). All thirteen built-in middleware pass their suites unmodified. See [What middleware sees](/servers/middleware#what-middleware-sees).
+
+*Verify:* `fastmcp_slim/fastmcp/server/low_level.py` (`FastMCPServerMiddleware` root dispatch, `_INTERIOR_METHODS`), `fastmcp_slim/fastmcp/server/middleware/middleware.py` (`MiddlewarePhase`, `mark_interior_dispatched`), `fastmcp_slim/fastmcp/server/server.py` (`_dispatch_component_middleware`), `tests/server/middleware/test_message_visibility.py`.
+
 ### Per-session state re-homed to the connection — Absorbed
 
 Because `ServerSession` is now per-request, per-session state can no longer live on the session object. The minimum logging level is re-homed to a FastMCP-side map keyed by session id (via `connection.session_id`), and `client_supports_extension` becomes a free function reading `session.client_params.capabilities`.
@@ -204,6 +210,31 @@ client = Client("my_mcp_server.py", timeout=30.0)  # also works
 ```
 
 *Verify:* `fastmcp_slim/fastmcp/client/transports/base.py` (`SessionKwargs.read_timeout_seconds: float | None`), `client/client.py`.
+
+### Connection settings passed to `connect_session` — Breaking (custom transports)
+
+`ClientTransport.connect_session` takes a new keyword-only `transport_options: TransportOptions | None`, describing how the connecting client wants its session built: which `ClientSession` class to instantiate, and whether to forward the caller's authorization header upstream. Proxies use it to relay backend results without enforcing their output schema (see [Proxy Servers](/servers/providers/proxy#tool-results-are-relayed-not-inspected)).
+
+These settings previously lived on the transport instance, so a transport shared between clients leaked one client's configuration into another — including credential forwarding, which `create_proxy(some_client)` would silently enable on the caller's own client. They now travel with the client that wants them, and `forward_incoming_headers` is no longer a settable transport attribute.
+
+A client only passes the argument when it wants non-default settings, so an ordinary `Client` is unaffected and transports that don't accept it keep working. A custom `ClientTransport` used as a *proxy backend* must accept and honor it:
+
+```python
+import contextlib
+
+from fastmcp.client.transports.base import ClientTransport, TransportOptions
+
+class MyTransport(ClientTransport):
+    @contextlib.asynccontextmanager
+    async def connect_session(self, *, transport_options=None, **session_kwargs):
+        options = transport_options or TransportOptions()
+        async with options.session_class(read, write, **session_kwargs) as session:
+            yield session
+```
+
+A transport that wraps others must pass it along; `MCPConfigTransport` forwards it to both its single-server delegate and its composite server.
+
+*Verify:* `fastmcp_slim/fastmcp/client/transports/base.py` (`TransportOptions`), the four built-in transports, `transports/config.py`, and `tests/server/providers/proxy/test_proxy_server.py`.
 
 ### `get_session_id` via header sniff — Bridged
 
@@ -310,12 +341,12 @@ The push-style Context features that require the server to call back into the cl
 | --- | --- | --- |
 | `ctx.info` / logging notifications | Supported | Supported |
 | Tools, resources, prompts, completions | Supported | Supported |
-| `ctx.elicit` | Supported | Not yet — MRTR rewrite pending |
+| `ctx.elicit` (imperative) | Supported | Not on the back-channel — use [elicitation on the modern protocol](/servers/elicitation#elicitation-on-the-modern-protocol) |
 | `ctx.sample` / `ctx.sample_step` | Supported (deprecated) | Removed — call an LLM server-side |
 | `ctx.list_roots` | Supported | Not yet — MRTR rewrite pending |
 | Tasks (via the FastMCP client) | Supported | Not yet |
 
-Tools that rely on `ctx.elicit` or `ctx.list_roots` continue to work against clients on the session-based eras. Sampling is the exception: it is deprecated on every era and will not return on modern connections (see the Deprecated entry below).
+Tools that rely on `ctx.elicit` or `ctx.list_roots` continue to work against clients on the session-based eras. On the modern era, elicitation is reachable through the multi-round "guard" pattern instead (a tool returns an `InputRequiredResult`; see the New entry below). Sampling is the exception: it is deprecated on every era and will not return on modern connections (see the Deprecated entry below).
 
 Ordinary `ctx.info` usage emits an SDK-level `MCPDeprecationWarning` ("The logging capability is deprecated as of 2026-07-28 (SEP-2577)"). That warning comes from the SDK, not FastMCP, and is benign — logging keeps working on session-based connections per the matrix. `ctx.sample`/`ctx.sample_step` additionally emit a FastMCP-owned `FastMCPDeprecationWarning` (see below). The upgrade guide calls both out explicitly.
 
@@ -342,6 +373,12 @@ On a `2026-07-28` connection the degradation error used to differ by feature: `c
 A FastMCP server can emit SEP-2549 freshness hints so a caching client (`fastmcp.Client(cache=...)`) may reuse a response without a wire round-trip. Two constructor params carry it: `FastMCP(cache_ttl=300, cache_scope="public")`, where `cache_ttl` is in seconds and `cache_scope` is `"public"` or `"private"` (default `"private"` when a TTL is set). The hint is uniform by construction — one server-level value applies to every SDK-cacheable method (`tools/list`, `prompts/list`, `resources/list`, `resources/templates/list`, `resources/read`, and `server/discover`) with no per-component surface and no aggregation. FastMCP does not hand-set the wire fields: it passes the hint through to the SDK low-level `Server(cache_hints=...)`, whose runner fills `ttlMs`/`cacheScope` on every cacheable result via `apply_cache_hint`, leaving any field a handler set explicitly untouched. `cache_ttl` must be positive, and a `cache_scope` without a `cache_ttl` is rejected at construction (a scope alone does not enable caching, since the client gates on the TTL's presence). Absent both params, no hint is emitted. Honoring is modern-only (the SDK client reads hints only at `2026-07-28`) and opt-in on the client, so a hinted server is inert unless the client passes `cache=`.
 
 *Verify:* `fastmcp_slim/fastmcp/server/caching.py` (`build_cache_hints`), `fastmcp_slim/fastmcp/server/server.py` (constructor params passed to `LowLevelServer(cache_hints=...)`), `tests/server/test_cache_hints.py` (unit validation + end-to-end interop with `fastmcp.Client(cache=True)`).
+
+### Elicitation on the modern protocol (SEP-2322), guard form — New (opt-in feature)
+
+A tool can gather client input across rounds on a `2026-07-28` call by returning an `InputRequiredResult` (see [Elicitation on the modern protocol](/servers/elicitation#elicitation-on-the-modern-protocol)). Each round is a complete request→response cycle: the tool re-runs per round and reads the client's answers off two new `Context` properties, `ctx.input_responses` (`None` on the first round) and `ctx.request_state` (the echoed opaque state) — thin passthroughs matching the SDK's mcpserver semantics. This is the modern-era elicitation path the earlier per-feature matrix flagged as "MRTR rewrite pending"; it mirrors the SDK's base guard model exactly (tool re-runs, checks whether answers are present, returns to ask for more), with no FastMCP-invented resolver or annotation layer. `fastmcp.types` gains `InputRequiredResult`, `ElicitRequest`, and `ElicitRequestFormParams` for authoring these requests. The `request_state` channel is sealed by the framework, not the author: FastMCP installs the SDK's `RequestStateBoundary` middleware on its low-level server, which seals every outgoing `request_state` and unseals and verifies every inbound echo before a tool runs — so a tool only ever sees plaintext and a tampered, expired, or foreign token is rejected with a frozen wire error. `FastMCP(request_state_security=RequestStateSecurity(keys=[...]))` supplies shared keys for multi-replica deployments; omitted, each process seals under an ephemeral key (correct single-process). Returning this result on a handshake-era (≤ 2025-11-25) connection raises a clear era error naming the mismatch rather than failing as a generic invalid result. The client half (`fastmcp.Client` at `mode="auto"`) drives the loop through its existing elicitation/sampling/roots handlers, capped by `input_required_max_rounds`.
+
+*Verify:* `fastmcp_slim/fastmcp/server/context.py` (`input_responses`/`request_state` properties), `fastmcp_slim/fastmcp/server/low_level.py` (`RequestStateBoundary` install), `fastmcp_slim/fastmcp/server/server.py` (`request_state_security` param), `fastmcp_slim/fastmcp/server/mixins/mcp_operations.py` (`_on_call_tool` input-required passthrough + era gate), `fastmcp_slim/fastmcp/tools/base.py` (`InputRequiredToolResult`), `tests/server/test_mrtr_guards.py`.
 
 ### The xfail register — Known gap
 
