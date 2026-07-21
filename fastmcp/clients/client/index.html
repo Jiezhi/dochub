@@ -1220,6 +1220,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4381,6 +4392,34 @@
     
   
     __init__
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python-sdk/fastmcp-utilities-asgi_transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    asgi_transport
   
 
     
@@ -9921,6 +9960,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9984,9 +10034,6 @@ This is a programmatic client that requires explicit function calls and provides
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
     <span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
-        <span class="c1"># Basic server interaction</span>
-        <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">ping</span><span class="p">()</span>
-
         <span class="c1"># List available operations</span>
         <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
         <span class="n">resources</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_resources</span><span class="p">()</span>
@@ -10089,15 +10136,24 @@ This is a programmatic client that requires explicit function calls and provides
 <h2 id="protocol-negotiation">Protocol negotiation</h2>
 <p><VersionBadge version="4.0.0" /></p>
 <p>MCP has two protocol eras: the original <em>legacy</em> era, which begins every connection with an <code>initialize</code> handshake, and the <em>modern</em> era (protocol version <code>2026-07-28</code> and later), which a client discovers by probing the server's <code>server/discover</code> endpoint. The <code>mode</code> parameter controls which era the client negotiates when it connects.</p>
-<p>By default, <code>mode="legacy"</code>. This runs the initialize handshake and behaves identically to earlier FastMCP versions, so existing code connecting to any server keeps working unchanged.</p>
+<p>By default, <code>mode="auto"</code>. The client probes <code>server/discover</code> and adopts the modern protocol when the server responds; for any server that is not positive evidence of modern support, it falls back to the legacy handshake. This makes the default safe against a mixed fleet of legacy and modern servers.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
-<span class="c1"># Legacy handshake (the default)</span>
-<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">)</span>
+<span class="c1"># Negotiate the newest era the server supports (the default)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>Set <code>mode="auto"</code> to negotiate the newest era the server supports. The client probes <code>server/discover</code> and adopts the modern protocol when the server responds; for any server that is not positive evidence of modern support, it falls back to the legacy handshake. This makes <code>"auto"</code> safe to use against a mixed fleet of legacy and modern servers.</p>
-<div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+<p>Set <code>mode="legacy"</code> to force the initialize handshake. This behaves identically to earlier FastMCP versions and is the opt-out if a server misbehaves under discovery or you need the legacy <code>initialize</code> result object.</p>
+<div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">)</span>
 </code></pre></div>
+<p>Legacy mode is also what you need for the capabilities that depend on a live session between client and server. The handshake opens a persistent back-channel the server can push requests down, and the modern era removed it. Pin <code>mode="legacy"</code> when your code relies on any of these:</p>
+<ul>
+<li><strong><a href="/clients/sampling">Sampling</a></strong> — server-initiated LLM completion requests</li>
+<li><strong><a href="/clients/roots">Roots</a></strong> — server-initiated requests for the client's roots</li>
+<li><strong><a href="/clients/elicitation">Elicitation</a></strong> — server-initiated requests for user input, which modern connections replace with <a href="/clients/elicitation#input-required-rounds">input-required rounds</a></li>
+<li><strong><a href="/clients/tasks">Background tasks</a></strong> — submitting an operation with <code>task=True</code></li>
+<li><code>client.ping()</code> and <code>transport.get_session_id()</code></li>
+</ul>
+<p>A FastMCP server serves both eras, so a default client negotiates the modern one and these raise an era-specific error. Pinning the handshake restores them.</p>
 <p>You can also pin a specific modern protocol version to adopt it directly, without a discovery probe:</p>
 <div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;2026-07-28&quot;</span><span class="p">)</span>
 </code></pre></div>
@@ -10107,7 +10163,8 @@ This is a programmatic client that requires explicit function calls and provides
     <span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">server_capabilities</span><span class="p">)</span>   <span class="c1"># ServerCapabilities | None</span>
 </code></pre></div>
 <p><Note>
-<code>mode="auto"</code> is not the default yet — the conservative <code>"legacy"</code> remains the default to preserve byte-identical behavior against pre-2026 servers. Whether <code>"auto"</code> becomes the default is a future release decision.
+<code>mode="auto"</code> is the default as of FastMCP 4.0. Earlier versions defaulted to <code>"legacy"</code>. If a server behaves unexpectedly under discovery, or you depend on the legacy <code>initialize</code> result, pin the old behavior with <code>Client(..., mode="legacy")</code>.</p>
+<p>The SSE transport is legacy-only — it cannot carry the sessionless modern era — so a client connecting over SSE always negotiates the legacy handshake, even under <code>mode="auto"</code>. A multi-server config (<code>MCPConfigTransport</code> with more than one server) is likewise legacy-only, because it mounts each backend behind a legacy-era proxy; a single-server config mirrors its one backend transport's era.
 </Note></p>
 <h2 id="response-caching">Response caching</h2>
 <p><VersionBadge version="4.0.0" /></p>
@@ -10147,6 +10204,22 @@ This is a programmatic client that requires explicit function calls and provides
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <p>The adapter serializes each result through a type-tagged envelope validated against an allowlist of cacheable result models, so a value naming an unknown type is treated as a cache miss rather than deserialized blindly. Each store instance owns its own collection namespace; <code>clear()</code> affects only that namespace, never another tenant's entries.</p>
+<h2 id="client-extensions">Client extensions</h2>
+<p><VersionBadge version="4.0.0" /></p>
+<p>Client extensions (SEP-2133) are the advanced mechanism a client uses to opt into vendor capabilities that live outside the core protocol. An extension is a <code>ClientExtension</code> instance that bundles three things: a capability <em>advertisement</em> the server can read, one or more <em>result claims</em> that let the client parse extra <code>tools/call</code> result shapes, and <em>notification bindings</em> that observe server notifications the core protocol doesn't define. Pass a sequence of them to <code>extensions=</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">myproject.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">AppsExtension</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">extensions</span><span class="o">=</span><span class="p">[</span><span class="n">AppsExtension</span><span class="p">()])</span>
+</code></pre></div>
+<p>Each extension's contributions are threaded into the underlying session. Notification bindings compose with FastMCP's own internal task-status binding rather than replacing it, so an extension that observes a custom notification and FastMCP's task tracking both work on the same connection. When a tool returns a shape an extension claims, <code>client.call_tool()</code> resolves it transparently through the owning claim's resolver and hands you back an ordinary result. Result claims and their advertisements are honored only on modern-era connections, so they are inert on a legacy handshake.</p>
+<p>For the rare case where you need to register additional result claims against an extension that is already advertised, pass them through <code>result_claims=</code>, keyed by the extension's identifier. Prefer declaring claims on the extension itself; this parameter merges extra claims with an extension's own.</p>
+<div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
+    <span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span>
+    <span class="n">extensions</span><span class="o">=</span><span class="p">[</span><span class="n">AppsExtension</span><span class="p">()],</span>
+    <span class="n">result_claims</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;example.com/apps&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">extra_claim</span><span class="p">]},</span>
+<span class="p">)</span>
+</code></pre></div>
 <h2 id="operations">Operations</h2>
 <p>FastMCP clients interact with three types of server components.</p>
 <p><strong>Tools</strong> are server-side functions that the client can execute with arguments. Call them with <code>call_tool()</code> and receive structured results.</p>
@@ -10172,6 +10245,7 @@ This is a programmatic client that requires explicit function calls and provides
 <p>See <a href="/clients/prompts">Prompts</a> for detailed documentation including argument serialization.</p>
 <h2 id="callback-handlers">Callback Handlers</h2>
 <p>The client supports callback handlers for advanced server interactions. These let you respond to server-initiated requests and receive notifications.</p>
+<p>Sampling, elicitation, and roots are all server-initiated, so they belong to the handshake era described under <a href="#protocol-negotiation">protocol negotiation</a>. A default client negotiates the newest era both peers share, where the server has no back-channel to push those requests down, so an example that exercises them pins <code>mode="legacy"</code>. Logging and progress arrive as notifications on the response stream and work in either era.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogMessage</span>
 
@@ -10187,6 +10261,7 @@ This is a programmatic client that requires explicit function calls and provides
 
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
     <span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">,</span>
     <span class="n">log_handler</span><span class="o">=</span><span class="n">log_handler</span><span class="p">,</span>
     <span class="n">progress_handler</span><span class="o">=</span><span class="n">progress_handler</span><span class="p">,</span>
     <span class="n">sampling_handler</span><span class="o">=</span><span class="n">sampling_handler</span><span class="p">,</span>

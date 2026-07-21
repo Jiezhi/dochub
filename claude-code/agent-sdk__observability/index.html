@@ -5148,7 +5148,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>where failures occurred</li>
 </ul>
 <p>The Agent SDK can export this data as OpenTelemetry traces, metrics, and log events to any backend that accepts the OpenTelemetry Protocol (OTLP), such as Honeycomb, Datadog, Grafana, Langfuse, or a self-hosted collector.</p>
-<p>This guide explains how the SDK emits telemetry, how to configure the export, and how to tag and filter the data once it reaches your backend. To read token usage and cost directly from the SDK response stream instead of exporting to a backend, see <a href="/en/agent-sdk/cost-tracking">Track cost and usage</a>.</p>
+<p>This guide explains how the SDK emits telemetry, how to configure the export, and how to tag and filter the data once it reaches your backend. To read token usage and cost directly from the SDK response stream instead of exporting to a backend, see <a href="/docs/en/agent-sdk/cost-tracking">Track cost and usage</a>.</p>
 <h2 id="how-telemetry-flows-from-the-sdk">How telemetry flows from the SDK</h2>
 <p>The Agent SDK runs the Claude Code CLI as a child process and communicates with it over a local pipe. The CLI has OpenTelemetry instrumentation built in: it records spans around each model request and tool execution, emits metrics for token and cost counters, and emits structured log events for prompts and tool results. The SDK does not produce telemetry of its own. Instead, it passes configuration through to the CLI process, and the CLI exports directly to your collector.</p>
 <p>Configuration is passed as environment variables. By default, the child process inherits your application's environment, so you can configure telemetry in either of two places:</p>
@@ -5183,7 +5183,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>For the complete list of metric names, event names, and attributes, see the Claude Code <a href="/en/monitoring-usage">Monitoring</a> reference. The Agent SDK emits the same data because it runs the same CLI. Span names are listed in <a href="#read-agent-traces">Read agent traces</a> below.</p>
+<p>For the complete list of metric names, event names, and attributes, see the Claude Code <a href="/docs/en/monitoring-usage">Monitoring</a> reference. The Agent SDK emits the same data because it runs the same CLI. Span names are listed in <a href="#read-agent-traces">Read agent traces</a> below.</p>
 <h2 id="enable-telemetry-export">Enable telemetry export</h2>
 <p>Telemetry is off until you set <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> and choose at least one exporter. The most common configuration sends all three signals over OTLP HTTP to a collector.</p>
 <p>The following example sets the variables in a dictionary and passes them through <code>options.env</code>. The agent runs a single task, and the CLI exports spans, metrics, and events to the collector at <code>collector.example.com</code> while the loop consumes the response stream:</p>
@@ -5272,20 +5272,20 @@ const otelEnv = {
 <li><strong><code>claude_code.interaction</code>:</strong> wraps a single turn of the agent loop, from receiving a prompt to producing a response.</li>
 <li><strong><code>claude_code.llm_request</code>:</strong> wraps each call to the Claude API, with model name, latency, and token counts as attributes.</li>
 <li><strong><code>claude_code.tool</code>:</strong> wraps each tool invocation, with child spans for the permission wait (<code>claude_code.tool.blocked_on_user</code>) and the execution itself (<code>claude_code.tool.execution</code>).</li>
-<li><strong><code>claude_code.hook</code>:</strong> wraps each <a href="/en/agent-sdk/hooks">hook</a> execution. Requires detailed beta tracing (<code>ENABLE_BETA_TRACING_DETAILED=1</code> and <code>BETA_TRACING_ENDPOINT</code>) in addition to the variables above.</li>
+<li><strong><code>claude_code.hook</code>:</strong> wraps each <a href="/docs/en/agent-sdk/hooks">hook</a> execution. Requires detailed beta tracing (<code>ENABLE_BETA_TRACING_DETAILED=1</code> and <code>BETA_TRACING_ENDPOINT</code>) in addition to the variables above.</li>
 </ul>
 <p>The <code>llm_request</code>, <code>tool</code>, and <code>hook</code> spans are children of the enclosing <code>claude_code.interaction</code> span. When the agent spawns a subagent through the Task tool, the subagent's <code>llm_request</code> and <code>tool</code> spans nest under the parent agent's <code>claude_code.tool</code> span, so the full delegation chain appears as one trace.</p>
-<p>Spans carry a <code>session.id</code> attribute by default. When you make several <code>query()</code> calls against the same <a href="/en/agent-sdk/sessions">session</a>, filter on <code>session.id</code> in your backend to see them as one timeline. The attribute is omitted if <code>OTEL_METRICS_INCLUDE_SESSION_ID</code> is set to a falsy value.</p>
+<p>Spans carry a <code>session.id</code> attribute by default. When you make several <code>query()</code> calls against the same <a href="/docs/en/agent-sdk/sessions">session</a>, filter on <code>session.id</code> in your backend to see them as one timeline. The attribute is omitted if <code>OTEL_METRICS_INCLUDE_SESSION_ID</code> is set to a falsy value.</p>
 <p><Note>
   Tracing is in beta. Span names and attributes may change between releases. See
-  <a href="/en/monitoring-usage#traces-beta">Traces (beta)</a> in the Monitoring reference
+  <a href="/docs/en/monitoring-usage#traces-beta">Traces (beta)</a> in the Monitoring reference
   for the trace exporter configuration variables.
 </Note></p>
 <h2 id="link-traces-to-your-application">Link traces to your application</h2>
 <p>The SDK automatically propagates W3C trace context into the CLI subprocess. When you call <code>query()</code> while an OpenTelemetry span is active in your application, the SDK injects <code>TRACEPARENT</code> and <code>TRACESTATE</code> into the child process environment, and the CLI reads them so its <code>claude_code.interaction</code> span becomes a child of your span. The agent run then appears inside your application's trace instead of as a disconnected root.</p>
-<p>OTLP event log records emitted during the run carry the same trace context: with <code>TRACEPARENT</code> set, each record's <code>trace_id</code> and <code>span_id</code> match your application's trace, so you can join <a href="/en/monitoring-usage#events">events</a> to spans in your backend. {/<em> min-version: 2.1.212 </em>/}Before v2.1.212, event records emitted outside an active span didn't carry <code>trace_id</code> or <code>span_id</code>.</p>
+<p>OTLP event log records emitted during the run carry the same trace context: with <code>TRACEPARENT</code> set, each record's <code>trace_id</code> and <code>span_id</code> match your application's trace, so you can join <a href="/docs/en/monitoring-usage#events">events</a> to spans in your backend. {/<em> min-version: 2.1.212 </em>/}Before v2.1.212, event records emitted outside an active span didn't carry <code>trace_id</code> or <code>span_id</code>.</p>
 <p>When trace-context propagation is enabled, the CLI also forwards <code>TRACEPARENT</code> to every Bash and PowerShell command it runs. If a command launched through the Bash tool emits its own OpenTelemetry spans, those spans nest under the <code>claude_code.tool.execution</code> span that wraps the command.</p>
-<p>Auto-injection is skipped when you set <code>TRACEPARENT</code> explicitly in <code>options.env</code>, so you can pin a specific parent context if needed. Interactive CLI sessions ignore inbound <code>TRACEPARENT</code> entirely; only Agent SDK and <code>claude -p</code> runs honor it. See <a href="/en/monitoring-usage#traces-beta">Traces (beta)</a> in the Monitoring reference for the full span and attribute reference.</p>
+<p>Auto-injection is skipped when you set <code>TRACEPARENT</code> explicitly in <code>options.env</code>, so you can pin a specific parent context if needed. Interactive CLI sessions ignore inbound <code>TRACEPARENT</code> entirely; only Agent SDK and <code>claude -p</code> runs honor it. See <a href="/docs/en/monitoring-usage#traces-beta">Traces (beta)</a> in the Monitoring reference for the full span and attribute reference.</p>
 <h2 id="tag-telemetry-from-your-agent">Tag telemetry from your agent</h2>
 <p>By default, the CLI reports <code>service.name</code> as <code>claude-code</code>. If you run several agents, or run the SDK alongside other services that export to the same collector, override the service name and add resource attributes so you can filter by agent in your backend.</p>
 <p>The following example renames the service and attaches deployment metadata. These values are applied as OpenTelemetry resource attributes on every span, metric, and event the agent emits:</p>
@@ -5311,8 +5311,8 @@ const options = {
 </code></pre></div>
 </CodeGroup></p>
 <h2 id="attribute-actions-to-your-end-users">Attribute actions to your end users</h2>
-<p>The CLI attaches <a href="/en/monitoring-usage#standard-attributes">identity attributes</a> to every event based on the credential it uses to call Anthropic. When you build an application that serves many end users from one deployment, these attributes identify your service's credential, not the end user on whose behalf the agent acted.</p>
-<p>To make tool calls and MCP activity attributable to your application's end users, inject end-user identity as resource attributes on each <code>query()</code> call. Percent-encode values before interpolating them, since <code>OTEL_RESOURCE_ATTRIBUTES</code> <a href="/en/monitoring-usage#multi-team-organization-support">reserves commas, spaces, and equals signs</a>. The following example attaches the requesting user and tenant to every span and event from one request. It assumes a <code>request</code> object from your web framework carrying the user and tenant IDs:</p>
+<p>The CLI attaches <a href="/docs/en/monitoring-usage#standard-attributes">identity attributes</a> to every event based on the credential it uses to call Anthropic. When you build an application that serves many end users from one deployment, these attributes identify your service's credential, not the end user on whose behalf the agent acted.</p>
+<p>To make tool calls and MCP activity attributable to your application's end users, inject end-user identity as resource attributes on each <code>query()</code> call. Percent-encode values before interpolating them, since <code>OTEL_RESOURCE_ATTRIBUTES</code> <a href="/docs/en/monitoring-usage#multi-team-organization-support">reserves commas, spaces, and equals signs</a>. The following example attaches the requesting user and tenant to every span and event from one request. It assumes a <code>request</code> object from your web framework carrying the user and tenant IDs:</p>
 <p><CodeGroup>
   ```python Python theme={null}
   from urllib.parse import quote</p>
@@ -5332,7 +5332,7 @@ const options = {
 };
 </code></pre></div>
 </CodeGroup></p>
-<p>With end-user identity attached, the <code>tool_decision</code>, <code>tool_result</code>, <code>mcp_server_connection</code>, and <code>permission_mode_changed</code> events, which export as log records named with a <code>claude_code.</code> prefix, become a per-user audit trail you can forward to a Security Information and Event Management (SIEM) platform. See <a href="/en/monitoring-usage#audit-security-events">Audit security events</a> in the Monitoring reference for the full list of security-relevant events and the attributes each one carries.</p>
+<p>With end-user identity attached, the <code>tool_decision</code>, <code>tool_result</code>, <code>mcp_server_connection</code>, and <code>permission_mode_changed</code> events, which export as log records named with a <code>claude_code.</code> prefix, become a per-user audit trail you can forward to a Security Information and Event Management (SIEM) platform. See <a href="/docs/en/monitoring-usage#audit-security-events">Audit security events</a> in the Monitoring reference for the full list of security-relevant events and the attributes each one carries.</p>
 <h2 id="control-sensitive-data-in-exports">Control sensitive data in exports</h2>
 <p>Telemetry is structural by default. Durations, model names, and tool names are recorded on every span; token counts are recorded when the underlying API request returns usage data, so spans for failed or aborted requests may omit them. The content your agent reads and writes is not recorded by default. These opt-in variables add content to the exported data:</p>
 <table>
@@ -5361,13 +5361,13 @@ const options = {
 </tr>
 </tbody>
 </table>
-<p>Leave these unset unless your observability pipeline is approved to store the data your agent handles. See <a href="/en/monitoring-usage#security-and-privacy">Security and privacy</a> in the Monitoring reference for the full list of attributes and redaction behavior.</p>
+<p>Leave these unset unless your observability pipeline is approved to store the data your agent handles. See <a href="/docs/en/monitoring-usage#security-and-privacy">Security and privacy</a> in the Monitoring reference for the full list of attributes and redaction behavior.</p>
 <h2 id="related-documentation">Related documentation</h2>
 <p>These guides cover adjacent topics for monitoring and deploying agents:</p>
 <ul>
-<li><a href="/en/agent-sdk/cost-tracking">Track cost and usage</a>: read token and cost data from the message stream without an external backend.</li>
-<li><a href="/en/agent-sdk/hosting">Hosting the Agent SDK</a>: deploy agents in containers where you can set OpenTelemetry variables at the environment level.</li>
-<li><a href="/en/monitoring-usage">Monitoring</a>: the complete reference for every environment variable, metric, and event the CLI emits.</li>
+<li><a href="/docs/en/agent-sdk/cost-tracking">Track cost and usage</a>: read token and cost data from the message stream without an external backend.</li>
+<li><a href="/docs/en/agent-sdk/hosting">Hosting the Agent SDK</a>: deploy agents in containers where you can set OpenTelemetry variables at the environment level.</li>
+<li><a href="/docs/en/monitoring-usage">Monitoring</a>: the complete reference for every environment variable, metric, and event the CLI emits.</li>
 </ul>
 
 

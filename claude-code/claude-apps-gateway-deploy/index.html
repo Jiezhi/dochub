@@ -5406,7 +5406,7 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Register the gateway with your IdP, build the container, deploy on Kubernetes or Cloud Run, and operate it: health checks, secret rotation, upgrades, and security.</p>
 </blockquote>
-<p>This page covers the operational side of running <a href="/en/claude-apps-gateway">Claude apps gateway</a>: registering an OAuth client in your identity provider (IdP), deploying the gateway as a container, and running it day-to-day. For every option in the <code>gateway.yaml</code> file the gateway reads at boot, see the <a href="/en/claude-apps-gateway-config">Configuration reference</a>.</p>
+<p>This page covers the operational side of running <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a>: registering an OAuth client in your identity provider (IdP), deploying the gateway as a container, and running it day-to-day. For every option in the <code>gateway.yaml</code> file the gateway reads at boot, see the <a href="/docs/en/claude-apps-gateway-config">Configuration reference</a>.</p>
 <p>A production deployment follows four steps in order, and the sections below match them. The first two are where you make choices; the second two are reference material to consult once it's running.</p>
 <ol>
 <li><a href="#identity-provider-setup">Set up your identity provider</a>: register the OAuth client and check the per-IdP notes for Okta, Entra, and Google</li>
@@ -5423,7 +5423,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Register a confidential OAuth/OpenID Connect (OIDC) web application with a single redirect URI, <code>https://&lt;gateway&gt;/oauth/callback</code>, and assign it to the users or groups who should have gateway access.</p>
 <p>Any OIDC-compliant IdP works: Okta, Microsoft Entra ID, Google Workspace, Keycloak, Dex, PingFederate, and others. The IdP must meet three requirements:</p>
 <ul>
-<li>Serves <code>/.well-known/openid-configuration</code>, over HTTPS in production; the gateway accepts an <a href="/en/claude-apps-gateway-config#oidc"><code>http://</code> issuer</a>, and a loopback issuer additionally requires <code>CLAUDE_GATEWAY_ALLOW_LOOPBACK=1</code></li>
+<li>Serves <code>/.well-known/openid-configuration</code>, over HTTPS in production; the gateway accepts an <a href="/docs/en/claude-apps-gateway-config#oidc"><code>http://</code> issuer</a>, and a loopback issuer additionally requires <code>CLAUDE_GATEWAY_ALLOW_LOOPBACK=1</code></li>
 <li>Supports the authorization-code flow. PKCE (Proof Key for Code Exchange) is on by default; disable it with <code>oidc.use_pkce: false</code> for IdPs that don't support it</li>
 <li>Returns <code>email</code> and optionally <code>groups</code> in the id_token, or serves them from the userinfo endpoint with <code>oidc.userinfo_fallback: true</code></li>
 </ul>
@@ -5432,12 +5432,12 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li><strong>Okta</strong>: the org authorization server at <code>https://example.okta.com</code> returns a thin id_token that omits <code>email</code> and <code>groups</code>, so set <code>oidc.userinfo_fallback: true</code> whenever you use it as <code>issuer</code>. A custom authorization server such as <code>https://example.okta.com/oauth2/default</code> that includes <code>email</code> and optionally <code>groups</code> in the id_token emits them directly and needs no fallback. Okta emits <code>groups</code> only when the <code>groups</code> scope is requested in <code>oidc.scopes</code> and the app's groups claim filter allows it; <code>userinfo_fallback</code> can't fill a claim the IdP wasn't asked for.</li>
 <li><strong>Microsoft Entra ID</strong>: <code>issuer</code> = <code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code>. Entra emits group Object IDs rather than names, so use the GUIDs in <code>managed.policies.match.groups</code>, or use App Roles for human-readable names. If your tenant emits roles under <code>roles</code> instead of <code>groups</code>, set <code>oidc.groups_claim: roles</code>.</li>
-<li><strong>Google Workspace</strong>: <code>issuer</code> = <code>https://accounts.google.com</code>. Google's id_token doesn't carry groups. To use group-based <code>allowed_groups</code> or <code>managed.policies</code> with Google as the IdP, configure <a href="/en/claude-apps-gateway-config#oidc"><code>oidc.google_groups</code></a>, which looks up each user's groups through the Admin SDK Directory API using a service account with domain-wide delegation. Without it, use <code>oidc.allowed_email_domains</code> for membership gating and <code>managed.policies.match.email_domain</code> for policy assignment. Google also ignores the standard <code>offline_access</code> scope. For refresh tokens, set <code>oidc.scopes: [openid, profile, email]</code> and <code>oidc.extra_auth_params: { access_type: offline, prompt: consent }</code>.</li>
+<li><strong>Google Workspace</strong>: <code>issuer</code> = <code>https://accounts.google.com</code>. Google's id_token doesn't carry groups. To use group-based <code>allowed_groups</code> or <code>managed.policies</code> with Google as the IdP, configure <a href="/docs/en/claude-apps-gateway-config#oidc"><code>oidc.google_groups</code></a>, which looks up each user's groups through the Admin SDK Directory API using a service account with domain-wide delegation. Without it, use <code>oidc.allowed_email_domains</code> for membership gating and <code>managed.policies.match.email_domain</code> for policy assignment. Google also ignores the standard <code>offline_access</code> scope. For refresh tokens, set <code>oidc.scopes: [openid, profile, email]</code> and <code>oidc.extra_auth_params: { access_type: offline, prompt: consent }</code>.</li>
 </ul>
 <p>For support with an identity provider not covered above, see <a href="#troubleshooting">Troubleshooting</a>.</p>
 <p><Warning>
   Refresh tokens let the gateway renew a developer's session silently, without sending the developer back to the browser. They also drive deprovisioning, because when the IdP disables a user, the next refresh fails and the session ends within <code>ttl_hours</code>. The gateway requests <code>offline_access</code> by default to get a refresh token. If your IdP requires explicit consent for offline access, configure the OAuth client to allow it.</p>
-<p>If your IdP can't issue refresh tokens at all, the gateway still works, but there is no silent renewal, so developers re-run the browser login when their session expires. To keep that from happening every hour, raise <a href="/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a> to <code>8</code> or <code>12</code>. The tradeoff is deprovisioning latency, because without refresh tokens a disabled user keeps access until the longer TTL elapses.
+<p>If your IdP can't issue refresh tokens at all, the gateway still works, but there is no silent renewal, so developers re-run the browser login when their session expires. To keep that from happening every hour, raise <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a> to <code>8</code> or <code>12</code>. The tradeoff is deprovisioning latency, because without refresh tokens a disabled user keeps access until the longer TTL elapses.
 </Warning></p>
 <h2 id="deployment">Deployment</h2>
 <p>The gateway is a single Linux binary. It scales horizontally because replicas are stateless and Postgres is the shared coordination layer. Run it however you run stateless services in your environment. The rest of this section states what the image needs, with short notes for Kubernetes and Cloud Run.</p>
@@ -5445,22 +5445,22 @@ Use this file to discover all available pages before exploring further.</p>
 <p>A few decisions shape the deployment beyond where it runs:</p>
 <ul>
 <li><strong>Cost</strong>: there is no separate license or per-seat fee for the gateway; it's part of the <code>claude</code> binary. You pay for inference through your existing cloud or Anthropic commitment, plus the compute for the container and your telemetry collector.</li>
-<li><strong>Bypass</strong>: the gateway doesn't enforce that the only route to a model goes through it. A developer with their own credential can still call the provider directly, so closing that path is a network policy decision, for example blocking egress to <code>api.anthropic.com</code> except from the gateway. Blocking that egress also breaks the <a href="/en/data-usage#webfetch-domain-safety-check">WebFetch domain safety check</a>, which calls <code>api.anthropic.com</code> from each developer's machine; set <code>skipWebFetchPreflight: true</code> in the managed policy to disable it.</li>
+<li><strong>Bypass</strong>: the gateway doesn't enforce that the only route to a model goes through it. A developer with their own credential can still call the provider directly, so closing that path is a network policy decision, for example blocking egress to <code>api.anthropic.com</code> except from the gateway. Blocking that egress also breaks the <a href="/docs/en/data-usage#webfetch-domain-safety-check">WebFetch domain safety check</a>, which calls <code>api.anthropic.com</code> from each developer's machine; set <code>skipWebFetchPreflight: true</code> in the managed policy to disable it.</li>
 <li><strong>Multiple gateways</strong>: each gateway is a separate deployment with its own config. The CLI stores its trust fingerprint and credentials per gateway hostname, so different teams can connect to different gateways without conflict. To serve multiple OIDC issuers, run separate instances.</li>
 <li><strong>Serverless</strong>: Cloud Run works; set <code>min-instances: 1</code> to avoid cold OIDC discovery. Lambda and Cloud Functions don't, because the gateway is a long-running HTTP server.</li>
 </ul>
-<p>Every production topology here puts an L7 proxy, such as an Ingress, Cloud Run's front end, or an ALB, in front of plain-HTTP replicas. Set <a href="/en/claude-apps-gateway-config#listen"><code>listen.trusted_proxies</code></a> to the proxy's source ranges so the gateway reads client IPs from <code>X-Forwarded-For</code>. The gateway honors the header only when the TCP peer is trusted; the <a href="/en/claude-apps-gateway-on-gcp">Google Cloud worked example</a> has concrete values per topology. Without trusted proxies, every request appears to come from the proxy's IP, which collapses per-IP rate limits into one shared bucket and records the proxy's IP in audit events.</p>
+<p>Every production topology here puts an L7 proxy, such as an Ingress, Cloud Run's front end, or an ALB, in front of plain-HTTP replicas. Set <a href="/docs/en/claude-apps-gateway-config#listen"><code>listen.trusted_proxies</code></a> to the proxy's source ranges so the gateway reads client IPs from <code>X-Forwarded-For</code>. The gateway honors the header only when the TCP peer is trusted; the <a href="/docs/en/claude-apps-gateway-on-gcp">Google Cloud worked example</a> has concrete values per topology. Without trusted proxies, every request appears to come from the proxy's IP, which collapses per-IP rate limits into one shared bucket and records the proxy's IP in audit events.</p>
 <h3 id="container-image">Container image</h3>
 <p>Build your own image around the native <code>claude</code> binary from the standard Claude Code release:</p>
 <ol>
-<li>Download the Linux build for your image architecture from a pinned release; see <a href="/en/setup#install-a-specific-version">Install a specific version</a> for the download URL.</li>
-<li>Verify it against the release's GPG-signed <code>manifest.json</code> as described in <a href="/en/setup#binary-integrity-and-code-signing">Binary integrity and code signing</a>.</li>
+<li>Download the Linux build for your image architecture from a pinned release; see <a href="/docs/en/setup#install-a-specific-version">Install a specific version</a> for the download URL.</li>
+<li>Verify it against the release's GPG-signed <code>manifest.json</code> as described in <a href="/docs/en/setup#binary-integrity-and-code-signing">Binary integrity and code signing</a>.</li>
 <li>Copy it into the build context.</li>
 </ol>
 <p>Mirror the release into your internal registry if your builds can't reach the release host, and pin the version your fleet runs.</p>
 <p>Beyond the binary, the image needs:</p>
 <ul>
-<li><strong>A glibc-based image</strong>: the glibc build's only dynamic dependencies are glibc libraries. Musl-based images need the <code>linux-x64-musl</code> or <code>linux-arm64-musl</code> build plus additional packages; see <a href="/en/setup#alpine-linux-and-musl-based-distributions">Alpine Linux setup</a>.</li>
+<li><strong>A glibc-based image</strong>: the glibc build's only dynamic dependencies are glibc libraries. Musl-based images need the <code>linux-x64-musl</code> or <code>linux-arm64-musl</code> build plus additional packages; see <a href="/docs/en/setup#alpine-linux-and-musl-based-distributions">Alpine Linux setup</a>.</li>
 <li><strong>A writable state directory</strong>: the gateway runs as any user, but minimal images have no writable home. Set <code>CLAUDE_CONFIG_DIR</code> to a writable path such as <code>/tmp/.claude</code>.</li>
 <li><strong>The container command</strong>: <code>claude gateway --config /etc/claude/gateway.yaml</code>, with the config file mounted read-only and secrets supplied as environment variables; the gateway listens on <code>listen.port</code>, default <code>8080</code>.</li>
 </ul>
@@ -5473,21 +5473,21 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p><Note>
   <strong>Workload identity</strong></p>
-<p>Prefer the platform's workload identity over static keys: IRSA on EKS for Amazon Bedrock and for Claude Platform on AWS, Workload Identity on GKE for Google Cloud's Agent Platform, and workload identity on AKS for Microsoft Foundry. Set <code>auth: {}</code> in the upstream block, or <code>use_azure_ad: true</code> for Microsoft Foundry, and the gateway picks up the pod's identity through that provider's default credential chain. For a cross-cloud pairing, such as an Amazon Bedrock upstream on GKE, set explicit credentials in the upstream's <code>auth</code> block instead. The <a href="/en/claude-apps-gateway-config#upstreams"><code>upstreams</code> reference</a> has per-platform setup details.
+<p>Prefer the platform's workload identity over static keys: IRSA on EKS for Amazon Bedrock and for Claude Platform on AWS, Workload Identity on GKE for Google Cloud's Agent Platform, and workload identity on AKS for Microsoft Foundry. Set <code>auth: {}</code> in the upstream block, or <code>use_azure_ad: true</code> for Microsoft Foundry, and the gateway picks up the pod's identity through that provider's default credential chain. For a cross-cloud pairing, such as an Amazon Bedrock upstream on GKE, set explicit credentials in the upstream's <code>auth</code> block instead. The <a href="/docs/en/claude-apps-gateway-config#upstreams"><code>upstreams</code> reference</a> has per-platform setup details.
 </Note></p>
 <h3 id="cloud-run">Cloud Run</h3>
 <p>Configure the service as follows:</p>
 <ul>
 <li>Leave <code>listen.port</code> at its default of <code>8080</code>, which matches Cloud Run's default <code>PORT</code>, or set <code>port: ${PORT}</code></li>
-<li>Set <code>public_url</code> to the externally reachable origin. For production this is normally an internal load balancer's hostname, because <code>/login</code> <a href="/en/claude-apps-gateway#prerequisites">rejects public addresses</a> and the <code>*.run.app</code> URL resolves to one, so the Cloud Run URL alone works only for a <code>curl</code> or browser smoke test. The exception is a network where <code>*.run.app</code> resolves privately through Private Service Connect and a Cloud DNS private zone; in that topology the Cloud Run URL is a valid <code>public_url</code>. The <a href="/en/claude-apps-gateway-on-gcp#deploy-the-gateway">Google Cloud worked example</a> covers both.</li>
+<li>Set <code>public_url</code> to the externally reachable origin. For production this is normally an internal load balancer's hostname, because <code>/login</code> <a href="/docs/en/claude-apps-gateway#prerequisites">rejects public addresses</a> and the <code>*.run.app</code> URL resolves to one, so the Cloud Run URL alone works only for a <code>curl</code> or browser smoke test. The exception is a network where <code>*.run.app</code> resolves privately through Private Service Connect and a Cloud DNS private zone; in that topology the Cloud Run URL is a valid <code>public_url</code>. The <a href="/docs/en/claude-apps-gateway-on-gcp#deploy-the-gateway">Google Cloud worked example</a> covers both.</li>
 <li>Mount the config as a secret volume</li>
 <li>Set <code>min-instances: 1</code> to avoid a cold OIDC discovery on first request</li>
 </ul>
 <p><Note>
-  For a complete worked example on Google Cloud, covering Cloud Run or GKE, Cloud SQL, and Secret Manager, see <a href="/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.
+  For a complete worked example on Google Cloud, covering Cloud Run or GKE, Cloud SQL, and Secret Manager, see <a href="/docs/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.
 </Note></p>
 <h3 id="push-the-gateway-url-to-developer-machines">Push the gateway URL to developer machines</h3>
-<p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option. See <a href="/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths.</p>
+<p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option. See <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths.</p>
 <h2 id="operations">Operations</h2>
 <p>Once the gateway is serving traffic, day-to-day operation is reading its logs, probing its health, and rotating its secrets on your schedule. The subsections cover each, plus what Postgres holds and how upgrades and rollbacks behave.</p>
 <h3 id="logs">Logs</h3>
@@ -5509,7 +5509,7 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li><strong>Existing sessions</strong>: bearer tokens validate locally with the JWT secret, session refreshes don't touch the store, and the gateway process can still serve inference</li>
 <li><strong>New sign-ins</strong>: fail until Postgres recovers, because the device flow and its rate-limit counters live in Postgres</li>
-<li><strong><a href="/en/claude-apps-gateway-spend-limits#postgres-availability">Spend-limit enforcement</a></strong>: fails open by default during the outage, so inference still flows; flip it to fail closed if you'd rather block than run unmetered</li>
+<li><strong><a href="/docs/en/claude-apps-gateway-spend-limits#postgres-availability">Spend-limit enforcement</a></strong>: fails open by default during the outage, so inference still flows; flip it to fail closed if you'd rather block than run unmetered</li>
 <li><strong>Readiness</strong>: <code>/readyz</code> reports not-ready during the outage, so orchestrators that gate traffic on readiness remove every replica from rotation at once. In that topology all traffic, including inference the gateway could still serve, fails at the load balancer until Postgres recovers. The liveness probe on <code>/healthz</code> keeps passing, so replicas aren't restarted. Point the readiness probe at <code>/healthz</code> instead if you'd rather signed-in developers keep working through a store outage; the cost is that new sign-ins fail against a replica that still reports ready.</li>
 </ul>
 <p>If your IdP goes down, existing sessions work until <code>ttl_hours</code>, and new logins and refreshes fail. Set a longer <code>ttl_hours</code> if your IdP has frequent maintenance windows.</p>
@@ -5559,7 +5559,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>A 30-second loop expires <code>kv</code> rows past their TTL, and an hourly sweep enforces the retention windows on the spend tables, so nothing grows without bound. Without <a href="/en/claude-apps-gateway-spend-limits">spend limits</a> configured, only <code>kv</code> is written. If your security policy prohibits DDL from the application role, pre-create these tables and <code>_migrations</code> with an admin role and grant the app role <code>SELECT, INSERT, UPDATE, DELETE</code> on each.</p>
+<p>A 30-second loop expires <code>kv</code> rows past their TTL, and an hourly sweep enforces the retention windows on the spend tables, so nothing grows without bound. Without <a href="/docs/en/claude-apps-gateway-spend-limits">spend limits</a> configured, only <code>kv</code> is written. If your security policy prohibits DDL from the application role, pre-create these tables and <code>_migrations</code> with an admin role and grant the app role <code>SELECT, INSERT, UPDATE, DELETE</code> on each.</p>
 <p>With spend limits in use, a lost database means lost spend tracking and caps, not only developer re-logins, so run regular backups. To erase one departed developer immediately rather than waiting on retention, run <code>DELETE FROM principal_emails WHERE principal = '&lt;sub&gt;'</code> directly; that removes the only table holding their email, name, and groups. <code>spend</code> and <code>admin_audit</code> rows reference the pseudonymous OIDC <code>sub</code> only.</p>
 <h3 id="upgrades">Upgrades</h3>
 <p>Replicas are stateless, so a rolling restart is safe at any time. The gateway runs schema migrations at boot, which means deploying the new binary self-migrates the database. If the database role can't run DDL, pre-create the schema, including the <code>_migrations</code> table seeded to the current version; otherwise boot fails attempting <code>CREATE TABLE</code>.</p>
@@ -5583,7 +5583,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Only if the Anthropic API is a configured upstream</td>
 </tr>
 <tr>
-<td>Telemetry (OTLP metrics, plus <a href="/en/claude-apps-gateway-config#telemetry">opt-in logs and traces</a>)</td>
+<td>Telemetry (OTLP metrics, plus <a href="/docs/en/claude-apps-gateway-config#telemetry">opt-in logs and traces</a>)</td>
 <td>CLI → gateway → your collector</td>
 <td>Never</td>
 </tr>
@@ -5614,23 +5614,23 @@ Use this file to discover all available pages before exploring further.</p>
 <p>If you add your own egress controls, the gateway must reach the metadata server whenever it uses instance-metadata credentials such as workload identity.</p>
 <p>Two threats are out of scope because they are your infrastructure to secure:</p>
 <ul>
-<li><strong>A compromised gateway host</strong>: the host both holds the upstream credential and distributes <a href="/en/claude-apps-gateway-config#managed">managed settings</a> to every connected developer, so control over the gateway's configuration is comparable to control over your MDM. The CLI's one-time approval dialog for shell-capable settings limits silent changes but doesn't replace host security.</li>
+<li><strong>A compromised gateway host</strong>: the host both holds the upstream credential and distributes <a href="/docs/en/claude-apps-gateway-config#managed">managed settings</a> to every connected developer, so control over the gateway's configuration is comparable to control over your MDM. The CLI's one-time approval dialog for shell-capable settings limits silent changes but doesn't replace host security.</li>
 <li><strong>A malicious OIDC provider</strong>: the provider signs the id_tokens the gateway trusts, so it can assert any identity. Vetting and securing your IdP is your responsibility.</li>
 </ul>
 <h3 id="user-code-brute-force-resistance">User-code brute-force resistance</h3>
 <p>The <code>user_code</code> a developer types into the <code>/device</code> verification page is 8 characters drawn from a 20-character alphabet, which yields 20⁸ or about 2.56×10¹⁰ combinations, and it expires after 10 minutes.</p>
-<p>The gateway applies per-IP rate limits on the device-grant endpoints, configurable via <a href="/en/claude-apps-gateway-config#http-tuning"><code>rate_limits</code></a>. Raise the limits if many developers sign in from a single shared corporate NAT address. The limits apply only to the sign-in flow, not to inference.</p>
+<p>The gateway applies per-IP rate limits on the device-grant endpoints, configurable via <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>rate_limits</code></a>. Raise the limits if many developers sign in from a single shared corporate NAT address. The limits apply only to the sign-in flow, not to inference.</p>
 <h3 id="compliance-posture">Compliance posture</h3>
 <ul>
 <li><strong>Data residency</strong>: the gateway's own data plane sends nothing to Anthropic unless the Anthropic API is a configured upstream; when it is, your existing data-handling agreement applies to the inference path. Telemetry, audit, identity, and settings go only to the destinations you configure.</li>
 <li><strong>Host-process traffic</strong>: the host process is the Claude Code CLI, which can send startup analytics and update checks to Anthropic. For strict-egress deployments, set <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> in the gateway's container environment.</li>
 <li><strong>Client analytics</strong>: the CLI disables its own usage analytics while signed in to a gateway, and error reporting is off by default on third-party API surfaces.</li>
-<li><strong>Client machines</strong>: developers' CLIs still send WebFetch hostname checks and version checks to Anthropic unless <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> and <code>skipWebFetchPreflight: true</code> are set. See <a href="/en/data-usage">data usage</a>.</li>
+<li><strong>Client machines</strong>: developers' CLIs still send WebFetch hostname checks and version checks to Anthropic unless <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> and <code>skipWebFetchPreflight: true</code> are set. See <a href="/docs/en/data-usage">data usage</a>.</li>
 <li><strong>Survey ratings</strong>: the gateway credential disables the Anthropic-bound rating sink, so ratings aren't sent to Anthropic.</li>
 <li><strong>Transcript sharing</strong>: choosing Yes on a survey's transcript-share prompt writes a local file under <code>~/.claude/feedback-bundles/</code> instead of uploading to Anthropic.</li>
 <li><strong>Client updates</strong>: update checks are separate from gateway traffic. Pin versions through your own distribution and set <code>DISABLE_UPDATES</code> if laptops must not fetch releases. <code>DISABLE_AUTOUPDATER</code> stops only background updates while <code>claude update</code> still works.</li>
 <li><strong>TLS</strong>: serve <code>public_url</code> over HTTPS in production, either from the gateway's own listener via <code>listen.tls</code> or from a TLS-terminating ingress in front of plain-HTTP replicas with <code>listen.public_url</code> set. The gateway doesn't refuse plain HTTP. The IdP must serve HTTPS in production, and Postgres supports <code>?sslmode=require</code>. Set <code>Strict-Transport-Security</code> at your ingress.</li>
-<li><strong>Vulnerability disclosure</strong>: follow <a href="/en/security#reporting-security-issues">Reporting security issues</a></li>
+<li><strong>Vulnerability disclosure</strong>: follow <a href="/docs/en/security#reporting-security-issues">Reporting security issues</a></li>
 </ul>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>For questions and feedback, use <a href="https://support.claude.com/en/collections/14445694-claude-code">Claude Code support</a>, or open an issue on the <a href="https://github.com/anthropics/claude-code/issues">Claude Code GitHub repository</a>. When reporting a problem, include:</p>
@@ -5652,7 +5652,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>A developer's <code>/login</code> shows the standard account picker instead of the <strong>Cloud gateway</strong> screen</td>
 <td><code>forceLoginMethod</code> or <code>forceLoginGatewayUrl</code> isn't set in managed settings on that machine</td>
-<td>Deploy the <a href="/en/claude-apps-gateway#set-the-gateway-url">managed settings file</a> to the device; <code>/login</code> reads the gateway URL from there</td>
+<td>Deploy the <a href="/docs/en/claude-apps-gateway#set-the-gateway-url">managed settings file</a> to the device; <code>/login</code> reads the gateway URL from there</td>
 </tr>
 <tr>
 <td>Startup shows <code>Gateway login is configured in managed settings, but this Claude Code build does not include Cloud gateway support.</code></td>
@@ -5662,7 +5662,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>CLI <code>/login</code>: <code>Gateway hosts must be on your organization's private network; &lt;host&gt; resolves to the public (or unrecognized) address &lt;ip&gt;</code></td>
 <td>The gateway hostname resolves to at least one public IP address. Claude Code checks each resolved address and requires every one to be private. A common cause is a dual-stack name where one family resolves to a public address, including AWS internal dual-stack load balancers, which return public-range AAAA addresses. {/<em> min-version: 2.1.206 </em>/}Anthropic-operated public gateway endpoints are exempt from the check, and <code>/login</code> accepts them over <code>https://</code>. Before v2.1.206, <code>/login</code> rejected them like any other public address</td>
-<td>Have the gateway name resolve only to private addresses on developer machines. For a dual-stack name, drop the public-range record or serve a separate internal-only DNS name. See the <a href="/en/claude-apps-gateway#prerequisites">private-network prerequisite</a>.</td>
+<td>Have the gateway name resolve only to private addresses on developer machines. For a dual-stack name, drop the public-range record or serve a separate internal-only DNS name. See the <a href="/docs/en/claude-apps-gateway#prerequisites">private-network prerequisite</a>.</td>
 </tr>
 <tr>
 <td>CLI <code>/login</code>: <code>Gateway login requires a direct connection and does not support connecting through an HTTP proxy</code></td>
@@ -5682,7 +5682,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>Boot exits: <code>requires the native binary</code></td>
 <td>Running under Node instead of the native binary</td>
-<td>Install Claude Code with one of the <a href="/en/setup">standalone install methods</a></td>
+<td>Install Claude Code with one of the <a href="/docs/en/setup">standalone install methods</a></td>
 </tr>
 <tr>
 <td>Boot exits with an OIDC discovery error after <code>config.load</code></td>
@@ -5747,14 +5747,14 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>CLI <code>/login</code>: "Could not verify the gateway's TLS certificate" or <code>SELF_SIGNED_CERT_IN_CHAIN</code></td>
 <td>Gateway's TLS chain is signed by a private CA not in the CLI host's trust store</td>
-<td>Claude Code reads the OS trust store by default on the native binary and on Node 22.15 or later; <a href="/en/network-config#ca-certificate-store"><code>CLAUDE_CODE_CERT_STORE</code></a> controls this behavior. If the CA is installed in the OS trust store, ensure developers are on a current runtime. Otherwise set <code>NODE_EXTRA_CA_CERTS</code> to the CA certificate PEM before launching. The first-connect fingerprint prompt still applies.</td>
+<td>Claude Code reads the OS trust store by default on the native binary and on Node 22.15 or later; <a href="/docs/en/network-config#ca-certificate-store"><code>CLAUDE_CODE_CERT_STORE</code></a> controls this behavior. If the CA is installed in the OS trust store, ensure developers are on a current runtime. Otherwise set <code>NODE_EXTRA_CA_CERTS</code> to the CA certificate PEM before launching. The first-connect fingerprint prompt still applies.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="related">Related</h2>
 <ul>
-<li><a href="/en/claude-apps-gateway">Claude apps gateway overview</a>: quickstart and developer connection</li>
-<li><a href="/en/claude-apps-gateway-config">Configuration reference</a>: every <code>gateway.yaml</code> option</li>
+<li><a href="/docs/en/claude-apps-gateway">Claude apps gateway overview</a>: quickstart and developer connection</li>
+<li><a href="/docs/en/claude-apps-gateway-config">Configuration reference</a>: every <code>gateway.yaml</code> option</li>
 </ul>
 
 

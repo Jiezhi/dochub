@@ -4351,6 +4351,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../python-sdk/fastmcp-utilities-asgi_transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    asgi_transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../python-sdk/fastmcp-utilities-async_utils/" class="md-nav__link">
         
   
@@ -9864,6 +9892,10 @@
 <p><VersionBadge version="2.10.0" /></p>
 <p>Use this when you need to respond to server requests for user input during tool execution.</p>
 <p>Elicitation allows MCP servers to request structured input from users during operations. Instead of requiring all inputs upfront, servers can interactively ask for missing parameters, request clarification, or gather additional context.</p>
+<p>Two routes reach that outcome, and the protocol version the client negotiates decides which one applies. On older versions the server pushes an elicitation request down to the client, over the connection the <code>initialize</code> handshake opens; that is the flow the next few sections describe. On <code>2026-07-28</code> and later the server instead returns a description of what it needs, and the client answers with a fresh call — see <a href="#input-required-rounds">input-required rounds</a>. You write the same <code>elicitation_handler</code> either way — FastMCP routes it to whichever mechanism the connection supports.</p>
+<p><Note>
+<strong>This page shows the older protocol's elicitation flow.</strong> On protocol version <code>2026-07-28</code> the server instead returns a description of what it needs and the client answers with a new call — see <a href="#input-required-rounds">input-required rounds</a>. The same <code>elicitation_handler</code> serves both. Clients default to <code>mode="auto"</code>, so the examples below pass <code>mode="legacy"</code> to exercise the server-initiated flow. See <a href="/clients/client#protocol-negotiation">protocol negotiation</a>.
+</Note></p>
 <h2 id="handler-template">Handler Template</h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.elicitation</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElicitResult</span><span class="p">,</span> <span class="n">ElicitRequestParams</span><span class="p">,</span> <span class="n">RequestContext</span>
@@ -9903,6 +9935,7 @@
 
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
     <span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">,</span>
     <span class="n">elicitation_handler</span><span class="o">=</span><span class="n">elicitation_handler</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
@@ -9968,12 +10001,13 @@
 
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
     <span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">,</span>
     <span class="n">elicitation_handler</span><span class="o">=</span><span class="n">elicitation_handler</span>
 <span class="p">)</span>
 </code></pre></div>
 <h2 id="input-required-rounds">Input-required rounds</h2>
 <p><VersionBadge version="4.0.0" /></p>
-<p>On modern-era connections (protocol version <code>2026-07-28</code> and later), a server can ask for input before it returns a final result. Nothing is held open: the tool <em>returns</em> a description of what it needs, which completes that round as an ordinary response, and the client answers by issuing a <strong>new</strong> <code>call_tool</code>, <code>get_prompt</code>, or <code>read_resource</code> request carrying the answer. <code>fastmcp.Client</code> drives that loop for you — it fulfils each round's requests using the callbacks you already configured (your <code>elicitation_handler</code>, <code>sampling_handler</code>, and roots) and repeats until the call reaches a terminal result. No extra wiring is needed beyond the handlers described above.</p>
+<p>On protocol version <code>2026-07-28</code> and later, a server can ask for input before it returns a final result. Nothing is held open: the tool <em>returns</em> a description of what it needs, which completes that round as an ordinary response, and the client answers by issuing a <strong>new</strong> <code>call_tool</code>, <code>get_prompt</code>, or <code>read_resource</code> request carrying the answer. <code>fastmcp.Client</code> drives that loop for you — it fulfils each round's requests using the callbacks you already configured (your <code>elicitation_handler</code>, <code>sampling_handler</code>, and roots) and repeats until the call reaches a terminal result. No extra wiring is needed beyond the handlers described above.</p>
 <p>The <code>input_required_max_rounds</code> parameter caps how many rounds the client will answer before giving up, guarding against a server that never terminates. It defaults to <code>10</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
     <span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span>

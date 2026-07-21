@@ -4251,6 +4251,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../python-sdk/fastmcp-utilities-asgi_transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    asgi_transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../python-sdk/fastmcp-utilities-async_utils/" class="md-nav__link">
         
   
@@ -6414,6 +6442,17 @@
     <span class="md-ellipsis">
       
         Tool Results Are Relayed, Not Inspected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol-era-mirroring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Era Mirroring
       
     </span>
   </a>
@@ -10079,6 +10118,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#protocol-era-mirroring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Era Mirroring
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -10389,6 +10439,40 @@ Shared sessions may cause context mixing in concurrent scenarios. Use only in si
     <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;get_status&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>Skipping the check also avoids a <code>tools/list</code> round trip to the backend on every proxied call, since validation would need the backend's schemas and a proxy builds a fresh connection per request.</p>
+<h3 id="protocol-era-mirroring">Protocol Era Mirroring</h3>
+<p><VersionBadge version="4.0.0" /></p>
+<p>A proxy is a server on its front and a client on its back, and the two MCP protocol eras have mutually exclusive interaction models on a single session. On the handshake era (≤2025-11-25) the backend can push server-initiated requests — sampling, elicitation, roots — which the proxy forwards to your client. On the modern era (2026-07-28) those pushes are gone; a backend guard tool instead returns an input request that the proxy relays back as a result. A single proxy session speaks one era, so the whole chain has to agree end-to-end.</p>
+<p>By default the proxy relays the era: whatever era your client negotiates on the front, the proxy negotiates the same era on its backend connection, per request. A handshake client reaches a handshake backend, so server-initiated forwarding works; a modern client reaches a modern backend, so a guard tool's input request round-trips. Different clients hitting the same proxy each get a backend session in their own era — the eras never cross.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_proxy</span>
+
+<span class="c1"># No mode: the backend mirrors each client&#39;s negotiated era.</span>
+<span class="n">proxy</span> <span class="o">=</span> <span class="n">create_proxy</span><span class="p">(</span><span class="s2">&quot;backend_server.py&quot;</span><span class="p">)</span>
+
+<span class="c1"># A handshake client gets a handshake backend (push-forwarding works).</span>
+<span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="n">proxy</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="o">...</span>
+
+<span class="c1"># A modern client gets a modern backend (guard tools round-trip).</span>
+<span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="n">proxy</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="o">...</span>
+</code></pre></div>
+<p>Passing an explicit <code>mode</code> pins the backend to one era regardless of the client:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Always negotiate the modern era upstream, whatever the client speaks.</span>
+<span class="n">proxy</span> <span class="o">=</span> <span class="n">create_proxy</span><span class="p">(</span><span class="s2">&quot;backend_server.py&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Pinning breaks the end-to-end era agreement, so reserve it for a backend that only speaks one era. When the client's era and the pinned backend era disagree on a feature — a modern client asking for a guard round-trip against a handshake-pinned backend, say — the mismatch surfaces through the normal era gates rather than silently degrading. Mirroring applies to proxies created from a target the proxy connects itself (a URL, path, config, or <code>FastMCP</code> instance); when you hand <code>create_proxy</code> an already-configured <code>Client</code>, that client carries its own mode and mirroring does not override it.</p>
+<p>A multi-server configuration adds a hop: FastMCP mounts one proxy per configured server onto a router, and your client talks to that router rather than to any backend directly. The era carries through the whole depth, so each real backend negotiates the era your client did — not just the router in front of them.</p>
+<div class="highlight"><pre><span></span><code><span class="n">proxy</span> <span class="o">=</span> <span class="n">create_proxy</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;mcpServers&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;weather&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://weather.example.com/mcp&quot;</span><span class="p">},</span>
+            <span class="s2">&quot;calendar&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://calendar.example.com/mcp&quot;</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>A modern client here reaches both <code>weather</code> and <code>calendar</code> on modern sessions, so a guard tool on either one round-trips end to end. An explicit <code>mode</code> pins every backend in the configuration, the same way it pins a single one.</p>
 <h2 id="configuration-based-proxies">Configuration-Based Proxies</h2>
 <p><VersionBadge version="2.4.0" /></p>
 <p>Create proxies from configuration dictionaries:</p>

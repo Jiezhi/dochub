@@ -5375,7 +5375,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Build an MCP server that pushes webhooks, alerts, and chat messages into a Claude Code session. Reference for the channel contract: capability declaration, notification events, reply tools, sender gating, and permission relay.</p>
 </blockquote>
 <p><Note>
-  Channels are in <a href="/en/channels#research-preview">research preview</a>. Team and Enterprise organizations must <a href="/en/channels#enterprise-controls">explicitly enable them</a>.
+  Channels are in <a href="/docs/en/channels#research-preview">research preview</a>. Team and Enterprise organizations must <a href="/docs/en/channels#enterprise-controls">explicitly enable them</a>.
 </Note></p>
 <p>A channel is an MCP server that pushes events into a Claude Code session so Claude can react to things happening outside the terminal.</p>
 <p>You can build a one-way or two-way channel. One-way channels forward alerts, webhooks, or monitoring events for Claude to act on. Two-way channels like chat bridges also <a href="#expose-a-reply-tool">expose a reply tool</a> so Claude can send messages back. A channel with a trusted sender path can also opt in to <a href="#relay-permission-prompts">relay permission prompts</a> so you can approve or deny tool use remotely.</p>
@@ -5390,7 +5390,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#gate-inbound-messages">Gate inbound messages</a>: sender checks to prevent prompt injection</li>
 <li><a href="#relay-permission-prompts">Relay permission prompts</a>: forward tool approval prompts to remote channels</li>
 </ul>
-<p>To use an existing channel instead of building one, see <a href="/en/channels">Channels</a>. Telegram, Discord, iMessage, and fakechat are included in the research preview.</p>
+<p>To use an existing channel instead of building one, see <a href="/docs/en/channels">Channels</a>. Telegram, Discord, iMessage, and fakechat are included in the research preview.</p>
 <h2 id="overview">Overview</h2>
 <p>A channel is an <a href="https://modelcontextprotocol.io">MCP</a> server that runs on the same machine as Claude Code. Claude Code spawns it as a subprocess and communicates over stdio. Your channel server is the bridge between external systems and the Claude Code session:</p>
 <ul>
@@ -5407,7 +5407,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Connect over <a href="https://modelcontextprotocol.io/docs/concepts/transports#standard-io">stdio transport</a> (Claude Code spawns your server as a subprocess)</li>
 </ol>
 <p>The <a href="#server-options">Server options</a> and <a href="#notification-format">Notification format</a> sections cover each of these in detail. See <a href="#example-build-a-webhook-receiver">Example: build a webhook receiver</a> for a full walkthrough.</p>
-<p>During the research preview, custom channels aren't on the <a href="/en/channels#supported-channels">approved allowlist</a>. Use <code>--dangerously-load-development-channels</code> to test locally. See <a href="#test-during-the-research-preview">Test during the research preview</a> for details.</p>
+<p>During the research preview, custom channels aren't on the <a href="/docs/en/channels#supported-channels">approved allowlist</a>. Use <code>--dangerously-load-development-channels</code> to test locally. See <a href="#test-during-the-research-preview">Test during the research preview</a> for details.</p>
 <h2 id="example-build-a-webhook-receiver">Example: build a webhook receiver</h2>
 <p>This walkthrough builds a single-file server that listens for HTTP requests and forwards them into your Claude Code session. By the end, anything that can send an HTTP POST, like a CI pipeline, a monitoring alert, or a <code>curl</code> command, can push events to Claude.</p>
 <p>This example uses <a href="https://bun.sh">Bun</a> as the runtime for its built-in HTTP server and TypeScript support. You can use <a href="https://nodejs.org">Node</a> or <a href="https://deno.com">Deno</a> instead; the only requirement is the <a href="https://www.npmjs.com/package/@modelcontextprotocol/sdk">MCP SDK</a>.</p>
@@ -5495,7 +5495,7 @@ After you accept, Claude Code spawns your `webhook.ts` as a subprocess, and the 
 
 A dim notice below the startup banner confirms the channel is registered: `Channels (experimental) messages from server:webhook inject directly in this session · restart without --dangerously-load-development-channels to stop`.
 
-If you see "blocked by org policy," your organization admin needs to [enable channels](/en/channels#enterprise-controls) first.
+If you see "blocked by org policy," your organization admin needs to [enable channels](/docs/en/channels#enterprise-controls) first.
 
 In a separate terminal, simulate a webhook by sending an HTTP POST with a message to your server. This example sends a CI failure alert to port 8788 (or whichever port you configured):
 
@@ -5520,7 +5520,7 @@ If the event doesn't arrive, the diagnosis depends on what `curl` returned:
 </Steps></p>
 <p>The <a href="https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/fakechat">fakechat server</a> extends this pattern with a web UI, file attachments, and a reply tool for two-way chat.</p>
 <h2 id="test-during-the-research-preview">Test during the research preview</h2>
-<p>During the research preview, every channel must be on the <a href="/en/channels#research-preview">approved allowlist</a> to register. The development flag bypasses the allowlist for specific entries after a confirmation prompt. This example shows both entry types:</p>
+<p>During the research preview, every channel must be on the <a href="/docs/en/channels#research-preview">approved allowlist</a> to register. The development flag bypasses the allowlist for specific entries after a confirmation prompt. This example shows both entry types:</p>
 <p>```bash theme={null}</p>
 <h1 id="testing-a-plugin-youre-developing">Testing a plugin you're developing</h1>
 <p>claude --dangerously-load-development-channels plugin:yourplugin@yourmarketplace</p>
@@ -6062,15 +6062,15 @@ curl -d "yes &lt;id&gt;" -H "X-Sender: dev" localhost:8788</code></p>
 <li><strong>HTTP handler</strong>: <code>GET /events</code> holds an SSE stream open so curl can watch outbound live; <code>POST</code> is inbound, gated on the <code>X-Sender</code> header. A <code>yes &lt;id&gt;</code> or <code>no &lt;id&gt;</code> body goes to Claude Code as a verdict notification and never reaches Claude; anything else is forwarded to Claude as a channel event.</li>
 </ul>
 <h2 id="package-as-a-plugin">Package as a plugin</h2>
-<p>To make your channel installable and shareable, wrap it in a <a href="/en/plugins">plugin</a> and publish it to a <a href="/en/plugin-marketplaces">marketplace</a>. Users install it with <code>/plugin install</code>, then enable it per session with <code>--channels plugin:&lt;name&gt;@&lt;marketplace&gt;</code>.</p>
-<p>A channel published to your own marketplace still needs <code>--dangerously-load-development-channels</code> to run, since it isn't on the <a href="/en/channels#supported-channels">approved allowlist</a>. The default allowlist is the channel plugins in <code>claude-plugins-official</code>, which Anthropic curates at its discretion. The <a href="/en/plugins#submit-your-plugin-to-the-community-marketplace">in-app submission forms</a> add plugins to the community marketplace, which is not on the channel allowlist.</p>
-<p>If you are working with an Anthropic partner contact, reach out to them to coordinate an official-marketplace listing. On Team and Enterprise plans, an admin can instead include your plugin in the organization's own <a href="/en/channels#restrict-which-channel-plugins-can-run"><code>allowedChannelPlugins</code></a> list, which replaces the default Anthropic allowlist.</p>
+<p>To make your channel installable and shareable, wrap it in a <a href="/docs/en/plugins">plugin</a> and publish it to a <a href="/docs/en/plugin-marketplaces">marketplace</a>. Users install it with <code>/plugin install</code>, then enable it per session with <code>--channels plugin:&lt;name&gt;@&lt;marketplace&gt;</code>.</p>
+<p>A channel published to your own marketplace still needs <code>--dangerously-load-development-channels</code> to run, since it isn't on the <a href="/docs/en/channels#supported-channels">approved allowlist</a>. The default allowlist is the channel plugins in <code>claude-plugins-official</code>, which Anthropic curates at its discretion. The <a href="/docs/en/plugins#submit-your-plugin-to-the-community-marketplace">in-app submission forms</a> add plugins to the community marketplace, which is not on the channel allowlist.</p>
+<p>If you are working with an Anthropic partner contact, reach out to them to coordinate an official-marketplace listing. On Team and Enterprise plans, an admin can instead include your plugin in the organization's own <a href="/docs/en/channels#restrict-which-channel-plugins-can-run"><code>allowedChannelPlugins</code></a> list, which replaces the default Anthropic allowlist.</p>
 <h2 id="see-also">See also</h2>
 <ul>
-<li><a href="/en/channels">Channels</a> to install and use Telegram, Discord, iMessage, or the fakechat demo, and to enable channels for a Team or Enterprise org</li>
+<li><a href="/docs/en/channels">Channels</a> to install and use Telegram, Discord, iMessage, or the fakechat demo, and to enable channels for a Team or Enterprise org</li>
 <li><a href="https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins">Working channel implementations</a> for complete server code with pairing flows, reply tools, and file attachments</li>
-<li><a href="/en/mcp">MCP</a> for the underlying protocol that channel servers implement</li>
-<li><a href="/en/plugins">Plugins</a> to package your channel so users can install it with <code>/plugin install</code></li>
+<li><a href="/docs/en/mcp">MCP</a> for the underlying protocol that channel servers implement</li>
+<li><a href="/docs/en/plugins">Plugins</a> to package your channel so users can install it with <code>/plugin install</code></li>
 </ul>
 
 

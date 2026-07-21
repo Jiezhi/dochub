@@ -5120,21 +5120,21 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <p>The security guidance plugin makes Claude review its own code changes for common vulnerabilities while it works and fix what it finds in the same session. The plugin catches issues such as injection, unsafe deserialization, and unsafe DOM APIs before the code reaches a pull request, reducing how much security review falls to human reviewers downstream.</p>
 <p>Once installed, the plugin runs automatically. There is nothing to invoke and no separate command to remember.</p>
-<p>The plugin is the in-session companion to <a href="/en/code-review">Code Review</a>, which runs on pull requests. This plugin reduces what reaches the PR. Code Review catches what does. For how the plugin layers with on-demand review and CI scanning, see <a href="#how-this-fits-with-other-security-tools">How this fits with other security tools</a>.</p>
+<p>The plugin is the in-session companion to <a href="/docs/en/code-review">Code Review</a>, which runs on pull requests. This plugin reduces what reaches the PR. Code Review catches what does. For how the plugin layers with on-demand review and CI scanning, see <a href="#how-this-fits-with-other-security-tools">How this fits with other security tools</a>.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <ul>
 <li>Claude Code CLI version 2.1.144 or later</li>
-<li>Python 3.8 or later on your <code>PATH</code>. The plugin tries <code>python3</code>, <code>python</code>, and <code>py -3</code> in that order</li>
+<li>Python 3.7 or later on your <code>PATH</code>. The agentic commit review needs Python 3.10 or later, as do all model-backed reviews when Claude Code uses a third-party provider such as Amazon Bedrock or Google Cloud's Agent Platform. The plugin prefers the versioned interpreters <code>python3.13</code> through <code>python3.10</code>, then falls back to <code>python3</code>, <code>python</code>, and <code>py -3</code></li>
 <li>A git repository for the directory you work in. The end-of-turn and commit reviews diff against git state and skip silently outside a repository. The per-edit pattern check works anywhere</li>
 </ul>
-<p>On first run the plugin creates a virtual environment under <code>~/.claude/security/</code> and installs the Claude Agent SDK into it, which requires <code>pip</code> and network access. If that install fails, the commit review falls back to a single-shot review instead of the agentic one. On Windows the virtual environment step is skipped, so the agentic commit review runs only if <code>claude-agent-sdk</code> is already importable and otherwise falls back the same way.</p>
+<p>On first run the plugin creates a virtual environment under <code>~/.claude/security/</code> and installs the Claude Agent SDK into it, which requires <code>pip</code> and network access. If that install fails, or the available Python is older than 3.10, the commit review on first-party authentication falls back to a single-shot review instead of the agentic one; on a third-party provider such as Amazon Bedrock or Google Cloud's Agent Platform the model-backed reviews need the SDK themselves, so they skip. The plugin shows a one-time notice when an older Python is the cause.</p>
 <h2 id="install-the-plugin">Install the plugin</h2>
-<p>In a terminal Claude Code session, install from the <a href="/en/discover-plugins#official-anthropic-marketplace">official Anthropic marketplace</a>:</p>
+<p>In a terminal Claude Code session, install from the <a href="/docs/en/discover-plugins#official-anthropic-marketplace">official Anthropic marketplace</a>:</p>
 <p>```text theme={null}
 /plugin install security-guidance@claude-plugins-official
 <div class="highlight"><pre><span></span><code>`/plugin` opens an interactive panel and is available only in the terminal CLI. If Claude replies that `/plugin` isn&#39;t available in this environment, install another way:
 
-* **Claude desktop app, local or SSH session**: open the [plugin browser](/en/desktop#install-plugins) by clicking the **+** button next to the prompt, then **Plugins**, then **Add plugin**
+* **Claude desktop app, local or SSH session**: open the [plugin browser](/docs/en/desktop#install-plugins) by clicking the **+** button next to the prompt, then **Plugins**, then **Add plugin**
 * **Claude Code on the web or a desktop cloud session**: declare the plugin in `.claude/settings.json` as shown under [Enable in cloud sessions](#enable-in-cloud-sessions-and-shared-repositories)
 
 The terminal install prompts for a scope. Choose user scope to write the plugin to your user settings, so it loads in every new local session you start on this machine. If Claude Code reports `Marketplace &quot;claude-plugins-official&quot; not found`, add the marketplace with `/plugin marketplace add anthropics/claude-plugins-official`. If it reports that the plugin is not found in the marketplace, your local copy is outdated: refresh it with `/plugin marketplace update claude-plugins-official`. Then retry the install.
@@ -5145,14 +5145,14 @@ Then activate it in the current session with `/reload-plugins`, which applies pe
 /reload-plugins
 </code></pre></div></p>
 <h3 id="enable-in-cloud-sessions-and-shared-repositories">Enable in cloud sessions and shared repositories</h3>
-<p>User-scoped plugins do not carry into <a href="/en/claude-code-on-the-web">Claude Code on the web</a>, because those sessions run on Anthropic infrastructure rather than your machine. To enable the plugin there, or to turn it on for everyone who clones a repository, declare it in the project's checked-in settings:</p>
+<p>User-scoped plugins do not carry into <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a>, because those sessions run on Anthropic infrastructure rather than your machine. To enable the plugin there, or to turn it on for everyone who clones a repository, declare it in the project's checked-in settings:</p>
 <p>```json .claude/settings.json theme={null}
 {
   "enabledPlugins": {
     "security-guidance@claude-plugins-official": true
   }
 }
-<div class="highlight"><pre><span></span><code>Administrators can enable the plugin organization-wide by setting [`enabledPlugins`](/en/settings#plugin-settings) in [managed settings](/en/admin-setup).
+<div class="highlight"><pre><span></span><code>Administrators can enable the plugin organization-wide by setting [`enabledPlugins`](/docs/en/settings#plugin-settings) in [managed settings](/docs/en/admin-setup).
 
 ## What the plugin checks
 
@@ -5222,7 +5222,7 @@ The following example is for a web service with role-gated admin routes and a cu
 - All routes under `/admin` must call `require_role(&quot;admin&quot;)` before any database read.
 - Use `crypto.timingSafeEqual` for token comparison instead of `===`.
 </code></pre></div></p>
-<p>These rules are guidance for the reviewer, not deterministic guardrails. The plugin surfaces violations as findings for Claude to fix, but it does not block writes or guarantee every violation is caught. The guidance is additive only: a rule that says to ignore a vulnerability class does not suppress those findings. For hard enforcement, pair the plugin with a <a href="/en/hooks-guide#block-edits-to-protected-files">hook that blocks the edit</a> or a CI check.</p>
+<p>These rules are guidance for the reviewer, not deterministic guardrails. The plugin surfaces violations as findings for Claude to fix, but it does not block writes or guarantee every violation is caught. The guidance is additive only: a rule that says to ignore a vulnerability class does not suppress those findings. For hard enforcement, pair the plugin with a <a href="/docs/en/hooks-guide#block-edits-to-protected-files">hook that blocks the edit</a> or a CI check.</p>
 <h3 id="add-custom-per-edit-patterns">Add custom per-edit patterns</h3>
 <p>Create <code>.claude/security-patterns.yaml</code> to add regex or substring rules to the <a href="#on-each-file-edit">per-edit pattern check</a>. These run as deterministic string matches alongside the built-in patterns:</p>
 <p>```yaml .claude/security-patterns.yaml theme={null}
@@ -5259,7 +5259,7 @@ The plugin loads all locations that exist and concatenates them, with a combined
 
 ## Usage cost
 
-The [per-edit pattern check](#on-each-file-edit) makes no model call and adds no cost. The [end-of-turn](#at-the-end-of-each-turn) and [commit](#on-each-commit-or-push-claude-makes) reviews each spend additional model usage that counts toward your [usage](/en/costs) like any other Claude request. The commit review is agentic and may take several model turns per commit, capped at 20 reviews per rolling hour. Expect roughly one review call per turn that changes files and one deeper review per commit, both subject to the caps above.
+The [per-edit pattern check](#on-each-file-edit) makes no model call and adds no cost. The [end-of-turn](#at-the-end-of-each-turn) and [commit](#on-each-commit-or-push-claude-makes) reviews each spend additional model usage that counts toward your [usage](/docs/en/costs) like any other Claude request. The commit review is agentic and may take several model turns per commit, capped at 20 reviews per rolling hour. Expect roughly one review call per turn that changes files and one deeper review per commit, both subject to the caps above.
 
 Both model-backed reviews use Claude Opus 4.7 by default. Set `SECURITY_REVIEW_MODEL` to choose a different model for the end-of-turn review and `SG_AGENTIC_MODEL` for the commit review.
 
@@ -5285,9 +5285,9 @@ To pause the plugin in your user scope:
 <p>To remove it from your user scope:</p>
 <p><code>text theme={null}
 /plugin uninstall security-guidance@claude-plugins-official</code></p>
-<p>If the plugin was enabled through a project's <code>.claude/settings.json</code>, disabling it from <code>/plugin</code> writes an override to your <code>.claude/settings.local.json</code> rather than editing the checked-in file, so the plugin stays off for you while teammates are unaffected. {/<em> min-version: 2.1.203 </em>/}The same dialog also offers to uninstall the plugin for everyone by removing it from the shared <code>.claude/settings.json</code>; that option requires Claude Code v2.1.203 or later. If it was enabled through <a href="/en/admin-setup">managed settings</a>, only an administrator can disable it.</p>
+<p>If the plugin was enabled through a project's <code>.claude/settings.json</code>, disabling it from <code>/plugin</code> writes an override to your <code>.claude/settings.local.json</code> rather than editing the checked-in file, so the plugin stays off for you while teammates are unaffected. {/<em> min-version: 2.1.203 </em>/}The same dialog also offers to uninstall the plugin for everyone by removing it from the shared <code>.claude/settings.json</code>; that option requires Claude Code v2.1.203 or later. If it was enabled through <a href="/docs/en/admin-setup">managed settings</a>, only an administrator can disable it.</p>
 <h2 id="how-the-plugin-integrates-with-claude-code">How the plugin integrates with Claude Code</h2>
-<p>The plugin is built entirely on <a href="/en/hooks">hooks</a>, the mechanism for running your own code at specific points in Claude's loop. It registers:</p>
+<p>The plugin is built entirely on <a href="/docs/en/hooks">hooks</a>, the mechanism for running your own code at specific points in Claude's loop. It registers:</p>
 <table>
 <thead>
 <tr>
@@ -5337,12 +5337,12 @@ To pause the plugin in your user scope:
 </tr>
 <tr>
 <td style="text-align: left;">On demand</td>
-<td style="text-align: left;"><a href="/en/commands#all-commands"><code>/security-review</code></a></td>
+<td style="text-align: left;"><a href="/docs/en/commands#all-commands"><code>/security-review</code></a></td>
 <td style="text-align: left;">One-time security pass on the current branch, run when you ask</td>
 </tr>
 <tr>
 <td style="text-align: left;">On pull request</td>
-<td style="text-align: left;"><a href="/en/code-review">Code Review</a>, Team and Enterprise plans</td>
+<td style="text-align: left;"><a href="/docs/en/code-review">Code Review</a>, Team and Enterprise plans</td>
 <td style="text-align: left;">Multi-agent correctness and security review with full codebase context</td>
 </tr>
 <tr>
@@ -5358,15 +5358,15 @@ To pause the plugin in your user scope:
 <p>Common reasons a review layer skips without a message in the conversation:</p>
 <ul>
 <li>The directory is not a git repository: the end-of-turn and commit reviews require git state and skip outside a repository</li>
-<li>The session has no Anthropic authentication: the model-backed reviews skip and only the per-edit pattern check runs</li>
+<li>The session has no Anthropic authentication and no third-party provider configured: the model-backed reviews skip and only the per-edit pattern check runs</li>
 <li>A <code>security-patterns.yaml</code> file is present but PyYAML is not importable: the file is ignored. Use <code>security-patterns.json</code> instead</li>
 </ul>
 <h2 id="related-resources">Related resources</h2>
 <p>To go deeper on the pieces this page touches:</p>
 <ul>
-<li><a href="/en/code-review">Code Review</a>: set up the PR-time multi-agent review</li>
-<li><a href="/en/hooks-guide">Automate actions with hooks</a>: build your own checks at the same lifecycle points</li>
-<li><a href="/en/discover-plugins#official-anthropic-marketplace">Discover and install plugins</a>: browse other official plugins</li>
+<li><a href="/docs/en/code-review">Code Review</a>: set up the PR-time multi-agent review</li>
+<li><a href="/docs/en/hooks-guide">Automate actions with hooks</a>: build your own checks at the same lifecycle points</li>
+<li><a href="/docs/en/discover-plugins#official-anthropic-marketplace">Discover and install plugins</a>: browse other official plugins</li>
 </ul>
 
 

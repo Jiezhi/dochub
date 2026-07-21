@@ -5287,9 +5287,9 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Run Claude Code through Amazon Bedrock, Claude Platform on AWS, Google Cloud, or Microsoft Foundry behind a self-hosted gateway with SSO sign-in, per-group model access, and OTLP telemetry.</p>
 </blockquote>
 <p><Note>
-  The Claude apps gateway is designed for organizations that must, or prefer to, route inference through their own cloud provider, for example to meet <a href="/en/claude-apps-gateway-deploy#compliance-posture">data residency</a> requirements. If you don't have this requirement, and want access to other features such as SCIM provisioning or Claude Code on web and mobile, Claude Enterprise may be a better fit. See the <a href="/en/feature-availability">feature availability</a> page for a full comparison of all deployment methods.
+  The Claude apps gateway is designed for organizations that must, or prefer to, route inference through their own cloud provider, for example to meet <a href="/docs/en/claude-apps-gateway-deploy#compliance-posture">data residency</a> requirements. If you don't have this requirement, and want access to other features such as SCIM provisioning or Claude Code on web and mobile, Claude Enterprise may be a better fit. See the <a href="/docs/en/feature-availability">feature availability</a> page for a full comparison of all deployment methods.
 </Note></p>
-<p>Claude apps gateway is a self-hosted service that sits between your developers' Claude Code clients and your model provider. Developers sign in with your corporate identity provider (IdP) instead of holding API keys or cloud credentials. The gateway holds the upstream credential, enforces model access and <a href="/en/permissions#managed-settings">managed settings</a> by IdP group, and relays usage telemetry to your own observability stack.</p>
+<p>Claude apps gateway is a self-hosted service that sits between your developers' Claude Code clients and your model provider. Developers sign in with your corporate identity provider (IdP) instead of holding API keys or cloud credentials. The gateway holds the upstream credential, enforces model access and <a href="/docs/en/permissions#managed-settings">managed settings</a> by IdP group, and relays usage telemetry to your own observability stack.</p>
 <p>It is included in the <code>claude</code> binary, so the same executable that runs Claude Code on a laptop runs the gateway server with <code>claude gateway --config gateway.yaml</code>.</p>
 <p>This page covers:</p>
 <ul>
@@ -5298,29 +5298,29 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#connect-developers">Connecting developers</a>, including setting the gateway URL through managed settings</li>
 <li><a href="#availability-and-limitations">Availability and limitations</a> covering which Claude Code features work through the gateway and what the server supports</li>
 </ul>
-<p>Companion pages go deeper. The <a href="/en/claude-apps-gateway-config">configuration reference</a> covers every option in the YAML file the quickstart writes, and the <a href="/en/claude-apps-gateway-deploy">deployment guide</a> covers per-IdP setup, Kubernetes and Cloud Run deployment, and operations.</p>
+<p>Companion pages go deeper. The <a href="/docs/en/claude-apps-gateway-config">configuration reference</a> covers every option in the YAML file the quickstart writes, and the <a href="/docs/en/claude-apps-gateway-deploy">deployment guide</a> covers per-IdP setup, Kubernetes and Cloud Run deployment, and operations.</p>
 <h2 id="why-claude-apps-gateway">Why Claude apps gateway</h2>
-<p>The <a href="/en/gateways">gateway overview</a> covers what a gateway does and why you'd run one. Claude apps gateway is Anthropic's own gateway, built into the <code>claude</code> binary and tested alongside each Claude Code release, so it forwards the headers and request fields Claude Code sends without operators maintaining a separate allowlist. Once deployed it gives you:</p>
+<p>The <a href="/docs/en/gateways">gateway overview</a> covers what a gateway does and why you'd run one. Claude apps gateway is Anthropic's own gateway, built into the <code>claude</code> binary and tested alongside each Claude Code release, so it forwards the headers and request fields Claude Code sends without operators maintaining a separate allowlist. Once deployed it gives you:</p>
 <ul>
 <li><strong>Credentials</strong>: the upstream API key or cloud credential lives only in your infrastructure. Developers authenticate with corporate SSO and receive short-lived bearer tokens, so offboarding happens in your IdP. Deprovision a user and their gateway access expires within the session lifetime, one hour by default.</li>
-<li><strong>Access control</strong>: your IdP groups map to model allowlists and <a href="/en/permissions#managed-settings">managed settings</a> policies. The gateway enforces model access server-side, rejecting requests for non-granted models, and selects each group's managed settings policy, which the CLI applies at the <a href="/en/settings#settings-precedence">managed settings tier</a>. Different teams get different models, tools, and permissions, and a developer can't override what their policy locks.</li>
-<li><strong>Settings delivery</strong>: the gateway delivers managed settings to signed-in clients itself, taking the place of <a href="/en/server-managed-settings">server-managed settings</a> from the claude.ai admin console.</li>
-<li><strong>Telemetry</strong>: each configured destination, such as Datadog, Splunk, or ClickHouse, receives <a href="/en/monitoring-usage">OpenTelemetry Protocol (OTLP) metrics</a> with token counts, model, user identity, and latency by default, with logs and traces as per-destination opt-ins.</li>
-<li><strong>Upstream routing</strong>: clients speak the Anthropic Messages API to the gateway, and the gateway translates for each upstream, whether Amazon Bedrock, <a href="/en/claude-platform-on-aws">Claude Platform on AWS</a>, Google Cloud's Agent Platform, Microsoft Foundry, or the Anthropic API, with failover between them. You can change regions, providers, or failover order without developers noticing or reconfiguring.</li>
+<li><strong>Access control</strong>: your IdP groups map to model allowlists and <a href="/docs/en/permissions#managed-settings">managed settings</a> policies. The gateway enforces model access server-side, rejecting requests for non-granted models, and selects each group's managed settings policy, which the CLI applies at the <a href="/docs/en/settings#settings-precedence">managed settings tier</a>. Different teams get different models, tools, and permissions, and a developer can't override what their policy locks.</li>
+<li><strong>Settings delivery</strong>: the gateway delivers managed settings to signed-in clients itself, taking the place of <a href="/docs/en/server-managed-settings">server-managed settings</a> from the claude.ai admin console.</li>
+<li><strong>Telemetry</strong>: each configured destination, such as Datadog, Splunk, or ClickHouse, receives <a href="/docs/en/monitoring-usage">OpenTelemetry Protocol (OTLP) metrics</a> with token counts, model, user identity, and latency by default, with logs and traces as per-destination opt-ins.</li>
+<li><strong>Upstream routing</strong>: clients speak the Anthropic Messages API to the gateway, and the gateway translates for each upstream, whether Amazon Bedrock, <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>, Google Cloud's Agent Platform, Microsoft Foundry, or the Anthropic API, with failover between them. You can change regions, providers, or failover order without developers noticing or reconfiguring.</li>
 </ul>
 <p><Frame>
   <img src="https://mintcdn.com/claude-code/st9_ZQOFsZa3cKFl/images/claude-gateway-architecture.svg?fit=max&auto=format&n=st9_ZQOFsZa3cKFl&q=85&s=560770d8f49bbd6f1ca7090ed1f13c03" alt="Diagram showing Claude Code clients connecting over HTTPS with bearer tokens to a self-hosted Claude apps gateway inside your infrastructure, which signs users in against your IdP, stores auth state in PostgreSQL, relays telemetry to your OTLP collector, and forwards inference to Amazon Bedrock, Claude Platform on AWS, Google Cloud, Microsoft Foundry, or the Anthropic API" width="760" height="320" data-path="images/claude-gateway-architecture.svg" />
 </Frame></p>
 <p><Note>
-  The gateway's own data plane sends nothing to Anthropic infrastructure unless the Anthropic API is a configured upstream. You control where telemetry, audit logs, managed settings, and your developers' IdP identity go, and the gateway sends none of them to Anthropic. For the remaining traffic the CLI process can send and how to close it, see <a href="/en/claude-apps-gateway-deploy#compliance-posture">Compliance posture</a>.
+  The gateway's own data plane sends nothing to Anthropic infrastructure unless the Anthropic API is a configured upstream. You control where telemetry, audit logs, managed settings, and your developers' IdP identity go, and the gateway sends none of them to Anthropic. For the remaining traffic the CLI process can send and how to close it, see <a href="/docs/en/claude-apps-gateway-deploy#compliance-posture">Compliance posture</a>.
 </Note></p>
-<p>For which Claude Code features work through the gateway and what the server itself supports, see <a href="#availability-and-limitations">Availability and limitations</a> below. For decisions such as cost, bypass, running multiple gateways, and serverless platforms, see the <a href="/en/claude-apps-gateway-deploy#deployment">deployment guide</a>.</p>
+<p>For which Claude Code features work through the gateway and what the server itself supports, see <a href="#availability-and-limitations">Availability and limitations</a> below. For decisions such as cost, bypass, running multiple gateways, and serverless platforms, see the <a href="/docs/en/claude-apps-gateway-deploy#deployment">deployment guide</a>.</p>
 <h3 id="other-gateway-implementations">Other gateway implementations</h3>
-<p>If you already run an LLM gateway or API gateway that meets your needs, keep using it; <a href="/en/llm-gateway">Other LLM gateways</a> covers configuring Claude Code against it.</p>
-<p>The <a href="/en/llm-gateway-protocol">gateway protocol reference</a> documents the contract Claude Code expects from any gateway: the endpoints it calls, the headers and body fields to forward, and what stops working when they're stripped. A running Claude apps gateway serves a superset of that contract at <code>GET /protocol</code>, adding the Claude apps gateway-specific endpoints for SSO sign-in, managed settings delivery, and telemetry. Fetch it with <code>curl https://claude-gateway.internal.example.com/protocol</code> from any deployed gateway, such as the one the <a href="#quickstart">quickstart</a> below produces.</p>
+<p>If you already run an LLM gateway or API gateway that meets your needs, keep using it; <a href="/docs/en/llm-gateway">Other LLM gateways</a> covers configuring Claude Code against it.</p>
+<p>The <a href="/docs/en/llm-gateway-protocol">gateway protocol reference</a> documents the contract Claude Code expects from any gateway: the endpoints it calls, the headers and body fields to forward, and what stops working when they're stripped. A running Claude apps gateway serves a superset of that contract at <code>GET /protocol</code>, adding the Claude apps gateway-specific endpoints for SSO sign-in, managed settings delivery, and telemetry. Fetch it with <code>curl https://claude-gateway.internal.example.com/protocol</code> from any deployed gateway, such as the one the <a href="#quickstart">quickstart</a> below produces.</p>
 <p>Breaking changes to the protocol are announced in advance, but indefinite backwards compatibility isn't guaranteed.</p>
 <h2 id="quickstart">Quickstart</h2>
-<p>This quickstart walks the minimal path: register an OAuth client in your IdP, write a <code>gateway.yaml</code>, run the gateway alongside Postgres with Docker Compose, and verify sign-in end to end. It uses an Amazon Bedrock upstream; Claude Platform on AWS, Google Cloud's Agent Platform, Microsoft Foundry, and the Anthropic API are equally supported by swapping the <code>upstreams</code> block as shown in the <a href="/en/claude-apps-gateway-config#upstreams">configuration reference</a>. At the end you have a gateway a developer can <code>/login</code> to.</p>
+<p>This quickstart walks the minimal path: register an OAuth client in your IdP, write a <code>gateway.yaml</code>, run the gateway alongside Postgres with Docker Compose, and verify sign-in end to end. It uses an Amazon Bedrock upstream; Claude Platform on AWS, Google Cloud's Agent Platform, Microsoft Foundry, and the Anthropic API are equally supported by swapping the <code>upstreams</code> block as shown in the <a href="/docs/en/claude-apps-gateway-config#upstreams">configuration reference</a>. At the end you have a gateway a developer can <code>/login</code> to.</p>
 <p><Note>
   <strong>Deploy on your private network.</strong> Claude Code only connects to a gateway whose address is private. This is a security guard, because a trusted gateway can push settings that run commands on developer machines. Put the gateway behind an internal load balancer or VPN and give it a hostname that resolves to private IPs only.</p>
 <p>Anthropic-operated public gateway endpoints are the exception: <code>/login</code> accepts them over <code>https://</code>. These are a small fixed set of gateways that Anthropic itself operates; they aren't a deployment option you can select or configure. The list is compiled into Claude Code, so no configuration can add a hostname to it and no gateway you host qualifies for the exemption. {/<em> min-version: 2.1.206 </em>/}Before v2.1.206, <code>/login</code> rejected those endpoints like any other public address.
@@ -5337,7 +5337,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tbody>
 <tr>
 <td>Claude Code v2.1.195 or later</td>
-<td>The <code>claude gateway</code> subcommand and the gateway sign-in flow ship in v2.1.195. Earlier public builds don't include them. Both the machine running the gateway server and each developer's machine must be on v2.1.195 or later; run <code>claude update</code> to get the latest release. {/<em> min-version: 2.1.198 </em>/}The <a href="/en/claude-apps-gateway-config#claude-platform-on-aws">Claude Platform on AWS upstream</a> requires Claude Code v2.1.198 or later on the gateway server.</td>
+<td>The <code>claude gateway</code> subcommand and the gateway sign-in flow ship in v2.1.195. Earlier public builds don't include them. Both the machine running the gateway server and each developer's machine must be on v2.1.195 or later; run <code>claude update</code> to get the latest release. {/<em> min-version: 2.1.198 </em>/}The <a href="/docs/en/claude-apps-gateway-config#claude-platform-on-aws">Claude Platform on AWS upstream</a> requires Claude Code v2.1.198 or later on the gateway server.</td>
 </tr>
 <tr>
 <td>OpenID Connect (OIDC) identity provider</td>
@@ -5345,7 +5345,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td>PostgreSQL 14 or later</td>
-<td>Backs the device sign-in flow, where the browser callback writes and the polling CLI reads, plus rate-limit counters. Any managed Postgres works, including the smallest tier. Without spend limits configured, the gateway stores a few KB of short-lived auth state; with <a href="/en/claude-apps-gateway-spend-limits">spend limits</a>, it also holds durable spend, audit, and identity tables that should be backed up. TLS via <code>?sslmode=require</code> is recommended.</td>
+<td>Backs the device sign-in flow, where the browser callback writes and the polling CLI reads, plus rate-limit counters. Any managed Postgres works, including the smallest tier. Without spend limits configured, the gateway stores a few KB of short-lived auth state; with <a href="/docs/en/claude-apps-gateway-spend-limits">spend limits</a>, it also holds durable spend, audit, and identity tables that should be backed up. TLS via <code>?sslmode=require</code> is recommended.</td>
 </tr>
 <tr>
 <td>Model upstream</td>
@@ -5357,7 +5357,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td>Private-network address</td>
-<td>At <code>/login</code>, Claude Code requires the gateway's hostname or IP address to resolve only to private addresses: RFC 1918, link-local, CGNAT <code>100.64.0.0/10</code>, IPv6 ULA <code>fc00::/7</code>, or loopback for local development. For a gateway you host, any public address is rejected; see the <a href="/en/claude-apps-gateway-deploy#threat-model-summary">threat model</a> in the deployment guide. The check runs on each resolved IP, so if any address the name resolves to is public, <code>/login</code> rejects the URL. If developer machines route HTTPS through a corporate proxy, sign-in also requires the proxy host to resolve to private addresses; if it doesn't, add the gateway host to <code>NO_PROXY</code> so the CLI connects directly. {/<em> min-version: 2.1.206 </em>/}Anthropic-operated public gateway endpoints are exempt from the private-address and proxy checks: <code>/login</code> accepts them over <code>https://</code> by exact hostname match, so the private-network requirement applies only to a gateway you host yourself. Before v2.1.206, <code>/login</code> rejected an Anthropic-operated endpoint like any other public address.</td>
+<td>At <code>/login</code>, Claude Code requires the gateway's hostname or IP address to resolve only to private addresses: RFC 1918, link-local, CGNAT <code>100.64.0.0/10</code>, IPv6 ULA <code>fc00::/7</code>, or loopback for local development. For a gateway you host, any public address is rejected; see the <a href="/docs/en/claude-apps-gateway-deploy#threat-model-summary">threat model</a> in the deployment guide. The check runs on each resolved IP, so if any address the name resolves to is public, <code>/login</code> rejects the URL. If developer machines route HTTPS through a corporate proxy, sign-in also requires the proxy host to resolve to private addresses; if it doesn't, add the gateway host to <code>NO_PROXY</code> so the CLI connects directly. {/<em> min-version: 2.1.206 </em>/}Anthropic-operated public gateway endpoints are exempt from the private-address and proxy checks: <code>/login</code> accepts them over <code>https://</code> by exact hostname match, so the private-network requirement applies only to a gateway you host yourself. Before v2.1.206, <code>/login</code> rejected an Anthropic-operated endpoint like any other public address.</td>
 </tr>
 <tr>
 <td>Linux runtime</td>
@@ -5365,14 +5365,14 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>The gateway server requires the native <code>claude</code> binary; download a pinned release as described in <a href="/en/setup">Install Claude Code</a>. The server uses runtime features that aren't available when Claude Code runs under Node. If you see <code>requires the native binary</code> at boot, switch to one of the standalone install methods.</p>
+<p>The gateway server requires the native <code>claude</code> binary; download a pinned release as described in <a href="/docs/en/setup">Install Claude Code</a>. The server uses runtime features that aren't available when Claude Code runs under Node. If you see <code>requires the native binary</code> at boot, switch to one of the standalone install methods.</p>
 <h3 id="steps">Steps</h3>
 <p><Steps>
   <Step title="Register an OAuth client in your IdP">
-    Decide the gateway's hostname first, because the redirect URI must match it. Create a new OIDC web application and set the redirect URI to <code>https://claude-gateway.&lt;your-domain&gt;/oauth/callback</code>, where the host is the same value you set as <a href="/en/claude-apps-gateway-config#listen"><code>listen.public_url</code></a> in step 3. Note the <code>client_id</code> and <code>client_secret</code>. Per-IdP instructions are in <a href="/en/claude-apps-gateway-deploy#identity-provider-setup">Identity provider setup</a>.
+    Decide the gateway's hostname first, because the redirect URI must match it. Create a new OIDC web application and set the redirect URI to <code>https://claude-gateway.&lt;your-domain&gt;/oauth/callback</code>, where the host is the same value you set as <a href="/docs/en/claude-apps-gateway-config#listen"><code>listen.public_url</code></a> in step 3. Note the <code>client_id</code> and <code>client_secret</code>. Per-IdP instructions are in <a href="/docs/en/claude-apps-gateway-deploy#identity-provider-setup">Identity provider setup</a>.
   </Step></p>
 <p><Step title="Provision a PostgreSQL database">
-    Any Postgres 14 or later works, including the smallest managed tier. The gateway runs its own schema migrations at boot, so the database user needs <code>CREATE TABLE</code> permission. If your security policy prohibits DDL from application roles, pre-create the schema instead; see <a href="/en/claude-apps-gateway-config#store"><code>store</code></a>.
+    Any Postgres 14 or later works, including the smallest managed tier. The gateway runs its own schema migrations at boot, so the database user needs <code>CREATE TABLE</code> permission. If your security policy prohibits DDL from application roles, pre-create the schema instead; see <a href="/docs/en/claude-apps-gateway-config#store"><code>store</code></a>.
   </Step></p>
 <p><Step title="Write gateway.yaml">
     Secrets are read via <code>${ENV_VAR}</code> expansion so the file itself can live in version control. Use a <code>public_url</code> hostname that resolves to a private IP on your network, because <code>/login</code> rejects public addresses. The minimal config has five sections, and every other field has a default:</p>
@@ -5411,15 +5411,15 @@ upstreams:
 auto_include_builtin_models: true
 ```
 
-This config is enough for a working sign-in loop with the default Amazon Bedrock model catalog. Once it's running, add per-group RBAC and managed settings via [`managed.policies`](/en/claude-apps-gateway-config#managed), telemetry fan-out via [`telemetry`](/en/claude-apps-gateway-config#telemetry), and multi-upstream failover, provisioned-throughput ARNs, or non-US regions via [`models`](/en/claude-apps-gateway-config#models).
+This config is enough for a working sign-in loop with the default Amazon Bedrock model catalog. Once it's running, add per-group RBAC and managed settings via [`managed.policies`](/docs/en/claude-apps-gateway-config#managed), telemetry fan-out via [`telemetry`](/docs/en/claude-apps-gateway-config#telemetry), and multi-upstream failover, provisioned-throughput ARNs, or non-US regions via [`models`](/docs/en/claude-apps-gateway-config#models).
 
 &lt;Note&gt;
-  The Amazon Bedrock upstream needs an AWS principal with `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on both the `inference-profile/us.anthropic.*` ARNs and the underlying `foundation-model/anthropic.*` ARNs, and model access enabled in the Amazon Bedrock console for the Claude models you want. Supply the credential with IRSA on EKS, an ECS task role, or an EC2 instance profile rather than static keys. The [`upstreams` reference](/en/claude-apps-gateway-config#upstreams) has the full IAM details, the cross-cloud credential matrix, and the `auth` blocks for the other providers.
+  The Amazon Bedrock upstream needs an AWS principal with `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on both the `inference-profile/us.anthropic.*` ARNs and the underlying `foundation-model/anthropic.*` ARNs, and model access enabled in the Amazon Bedrock console for the Claude models you want. Supply the credential with IRSA on EKS, an ECS task role, or an EC2 instance profile rather than static keys. The [`upstreams` reference](/docs/en/claude-apps-gateway-config#upstreams) has the full IAM details, the cross-cloud credential matrix, and the `auth` blocks for the other providers.
 &lt;/Note&gt;
 </code></pre>
 <p></Step></p>
 <p><Step title="Run it">
-    Build a container image around the <code>claude</code> binary that meets the <a href="/en/claude-apps-gateway-deploy#container-image">image requirements</a>, then run it alongside Postgres. The Compose file references the image as <code>registry.example.com/claude-gateway:2.1.198</code>; substitute your own registry and image tag:</p>
+    Build a container image around the <code>claude</code> binary that meets the <a href="/docs/en/claude-apps-gateway-deploy#container-image">image requirements</a>, then run it alongside Postgres. The Compose file references the image as <code>registry.example.com/claude-gateway:2.1.198</code>; substitute your own registry and image tag:</p>
 <pre><code>```yaml docker-compose.yaml theme={null}
 services:
   gateway:
@@ -5523,16 +5523,16 @@ Use the first failing check to locate the problem:
 </code></pre>
 <p></Step></p>
 <p><Step title="Log a developer in">
-    This last step happens on a developer machine, not the server. Set <code>forceLoginMethod</code> to <code>"gateway"</code> and <code>forceLoginGatewayUrl</code> to your gateway's <code>public_url</code> in that machine's <a href="/en/settings#settings-files">managed settings file</a>, then run <code>/login</code>, press Enter on the <strong>Cloud gateway</strong> screen, and complete the browser sign-in. <a href="#set-the-gateway-url">Set the gateway URL</a> below covers distributing both keys at scale.
+    This last step happens on a developer machine, not the server. Set <code>forceLoginMethod</code> to <code>"gateway"</code> and <code>forceLoginGatewayUrl</code> to your gateway's <code>public_url</code> in that machine's <a href="/docs/en/settings#settings-files">managed settings file</a>, then run <code>/login</code>, press Enter on the <strong>Cloud gateway</strong> screen, and complete the browser sign-in. <a href="#set-the-gateway-url">Set the gateway URL</a> below covers distributing both keys at scale.
   </Step>
 </Steps></p>
 <h2 id="connect-developers">Connect developers</h2>
-<p>Developers connect from their own laptops with one browser sign-in, using their corporate work account. They don't need a claude.ai account, an API key, or a subscription, because requests to the model go through the gateway using the organization's upstream credential. Connection is driven by the <a href="/en/claude-apps-gateway-config#client-side-managed-settings">client-side managed settings</a> you push via MDM, so there is no manual setup on the developer side; this section covers what the admin configures.</p>
+<p>Developers connect from their own laptops with one browser sign-in, using their corporate work account. They don't need a claude.ai account, an API key, or a subscription, because requests to the model go through the gateway using the organization's upstream credential. Connection is driven by the <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">client-side managed settings</a> you push via MDM, so there is no manual setup on the developer side; this section covers what the admin configures.</p>
 <p>The CLI fingerprints the gateway's TLS leaf certificate on first connect and pins it per hostname. Publish the expected SHA-256 fingerprint alongside the gateway URL so developers have something to compare against. Get the fingerprint from the certificate file with <code>openssl x509 -noout -fingerprint -sha256 -in cert.pem</code>; the <code>/login</code> prompt shows the first 16 characters of the digest as lowercase hexadecimal with no separators.</p>
 <p>When the certificate rotates, every developer sees the trust prompt again, so treat rotations as a planned event and republish the fingerprint.</p>
-<p>Once signed in, the <a href="/en/model-config">model picker</a> shows the models in the developer's <code>availableModels</code> allowlist, managed settings apply at startup and refresh hourly, and telemetry routes to your collector. Sessions refresh silently before <code>ttl_hours</code> expiry, and a failed refresh after IdP deprovisioning prompts a re-login.</p>
+<p>Once signed in, the <a href="/docs/en/model-config">model picker</a> shows the models in the developer's <code>availableModels</code> allowlist, managed settings apply at startup and refresh hourly, and telemetry routes to your collector. Sessions refresh silently before <code>ttl_hours</code> expiry, and a failed refresh after IdP deprovisioning prompts a re-login.</p>
 <h3 id="set-the-gateway-url">Set the gateway URL</h3>
-<p>Three keys go in the per-OS <a href="/en/settings#settings-files">managed settings file</a> you deploy via MDM or directly on disk. <code>forceLoginMethod</code> and <code>forceLoginGatewayUrl</code> open <code>/login</code> directly on the <strong>Cloud gateway</strong> screen with the URL filled in, and <code>parentSettingsBehavior: "merge"</code> lets Claude Desktop deliver the gateway's policy to the Claude Code sessions it launches, explained in <a href="#deliver-policy-to-claude-desktop-sessions">Deliver policy to Claude Desktop sessions</a>:</p>
+<p>Three keys go in the per-OS <a href="/docs/en/settings#settings-files">managed settings file</a> you deploy via MDM or directly on disk. <code>forceLoginMethod</code> and <code>forceLoginGatewayUrl</code> open <code>/login</code> directly on the <strong>Cloud gateway</strong> screen with the URL filled in, and <code>parentSettingsBehavior: "merge"</code> lets Claude Desktop deliver the gateway's policy to the Claude Code sessions it launches, explained in <a href="#deliver-policy-to-claude-desktop-sessions">Deliver policy to Claude Desktop sessions</a>:</p>
 <p>```json theme={null}
 {
   "forceLoginMethod": "gateway",
@@ -5553,7 +5553,7 @@ Settings passed by a launching process are parent settings. Claude Code ignores 
 
 Machines that only run Claude Desktop need it, because parent settings are the only way the gateway&#39;s policy reaches embedded sessions. Without the opt-in those sessions run with none of the gateway&#39;s restrictions, and nothing warns you.
 
-Machines where developers sign in through `/login` don&#39;t need it; every Claude Code invocation fetches its policy from the gateway directly. Fleets that configure a [`policyHelper`](/en/settings#compute-managed-settings-with-a-policy-helper) can&#39;t use it, because the helper&#39;s output replaces every other managed source and parent settings are never merged while a helper is configured.
+Machines where developers sign in through `/login` don&#39;t need it; every Claude Code invocation fetches its policy from the gateway directly. Fleets that configure a [`policyHelper`](/docs/en/settings#compute-managed-settings-with-a-policy-helper) can&#39;t use it, because the helper&#39;s output replaces every other managed source and parent settings are never merged while a helper is configured.
 
 #### Set the opt-in
 
@@ -5565,11 +5565,11 @@ Deploy the key, mirror it to the source that wins on each machine, then verify.
   &lt;/Step&gt;
 
   &lt;Step title=&quot;Set the same key in any source that outranks the file&quot;&gt;
-    Only the highest-priority admin source&#39;s value counts. A managed-preferences plist on macOS or an HKLM policy on Windows outranks the `managed-settings.json` file, and the gateway&#39;s own remote managed settings outrank both, so on machines that sign in to the gateway, also set the key in the gateway policy&#39;s [`cli` block](/en/claude-apps-gateway-config#managed).
+    Only the highest-priority admin source&#39;s value counts. A managed-preferences plist on macOS or an HKLM policy on Windows outranks the `managed-settings.json` file, and the gateway&#39;s own remote managed settings outrank both, so on machines that sign in to the gateway, also set the key in the gateway policy&#39;s [`cli` block](/docs/en/claude-apps-gateway-config#managed).
   &lt;/Step&gt;
 
   &lt;Step title=&quot;Check which source won&quot;&gt;
-    Call the Agent SDK&#39;s [`resolveSettings()`](/en/agent-sdk/typescript#resolvesettings). Its result includes a `sources` list; the managed policy entry there carries a `policyOrigin` field naming the active source. `resolveSettings()` doesn&#39;t execute a configured `policyHelper`, so on helper fleets its answer doesn&#39;t reflect the live session.
+    Call the Agent SDK&#39;s [`resolveSettings()`](/docs/en/agent-sdk/typescript#resolvesettings). Its result includes a `sources` list; the managed policy entry there carries a `policyOrigin` field naming the active source. `resolveSettings()` doesn&#39;t execute a configured `policyHelper`, so on helper fleets its answer doesn&#39;t reflect the live session.
   &lt;/Step&gt;
 &lt;/Steps&gt;
 
@@ -5577,7 +5577,7 @@ Deploy the key, mirror it to the source that wins on each machine, then verify.
 
 Once you deploy `parentSettingsBehavior: &quot;merge&quot;`, any host process that launches Claude Code can supply parent settings, not only Claude Desktop but also an Agent SDK application or an IDE extension.
 
-Claude Code filters parent settings against an allowlist of restrictive keys, but some allowed keys can grant access rather than restrict it. Unless you set the `allowManaged*Only` locks, permission allow rules and sandbox allowlists supplied by the host still apply. Your policy&#39;s deny and ask rules stay in force either way; [they&#39;re evaluated before any allow rule](/en/permissions#manage-permissions).
+Claude Code filters parent settings against an allowlist of restrictive keys, but some allowed keys can grant access rather than restrict it. Unless you set the `allowManaged*Only` locks, permission allow rules and sandbox allowlists supplied by the host still apply. Your policy&#39;s deny and ask rules stay in force either way; [they&#39;re evaluated before any allow rule](/docs/en/permissions#manage-permissions).
 
 #### Deploy the locks
 
@@ -5605,9 +5605,9 @@ To keep parent settings as close to restriction-only as the filter supports, add
   }
 }
 </code></pre></div></p>
-<p>An OS policy, such as an HKLM registry policy or a managed-preferences plist, outranks this file, so deliver the whole snippet through it instead of the file. The gateway's remote managed settings outrank the OS policy and file sources but reach only connected clients. Mirror the locks, the allowlists, and the merge opt-in into the policy's <a href="/en/claude-apps-gateway-config#managed"><code>cli</code> block</a> and keep this file deployed, because machines that never connect, including ones that only run Claude Desktop, get their policy from the file alone.</p>
+<p>An OS policy, such as an HKLM registry policy or a managed-preferences plist, outranks this file, so deliver the whole snippet through it instead of the file. The gateway's remote managed settings outrank the OS policy and file sources but reach only connected clients. Mirror the locks, the allowlists, and the merge opt-in into the policy's <a href="/docs/en/claude-apps-gateway-config#managed"><code>cli</code> block</a> and keep this file deployed, because machines that never connect, including ones that only run Claude Desktop, get their policy from the file alone.</p>
 <h4 id="lock-behavior-across-sources">Lock behavior across sources</h4>
-<p>Setting one lock doesn't restrict the others; each key is documented in the <a href="/en/settings#available-settings">settings reference</a>. From an admin source below the winner, the two sandbox locks still apply, and <code>allowManagedPermissionRulesOnly</code> still blocks parent-supplied allow rules and <code>additionalDirectories</code>. The hooks and MCP server locks, and <code>allowManagedPermissionRulesOnly</code>'s effect on the developer's own rules, need the winning source. On <a href="/en/settings#compute-managed-settings-with-a-policy-helper"><code>policyHelper</code></a> fleets, the locks are read from the helper's output alone.</p>
+<p>Setting one lock doesn't restrict the others; each key is documented in the <a href="/docs/en/settings#available-settings">settings reference</a>. From an admin source below the winner, the two sandbox locks still apply, and <code>allowManagedPermissionRulesOnly</code> still blocks parent-supplied allow rules and <code>additionalDirectories</code>. The hooks and MCP server locks, and <code>allowManagedPermissionRulesOnly</code>'s effect on the developer's own rules, need the winning source. On <a href="/docs/en/settings#compute-managed-settings-with-a-policy-helper"><code>policyHelper</code></a> fleets, the locks are read from the helper's output alone.</p>
 <p>Each lock makes Claude Code ignore the developer's own entries for that setting, so include your organization's allowlists next to the locks. Locking network domains with an empty managed domain list blocks all sandboxed outbound traffic, and locking MCP servers with no managed or parent-supplied <code>allowedMcpServers</code> loads every server that <code>deniedMcpServers</code> doesn't block. <code>allowRead</code> entries only re-allow paths inside <code>denyRead</code> regions, so pair them with a managed <code>denyRead</code>.</p>
 <h4 id="settings-the-locks-dont-cover">Settings the locks don't cover</h4>
 <p>Four parent-supplied settings are honored even with all five locks set:</p>
@@ -5619,20 +5619,20 @@ To keep parent settings as close to restriction-only as the filter supports, add
 </ul>
 <h3 id="ci-pipelines-and-remote-machines">CI pipelines and remote machines</h3>
 <p>There is no service-token flow for unattended pipelines. Gateway sign-in always runs the browser device flow, so a CI job with no developer to approve the sign-in can't authenticate; configure those against your provider directly.</p>
-<p>Once a developer has signed in, every Claude Code invocation on that machine uses the gateway session, including non-interactive <code>claude -p</code> runs and sessions started by the Agent SDK, and the <a href="/en/claude-apps-gateway-config#managed">gateway policy applies to all of them</a>.</p>
+<p>Once a developer has signed in, every Claude Code invocation on that machine uses the gateway session, including non-interactive <code>claude -p</code> runs and sessions started by the Agent SDK, and the <a href="/docs/en/claude-apps-gateway-config#managed">gateway policy applies to all of them</a>.</p>
 <p>The device flow separates the polling CLI from the approving browser, so a remote development box with no display still works: the developer runs <code>/login</code> over SSH on the remote machine and opens the verification link in the browser on their laptop.</p>
 <h3 id="whats-enforced-on-developers">What's enforced on developers</h3>
 <p>These guarantees apply to every signed-in gateway session.</p>
 <ul>
-<li><strong>Model access</strong>: requests for models the policy doesn't grant return 400, and the <code>/model</code> picker is filtered to the policy's <code>availableModels</code> allowlist. Set <a href="/en/model-config#default-model-behavior"><code>enforceAvailableModels: true</code></a> in the policy so the Default option resolves to a model inside <code>availableModels</code> instead of to Claude Code's built-in default; without it, Default stays selectable and is rejected at request time if that model isn't granted.</li>
-<li><strong>Telemetry destination</strong>: when <a href="/en/claude-apps-gateway-config#telemetry">telemetry forwarding</a> is configured, the OTLP export endpoint is pinned to the gateway, and the gateway-pushed configuration overrides locally set <code>OTEL_*</code> variables.</li>
+<li><strong>Model access</strong>: requests for models the policy doesn't grant return 400, and the <code>/model</code> picker is filtered to the policy's <code>availableModels</code> allowlist. Set <a href="/docs/en/model-config#default-model-behavior"><code>enforceAvailableModels: true</code></a> in the policy so the Default option resolves to a model inside <code>availableModels</code> instead of to Claude Code's built-in default; without it, Default stays selectable and is rejected at request time if that model isn't granted.</li>
+<li><strong>Telemetry destination</strong>: when <a href="/docs/en/claude-apps-gateway-config#telemetry">telemetry forwarding</a> is configured, the OTLP export endpoint is pinned to the gateway, and the gateway-pushed configuration overrides locally set <code>OTEL_*</code> variables.</li>
 <li><strong>Credentials</strong>: the gateway token is the session's only credential. <code>ANTHROPIC_AUTH_TOKEN</code>, <code>ANTHROPIC_API_KEY</code>, <code>apiKeyHelper</code>, and any earlier claude.ai login are ignored while signed in, so developers don't need to log out of claude.ai first.</li>
 <li><strong>Managed settings</strong>: locked keys can't be overridden locally. The CLI applies the policy at startup and on each hourly poll.</li>
 <li><strong>Startup</strong>: signed-in sessions exit at startup with an error after about 10 seconds when the gateway is unreachable, rather than starting without their settings.</li>
 <li><strong>Deprovisioning</strong>: a session whose user is disabled in the IdP expires within <code>ttl_hours</code> when the next refresh fails.</li>
 </ul>
 <h3 id="what-the-organization-can-see">What the organization can see</h3>
-<p>Usage telemetry carries the developer's identity, token counts, model, and latency to the organization's collector. The gateway doesn't log or store prompt or completion content. Whether richer telemetry such as logs and traces is collected, which can include commands and file paths, is the organization's <a href="/en/claude-apps-gateway-config#telemetry">per-destination choice</a>.</p>
+<p>Usage telemetry carries the developer's identity, token counts, model, and latency to the organization's collector. The gateway doesn't log or store prompt or completion content. Whether richer telemetry such as logs and traces is collected, which can include commands and file paths, is the organization's <a href="/docs/en/claude-apps-gateway-config#telemetry">per-destination choice</a>.</p>
 <h2 id="availability-and-limitations">Availability and limitations</h2>
 <p>The table covers which Claude Code features work when developers connect through the gateway, and what the gateway server itself supports. Where something isn't supported, the Notes column gives the alternative.</p>
 <p>The gateway delivers the <a href="https://platform.claude.com/docs/en/api/beta-headers"><code>anthropic-beta</code></a> values the CLI sends to every upstream, so operators don't maintain a beta allowlist. For Amazon Bedrock, which ignores the header, the gateway moves the values into the request body's <code>anthropic_beta</code> field; the other upstreams receive the header as sent.</p>
@@ -5649,12 +5649,12 @@ To keep parent settings as close to restriction-only as the filter supports, add
 <tr>
 <td>Inference forwarding (Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, Microsoft Foundry, Anthropic)</td>
 <td>Available</td>
-<td>With per-upstream model translation and failover. The Amazon Bedrock upstream uses the <code>bedrock-runtime</code> endpoint and the AWS default credential chain; the Amazon Bedrock <a href="/en/amazon-bedrock#use-the-mantle-endpoint">Mantle endpoint</a> is not a supported upstream. The <a href="/en/claude-apps-gateway-config#claude-platform-on-aws">Claude Platform on AWS upstream</a> requires Claude Code v2.1.198 or later on the gateway server.</td>
+<td>With per-upstream model translation and failover. The Amazon Bedrock upstream uses the <code>bedrock-runtime</code> endpoint and the AWS default credential chain; the Amazon Bedrock <a href="/docs/en/amazon-bedrock#use-the-mantle-endpoint">Mantle endpoint</a> is not a supported upstream. The <a href="/docs/en/claude-apps-gateway-config#claude-platform-on-aws">Claude Platform on AWS upstream</a> requires Claude Code v2.1.198 or later on the gateway server.</td>
 </tr>
 <tr>
 <td>Model access and managed settings by IdP group</td>
 <td>Available</td>
-<td>Model access is enforced server-side; managed settings are delivered per IdP group and applied by the CLI at the <a href="/en/settings#settings-precedence">managed settings tier</a></td>
+<td>Model access is enforced server-side; managed settings are delivered per IdP group and applied by the CLI at the <a href="/docs/en/settings#settings-precedence">managed settings tier</a></td>
 </tr>
 <tr>
 <td>Telemetry fan-out (OTLP/HTTP)</td>
@@ -5664,12 +5664,12 @@ To keep parent settings as close to restriction-only as the filter supports, add
 <tr>
 <td>OIDC identity providers</td>
 <td>Available</td>
-<td>Any OIDC-compliant IdP; the gateway runs standard OIDC discovery and the authorization-code flow. See <a href="/en/claude-apps-gateway-deploy#identity-provider-setup">Identity provider setup</a> for per-IdP configuration</td>
+<td>Any OIDC-compliant IdP; the gateway runs standard OIDC discovery and the authorization-code flow. See <a href="/docs/en/claude-apps-gateway-deploy#identity-provider-setup">Identity provider setup</a> for per-IdP configuration</td>
 </tr>
 <tr>
 <td>Per-user and per-group spend limits</td>
 <td>Available</td>
-<td>See <a href="/en/claude-apps-gateway-spend-limits">Spend limits</a></td>
+<td>See <a href="/docs/en/claude-apps-gateway-spend-limits">Spend limits</a></td>
 </tr>
 <tr>
 <td>Server-side web search</td>
@@ -5689,7 +5689,7 @@ To keep parent settings as close to restriction-only as the filter supports, add
 <tr>
 <td>Auto mode</td>
 <td>Available</td>
-<td>Follows the <a href="/en/permission-modes#enable-auto-mode-on-bedrock-agent-platform-or-foundry">third-party provider rules</a>: only the models eligible on third-party providers can use it. {/<em> min-version: 2.1.207 </em>/}Before v2.1.207, auto mode on gateway sessions required setting <code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code>, deliverable through the managed policy <code>env</code> block</td>
+<td>Follows the <a href="/docs/en/permission-modes#enable-auto-mode-on-bedrock-agent-platform-or-foundry">third-party provider rules</a>: only the models eligible on third-party providers can use it. {/<em> min-version: 2.1.207 </em>/}Before v2.1.207, auto mode on gateway sessions required setting <code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code>, deliverable through the managed policy <code>env</code> block</td>
 </tr>
 <tr>
 <td>First-party-only optimizations such as global cache scope and token-efficient tools</td>
@@ -5719,7 +5719,7 @@ To keep parent settings as close to restriction-only as the filter supports, add
 <tr>
 <td>Helm chart</td>
 <td>Not available</td>
-<td>The gateway runs as a standard stateless Deployment; see the <a href="/en/claude-apps-gateway-deploy#kubernetes">deployment guide</a></td>
+<td>The gateway runs as a standard stateless Deployment; see the <a href="/docs/en/claude-apps-gateway-deploy#kubernetes">deployment guide</a></td>
 </tr>
 <tr>
 <td>Admin UI</td>
@@ -5731,10 +5731,10 @@ To keep parent settings as close to restriction-only as the filter supports, add
 <h2 id="next-steps">Next steps</h2>
 <p>The quickstart leaves you with a minimal config running under Docker Compose. To take it further:</p>
 <ul>
-<li>Expand <code>gateway.yaml</code> beyond the minimal config, for example to add per-group RBAC, multi-upstream failover, or telemetry destinations. The <a href="/en/claude-apps-gateway-config">configuration reference</a> covers every option.</li>
-<li>Move from Compose to a production deployment on Kubernetes or Cloud Run, set up your IdP properly, and review the security model. The <a href="/en/claude-apps-gateway-deploy">deployment and operations guide</a> covers per-IdP setup, container image requirements, health probes, and troubleshooting.</li>
-<li>Put spend caps on individual developers or groups so a runaway workload can't consume your whole commitment. <a href="/en/claude-apps-gateway-spend-limits">Spend limits</a> covers the admin API and how enforcement works.</li>
-<li>For a complete worked example on Google Cloud, with Cloud Run, Cloud SQL, and Secret Manager, see <a href="/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.</li>
+<li>Expand <code>gateway.yaml</code> beyond the minimal config, for example to add per-group RBAC, multi-upstream failover, or telemetry destinations. The <a href="/docs/en/claude-apps-gateway-config">configuration reference</a> covers every option.</li>
+<li>Move from Compose to a production deployment on Kubernetes or Cloud Run, set up your IdP properly, and review the security model. The <a href="/docs/en/claude-apps-gateway-deploy">deployment and operations guide</a> covers per-IdP setup, container image requirements, health probes, and troubleshooting.</li>
+<li>Put spend caps on individual developers or groups so a runaway workload can't consume your whole commitment. <a href="/docs/en/claude-apps-gateway-spend-limits">Spend limits</a> covers the admin API and how enforcement works.</li>
+<li>For a complete worked example on Google Cloud, with Cloud Run, Cloud SQL, and Secret Manager, see <a href="/docs/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.</li>
 </ul>
 
 

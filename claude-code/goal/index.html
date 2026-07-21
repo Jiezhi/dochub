@@ -5124,21 +5124,21 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">A model confirms the condition is met</td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop"><code>/loop</code></a></td>
+<td style="text-align: left;"><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop"><code>/loop</code></a></td>
 <td style="text-align: left;">A time interval elapses</td>
 <td style="text-align: left;">You stop it, or Claude decides the work is done</td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/en/hooks-guide#prompt-based-hooks">Stop hook</a></td>
+<td style="text-align: left;"><a href="/docs/en/hooks-guide#prompt-based-hooks">Stop hook</a></td>
 <td style="text-align: left;">The previous turn finishes</td>
 <td style="text-align: left;">Your own script or prompt decides</td>
 </tr>
 </tbody>
 </table>
 <p><code>/goal</code> and a Stop hook both fire after every turn. <code>/goal</code> is a session-scoped shortcut: you type a condition and it's active for the current session only. A Stop hook lives in your settings file, applies to every session in its scope, and can run a script for deterministic checks or a prompt for model-evaluated ones.</p>
-<p><a href="/en/auto-mode-config">Auto mode</a> on its own approves tool calls within a single turn but doesn't start a new one. Claude stops when it judges the work done. <code>/goal</code> adds a separate evaluator that checks your condition after every turn, so completion is decided by a fresh model rather than the one doing the work. The two are complementary: auto mode removes per-tool prompts, and <code>/goal</code> removes per-turn prompts.</p>
+<p><a href="/docs/en/auto-mode-config">Auto mode</a> on its own approves tool calls within a single turn but doesn't start a new one. Claude stops when it judges the work done. <code>/goal</code> adds a separate evaluator that checks your condition after every turn, so completion is decided by a fresh model rather than the one doing the work. The two are complementary: auto mode removes per-tool prompts, and <code>/goal</code> removes per-turn prompts.</p>
 <p><Tip>
-  The approaches above keep the current session running. You can also schedule work that runs independent of any open session, such as nightly tests or morning triage. See <a href="/en/scheduled-tasks#compare-scheduling-options">scheduling options</a> for cloud routines and desktop scheduled tasks.
+  The approaches above keep the current session running. You can also schedule work that runs independent of any open session, such as nightly tests or morning triage. See <a href="/docs/en/scheduled-tasks#compare-scheduling-options">scheduling options</a> for cloud routines and desktop scheduled tasks.
 </Tip></p>
 <h2 id="use-goal">Use <code>/goal</code></h2>
 <p>One goal can be active per session. The same command sets, checks, and clears it depending on the argument.</p>
@@ -5148,7 +5148,7 @@ Use this file to discover all available pages before exploring further.</p>
 /goal all tests in test/auth pass and the lint step is clean
 <div class="highlight"><pre><span></span><code>Setting a goal starts a turn immediately, with the condition itself as the directive. You don&#39;t need to send a separate prompt. While the goal is active, a `◎ /goal active` indicator shows how long the goal has been running.
 
-A goal doesn&#39;t change permissions. In the default permission mode, Claude still asks before tool calls that your settings don&#39;t already allow, such as the test command above. To let goal turns run unattended, pair `/goal` with [auto mode](/en/auto-mode-config).
+A goal doesn&#39;t change permissions. In the default permission mode, Claude still asks before tool calls that your settings don&#39;t already allow, such as the test command above. To let goal turns run unattended, pair `/goal` with [auto mode](/docs/en/auto-mode-config).
 
 After each turn, the evaluator returns a short reason explaining why the condition is or isn&#39;t met. The most recent reason appears in the status view and in the transcript so you can see what Claude is working toward next.
 
@@ -5201,7 +5201,7 @@ A goal that was still active when a session ended is restored when you resume th
 
 ### Run non-interactively
 
-`/goal` works in [non-interactive mode](/en/headless), in the [desktop app](/en/desktop), and through [Remote Control](/en/remote-control). Setting a goal with `-p` runs the loop to completion in a single invocation:
+`/goal` works in [non-interactive mode](/docs/en/headless), in the [desktop app](/docs/en/desktop), and through [Remote Control](/docs/en/remote-control). Setting a goal with `-p` runs the loop to completion in a single invocation:
 
 ```bash theme={null}
 claude -p &quot;/goal CHANGELOG.md has an entry for every PR merged this week&quot;
@@ -5209,19 +5209,19 @@ claude -p &quot;/goal CHANGELOG.md has an entry for every PR merged this week&qu
 <p>With the default text output, nothing prints until the condition is met, so a goal that runs many turns can look stuck. Add <code>--output-format stream-json --verbose</code> to emit each message as the loop runs.</p>
 <p>Interrupt the process with Ctrl+C to stop a non-interactive goal before the condition is met.</p>
 <h2 id="how-evaluation-works">How evaluation works</h2>
-<p><code>/goal</code> is a wrapper around a session-scoped <a href="/en/hooks#prompt-based-hooks">prompt-based Stop hook</a>. Each time Claude finishes a turn, the condition and the conversation so far are sent to your configured <a href="/en/model-config">small fast model</a>, which defaults to Haiku. The model returns a yes-or-no decision and a short reason. A "no" tells Claude to keep working and includes the reason as guidance for the next turn. A "yes" clears the goal and records an achieved entry in the transcript.</p>
+<p><code>/goal</code> is a wrapper around a session-scoped <a href="/docs/en/hooks#prompt-based-hooks">prompt-based Stop hook</a>. Each time Claude finishes a turn, the condition and the conversation so far are sent to your configured <a href="/docs/en/model-config">small fast model</a>, which defaults to Haiku. The model returns a yes-or-no decision and a short reason. A "no" tells Claude to keep working and includes the reason as guidance for the next turn. A "yes" clears the goal and records an achieved entry in the transcript.</p>
 <p>The evaluator runs on whichever provider your session is configured for. It does not call tools, so it can only judge what Claude has already surfaced in the conversation.</p>
 <p><Note>
   Evaluation tokens are billed on the small fast model configured for your provider and are typically negligible compared to main-turn spend.
 </Note></p>
 <h2 id="requirements">Requirements</h2>
-<p><code>/goal</code> runs only in workspaces where you have accepted the trust dialog, because the evaluator is part of the hooks system. <code>/goal</code> is also unavailable when <a href="/en/hooks#disable-or-remove-hooks"><code>disableAllHooks</code></a> is set at any settings level or when <a href="/en/settings#hook-configuration"><code>allowManagedHooksOnly</code></a> is set in managed settings. In each case, the command tells you why instead of silently doing nothing.</p>
+<p><code>/goal</code> runs only in workspaces where you have accepted the trust dialog, because the evaluator is part of the hooks system. <code>/goal</code> is also unavailable when <a href="/docs/en/hooks#disable-or-remove-hooks"><code>disableAllHooks</code></a> is set at any settings level or when <a href="/docs/en/settings#hook-configuration"><code>allowManagedHooksOnly</code></a> is set in managed settings. In each case, the command tells you why instead of silently doing nothing.</p>
 <h2 id="see-also">See also</h2>
 <ul>
-<li><a href="/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop">Run a prompt repeatedly with <code>/loop</code></a>: re-run on a time interval instead of until a condition holds</li>
-<li><a href="/en/hooks-guide#prompt-based-hooks">Prompt-based hooks</a>: write your own Stop hook when you need custom evaluation logic</li>
-<li><a href="/en/auto-mode-config">Auto mode</a>: approve tool calls automatically so each goal turn runs unattended</li>
-<li><a href="/en/scheduled-tasks#compare-scheduling-options">Scheduling comparison</a>: run work on a schedule independent of any open session</li>
+<li><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop">Run a prompt repeatedly with <code>/loop</code></a>: re-run on a time interval instead of until a condition holds</li>
+<li><a href="/docs/en/hooks-guide#prompt-based-hooks">Prompt-based hooks</a>: write your own Stop hook when you need custom evaluation logic</li>
+<li><a href="/docs/en/auto-mode-config">Auto mode</a>: approve tool calls automatically so each goal turn runs unattended</li>
+<li><a href="/docs/en/scheduled-tasks#compare-scheduling-options">Scheduling comparison</a>: run work on a schedule independent of any open session</li>
 </ul>
 
 

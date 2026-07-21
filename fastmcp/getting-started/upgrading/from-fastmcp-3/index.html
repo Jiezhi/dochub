@@ -4414,6 +4414,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../python-sdk/fastmcp-utilities-asgi_transport/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    asgi_transport
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../python-sdk/fastmcp-utilities-async_utils/" class="md-nav__link">
         
   
@@ -10126,6 +10154,16 @@
 <td>Via the guard pattern (<code>input_requests</code> carries roots requests)</td>
 </tr>
 <tr>
+<td><code>Middleware.on_initialize</code></td>
+<td>Runs on connect</td>
+<td>Never runs — there is no <code>initialize</code> handshake</td>
+</tr>
+<tr>
+<td>Session state (<code>ctx.set_state</code> across calls)</td>
+<td>Persists for the session</td>
+<td>Does not persist — every request is a fresh connection</td>
+</tr>
+<tr>
 <td>Tasks (via the FastMCP client)</td>
 <td>Supported</td>
 <td>Not yet</td>
@@ -10133,6 +10171,7 @@
 </tbody>
 </table>
 <p>If your tools rely on <code>ctx.elicit</code> or <code>ctx.list_roots</code>, they continue to work against clients on the earlier eras; on the modern era, reach for the guard pattern instead (see <a href="/servers/elicitation#elicitation-on-the-modern-protocol">Elicitation on the modern protocol</a>). Sampling is deprecated on every era and will not return on modern connections — migrate those tools to server-side LLM calls.</p>
+<p>Two of these bite by default now, because <strong><code>fastmcp.Client</code> defaults to <code>mode="auto"</code></strong> in v4 — an ordinary <code>Client(server)</code> negotiates the newest protocol both sides share, which against a FastMCP server is the sessionless <code>2026-07-28</code> era. On that era there is no <code>initialize</code> handshake, so a <code>Middleware.on_initialize</code> hook never runs; and each request is a fresh connection, so state written with <code>ctx.set_state</code> in one call is not visible in the next. A server that gates access in <code>on_initialize</code> or relies on per-session state must keep its clients on the session-based era. The narrow escape is per-client: <code>Client(server, mode="legacy")</code>. The durable, server-side answer is to declare the versions the server actually serves so a modern client is refused at connect time rather than silently losing those features — see the server's protocol-version restriction (added alongside this change).</p>
 
 
 
