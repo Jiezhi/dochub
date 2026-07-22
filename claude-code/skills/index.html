@@ -2061,6 +2061,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../desktop-ios-simulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop ios simulator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../desktop-linux/" class="md-nav__link">
         
   
@@ -5730,8 +5757,12 @@ Use this file to discover all available pages before exploring further.</p>
 </Note></p>
 <p>Claude Code skills follow the <a href="https://agentskills.io">Agent Skills</a> open standard, which works across multiple AI tools. Claude Code extends the standard with additional features like <a href="#control-who-invokes-a-skill">invocation control</a>, <a href="#run-skills-in-a-subagent">subagent execution</a>, and <a href="#inject-dynamic-context">dynamic context injection</a>.</p>
 <h2 id="bundled-skills">Bundled skills</h2>
-<p>Claude Code includes a set of bundled skills that are available in every session unless disabled with the <a href="/docs/en/settings#available-settings"><code>disableBundledSkills</code></a> setting, including <code>/doctor</code>, <code>/code-review</code>, <code>/batch</code>, <code>/debug</code>, <code>/loop</code>, and <code>/claude-api</code>. Unlike most built-in commands, which execute fixed logic directly, bundled skills are prompt-based: they give Claude detailed instructions and let it orchestrate the work using its tools. You invoke them the same way as any other skill, by typing <code>/</code> followed by the skill name.</p>
-<p>The <a href="/docs/en/commands#all-commands"><code>/doctor</code></a> setup checkup is the one exception to <code>disableBundledSkills</code> in Claude Code v2.1.205 and later: it stays typable when the setting is on. To hide it, set the <code>DISABLE_DOCTOR_COMMAND</code> environment variable or a <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> entry of <code>"doctor": "off"</code>. Before v2.1.205, <code>/doctor</code> was a built-in command rather than a bundled skill.</p>
+<p>Claude Code includes a set of bundled skills, such as <code>/doctor</code>, <code>/code-review</code>, <code>/batch</code>, <code>/debug</code>, <code>/loop</code>, and <code>/claude-api</code>. Bundled skills are prompt-based: they give Claude detailed instructions and let it orchestrate the work using its tools. Most built-in commands instead execute fixed logic directly.</p>
+<p>You invoke a bundled skill the same way as any other skill, by typing <code>/</code> followed by the skill name. Claude invokes some bundled skills automatically when relevant; others, {/<em> min-version: 2.1.215 </em>/}including <code>/verify</code> and <code>/code-review</code>, run only when you invoke them, which keeps you in control of when these longer-running checks spend time and tokens. Before v2.1.215, Claude could also run <code>/verify</code> and <code>/code-review</code> on its own.</p>
+<p>Bundled skills are available in every session. To turn them off, use the <a href="/docs/en/settings#available-settings"><code>disableBundledSkills</code></a> setting, which disables every bundled skill except <code>/doctor</code>.</p>
+<p><Note>
+  The <a href="/docs/en/commands#all-commands"><code>/doctor</code></a> setup checkup stays typable when <code>disableBundledSkills</code> is on, in Claude Code v2.1.205 and later. To hide it, set the <code>DISABLE_DOCTOR_COMMAND</code> environment variable or a <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> entry of <code>"doctor": "off"</code>. Before v2.1.205, <code>/doctor</code> was a built-in command rather than a bundled skill.
+</Note></p>
 <p>Bundled skills are listed alongside built-in commands in the <a href="/docs/en/commands">commands reference</a>, marked <strong>Skill</strong> in the Purpose column.</p>
 <h3 id="run-and-verify-your-app">Run and verify your app</h3>
 <p>Three bundled skills work together to launch your app and confirm changes against the running app instead of just tests:</p>
@@ -5963,7 +5994,7 @@ Your skill instructions here...
 <tr>
 <td style="text-align: left;"><code>name</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Display name shown in skill listings. Defaults to the directory name. See <a href="#how-a-skill-gets-its-command-name">How a skill gets its command name</a> for how this differs from the name you type to invoke the skill.</td>
+<td style="text-align: left;">Display name shown in skill listings. Defaults to the directory name. See <a href="#how-a-skill-gets-its-command-name">How a skill gets its command name</a> for how the field interacts with the name you type to invoke the skill.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>description</code></td>
@@ -6043,7 +6074,7 @@ Your skill instructions here...
 </tbody>
 </table>
 <h4 id="how-a-skill-gets-its-command-name">How a skill gets its command name</h4>
-<p>The command you type to invoke a skill comes from where the skill file lives. The frontmatter <code>name</code> field sets the display label shown in skill listings and, except for a plugin-root <code>SKILL.md</code>, does not change what you type after <code>/</code>.</p>
+<p>The command you type to invoke a skill comes from where the skill file lives and, for plugin skills, also from the frontmatter <code>name</code> field. In a personal or project skill, <code>name</code> sets only the display label shown in skill listings, and the command still comes from the directory or file name. In a plugin skill, <code>name</code> sets the last segment of the command and the plugin prefix stays in place.</p>
 <p>The table below shows where the command name comes from for each layout:</p>
 <table>
 <thead>
@@ -6071,8 +6102,8 @@ Your skill instructions here...
 </tr>
 <tr>
 <td style="text-align: left;">Plugin <code>skills/</code> subdirectory</td>
-<td style="text-align: left;">Directory name, namespaced by plugin</td>
-<td style="text-align: left;"><code>my-plugin/skills/review/SKILL.md</code> → <code>/my-plugin:review</code></td>
+<td style="text-align: left;">Frontmatter <code>name</code> or the directory name, namespaced by plugin</td>
+<td style="text-align: left;"><code>my-plugin/skills/review/SKILL.md</code> → <code>/my-plugin:review</code>, or <code>/my-plugin:fancy</code> with <code>name: fancy</code></td>
 </tr>
 <tr>
 <td style="text-align: left;">Plugin root <code>SKILL.md</code></td>
@@ -6081,7 +6112,8 @@ Your skill instructions here...
 </tr>
 </tbody>
 </table>
-<p>The plugin-root case is the one place where <code>name</code> does set the command name, because there is no skill directory to take it from. If <code>name</code> is not set in the frontmatter, the plugin's directory name is used instead.</p>
+<p>In a plugin skill, the frontmatter <code>name</code> replaces the directory name in the last segment of the command, so <code>my-plugin/skills/review/SKILL.md</code> with <code>name: fancy</code> becomes <code>/my-plugin:fancy</code>. The bare <code>/fancy</code> also invokes the skill unless another command already uses that name. Before v2.1.216, the frontmatter name replaced the whole command name, so the menu showed <code>/fancy</code> without the plugin prefix and <code>/my-plugin:fancy</code> didn't autocomplete.</p>
+<p>For a plugin-root <code>SKILL.md</code>, there is no skill directory to take the name from, so <code>name</code> supplies the whole final segment. Without a <code>name</code> field, Claude Code falls back to the plugin's directory name.</p>
 <h4 id="available-string-substitutions">Available string substitutions</h4>
 <p>Skills support string substitution for dynamic values in the skill content:</p>
 <table>

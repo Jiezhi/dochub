@@ -450,6 +450,15 @@ For multiple packages in the same repository, [*workspaces*](https://jiezhi.gith
 
 To declare a dependency on a workspace member, add the member name with `{ workspace = true }`. All workspace members must be explicitly stated. Workspace members are always [editable](#editable-dependencies) . See the [workspace](https://jiezhi.github.io/dochub/uv/concepts/projects/workspaces/index.md) documentation for more details on workspaces.
 
+To source a dependency from a different workspace, `workspace` can also be a path string:
+
+pyproject.toml
+
+```
+[tool.uv.sources]
+foo = { workspace = "../other-workspace" }
+```
+
 pyproject.toml
 
 ```

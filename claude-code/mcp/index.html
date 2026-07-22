@@ -2061,6 +2061,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../desktop-ios-simulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Desktop ios simulator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../desktop-linux/" class="md-nav__link">
         
   
@@ -6122,6 +6149,8 @@ Some server names are reserved for Claude Code&#39;s built-in servers: `workspac
 
 Claude Code supports MCP `list_changed` notifications, allowing MCP servers to dynamically update their available tools, prompts, and resources without requiring you to disconnect and reconnect. When an MCP server sends a `list_changed` notification, Claude Code automatically refreshes the available capabilities from that server.
 
+If a refresh request fails, Claude Code keeps the server&#39;s previously discovered tools, prompts, and resources until a later refresh succeeds. Before v2.1.214, a transient error during the refresh replaced the server&#39;s tools, prompts, and resources with an empty list.
+
 ### Automatic reconnection
 
 If an HTTP or SSE server disconnects mid-session, Claude Code automatically reconnects with exponential backoff: up to five attempts, starting at a one-second delay and doubling each time. The server appears as pending in `/mcp` while reconnection is in progress. After five failed attempts the server is marked as failed and you can retry manually from `/mcp`. Stdio servers are local processes and are not reconnected automatically.
@@ -6864,7 +6893,7 @@ This is useful for tools that return inherently large but necessary outputs, suc
 <h2 id="require-approval-for-a-specific-tool">Require approval for a specific tool</h2>
 <p>If you're building an MCP server, you can mark a tool as requiring explicit approval on every call by setting <code>_meta["anthropic/requiresUserInteraction"]</code> to <code>true</code> in the tool's <code>tools/list</code> response entry. The value must be the JSON boolean <code>true</code>; any other value is ignored.</p>
 <p>Claude Code shows that tool's permission prompt on every call, even in <code>acceptEdits</code>, <code>auto</code>, and <code>bypassPermissions</code> <a href="/docs/en/permissions#permission-modes">permission modes</a>, and doesn't offer a "don't ask again" option for it. <a href="/docs/en/permissions#permission-rule-syntax">Allow rules</a> that match the tool don't skip the prompt either. In <code>dontAsk</code> mode, which never prompts, Claude Code denies the call instead.</p>
-<p>The prompt has to reach a person. In non-interactive mode with <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a>, an <code>allow</code> result from the prompt tool for a flagged tool is converted to a deny with the message <code>MCP tool requires user interaction; not supported via --permission-prompt-tool</code>. The Agent SDK's <a href="/docs/en/agent-sdk/permissions"><code>canUseTool</code> callback</a> does receive these calls and can approve them, because the SDK host is expected to show them to a user.</p>
+<p>The prompt has to reach a person. In non-interactive mode with <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a>, an <code>allow</code> result from the prompt tool for a flagged tool is converted to a deny with the message <code>MCP tool requires user interaction; not supported via --permission-prompt-tool</code>. The Agent SDK's <a href="/docs/en/agent-sdk/permissions"><code>canUseTool</code> callback</a> does receive these calls and can approve them, because your SDK application is expected to show them to a user.</p>
 <p>Use this for tools whose permission prompt is itself the point, such as a consent or access-grant step where auto-approval would mean no human ever agreed. Other tools from the same server keep their normal permission behavior.</p>
 <p>The following <code>tools/list</code> entry marks one tool as always requiring approval.</p>
 <p>```json theme={null}
@@ -6877,7 +6906,9 @@ This is useful for tools that return inherently large but necessary outputs, suc
 }
 <div class="highlight"><pre><span></span><code>The `anthropic/requiresUserInteraction` annotation requires Claude Code v2.1.199 or later. Earlier versions ignore it and apply the standard permission flow.
 
-When a session is connected to [Remote Control](/docs/en/remote-control) or an SDK host, Claude Code marks the permission request as requiring user interaction, so the client shows the tool&#39;s permission prompt for you to answer instead of a one-tap approve action.
+Some surfaces, such as [Remote Control](/docs/en/remote-control) and applications built on the [Agent SDK](/docs/en/agent-sdk/overview), normally let you approve tool calls with one tap. For a tool marked with this annotation, Claude Code withholds the one-tap action and shows the tool&#39;s full permission prompt instead, so approval still comes from a person answering the prompt rather than a tap.
+
+Claude Code withholds one-tap approval the same way for any permission request that only the terminal dialog can render in full, such as one that carries a safety warning or an always-allow option the remote surface can&#39;t show. You answer that request in the terminal dialog rather than from Remote Control. Requires Claude Code v2.1.214 or later.
 
 ## Respond to MCP elicitation requests
 
