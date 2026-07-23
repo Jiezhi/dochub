@@ -1737,6 +1737,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli-reference/" class="md-nav__link">
         
   
@@ -2174,6 +2201,17 @@
     <span class="md-ellipsis">
       
         Background token usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-usage-climbs-in-a-long-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why usage climbs in a long session
       
     </span>
   </a>
@@ -5236,6 +5274,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#why-usage-climbs-in-a-long-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why usage climbs in a long session
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#understanding-changes-in-claude-code-behavior" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5295,7 +5344,7 @@ Usage by model:
    claude-sonnet-4-6:  1.2k input, 5.3k output, 940.0k cache read, 50.0k cache write ($0.55)
 <div class="highlight"><pre><span></span><code>These totals reset when `/clear` starts a new session, so the next session&#39;s total cost starts at \$0. Before v2.1.211, they kept accumulating across `/clear` for the lifetime of the Claude Code process.
 
-On a Pro, Max, Team, or Enterprise plan, `/usage` also shows a breakdown of what counts against your plan limits. It attributes recent usage to skills, subagents, plugins, and individual MCP servers, with each shown as a percentage of the total. Press `d` or `w` to switch between the last 24 hours and the last 7 days. The figures are approximate and computed from local session history on this machine, so usage from other devices or claude.ai is not included.
+On a Pro, Max, Team, or Enterprise plan, `/usage` also shows a breakdown of what counts against your plan limits. It attributes recent usage to skills, subagents, plugins, and individual MCP servers, with each shown as a percentage of the total. It also flags behaviors such as long context or cache misses when one accounts for 10% or more of recent usage. Press `d` or `w` to switch between the last 24 hours and the last 7 days. The figures are approximate and computed from local session history on this machine, so usage from other devices or claude.ai is not included.
 
 When the request for your plan limits fails, most often because the usage endpoint is rate limited, `/usage` shows the last usage bars it loaded on this machine within the past 60 minutes, along with a `Showing last-known usage` note stating how long ago that data was fetched. Press `r` to retry; a successful retry replaces the last-known bars with fresh data. Without a snapshot from the past 60 minutes, `/usage` reports that the usage endpoint is rate limited and offers the same retry shortcut. Before v2.1.208, a rate-limited request in a session that hadn&#39;t loaded usage yet always showed the error with no bars.
 
@@ -5503,6 +5552,16 @@ fi
 <li><strong>Command processing</strong>: Some commands like <code>/usage</code> may generate requests to check status</li>
 </ul>
 <p>These background processes consume a small amount of tokens (typically under \$0.04 per session) even without active interaction.</p>
+<h2 id="why-usage-climbs-in-a-long-session">Why usage climbs in a long session</h2>
+<p>A session that has been open for hours can use far more of your plan limits than your activity suggests, usually for one of these reasons:</p>
+<ul>
+<li><strong>Long context</strong>: Claude Code sends your full conversation with every message, so a one-line question in a session that has been open all day uses tokens for the whole conversation, not just the one line. See <a href="#manage-context-proactively">Manage context proactively</a> for ways to keep your context small</li>
+<li><strong>Cache misses</strong>: your first message after a break longer than the <a href="/docs/en/prompt-caching#cache-lifetime">cache lifetime</a> misses the cache and reprocesses your full context. The lifetime is an hour on a subscription and drops to five minutes once you're drawing on <a href="https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans">usage credits</a>; on an API key or cloud provider, it's five minutes by default</li>
+<li><strong>Scheduled tasks</strong>: a <a href="/docs/en/scheduled-tasks">scheduled task</a> fires on its interval even while the session is idle, sending your full context each time</li>
+<li><strong>Agent teammates</strong>: each active <a href="#agent-team-token-costs">teammate</a> keeps consuming tokens until it exits</li>
+<li><strong>Compaction</strong>: <code>/compact</code> reads the conversation it summarizes, so <a href="/docs/en/prompt-caching#compacting-the-conversation">compacting a large context</a> is itself a large request. When you want a fresh start instead of continuity, <code>/clear</code> costs nothing</li>
+</ul>
+<p>On a Pro, Max, Team, or Enterprise plan, the <code>/usage</code> breakdown flags behaviors that account for 10% or more of your recent usage, such as long context or cache misses, each with a tip to reduce it.</p>
 <h2 id="understanding-changes-in-claude-code-behavior">Understanding changes in Claude Code behavior</h2>
 <p>Claude Code regularly receives updates that may change how features work, including cost reporting. Run <code>claude --version</code> to check your current version.</p>
 <p>For billing questions about your specific account, contact Anthropic support through the in-product messenger:</p>

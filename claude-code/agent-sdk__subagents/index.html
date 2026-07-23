@@ -2113,6 +2113,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli-reference/" class="md-nav__link">
         
   
@@ -5716,7 +5743,7 @@ Focus on:
 <td style="text-align: left;"><code>tools</code></td>
 <td style="text-align: left;"><code>string[]</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Array of allowed tool names. If omitted, inherits all tools</td>
+<td style="text-align: left;">Array of allowed tool names. If omitted, inherits every <a href="/docs/en/sub-agents#available-tools">tool available to subagents</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>disallowedTools</code></td>
@@ -5787,7 +5814,7 @@ Focus on:
 <li>A subagent inherits the main session's extended thinking configuration. On earlier versions, extended thinking is disabled inside subagents regardless of the main session's setting.</li>
 </ul>
 <p><Note>
-  {/<em> min-version: 2.1.172 </em>/}As of Claude Code v2.1.172, subagents can spawn their own subagents. A subagent five levels below the main agent can't spawn further subagents, regardless of whether it runs in the foreground or background. To prevent a subagent from spawning others, omit <code>Agent</code> from its <code>tools</code> array or add it to <code>disallowedTools</code>. See <a href="/docs/en/sub-agents#spawn-nested-subagents">nested subagents</a> for the full depth rules.
+  {/<em> min-version: 2.1.217 </em>/}By default, subagents can't spawn subagents of their own. To let them, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH</code></a> to the number of subagent layers you want below your main conversation, <code>2</code> or higher; see <a href="/docs/en/sub-agents#let-subagents-spawn-their-own-subagents">nested subagents</a>. From Claude Code v2.1.172 through v2.1.216, subagents could nest by default, up to five layers.
 </Note></p>
 <h3 id="filesystem-based-definition-alternative">Filesystem-based definition (alternative)</h3>
 <p>You can also define subagents as markdown files in <code>.claude/agents/</code> directories. See the <a href="/docs/en/sub-agents">Claude Code subagents documentation</a> for details on this approach. Programmatically defined agents take precedence over filesystem-based agents with the same name.</p>
@@ -5814,7 +5841,7 @@ Focus on:
 <td style="text-align: left;">Preloaded skill content, unless listed in <code>AgentDefinition.skills</code></td>
 </tr>
 <tr>
-<td style="text-align: left;">Tool definitions (inherited from parent, or the subset in <code>tools</code>)</td>
+<td style="text-align: left;">Tool definitions (inherited from parent or the subset in <code>tools</code>, <a href="/docs/en/sub-agents#available-tools">filtered for background runs</a>)</td>
 <td style="text-align: left;">The parent's system prompt</td>
 </tr>
 </tbody>
@@ -6111,11 +6138,12 @@ if ("result" in message) {
 <li><strong>Automatic cleanup</strong>: transcripts are cleaned up based on the <code>cleanupPeriodDays</code> setting, which defaults to 30 days.</li>
 </ul>
 <h2 id="tool-restrictions_1">Tool restrictions</h2>
-<p>Subagents can have restricted tool access via the <code>tools</code> field:</p>
+<p>Use the <code>tools</code> field to limit what a subagent can do:</p>
 <ul>
-<li><strong>Omit the field</strong>: agent inherits all available tools (default)</li>
-<li><strong>Specify tools</strong>: agent can only use listed tools</li>
+<li><strong>Omit <code>tools</code></strong>: the subagent gets every <a href="/docs/en/sub-agents#available-tools">tool available to subagents</a></li>
+<li><strong>List tools</strong>: the subagent gets only those. A code reviewer that should never edit files, for example, gets <code>["Read", "Grep", "Glob"]</code></li>
 </ul>
+<p>A tool you leave out isn't in the subagent's session at all: Claude works without it, with no permission prompt or error.</p>
 <p>This example creates a read-only analysis agent that can examine code but can't modify files or run commands.</p>
 <p><CodeGroup>
   ```python Python theme={null}
@@ -6190,7 +6218,7 @@ if ("result" in message) {
 <tr>
 <td style="text-align: left;">Full access</td>
 <td style="text-align: left;">All tools</td>
-<td style="text-align: left;">Inherits all tools from parent (omit <code>tools</code> field)</td>
+<td style="text-align: left;">Inherits the tools available to subagents (omit the <code>tools</code> field)</td>
 </tr>
 </tbody>
 </table>

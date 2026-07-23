@@ -4343,6 +4343,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#configure-admin-role-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure Admin Role Mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Admin Role Mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#define-an-app-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Define an App Role
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-the-roles-attribute-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add the roles attribute mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-admin-role-mapping-in-bruno" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure Admin Role Mapping in Bruno
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configure-provisioning-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -15338,6 +15388,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#configure-admin-role-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure Admin Role Mapping
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure Admin Role Mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#define-an-app-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Define an App Role
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-the-roles-attribute-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add the roles attribute mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-admin-role-mapping-in-bruno" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configure Admin Role Mapping in Bruno
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configure-provisioning-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -15564,11 +15664,58 @@
 - The <code>userName</code> attribute must map to the user's email address and is used as the unique identifier
 - Set <strong>Matching precedence</strong> to <code>1</code> for the <code>userName</code> mapping
 - The <code>emails[type eq "work"].value</code> attribute must also map to <code>userPrincipalName</code> to ensure email addresses are properly provisioned
-- Remove any attribute mappings not listed above to prevent provisioning errors
+- Remove any attribute mappings not listed above to prevent provisioning errors — <strong>except</strong> the <code>roles</code> mapping described in <a href="#configure-admin-role-mapping">Configure Admin Role Mapping</a> below, if you're using that feature
 </Warning></p>
 <ol>
 <li>Click <strong>Save</strong> to save the attribute mappings</li>
 </ol>
+<h2 id="configure-admin-role-mapping">Configure Admin Role Mapping</h2>
+<p>Admin Role Mapping lets you provision specific Entra ID users as Bruno License Manager admins. Admins provisioned this way get portal access, do <strong>not</strong> consume a license seat, and do <strong>not</strong> appear in the Users list.</p>
+<p><Info>
+This section is optional. Skip it if you only want to provision regular licensed users.
+</Info></p>
+<h3 id="define-an-app-role">Define an App Role</h3>
+<ol>
+<li>In the <a href="https://entra.microsoft.com/">Microsoft Entra admin center</a>, go to <strong>Identity</strong> → <strong>Applications</strong> → <strong>App registrations</strong></li>
+<li>Find the app registration linked to your enterprise application (same name) and open it</li>
+<li>Go to <strong>App roles</strong> → <strong>Create app role</strong></li>
+<li>Fill in:</li>
+<li><strong>Display name</strong>: any name, e.g. <code>bruno_admin</code> (cosmetic only, not sent to Bruno)</li>
+<li><strong>Allowed member types</strong>: <code>Users/Groups</code></li>
+<li><strong>Value</strong>: the role identifier Bruno will receive, e.g. <code>bruno-license-admin</code> — this exact string is what must match your Admin Role Mapping configuration in Bruno</li>
+<li><strong>Description</strong>: optional</li>
+<li>Enable the role and click <strong>Apply</strong></li>
+</ol>
+<p><img alt="Create app role in Entra ID" src="/images/screenshots/sso-scim-management/entra/entra-scim-9.webp" /></p>
+<p><Warning>
+The <strong>Value</strong> field, not the display name, is what's sent to Bruno as <code>roles[].value</code>. Matching is exact and case-sensitive.
+</Warning></p>
+<h3 id="add-the-roles-attribute-mapping">Add the roles attribute mapping</h3>
+<ol>
+<li>Under your Enterprise Application's <strong>Provisioning</strong> → <strong>Mappings</strong> → <strong>Provision Microsoft Entra ID Users</strong>, click <strong>Add New Mapping</strong></li>
+<li>Configure:</li>
+<li><strong>Mapping type</strong>: <code>Expression</code></li>
+<li><strong>Expression</strong>: <code>SingleAppRoleAssignment([appRoleAssignments])</code></li>
+<li><strong>Target attribute</strong>: <code>roles[primary eq "True"].value</code></li>
+<li><strong>Match objects using this attribute</strong>: No</li>
+<li><strong>Apply this mapping</strong>: Always</li>
+<li>Click <strong>Ok</strong>, then <strong>Save</strong> on the main attribute mapping page</li>
+</ol>
+<p><img alt="Configure roles attribute mapping" src="/images/screenshots/sso-scim-management/entra/entra-scim-10.webp" /></p>
+<p><Warning>
+<strong>Important</strong>:
+- <strong>Do not</strong> map this attribute directly to <code>[appRoleAssignments]</code> (without <code>SingleAppRoleAssignment(...)</code>) — that sends Entra's internal connector representation instead of the resolved role value, and Bruno will never match it
+- <strong>One role per user, per app</strong>: <code>SingleAppRoleAssignment(...)</code> fails with a <code>MultipleGrantsNotSupported</code> error if a user has more than one App Role assigned to this application (including via group assignment). Each user provisioned to Bruno must have exactly one App Role — either the admin role, or none, not both an admin role and some other role on the same app
+</Warning></p>
+<h3 id="configure-admin-role-mapping-in-bruno">Configure Admin Role Mapping in Bruno</h3>
+<ol>
+<li>In the Bruno License Manager portal, go to <strong>Settings → SCIM → Admin Role Mapping</strong></li>
+<li>Enter the App Role <strong>Value</strong> you defined above, e.g. <code>bruno-license-admin</code></li>
+<li>Multiple values are supported, comma-separated (e.g. <code>bruno-license-admin, bruno_admin</code>) — any match grants admin access</li>
+<li>Values must exactly match the App Role <strong>Value</strong> field in Entra (case-sensitive)</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<p><img alt="Configure Admin Role Mapping in Bruno" src="/images/screenshots/sso-scim-management/entra/entra-scim-11.webp" /></p>
 <h2 id="configure-provisioning-settings">Configure provisioning settings</h2>
 <ol>
 <li>Under <strong>Settings</strong>, configure the <strong>Scope</strong>:</li>
@@ -15597,13 +15744,13 @@
 <p>Click <strong>+ Add user/group</strong></p>
 </li>
 <li>
-<p>Select the users or groups you want to provision with Bruno licenses</p>
+<p>Select the users or groups you want to provision with Bruno licenses. If you <a href="#configure-admin-role-mapping">configured Admin Role Mapping</a> and want a user provisioned as an admin, select that App Role under <strong>Select a role</strong> instead of the default access role</p>
 </li>
 <li>
 <p>Click <strong>Assign</strong></p>
 </li>
 <li>
-<p>Assigned users will receive an email with their <strong>License Key</strong> once the provisioning cycle completes</p>
+<p>Assigned users will receive an email with their <strong>License Key</strong> once the provisioning cycle completes. Users assigned the admin App Role instead get portal access directly, with no license key or email</p>
 </li>
 </ol>
 <p><img alt="License portal login" src="/images/screenshots/sso-scim-management/okta/okta-swa-12.webp" /></p>

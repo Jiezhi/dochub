@@ -1737,6 +1737,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli-reference/" class="md-nav__link">
         
   
@@ -3328,6 +3355,17 @@
   
     <nav class="md-nav" aria-label="6. Run Claude Code">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managed-endpoints-govern-signal-specific-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managed endpoints govern signal-specific endpoints
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#configuration-details" class="md-nav__link">
@@ -5348,6 +5386,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#managed-endpoints-govern-signal-specific-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managed endpoints govern signal-specific endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#configuration-details" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5682,8 +5731,19 @@ Example managed settings configuration:
   Managed settings can be distributed via MDM (Mobile Device Management) or other device management solutions. Environment variables defined in the managed settings file have high precedence and can't be overridden by users.
 </Note></p>
 <p>Claude Code doesn't pass <code>OTEL_*</code> environment variables to the subprocesses it spawns, including the Bash tool, hooks, MCP servers, and language servers. An OpenTelemetry-instrumented application that you run through the Bash tool doesn't inherit Claude Code's exporter endpoint or headers, so set those variables directly in the command if that application needs to export its own telemetry.</p>
+<h3 id="managed-endpoints-govern-signal-specific-endpoints">Managed endpoints govern signal-specific endpoints</h3>
+<p>A generic <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> set in managed settings governs every signal's endpoint. If a lower-precedence source, such as user settings or a shell export, sets a signal-specific endpoint like <code>OTEL_EXPORTER_OTLP_LOGS_ENDPOINT</code>, Claude Code removes that variable at startup and logs a warning, visible with <code>claude --debug</code>. Users can't point one signal's OTLP traffic at a different endpoint, so you don't need to set the signal-specific endpoint variables in managed settings to prevent it.</p>
+<p>This applies only on machines where an administrator deploys managed settings with telemetry configured, and it changes where telemetry is delivered, not what Claude Code collects.</p>
+<p>A managed <code>OTEL_EXPORTER_OTLP_HEADERS</code>, <code>OTEL_EXPORTER_OTLP_CLIENT_KEY</code>, or <code>OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE</code> variable also governs the endpoint variables, since those credentials would otherwise accompany telemetry to a collector the managed settings didn't choose.</p>
+<p>Two cases keep the normal per-key precedence:</p>
+<ul>
+<li>Signal-specific variables set in the managed settings file itself still apply, so you can route one signal to a different collector by setting them there, as the <a href="#send-events-to-a-siem">SIEM example</a> does.</li>
+<li>The exporter selectors (<code>OTEL_METRICS_EXPORTER</code>, <code>OTEL_LOGS_EXPORTER</code>, and the beta <code>OTEL_TRACES_EXPORTER</code>) and the protocol variables follow per-key precedence, so a lower-precedence source can still change how a signal is exported. To make those authoritative too, set the signal-specific keys in managed settings directly.</li>
+</ul>
+<p>{/<em> min-version: 2.1.217 </em>/}Before v2.1.217, every variable followed per-key settings precedence independently, so a signal-specific endpoint set in user settings or the shell redirected that signal away from the managed collector.</p>
 <h2 id="configuration-details">Configuration details</h2>
 <h3 id="common-configuration-variables">Common configuration variables</h3>
+<p>These variables configure exporters, endpoints, and export behavior for all deployments. A signal-specific variable overrides its generic counterpart, except that a generic endpoint or credential variable set in <a href="#administrator-configuration">managed settings</a> governs all signals' endpoints and can't be overridden from lower-precedence sources.</p>
 <table>
 <thead>
 <tr>
@@ -5867,7 +5927,7 @@ Example managed settings configuration:
 <p>These variables help control the cardinality of metrics, which affects storage requirements and query performance in your metrics backend. Lower cardinality generally means better performance and lower storage costs but less granular data for analysis.</p>
 <h3 id="traces-beta">Traces (beta)</h3>
 <p>Distributed tracing exports spans that link each user prompt to the API requests and tool executions it triggers, so you can view a full request as a single trace in your tracing backend.</p>
-<p>Tracing is off by default. To enable it, set both <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> and <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code>, then set <code>OTEL_TRACES_EXPORTER</code> to choose where spans are sent. Traces reuse the <a href="#common-configuration-variables">common OTLP configuration</a> for endpoint, protocol, headers, and <a href="#mtls-authentication">mTLS</a>.</p>
+<p>Tracing is off by default. To enable it, set both <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> and <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code>, then set <code>OTEL_TRACES_EXPORTER</code> to choose where spans are sent. Traces reuse the <a href="#common-configuration-variables">common OTLP configuration</a> for endpoint, protocol, headers, and <a href="#mtls-authentication">mTLS</a>. A generic endpoint or credential variable set in <a href="#managed-endpoints-govern-signal-specific-endpoints">managed settings</a> governs the traces endpoint too, so the <code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</code> override in the table below applies only when managed settings don't set one.</p>
 <table>
 <thead>
 <tr>
