@@ -1393,7 +1393,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6243,6 +6243,7 @@ The same field can appear in a plugin&#39;s marketplace entry, where it takes pr
 | `skills`                | string\|array         | Custom skill directories containing `&lt;name&gt;/SKILL.md`. Adds to the default `skills/` scan. See [Path behavior rules](#path-behavior-rules) for the marketplace-root exception | `&quot;./custom/skills/&quot;`                                 |
 | `commands`              | string\|array         | Custom flat `.md` skill files or directories (replaces default `commands/`)                                                                                                   | `&quot;./custom/cmd.md&quot;` or `[&quot;./cmd1.md&quot;]`               |
 | `agents`                | string\|array         | Custom agent files (replaces default `agents/`)                                                                                                                               | `&quot;./custom/agents/reviewer.md&quot;`                      |
+| `workflows`             | string\|array         | Custom [workflow](/docs/en/workflows) script files or directories (replaces default `workflows/`)                                                                                  | `&quot;./custom/workflows/&quot;`                              |
 | `hooks`                 | string\|array\|object | Hook config paths or inline config                                                                                                                                            | `&quot;./my-extra-hooks.json&quot;`                            |
 | `mcpServers`            | string\|array\|object | MCP config paths or inline config                                                                                                                                             | `&quot;./my-extra-mcp-config.json&quot;`                       |
 | `outputStyles`          | string\|array         | Custom output style files/directories (replaces default `output-styles/`)                                                                                                     | `&quot;./styles/&quot;`                                        |
@@ -6355,8 +6356,16 @@ The `userConfig` field declares values that Claude Code prompts the user for whe
 </tbody>
 </table>
 <p>Before v2.1.207, these fields substituted <code>${user_config.KEY}</code> values; update plugins that relied on this.</p>
-<p>Non-sensitive values are stored under the <a href="/docs/en/settings#pluginconfigs"><code>pluginConfigs</code></a> key in <code>settings.json</code> as <code>pluginConfigs[&lt;plugin-id&gt;].options</code>. {/<em> min-version: 2.1.207 </em>/}Claude Code writes the key to user settings and reads it back from user settings, the <code>--settings</code> flag, and managed settings only; entries in a project's <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code> are ignored. Before v2.1.207, Claude Code also read project and local settings.</p>
+<p>Non-sensitive values are stored under the <a href="/docs/en/settings#pluginconfigs"><code>pluginConfigs</code></a> key in your user <code>settings.json</code> as <code>pluginConfigs[&lt;plugin-id&gt;].options</code>.</p>
 <p>Sensitive values go to the macOS Keychain, or to <code>~/.claude/.credentials.json</code> on platforms where no supported keychain is available. Keychain storage is shared with OAuth tokens and has an approximately 2 KB total limit, so keep sensitive values small.</p>
+<p>Claude Code reads all <code>pluginConfigs</code> values from only three settings sources:</p>
+<ul>
+<li><strong>User settings</strong>: <code>~/.claude/settings.json</code>, the file the enable-time prompt writes to</li>
+<li><strong><code>--settings</code></strong>: the CLI flag or SDK inline settings</li>
+<li><strong>Managed settings</strong>: <a href="/docs/en/permissions#managed-settings">organization-controlled policy</a></li>
+</ul>
+<p>When more than one source sets the same key, managed settings take precedence, then <code>--settings</code>, then user settings. The <a href="/docs/en/cli-reference#cli-flags"><code>--setting-sources</code></a> flag narrows the list further.</p>
+<p>Entries in a project's <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code> are ignored. Both files live in the workspace, so a cloned repository could supply values there, and those values would flow into plugin hook commands, MCP server configs, LSP commands, and monitor commands. Before v2.1.207, these entries were read. The restriction is specific to <code>pluginConfigs</code>: <a href="/docs/en/settings#enabledplugins"><code>enabledPlugins</code></a> still honors project and local settings.</p>
 <h3 id="channels">Channels</h3>
 <p>The <code>channels</code> field lets a plugin declare one or more message channels that inject content into the conversation. Each channel binds to an MCP server that the plugin provides.</p>
 <p>```json theme={null}
@@ -6386,7 +6395,7 @@ The `userConfig` field declares values that Claude Code prompts the user for whe
 
 Whether a custom path replaces or extends the plugin&#39;s default directory depends on the field:
 
-* **Replaces the default**: `commands`, `agents`, `outputStyles`, `experimental.themes`, `experimental.monitors`. For example, when the manifest specifies `commands`, the default `commands/` directory is not scanned. To keep the default and add more, list it explicitly: `&quot;commands&quot;: [&quot;./commands/&quot;, &quot;./extras/&quot;]`
+* **Replaces the default**: `commands`, `agents`, `workflows`, `outputStyles`, `experimental.themes`, `experimental.monitors`. For example, when the manifest specifies `commands`, the default `commands/` directory is not scanned. To keep the default and add more, list it explicitly: `&quot;commands&quot;: [&quot;./commands/&quot;, &quot;./extras/&quot;]`
 * **Adds to the default**: `skills`. The default `skills/` directory is always scanned, and directories listed in `skills` are loaded alongside it. Exception: for a [marketplace entry whose `source` resolves to the marketplace root](/docs/en/plugin-marketplaces#advanced-plugin-entries), declaring specific subdirectories replaces the default `skills/` scan
 * **Own merge rules**: [hooks](#hooks), [MCP servers](#mcp-servers), and [LSP servers](#lsp-servers). See each section for how multiple sources combine
 
@@ -6592,6 +6601,8 @@ enterprise-plugin/
 │   ├── security-reviewer.md
 │   ├── performance-tester.md
 │   └── compliance-checker.md
+├── workflows/                # Workflow scripts
+│   └── release-audit.js
 ├── output-styles/            # Output style definitions
 │   └── terse.md
 ├── themes/                   # Color theme definitions
@@ -6613,7 +6624,7 @@ enterprise-plugin/
 ├── LICENSE                  # License file
 └── CHANGELOG.md             # Version history
 <div class="highlight"><pre><span></span><code>&lt;Warning&gt;
-  The `.claude-plugin/` directory contains the `plugin.json` file. All other directories (commands/, agents/, skills/, output-styles/, themes/, monitors/, hooks/) must be at the plugin root, not inside `.claude-plugin/`.
+  The `.claude-plugin/` directory contains the `plugin.json` file. All other directories (commands/, agents/, skills/, workflows/, output-styles/, themes/, monitors/, hooks/) must be at the plugin root, not inside `.claude-plugin/`.
 &lt;/Warning&gt;
 
 A `CLAUDE.md` file at the plugin root is not loaded as project context. Plugins contribute context through skills, agents, and hooks rather than CLAUDE.md. To ship instructions that load into Claude&#39;s context, put them in a [skill](#skills).
@@ -6626,6 +6637,7 @@ A `CLAUDE.md` file at the plugin root is not loaded as project context. Plugins 
 | **Skills**        | `skills/`                    | Skills with `&lt;name&gt;/SKILL.md` structure                                                                                                                                                    |
 | **Commands**      | `commands/`                  | Skills as flat Markdown files. Use `skills/` for new plugins                                                                                                                               |
 | **Agents**        | `agents/`                    | Subagent Markdown files                                                                                                                                                                    |
+| **Workflows**     | `workflows/`                 | [Workflow](/docs/en/workflows) script files                                                                                                                                                     |
 | **Output styles** | `output-styles/`             | Output style definitions                                                                                                                                                                   |
 | **Themes**        | `themes/`                    | Color theme definitions                                                                                                                                                                    |
 | **Hooks**         | `hooks/hooks.json`           | Hook configuration                                                                                                                                                                         |
