@@ -44,9 +44,9 @@ By default, uv will automatically download Python versions if they cannot be fou
 
 The `.python-version` file can be used to create a default Python version request. uv searches for a `.python-version` file in the working directory and each of its parents. If none is found, uv will check the user-level configuration directory. Any of the request formats described above can be used, though use of a version number is recommended for interoperability with other tools.
 
-A `.python-version` file can be created in the current directory with the [`uv python pin`](https://jiezhi.github.io/dochub/uv/concepts/reference/cli.md/#uv-python-pin) command.
+A `.python-version` file can be created in the current directory with the [`uv python pin`](https://jiezhi.github.io/dochub/uv/concepts/reference/cli.md#uv-python-pin) command.
 
-A global `.python-version` file can be created in the user configuration directory with the [`uv python pin --global`](https://jiezhi.github.io/dochub/uv/concepts/reference/cli.md/#uv-python-pin) command.
+A global `.python-version` file can be created in the user configuration directory with the [`uv python pin --global`](https://jiezhi.github.io/dochub/uv/concepts/reference/cli.md#uv-python-pin) command.
 
 Discovery of `.python-version` files can be disabled with `--no-config`.
 
