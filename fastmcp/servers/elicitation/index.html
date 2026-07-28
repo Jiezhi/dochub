@@ -5267,10 +5267,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#empty-responses" class="md-nav__link">
+  <a href="#confirmations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Empty Responses
+        Confirmations
       
     </span>
   </a>
@@ -14987,10 +14987,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#empty-responses" class="md-nav__link">
+  <a href="#confirmations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Empty Responses
+        Confirmations
       
     </span>
   </a>
@@ -15359,8 +15359,8 @@
     <span class="k">return</span> <span class="s2">&quot;No response&quot;</span>
 </code></pre></div>
 <p>These arguments only apply when FastMCP is adding the wrapper. For structured responses (<code>BaseModel</code>, dataclass, <code>TypedDict</code>), set the metadata on the individual fields via <code>Field(title=..., description=...)</code> — passing <code>response_title</code> or <code>response_description</code> alongside a model type raises <code>TypeError</code>.</p>
-<h3 id="empty-responses">Empty Responses</h3>
-<p>Passing <code>None</code> as the response type creates an empty-object schema and returns an accepted result with <code>data == {}</code>. This form is deprecated because some clients render empty forms poorly; prefer an explicit response type such as <code>bool</code> for confirmations.</p>
+<h3 id="confirmations">Confirmations</h3>
+<p><code>response_type</code> is required. When all you want is a yes/no answer, ask for a <code>bool</code> rather than an empty schema — an empty schema gives the client nothing to render, and some clients show an empty, non-functional form.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">approve_action</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
     <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">elicit</span><span class="p">(</span><span class="s2">&quot;Approve this action?&quot;</span><span class="p">,</span> <span class="n">response_type</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
@@ -15687,8 +15687,8 @@ on handshake-era connections.
 </code></pre></div>
 <p>The same protocol requirement applies: returning an <code>InputRequiredResult</code> from a prompt or resource needs a 2026-07-28 connection, and FastMCP names the era mismatch if one arrives on an older one. Client-side, <code>read_resource</code> and <code>get_prompt</code> drive the loop the way <code>call_tool</code> does, so a configured elicitation handler answers all three without extra wiring.</p>
 <h3 id="sampling-and-roots">Sampling and roots</h3>
-<p>Elicitation is the most common request to carry this way, and <strong>roots</strong> requests work identically — the <code>input_requests</code> map holds them the same way, and each answer comes back in <code>ctx.input_responses</code> under its key (an <code>ElicitResult</code> or <code>ListRootsResult</code>). See <a href="/clients/roots">Client Roots</a> for what a roots request contains. <code>fastmcp.Client</code> answers both from the handlers you already configured, so a guard tool that mixes them needs no extra client wiring.</p>
-<p>The map can structurally hold a <strong>sampling</strong> request too (its answer would be a <code>CreateMessageResult</code>), but SEP-2577 deprecated server-initiated sampling on the modern protocol, so reach for a direct server-side LLM call instead of routing generation through a guard round. See <a href="/servers/sampling">Sampling</a>.</p>
+<p>Elicitation is the most common request to carry this way, and the map carries the others just as well. A <code>ListRootsRequest</code> or a <code>CreateMessageRequest</code> sits in <code>input_requests</code> exactly as an <code>ElicitRequest</code> does, and its answer arrives in <code>ctx.input_responses</code> under the same key as a <code>ListRootsResult</code> or a <code>CreateMessageResult</code>. One map can mix all three, and <code>fastmcp.Client</code> answers each from the handlers it already has — <code>elicitation_handler=</code>, <code>roots=</code>, and <code>sampling_handler=</code> — so a tool that asks for a mixture needs no extra client wiring. <a href="/clients/roots">Client Roots</a> covers what a roots request contains.</p>
+<p>Roots and sampling differ in how well they suit the round trip. A server asks for roots once and then has what it needs, so the extra round buys the whole answer. Generation rarely works out that way, because every round is a full request-response cycle and a tool that generates in a loop pays that cost each time — <a href="/servers/sampling">call an LLM directly from your server</a> unless the point is specifically to use the caller's model.</p>
 <h3 id="middleware">Middleware</h3>
 <p>Because each round is a complete request→response cycle, a multi-round tool call runs the <strong>full middleware chain on every round</strong>. <code>on_call_tool</code> fires once per round and <code>call_next(context)</code> returns that round's result like any other call — there is no held-open call and no special control flow to account for. Default middleware behaves sensibly with no changes: logging logs each round, timing times each round, and error-handling middleware does not fire on an asking round — an ask is a legitimate result, not an error.</p>
 <p>An asking round returns an <code>InputRequiredToolResult</code> (a <code>ToolResult</code> subclass); the final round returns an ordinary <code>ToolResult</code>. Middleware that needs to treat the two differently identifies an ask with an <code>isinstance</code> check, and tells an initial round from a continuation round by inspecting <code>ctx.input_responses</code> (<code>None</code> on the first round, present once the client has answered):</p>

@@ -15532,7 +15532,7 @@
 </ParamField></p>
 <p><ParamField body="base_url" type="AnyHttpUrl | str" required>
   Public URL where OAuth endpoints will be accessible, <strong>including any mount path</strong> (e.g., <code>https://your-server.com/api</code>).</p>
-<p>This URL is used to construct OAuth callback URLs and operational endpoints. When mounting under a path prefix, include that prefix in <code>base_url</code>. Use <code>issuer_url</code> separately to specify where auth server metadata is located (typically at root level).
+<p>This URL is used to construct OAuth callback URLs and operational endpoints. When mounting under a path prefix, include that prefix in <code>base_url</code>. Use <code>issuer_url</code> separately to give the server an OAuth identity that differs from where its endpoints are mounted (typically the root level).
 </ParamField></p>
 <p><ParamField body="resource_base_url" type="AnyHttpUrl | str | None">
   Optional public base URL for the protected resource metadata and token audience.</p>
@@ -15547,6 +15547,7 @@
 </ParamField></p>
 <p><ParamField body="issuer_url" type="AnyHttpUrl | str | None">
   Issuer URL for OAuth authorization server metadata (defaults to <code>base_url</code>).</p>
+<p><code>issuer_url</code> is the server's OAuth identity: it is the <code>issuer</code> field of the authorization server metadata, the <code>iss</code> claim of the tokens the proxy mints, and the RFC 9207 <code>iss</code> parameter on authorization responses. <code>base_url</code> remains the location of the endpoints, so <code>authorization_endpoint</code>, <code>token_endpoint</code>, and the rest of the metadata still point at <code>base_url</code> where the routes are actually mounted.</p>
 <p>When <code>issuer_url</code> has a path component (either explicitly or by defaulting from <code>base_url</code>), FastMCP creates path-aware discovery routes per RFC 8414. For example, if <code>base_url</code> is <code>http://localhost:8000/api</code>, the authorization server metadata will be at <code>/.well-known/oauth-authorization-server/api</code>.</p>
 <p><strong>Default behavior (recommended for most cases):</strong>
   <div class="highlight"><pre><span></span><code><span class="n">auth</span> <span class="o">=</span> <span class="n">GitHubProvider</span><span class="p">(</span>
@@ -15604,9 +15605,11 @@
   OAuth app redirect URI separately with <code>redirect_path</code>.
 </ParamField></p>
 <p><ParamField body="valid_scopes" type="list[str] | None">
-  List of all possible valid scopes for the OAuth provider. These are advertised
-  to clients through the <code>/.well-known</code> endpoints. Defaults to <code>required_scopes</code>
-  from your TokenVerifier if not specified.
+  The complete set of scopes clients are allowed to request — the full set of
+  available scopes (a superset of <code>required_scopes</code>). These are advertised to
+  clients through the <code>/.well-known</code> endpoints and enforced at Dynamic Client
+  Registration. Defaults to <code>required_scopes</code> from your TokenVerifier if not
+  specified.
 </ParamField></p>
 <p><ParamField body="extra_authorize_params" type="dict[str, str] | None">
   Additional parameters to forward to the upstream authorization endpoint. Useful for provider-specific parameters that aren't part of the standard OAuth2 flow.</p>
@@ -15887,6 +15890,7 @@
 </code></pre></div>
 <p>Check your server logs for "Client registered with redirect_uri" messages to identify what URLs your clients use.</p>
 <h3 id="application-type-web-vs-native">Application Type (Web vs. Native)</h3>
+<p><VersionBadge version="4.0.0" /></p>
 <p>During Dynamic Client Registration, a client may declare an <code>application_type</code> (per RFC 7591 and SEP-837) that governs which redirect URIs it is allowed to use. The OAuth proxy honors this field both at registration and when authorizing a redirect.</p>
 <p><code>application_type</code> defaults to <code>"native"</code> because MCP clients typically run locally and register loopback callbacks. Clients that omit the field keep the permissive behavior described above. A client that explicitly registers as <code>"web"</code> is held to the stricter browser-app rules.</p>
 <p>Loopback covers the whole reserved range in both the address and name forms: every address in <code>127.0.0.0/8</code>, <code>::1</code>, and — per RFC 6761 — the name <code>localhost</code> along with any subdomain of it, such as <code>app.localhost</code>. The absolute (trailing-dot) spellings <code>localhost.</code> and <code>127.0.0.1.</code> are treated identically. A name that merely contains <code>localhost</code> as a label of a registrable domain, like <code>localhost.example.com</code>, is an ordinary public host and is not treated as loopback.</p>
@@ -15997,7 +16001,7 @@ Identity assertion is a beta feature. The API may change in a future release.
 <li>the JOSE header <code>typ</code> is <code>oauth-id-jag+jwt</code>;</li>
 <li>the <code>iss</code> claim is one of the configured <code>trusted_issuers</code>;</li>
 <li>the signature verifies against the issuer's published keys;</li>
-<li>the <code>aud</code> claim identifies this authorization server;</li>
+<li>the <code>aud</code> claim identifies this authorization server — configure your identity provider to mint assertions whose <code>aud</code> is the <code>issuer</code> value published at <code>/.well-known/oauth-authorization-server</code>, which is your <code>issuer_url</code> when you set one and your <code>base_url</code> otherwise;</li>
 <li>the signed <code>client_id</code> claim matches the client presenting the assertion — an assertion the IdP minted for one client cannot be redeemed by another;</li>
 <li>the signed <code>resource</code> claim names this server — an assertion minted for a different MCP server behind the same IdP is rejected;</li>
 <li><code>exp</code> (and <code>iat</code>/<code>nbf</code>, when present) place the assertion within a short lifetime and its validity window; and</li>

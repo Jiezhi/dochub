@@ -5541,16 +5541,17 @@ Use this file to discover all available pages before exploring further.</p>
   For a complete worked example on Google Cloud, covering Cloud Run or GKE, Cloud SQL, and Secret Manager, see <a href="/docs/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.
 </Note></p>
 <h3 id="push-the-gateway-url-to-developer-machines">Push the gateway URL to developer machines</h3>
-<p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option. See <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths.</p>
+<p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option. See <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths and the Claude Desktop <code>bootstrapUrl</code> equivalent.</p>
 <h2 id="operations">Operations</h2>
 <p>Once the gateway is serving traffic, day-to-day operation is reading its logs, probing its health, and rotating its secrets on your schedule. The subsections cover each, plus what Postgres holds and how upgrades and rollbacks behave.</p>
 <h3 id="logs">Logs</h3>
 <p>The gateway writes two streams to stderr, both JSON-friendly:</p>
 <ul>
-<li><strong>Audit events</strong>: single-line JSON per security-relevant event. Pipe stderr to your log aggregator. The events emitted include <code>config.load</code>, <code>session.mint</code>, <code>session.refresh</code>, <code>device.authorize</code>, <code>device.verify</code>, <code>auth.denied</code>, <code>access.denied</code>, <code>inference</code>, <code>managed.serve</code>, <code>spend.blocked</code>, and <code>admin.denied</code>. Fields vary by event:</li>
+<li><strong>Audit events</strong>: single-line JSON per security-relevant event. Pipe stderr to your log aggregator. The events emitted include <code>config.load</code>, <code>session.mint</code>, <code>session.refresh</code>, <code>device.authorize</code>, <code>device.verify</code>, <code>auth.denied</code>, <code>access.denied</code>, <code>inference</code>, <code>managed.serve</code>, <code>desktop_bootstrap.serve</code>, <code>desktop_bootstrap.denied</code>, <code>spend.blocked</code>, and <code>admin.denied</code>. Fields vary by event:</li>
 <li>Successful mint and refresh events carry <code>sub</code>, <code>email</code>, <code>client_ip</code>, and the result</li>
-<li>Denial events carry the reason, path, and client IP, since no identity exists at denial</li>
+<li><code>auth.denied</code> and <code>access.denied</code> carry the reason and client IP, plus the request path for <code>auth.denied</code>, since no user identity exists at those denials</li>
 <li><code>inference</code> records which upstream served the request and the response status</li>
+<li><code>desktop_bootstrap.denied</code> records a rejected Claude Desktop bootstrap fetch with the reason (<code>not_configured</code>, <code>policy_not_opted_in</code>, or <code>no_policy_matched</code>) and the user's identity</li>
 <li><code>admin.denied</code> records a rejected admin-API auth attempt with the reason (<code>invalid_key</code> or <code>no_credentials</code>), client IP, method, and path, without the presented key material</li>
 <li><strong>Operational logs</strong>: human-readable <code>[gateway]</code>-prefixed lines for boot, warnings, and upstream errors. The <code>CLAUDE_GATEWAY_LOG_LEVEL</code> environment variable controls verbosity and accepts <code>info</code>, <code>warn</code>, or <code>error</code>, with <code>info</code> as the default. It doesn't affect audit events, which are always emitted.</li>
 </ul>
@@ -5707,6 +5708,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td>A developer's <code>/login</code> shows the standard account picker instead of the <strong>Cloud gateway</strong> screen</td>
 <td><code>forceLoginMethod</code> or <code>forceLoginGatewayUrl</code> isn't set in managed settings on that machine</td>
 <td>Deploy the <a href="/docs/en/claude-apps-gateway#set-the-gateway-url">managed settings file</a> to the device; <code>/login</code> reads the gateway URL from there</td>
+</tr>
+<tr>
+<td>Claude Desktop reports that its bootstrap configuration couldn't be fetched</td>
+<td><code>/user/bootstrap</code> returned 404: the policy matching the user doesn't carry a <code>desktop</code> key, or no policy matched. The gateway's audit log records each rejection as <code>desktop_bootstrap.denied</code> with the reason.</td>
+<td>Add a <code>desktop</code> block to the policy that matches the user, or to the <code>match: {}</code> base layer; an empty <code>desktop: {}</code> suffices. See <a href="/docs/en/claude-apps-gateway-config#claude-desktop-overlay">Claude Desktop overlay</a>.</td>
 </tr>
 <tr>
 <td>Startup shows <code>Gateway login is configured in managed settings, but this Claude Code build does not include Cloud gateway support.</code></td>

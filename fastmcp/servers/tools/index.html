@@ -16163,7 +16163,7 @@ def calculate_sum(a: int, b: int) -&gt; int:
 </Warning></p>
 <h3 id="toolresult-and-metadata">ToolResult and Metadata</h3>
 <p>For complete control over tool responses, return a <code>ToolResult</code> object. This gives you explicit control over all aspects of the tool's output: traditional content, structured data, and metadata.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.tools.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResult</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResult</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mcp_types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextContent</span>
 
 <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
@@ -16213,7 +16213,7 @@ The <code>meta</code> field in <code>ToolResult</code> is for runtime metadata a
 <p>When you need custom serialization (like YAML, Markdown tables, or specialized formats), return <code>ToolResult</code> with your serialized content. This makes the serialization explicit and visible in your tool's code:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.tools.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResult</span>
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;MyServer&quot;</span><span class="p">)</span>
 
@@ -16462,28 +16462,19 @@ The <code>timeout</code> parameter does <strong>not</strong> apply to background
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Process data from a resource with progress reporting.&quot;&quot;&quot;</span>
     <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing data from </span><span class="si">{</span><span class="n">data_uri</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Read a resource</span>
-    <span class="n">resource</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">read_resource</span><span class="p">(</span><span class="n">data_uri</span><span class="p">)</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">resource</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">content</span> <span class="k">if</span> <span class="n">resource</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
-
-    <span class="c1"># Report progress</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">read_resource</span><span class="p">(</span><span class="n">data_uri</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">contents</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">content</span> <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">contents</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
     <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">report_progress</span><span class="p">(</span><span class="n">progress</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
-    <span class="c1"># Example request to the client&#39;s LLM for help</span>
-    <span class="n">summary</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Summarize this in 10 words: </span><span class="si">{</span><span class="n">data</span><span class="p">[:</span><span class="mi">200</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
+    <span class="n">summary</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="p">)[:</span><span class="mi">200</span><span class="p">]</span>
     <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">report_progress</span><span class="p">(</span><span class="n">progress</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
-        <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="o">.</span><span class="n">text</span>
-    <span class="p">}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="n">summary</span><span class="p">}</span>
 </code></pre></div>
 <p>The Context object provides access to:</p>
 <ul>
 <li><strong>Logging</strong>: <code>ctx.debug()</code>, <code>ctx.info()</code>, <code>ctx.warning()</code>, <code>ctx.error()</code></li>
 <li><strong>Progress Reporting</strong>: <code>ctx.report_progress(progress, total)</code></li>
 <li><strong>Resource Access</strong>: <code>ctx.read_resource(uri)</code></li>
-<li><strong>LLM Sampling</strong>: <code>ctx.sample(...)</code></li>
 <li><strong>Request Information</strong>: <code>ctx.request_id</code>, <code>ctx.client_id</code></li>
 </ul>
 <p>For full documentation on the Context object and all its capabilities, see the <a href="/servers/context">Context documentation</a>.</p>

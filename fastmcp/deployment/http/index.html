@@ -15680,6 +15680,7 @@ Authentication is <strong>highly recommended</strong> for remote MCP servers. So
 </code></pre></div>
 <p>Use <code>host_origin_protection="auto"</code> to protect localhost-bound direct servers while allowing ASGI, serverless, and reverse-proxy deployments to keep their existing Host handling unless they configure explicit trust rules. Use <code>host_origin_protection=False</code> to keep the request guard disabled.</p>
 <h3 id="gateway-routing-headers">Gateway Routing Headers</h3>
+<p><VersionBadge version="4.0.0" /></p>
 <p>A gateway, load balancer, or reverse proxy in front of your MCP server often needs to route a request before it reads the JSON-RPC body — the body may be an SSE stream, or the gateway may simply want to avoid parsing it. On a connection that negotiates the modern <code>2026-07-28</code> protocol, Streamable HTTP clients built on the MCP Python SDK (including FastMCP's own client) attach routing information to each request as HTTP headers so an intermediary can dispatch on headers alone:</p>
 <ul>
 <li><code>Mcp-Method</code> carries the JSON-RPC method (for example <code>tools/call</code>) on every request.</li>
@@ -15989,7 +15990,7 @@ This section only applies if you're <strong>mounting an OAuth-protected FastMCP 
 <p><strong><code>mcp_path</code></strong> is the internal FastMCP endpoint path, which gets appended to <code>base_url</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="n">mcp_path</span><span class="o">=</span><span class="s2">&quot;/mcp&quot;</span>  <span class="c1"># Internal MCP path, NOT the mount prefix</span>
 </code></pre></div>
-<p><strong><code>issuer_url</code></strong> (optional) controls the authorization server identity for OAuth discovery. Defaults to <code>base_url</code>.</p>
+<p><strong><code>issuer_url</code></strong> (optional) controls the authorization server identity for OAuth discovery. Defaults to <code>base_url</code>. It sets the <code>issuer</code> advertised in the authorization server metadata and the <code>iss</code> on issued tokens, while the endpoints in that metadata continue to point at <code>base_url</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Usually not needed - just set base_url and it works</span>
 <span class="n">issuer_url</span><span class="o">=</span><span class="s2">&quot;http://localhost:8000&quot;</span>  <span class="c1"># Only if you want root-level discovery</span>
 </code></pre></div>
@@ -16105,7 +16106,7 @@ uvicorn<span class="w"> </span>app:app<span class="w"> </span>--host<span class=
 <p><VersionBadge version="2.10.2" /></p>
 <p>When deploying FastMCP behind a load balancer or running multiple server instances, you need to understand how the HTTP transport handles sessions and configure your server appropriately.</p>
 <h4 id="understanding-sessions">Understanding Sessions</h4>
-<p>By default, FastMCP's Streamable HTTP transport maintains server-side sessions. Sessions enable stateful MCP features like <a href="/servers/elicitation">elicitation</a> and <a href="/servers/sampling">sampling</a>, where the server needs to maintain context across multiple requests from the same client.</p>
+<p>By default, FastMCP's Streamable HTTP transport maintains server-side sessions. A session holds the context a server keeps across multiple requests from the same client, and it carries the handshake-era back-channel that server-initiated requests like <a href="/servers/elicitation">elicitation</a> push down.</p>
 <p>This works perfectly for single-instance deployments. However, sessions are stored in memory on each server instance, which creates challenges when scaling horizontally.</p>
 <h4 id="without-stateless-mode">Without Stateless Mode</h4>
 <p>When running multiple server instances behind a load balancer (Traefik, nginx, HAProxy, Kubernetes, etc.), requests from the same client may be routed to different instances:</p>

@@ -4168,10 +4168,43 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#require_roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        require_roles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#restrict_tag" class="md-nav__link">
     <span class="md-ellipsis">
       
         restrict_tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scope_requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scope_requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run_auth_checks_with_shortfall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run_auth_checks_with_shortfall
       
     </span>
   </a>
@@ -14736,10 +14769,43 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#require_roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        require_roles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#restrict_tag" class="md-nav__link">
     <span class="md-ellipsis">
       
         restrict_tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scope_requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scope_requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run_auth_checks_with_shortfall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        run_auth_checks_with_shortfall
       
     </span>
   </a>
@@ -14830,18 +14896,81 @@
 allow access or False to deny it. They can also raise <code>AuthorizationError</code> to
 deny with a custom message; other exceptions are masked and treated as denial.</p>
 <h2 id="functions">Functions</h2>
-<h3 id="require_scopes"><code>require_scopes</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L50" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<h3 id="require_scopes"><code>require_scopes</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L143" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
 <div class="highlight"><pre><span></span><code><span class="n">require_scopes</span><span class="p">(</span><span class="o">*</span><span class="n">scopes</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthCheck</span>
 </code></pre></div>
 <p>Require all of the given OAuth scopes.</p>
-<h3 id="restrict_tag"><code>restrict_tag</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L62" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<h3 id="require_roles"><code>require_roles</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L148" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<div class="highlight"><pre><span></span><code><span class="n">require_roles</span><span class="p">(</span><span class="o">*</span><span class="n">roles</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthCheck</span>
+</code></pre></div>
+<p>Require all of the given roles, read from the token's claims.</p>
+<p>Roles and groups are not part of OIDC, so every identity provider puts them
+somewhere different: <code>realm_access.roles</code> on Keycloak, <code>roles</code> on Microsoft
+Entra, <code>cognito:groups</code> on AWS Cognito, <code>permissions</code> or a namespaced custom
+claim on Auth0. <code>extract</code> receives the token's claims and returns the
+caller's roles, which keeps that provider-specific knowledge at the call
+site instead of guessing it here.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">require_roles</span>
+
+<span class="n">keycloak</span> <span class="o">=</span> <span class="n">require_roles</span><span class="p">(</span><span class="s2">&quot;admin&quot;</span><span class="p">,</span> <span class="n">extract</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;realm_access&quot;</span><span class="p">][</span><span class="s2">&quot;roles&quot;</span><span class="p">])</span>
+<span class="n">cognito</span> <span class="o">=</span> <span class="n">require_roles</span><span class="p">(</span><span class="s2">&quot;admins&quot;</span><span class="p">,</span> <span class="n">extract</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="p">[</span><span class="s2">&quot;cognito:groups&quot;</span><span class="p">])</span>
+</code></pre></div>
+<p>A token missing the claim entirely is denied rather than treated as an
+error, so <code>extract</code> may index into the claims without guarding. An
+extractor returning a bare string is treated as one role, since a provider
+that stores a single role as a scalar is common.</p>
+<p>Unlike <code>require_scopes</code>, this check cannot signal a shortfall: OAuth has no
+way to request a role, so there is no <code>insufficient_scope</code> challenge to
+emit. A role denial is therefore reported as a plain <code>AuthorizationError</code>,
+and it suppresses any scope shortfall alongside it — a caller blocked by
+their role must not be told to go obtain a scope that would not help.
+Scope shortfalls are still reported normally whenever the role check
+passes.</p>
+<p><strong>Args:</strong>
+- <code>*roles</code>: Roles the caller must hold. All are required (AND logic).
+- <code>extract</code>: Callable mapping the token's claims to the caller's roles.</p>
+<p><strong>Raises:</strong>
+- <code>ValueError</code>: If no roles are given, which would allow any authenticated
+caller and is more likely a mistake than an intent.</p>
+<h3 id="restrict_tag"><code>restrict_tag</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L197" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
 <div class="highlight"><pre><span></span><code><span class="n">restrict_tag</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AuthCheck</span>
 </code></pre></div>
 <p>Require scopes when the accessed component has a specific tag.</p>
-<h3 id="run_auth_checks"><code>run_auth_checks</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L76" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<h3 id="scope_requirements"><code>scope_requirements</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L202" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<div class="highlight"><pre><span></span><code><span class="n">scope_requirements</span><span class="p">(</span><span class="n">checks</span><span class="p">:</span> <span class="n">AuthCheck</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">AuthCheck</span><span class="p">],</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">AuthContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+</code></pre></div>
+<p>Scopes a check list requires but the token lacks, without running it.</p>
+<p>Returns <code>None</code> when the list contains any opaque (non-scope) check. Such a
+check might deny for a reason unrelated to scopes, and evaluating it here
+would run authorization logic — with whatever side effects it carries —
+outside its normal place in the chain. Since its verdict is unknown, its
+siblings' scopes must not be disclosed either, so the whole list is withheld.</p>
+<p>When every check is scope-aware, the result is their combined shortfall,
+computed purely from the token and component (an empty list means the list is
+already satisfied). This lets a shortfall be aggregated across authorization
+layers without evaluating anything that would otherwise be skipped.</p>
+<h3 id="run_auth_checks_with_shortfall"><code>run_auth_checks_with_shortfall</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L253" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<div class="highlight"><pre><span></span><code><span class="n">run_auth_checks_with_shortfall</span><span class="p">(</span><span class="n">checks</span><span class="p">:</span> <span class="n">AuthCheck</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">AuthCheck</span><span class="p">],</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">AuthContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+</code></pre></div>
+<p>Run auth checks with AND logic, classifying the denial cause.</p>
+<p>Returns <code>(authorized, missing_scopes)</code>. <code>missing_scopes</code> names every
+scope the caller must obtain to satisfy <em>all</em> scope requirements at once:
+the union of the shortfalls across every scope-aware check, not just the
+first one to fail. Reporting only the first would strand a caller in a
+step-up loop — it obtains that scope, retries, and is denied again for the
+next — so the union is what makes a single re-authorization converge.</p>
+<p>The challenge is withheld entirely (an empty list, which the caller surfaces
+as a plain <code>AuthorizationError</code>) unless every non-scope check passes. A
+custom policy denial — a tenant check, say — must never be reported as an
+<code>insufficient_scope</code> shortfall, and must never name the scopes of a
+component the caller could not otherwise reach. To guarantee that, the
+opaque checks are all evaluated before any scope is disclosed; a shortfall
+is only reported once they have all passed.</p>
+<p>An <code>AuthorizationError</code> raised by a check propagates unchanged.</p>
+<h3 id="run_auth_checks"><code>run_auth_checks</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L304" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
 <div class="highlight"><pre><span></span><code><span class="n">run_auth_checks</span><span class="p">(</span><span class="n">checks</span><span class="p">:</span> <span class="n">AuthCheck</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">AuthCheck</span><span class="p">],</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">AuthContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
 </code></pre></div>
-<p>Run auth checks with AND logic.</p>
+<p>Run auth checks with AND logic, stopping at the first failure.</p>
 <h2 id="classes">Classes</h2>
 <h3 id="authcontext"><code>AuthContext</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/utilities/authorization.py#L27" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
 <p>Context passed to auth check callables.</p>

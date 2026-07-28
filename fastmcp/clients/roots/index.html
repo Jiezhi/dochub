@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Provide local context and resource boundaries to MCP servers.">
+        <meta name="description" content="Tell servers which local paths your client can reach.">
       
       
       
@@ -14678,32 +14678,28 @@
 
 <p><VersionBadge version="2.0.0" /></p>
 <p>Use this when you need to tell servers what local resources the client has access to.</p>
-<p>Roots inform servers about resources the client can provide. Servers can use this information to adjust behavior or provide more relevant responses.</p>
-<p><Note>
-<strong>Roots require the older MCP protocol.</strong> A server reads roots by sending a request down to the client, and protocol version <code>2026-07-28</code> removed the server's ability to do that. Clients default to <code>mode="auto"</code>, which negotiates the newest version both sides support, so the examples below pass <code>mode="legacy"</code>. See <a href="/clients/client#protocol-negotiation">protocol negotiation</a>.
-</Note></p>
+<p>A root is a path your client is willing to expose — a project directory, a workspace, a document store. Servers read them to scope their work, so a tool that searches files searches where you pointed it, and a server that gets no roots has to ask the user for paths instead. Roots describe where the client can reach; the server takes them as its working boundary.</p>
+<p>Register them once with <code>roots=</code>, and the client answers however the server asks. A handshake-era server pushes a <code>roots/list</code> request down the open session and reads the reply mid-call; a modern (<code>2026-07-28</code>) server has no such channel, so it returns a roots request and <code>fastmcp.Client</code> fulfils it from the same registration and re-issues the call with the answer attached. The default <code>mode="auto"</code> negotiates whichever era the server speaks, so the examples below work on either — see <a href="/clients/client#protocol-negotiation">protocol negotiation</a> for how that choice is made, and <a href="/servers/elicitation#sampling-and-roots">the guard pattern</a> for how a server issues the modern form.</p>
 <h2 id="static-roots">Static Roots</h2>
-<p>Provide a list of roots when creating the client:</p>
+<p>When the paths are known up front, pass them as a list. The client holds them for the life of the connection and hands back the same set every time a server asks.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
     <span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span>
-    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">,</span>
-    <span class="n">roots</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/path/to/root1&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/root2&quot;</span><span class="p">]</span>
+    <span class="n">roots</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;file:///path/to/root1&quot;</span><span class="p">,</span> <span class="s2">&quot;file:///path/to/root2&quot;</span><span class="p">]</span>
 <span class="p">)</span>
 </code></pre></div>
 <h2 id="dynamic-roots">Dynamic Roots</h2>
-<p>Use a callback to compute roots dynamically when the server requests them:</p>
+<p>Pass a callback instead when the roots depend on something the client learns at runtime, such as the workspace the user has open. It runs at the moment a server asks, on either route, and receives the request context so you can see which request it is answering:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.roots</span><span class="w"> </span><span class="kn">import</span> <span class="n">RequestContext</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">roots_callback</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">RequestContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Server requested roots (Request ID: </span><span class="si">{</span><span class="n">context</span><span class="o">.</span><span class="n">request_id</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;/path/to/root1&quot;</span><span class="p">,</span> <span class="s2">&quot;/path/to/root2&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;file:///path/to/root1&quot;</span><span class="p">,</span> <span class="s2">&quot;file:///path/to/root2&quot;</span><span class="p">]</span>
 
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span>
     <span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span>
-    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">,</span>
     <span class="n">roots</span><span class="o">=</span><span class="n">roots_callback</span>
 <span class="p">)</span>
 </code></pre></div>

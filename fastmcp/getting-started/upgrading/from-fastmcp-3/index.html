@@ -2453,10 +2453,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed-tool-and-decorator-parameters" class="md-nav__link">
+  <a href="#removed-parameters-and-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Removed tool and decorator parameters
+        Removed parameters and settings
       
     </span>
   </a>
@@ -14943,10 +14943,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removed-tool-and-decorator-parameters" class="md-nav__link">
+  <a href="#removed-parameters-and-settings" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Removed tool and decorator parameters
+        Removed parameters and settings
       
     </span>
   </a>
@@ -15169,6 +15169,18 @@
 <td><code>fastmcp.apps</code> (e.g. <code>AppConfig</code>) or <code>fastmcp</code> (<code>FastMCPApp</code>)</td>
 </tr>
 <tr>
+<td><code>Tool</code> / <code>ToolResult</code> from <code>fastmcp.tools.tool</code></td>
+<td><code>fastmcp.tools</code></td>
+</tr>
+<tr>
+<td><code>Resource</code> from <code>fastmcp.resources.resource</code></td>
+<td><code>fastmcp.resources</code></td>
+</tr>
+<tr>
+<td><code>Prompt</code> / <code>Message</code> from <code>fastmcp.prompts.prompt</code></td>
+<td><code>fastmcp.prompts</code></td>
+</tr>
+<tr>
 <td><code>FunctionTool</code> / <code>ParsedFunction</code> / <code>tool</code> from <code>fastmcp.tools.tool</code></td>
 <td><code>fastmcp.tools.function_tool</code></td>
 </tr>
@@ -15179,6 +15191,22 @@
 <tr>
 <td><code>FunctionPrompt</code> / <code>prompt</code> from <code>fastmcp.prompts.prompt</code></td>
 <td><code>fastmcp.prompts.function_prompt</code></td>
+</tr>
+<tr>
+<td><code>OpenAISamplingHandler</code> from <code>fastmcp.experimental.sampling.handlers</code></td>
+<td><code>fastmcp.client.sampling.handlers.openai</code></td>
+</tr>
+<tr>
+<td><code>AuthCheck</code> / <code>AuthContext</code> / <code>require_scopes</code> / <code>require_roles</code> / <code>restrict_tag</code> / <code>run_auth_checks</code> from <code>fastmcp.server.auth.authorization</code></td>
+<td><code>fastmcp.server.auth</code></td>
+</tr>
+<tr>
+<td><code>run_auth_checks_with_shortfall</code> / <code>scope_requirements</code> from <code>fastmcp.server.auth.authorization</code></td>
+<td><code>fastmcp.utilities.authorization</code></td>
+</tr>
+<tr>
+<td><code>SkillsProvider</code></td>
+<td><code>SkillsDirectoryProvider</code> from <code>fastmcp.server.providers.skills</code></td>
 </tr>
 </tbody>
 </table>
@@ -15226,29 +15254,41 @@
 <p>Two of these replacements are not exact behavioral swaps. <code>create_proxy</code> takes its target as the first positional argument (<code>target</code>), so a keyword call like <code>as_proxy(backend=server)</code> becomes <code>create_proxy(server)</code> rather than reusing the old keyword. And <code>local_provider.remove_tool</code> raises a plain <code>KeyError</code> when the tool is missing, where <code>FastMCP.remove_tool</code> raised a <code>NotFoundError</code> — update any <code>except NotFoundError</code> cleanup around a removal.</p>
 <p><code>mount(as_proxy=True)</code> used to route the child through a proxy (an MCP-client execution boundary) rather than composing it directly. To keep that boundary, wrap the child in <code>create_proxy()</code> and mount the proxy; a plain <code>mount(child)</code> composes the child in-process. Either way, the child's lifespan and middleware now run — a direct mount no longer skips them.</p>
 <p><code>import_server</code> → <code>mount</code> is the one row here that is not a mechanical swap, because the two never had the same semantics. <code>import_server</code> took a <strong>one-time static snapshot</strong> — it copied the child's tools, resources, and prompts at call time, with no live link, and did not run the child's lifespan or middleware. <code>mount</code> is a <strong>live composition</strong> — it holds a live link to the child and runs the child's lifespan and middleware. After switching, later changes to the child become visible through the parent, the child's lifespan runs with the parent's (entered when the server starts, held until it stops — not per request), and the child's middleware runs on the operations delegated to it. If you depended on the frozen-copy behavior (a stable snapshot, no child lifecycle), there is no drop-in replacement: register the child's components on the parent directly instead of composing the two servers.</p>
-<h3 id="removed-tool-and-decorator-parameters">Removed tool and decorator parameters</h3>
-<p>Two <code>@tool</code> parameters and two settings are gone:</p>
+<h3 id="removed-parameters-and-settings">Removed parameters and settings</h3>
+<p>Several parameters and settings that warned in 3.x are gone:</p>
 <ul>
 <li><strong>Tool <code>serializer=</code></strong> is removed from <code>@tool</code> / <code>mcp.tool()</code>, <code>Tool.from_function</code>, <code>Tool.from_tool</code>, and the OpenAPI tool. Return a <code>ToolResult</code> from your tool for full control over serialization instead.</li>
 <li><strong>Tool <code>exclude_args=</code></strong> is removed. Hide a parameter from the tool schema by injecting it instead: give it a <code>Depends(factory)</code> default (from <code>fastmcp.dependencies</code>), where <code>factory</code> is a callable returning the value the argument used to carry. An injected parameter never appears in the tool's schema, which is what <code>exclude_args</code> was for.</li>
 <li><strong>The <code>decorator_mode</code> setting</strong> (<code>FASTMCP_DECORATOR_MODE</code>) and its <code>"object"</code> mode are removed. Decorators always return your original function with metadata attached; reach the component object through the server (<code>await mcp.get_tool("name")</code>) rather than off the decorated function.</li>
 <li><strong><code>StreamableHttpTransport(sse_read_timeout=...)</code></strong> is removed — it was a no-op under the SDK v2 client. Set the read timeout through the public <code>Client(transport, timeout=...)</code> (a <code>timedelta</code> or float seconds), or reach for a custom <code>httpx_client_factory</code> when you need finer control. (<code>SSETransport</code> still accepts <code>sse_read_timeout</code>.)</li>
+<li><strong><code>ctx.elicit()</code> now requires <code>response_type</code>.</strong> Omitting it (or passing <code>None</code>) has warned since 3.2 and now raises <code>TypeError</code>. The empty-object schema it produced gave clients nothing to render, and some showed an empty, non-functional form. Pass a type describing what you expect back — <code>bool</code> is the right answer for a confirmation:</li>
 </ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># Before</span>
+<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">elicit</span><span class="p">(</span><span class="s2">&quot;Approve this action?&quot;</span><span class="p">)</span>
+
+<span class="c1"># After</span>
+<span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">elicit</span><span class="p">(</span><span class="s2">&quot;Approve this action?&quot;</span><span class="p">,</span> <span class="n">response_type</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+</code></pre></div>
+<p>This is the server-authoring API only. Client elicitation handlers still receive <code>response_type=None</code> for URL requests and for empty schemas sent by other servers — that contract is unchanged.</p>
 <h2 id="behavior-changes-to-verify">Behavior changes to verify</h2>
-<p>Two server-side behaviors changed in ways that compile fine but can surface at runtime.</p>
+<p>Three server-side behaviors changed in ways that compile fine but can surface at runtime.</p>
 <p><strong>Templated resources are path-screened by default.</strong> Every templated resource now has its extracted parameter values checked for path-traversal (<code>..</code> segments), absolute paths, and null bytes <em>before your handler runs</em>, at the server's read chokepoint. A rejected read returns a non-leaky "resource not found" error. Only a standalone <code>..</code> segment counts as traversal, so values that merely contain dots (<code>file.tar.gz</code>, <code>HEAD~3..HEAD</code>) and dotfiles (<code>.env</code>) still pass. If a template legitimately accepts <code>..</code>-bearing or absolute values, exempt the parameter with <code>ResourceSecurity(exempt_params={...})</code>, disable the check per-component with <code>security=None</code>, or set a server-wide default with <code>FastMCP(resource_security=...)</code>. See <a href="/servers/resources#path-security">Resources → Path Security</a>.</p>
 <p><strong>Resource-not-found now returns <code>-32602</code>.</strong> The wire error code for a missing resource from the core <code>resources/read</code> handler changed from <code>-32002</code> to <code>-32602</code> (<code>INVALID_PARAMS</code>, per SEP-2164). The human-readable message ("Resource not found: ...") is unchanged, so this only affects clients that matched on the numeric code — update those to expect <code>-32602</code>. (The opt-in <code>ErrorHandlingMiddleware</code> keeps its own per-method-prefix code mapping; if you run it with <code>transform_errors=True</code> it can still map not-found to a different code, so it is unaffected by this change.)</p>
+<p><strong>An OAuth server whose <code>issuer_url</code> differs from its <code>base_url</code> re-authorizes its clients once.</strong> <code>issuer_url</code> exists so a server's OAuth identity can differ from the URL its endpoints are mounted at — the usual case being a server under <code>/api</code> whose discovery lives at the host root. It now supplies the <code>issuer</code> in the authorization server metadata, the <code>iss</code> claim on every token the server mints, and the RFC 9207 <code>iss</code> on authorization responses; <code>base_url</code> still supplies <code>authorization_endpoint</code>, <code>token_endpoint</code>, and the rest, because that is where the routes are actually mounted. Both values previously came from <code>base_url</code>, which published an <code>issuer</code> contradicting the URL the client had just performed discovery at — a document RFC 8414 §3.3 requires a strict client to reject.</p>
+<p>The cost of the correction is the <code>iss</code> on tokens already in the wild, so it falls on the providers that mint their own tokens — <code>OAuthProxy</code> and everything built on it. Access <em>and</em> refresh tokens carry the claim, and the verifier compares it exactly, so clients cannot refresh their way across the upgrade; it is a one-time full re-authorization. Interactive clients re-prompt and recover on their own, while a headless deployment holding a long-lived refresh token needs someone to re-authorize it. Plan the upgrade for a window where that is acceptable. If an identity provider mints SEP-990 ID-JAG assertions for this server, repoint their <code>aud</code> at the new issuer too — unless you pin the expected value with <code>IdentityAssertion(audience=...)</code>, which overrides the issuer and keeps working untouched.</p>
+<p>Servers that leave <code>issuer_url</code> unset, or set it to the same value as <code>base_url</code>, are unaffected. It defaults to <code>base_url</code>, and the metadata and minted <code>iss</code> are byte-identical to what 3.x produced.</p>
 <h2 id="deprecation-timeline">Deprecation timeline</h2>
 <p>The camelCase bridge is a migration aid, not a permanent fixture. It works today and warns on every bridged read so you can find and update the affected call sites. Plan to migrate your reads to snake_case: the shims will be removed in a future release, after which only the snake_case names resolve — the same state you get today by setting <code>mcp_camelcase_compat = False</code>. Turning the setting off is a good way to surface every remaining camelCase read in your code as a hard <code>AttributeError</code> before the shims go away.</p>
 <h2 id="sdk-deprecation-warnings-you-may-see">SDK deprecation warnings you may see</h2>
-<p>Ordinary use of <code>ctx.info</code> (client logging) and <code>ctx.sample</code> now emits an SDK-level <code>MCPDeprecationWarning</code>:</p>
-<div class="highlight"><pre><span></span><code>The logging/sampling capability is deprecated as of 2026-07-28 (SEP-2577)
+<p>Ordinary use of <code>ctx.info</code> (client logging) emits an SDK-level <code>MCPDeprecationWarning</code>:</p>
+<div class="highlight"><pre><span></span><code>The logging capability is deprecated as of 2026-07-28 (SEP-2577)
 </code></pre></div>
-<p>These warnings come from the MCP SDK, not from FastMCP. For logging they are benign: <code>ctx.info</code> keeps working on session-based connections exactly as the protocol table below describes, and the SDK is only signaling the protocol's direction. For sampling, FastMCP additionally emits its own <code>FastMCPDeprecationWarning</code>: <code>ctx.sample</code> and <code>ctx.sample_step</code> are deprecated and slated for removal, so treat that warning as a prompt to migrate to server-side LLM calls rather than as informational.</p>
+<p>The warning comes from the MCP SDK, not from FastMCP, and it is benign. <code>ctx.info</code> and the rest of the logging methods keep working on every era, including the modern one — a log message is a <em>notification</em>, which rides the response stream the caller already opened. The SDK is signaling the protocol's direction for the capability declaration, not the notification itself.</p>
 <h2 id="protocol-version-support">Protocol version support</h2>
 <p>FastMCP servers built on the SDK v2 serve multiple protocol eras from the same server. The SDK negotiates the era each client speaks: the sessionless <code>2026-07-28</code> era (which discovers capabilities through <code>server/discover</code>) and earlier session-based handshake versions are all handled simultaneously. This formally supersedes FastMCP's earlier "latest protocol only" stance — a single server now works with clients across the protocol transition.</p>
-<p>Not every Context feature is available on every era yet. The imperative push APIs that call back into the client mid-execution — <code>ctx.elicit</code>, <code>ctx.sample</code>, and <code>ctx.list_roots</code> — depend on the session-based back-channel of the earlier eras, so on a <code>2026-07-28</code> connection they raise a clear, era-aware error rather than reaching the client. Elicitation itself still reaches the user on the modern era, through the guard pattern: a tool <em>returns</em> an <code>InputRequiredResult</code> describing what it needs, and the client answers with a fresh call (see <a href="/servers/elicitation#elicitation-on-the-modern-protocol">Elicitation on the modern protocol</a>). Logging notifications and the request/response features flow on every era.</p>
-<p>Sampling is the exception that does not come back, and the reason is the protocol rather than an unfinished FastMCP feature. SEP-2577 deprecated server-initiated sampling, so <code>ctx.sample</code> and <code>ctx.sample_step</code> are <strong>deprecated</strong> and will be removed in a future FastMCP release. Elicitation moved to the guard pattern because the modern protocol still carries elicitation requests; sampling has no equivalent path because the protocol deprecated the pattern itself. The migration is to call an LLM directly from your server rather than borrowing the client's model. See <a href="/servers/sampling">Sampling</a> for details.</p>
+<p><strong><code>ctx.sample()</code>, <code>ctx.sample_step()</code>, and <code>ctx.list_roots()</code> are gone from <code>Context</code></strong>, along with the <code>sampling_handler=</code> and <code>sampling_handler_behavior=</code> arguments to <code>FastMCP()</code>. Touching a removed method raises <code>AttributeError</code> on every era, and <code>FastMCP(sampling_handler=...)</code> raises a <code>TypeError</code> naming the migration, so the break surfaces when you upgrade rather than in production against whichever client happens to negotiate the modern era.</p>
+<p>All three <em>pushed</em>: the server sent a request down a live back-channel and blocked for the answer, and the sessionless protocol has no such channel. Since <code>fastmcp.Client</code> now negotiates the modern protocol by default, a method like that would fail against a default client. What the protocol removed is the pushing, not the asking — sampling, elicitation, and roots all still reach the client through the <a href="/servers/elicitation#elicitation-on-the-modern-protocol">guard pattern</a>, where a tool <em>returns</em> an <code>InputRequiredResult</code> describing what it needs, the client answers, and it calls again with the answer attached.</p>
+<p>Migrating differs by capability. For <strong>roots</strong>, the guard pattern is the direct replacement: a server asks once and has what it needs, so the extra round buys the whole answer, and taking the paths as tool arguments is simpler still when the caller can just supply them. For <strong>sampling</strong>, the guard route works the same way, but generation usually belongs in your server, because every round is a full request-response cycle and a generation loop pays that cost repeatedly. <a href="/servers/sampling">Call an LLM from your server</a> with your own API key and your tool behaves the same for every client, including the many that never implemented sampling; reach for the guard route when the point is specifically to use the caller's model. If borrowing the caller's model <em>is</em> your server — you hold no key of your own, and the token bill was never yours to pay — staying on FastMCP 3.x is the honest answer until that changes.</p>
 <table>
 <thead>
 <tr>
@@ -15275,13 +15315,18 @@
 </tr>
 <tr>
 <td><code>ctx.sample</code> / <code>ctx.sample_step</code></td>
-<td>Supported (deprecated)</td>
-<td>Removed — call an LLM server-side</td>
+<td>Method removed — call an LLM server-side</td>
+<td>Method removed — call an LLM server-side, or ask via the guard pattern</td>
 </tr>
 <tr>
 <td><code>ctx.list_roots</code></td>
+<td>Method removed — take paths as tool arguments</td>
+<td>Method removed — ask via the guard pattern, or take paths as tool arguments</td>
+</tr>
+<tr>
+<td><code>client.set_logging_level()</code></td>
 <td>Supported</td>
-<td>Via the guard pattern (<code>input_requests</code> carries roots requests)</td>
+<td>Raises — <code>logging/setLevel</code> needs session state the era lacks</td>
 </tr>
 <tr>
 <td><code>Middleware.on_initialize</code></td>
@@ -15300,19 +15345,20 @@
 </tr>
 </tbody>
 </table>
-<p>If your tools rely on <code>ctx.elicit</code> or <code>ctx.list_roots</code>, they continue to work against clients on the earlier eras; on the modern era, reach for the guard pattern instead (see <a href="/servers/elicitation#elicitation-on-the-modern-protocol">Elicitation on the modern protocol</a>). Sampling is deprecated on every era and will not return on modern connections — migrate those tools to server-side LLM calls.</p>
 <p>Two of these bite by default now, because <strong><code>fastmcp.Client</code> defaults to <code>mode="auto"</code></strong> in v4 — an ordinary <code>Client(server)</code> negotiates the newest protocol both sides share, which against a FastMCP server is the sessionless <code>2026-07-28</code> era. On that era there is no <code>initialize</code> handshake, so a <code>Middleware.on_initialize</code> hook never runs; and each request is a fresh connection, so state written with <code>ctx.set_state</code> in one call is not visible in the next. A server that gates access in <code>on_initialize</code> or relies on per-session state must keep its clients on the session-based era. The narrow escape is per-client: <code>Client(server, mode="legacy")</code>. The durable, server-side answer is to declare the versions the server actually serves so a modern client is refused at connect time rather than silently losing those features — see the server's protocol-version restriction (added alongside this change).</p>
+<p>The client side is unaffected. <code>sampling_handler=</code> and <code>roots=</code> mean what they always did — see <a href="/clients/sampling">client sampling</a> and <a href="/clients/roots">client roots</a> — and one registration serves both routes, since a handshake-era server's pushed request and a modern server's returned one dispatch to the same handler.</p>
 <h2 id="upgrade-checklist">Upgrade checklist</h2>
 <p>Most servers upgrade untouched. Work down this list to find the ones that don't:</p>
 <ol>
 <li><strong>Bump your environment.</strong> Raise any pin below <code>pydantic&gt;=2.12</code>; upgrade FastAPI if your resolver complains about Starlette <code>&lt;1.0.1</code>.</li>
 <li><strong>Fix imports that moved out.</strong> Replace <code>from mcp.types import X</code> with <code>from mcp_types import X</code>, and update any import from the <a href="#moved-imports">removed modules</a> (<code>fastmcp.server.proxy</code>, <code>fastmcp.server.openapi</code>, <code>fastmcp.server.apps</code>, the <code>fastmcp.tools.tool</code> / <code>resources.resource</code> / <code>prompts.prompt</code> component shims).</li>
 <li><strong>Update removed server APIs.</strong> Swap <code>as_proxy</code> → <code>create_proxy</code>, <code>import_server</code> → <code>mount</code>, <code>mount(prefix=)</code> → <code>mount(namespace=)</code>, and the <a href="#removed-server-methods-and-mount-keywords">other removed methods and keywords</a>.</li>
+<li><strong>Replace <code>ctx.sample</code> and <code>ctx.list_roots</code>.</strong> Both are gone from <code>Context</code>, as are <code>FastMCP(sampling_handler=...)</code> and <code>sampling_handler_behavior=</code>. Call an LLM directly from your server for generation; ask for roots through the guard pattern, or take file paths as tool arguments. A server whose purpose is to use the caller's model should stay on FastMCP 3.x rather than migrate.</li>
 <li><strong>Update removed tool parameters.</strong> Replace tool <code>serializer=</code> (return a <code>ToolResult</code>), <code>exclude_args=</code> (use <code>Depends()</code>), and <code>StreamableHttpTransport(sse_read_timeout=)</code>.</li>
 <li><strong>Fix <code>McpError</code> construction.</strong> Positional <code>McpError(ErrorData(...))</code> becomes keyword <code>McpError(code=..., message=...)</code>. Catching is unchanged.</li>
 <li><strong>Move httpx to httpx2.</strong> Grep for <code>except httpx.</code> and for custom <code>httpx_client_factory</code> / <code>httpx.Auth</code> objects handed to FastMCP, and swap the import to <code>httpx2</code>.</li>
 <li><strong>Decide the client era.</strong> <code>Client</code> now defaults to <code>mode="auto"</code>. If a server relies on <code>on_initialize</code> or per-session state, keep its clients on <code>mode="legacy"</code> or restrict the server's served protocol versions.</li>
-<li><strong>Verify behavior changes.</strong> Confirm templated resources that legitimately accept <code>..</code> or absolute paths are exempted, and update any client that matched the old <code>-32002</code> resource-not-found code.</li>
+<li><strong>Verify behavior changes.</strong> Confirm templated resources that legitimately accept <code>..</code> or absolute paths are exempted, update any client that matched the old <code>-32002</code> resource-not-found code, and if your server mints its own OAuth tokens (<code>OAuthProxy</code> and the providers built on it) under an <code>issuer_url</code> that differs from its <code>base_url</code>, schedule the <a href="#behavior-changes-to-verify">one-time re-authorization</a> its clients now need.</li>
 <li><strong>Run with the camelCase bridge off.</strong> Set <code>mcp_camelcase_compat = False</code> (or <code>FASTMCP_MCP_CAMELCASE_COMPAT=false</code>) in CI to surface every remaining camelCase read as a hard <code>AttributeError</code> before the shims are removed.</li>
 </ol>
 <p>The executable version of this checklist lives in <a href="https://github.com/PrefectHQ/fastmcp/blob/main/tests/test_upgrade_from_v3.py"><code>tests/test_upgrade_from_v3.py</code></a>: it builds representative 3.x-style servers and asserts they run unchanged, and pins every removed surface to the exact error it now raises.</p>
