@@ -2649,6 +2649,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
         
   
@@ -2846,6 +2873,33 @@
     
   
     Cli reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud environments
   
 
     
@@ -6996,7 +7050,7 @@ Use this file to discover all available pages before exploring further.</p>
 python3 -m venv .venv
 source .venv/bin/activate
 pip install claude-agent-sdk
-<div class="highlight"><pre><span></span><code>For uv, Windows PowerShell, and API key setup, see [Get started in the Agent SDK overview](/docs/en/agent-sdk/overview#get-started).
+<div class="highlight"><pre><span></span><code>For uv, Windows PowerShell, and API key setup, see [Setup in the Agent SDK quickstart](/docs/en/agent-sdk/quickstart#setup).
 
 ## Choosing between `query()` and `ClaudeSDKClient`
 
@@ -7578,8 +7632,9 @@ from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, ResultMessage<
     # Drain the interrupted task's messages (including its ResultMessage)
     async for message in client.receive_response():
         if isinstance(message, ResultMessage):
-            print(f"Interrupted task finished with subtype={message.subtype!r}")
-            # subtype is "error_during_execution" for interrupted tasks
+            print(f"Interrupted task: terminal_reason={message.terminal_reason!r}")
+            # terminal_reason is "aborted_streaming" or "aborted_tools"
+            # for interrupted turns
 
     # Send a new command
     await client.query("Just say hello instead")
@@ -7591,7 +7646,7 @@ from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, ResultMessage<
 </code></pre>
 <p>asyncio.run(interruptible_task())
 <div class="highlight"><pre><span></span><code>&lt;Note&gt;
-  **Buffer behavior after interrupt:** `interrupt()` sends a stop signal but does not clear the message buffer. Messages already produced by the interrupted task, including its `ResultMessage` (with `subtype=&quot;error_during_execution&quot;`), remain in the stream. You must drain them with `receive_response()` before reading the response to a new query. If you send a new query immediately after `interrupt()` and call `receive_response()` only once, you&#39;ll receive the interrupted task&#39;s messages, not the new query&#39;s response.
+  **Buffer behavior after interrupt:** `interrupt()` sends a stop signal but does not clear the message buffer. Messages already produced by the interrupted task, including its `ResultMessage`, remain in the stream. You must drain them with `receive_response()` before reading the response to a new query. If you send a new query immediately after `interrupt()` and call `receive_response()` only once, you&#39;ll receive the interrupted task&#39;s messages, not the new query&#39;s response.
 &lt;/Note&gt;
 
 #### Example - Advanced permission control
@@ -7849,7 +7904,7 @@ options = ClaudeAgentOptions(
 <li><code>API_TIMEOUT_MS</code>: per-request timeout on the Anthropic client, in milliseconds. Default <code>600000</code>. Applies to the main loop and all subagents.</li>
 <li><code>CLAUDE_CODE_MAX_RETRIES</code>: maximum API retries. Default <code>10</code>, capped at <code>15</code>. Each retry gets its own <code>API_TIMEOUT_MS</code> window, so worst-case wall time is roughly <code>API_TIMEOUT_MS × (CLAUDE_CODE_MAX_RETRIES + 1)</code> plus backoff. For unattended runs that need to wait through longer outages, set <code>CLAUDE_CODE_RETRY_WATCHDOG=1</code>: it retries capacity errors indefinitely, and {/<em> min-version: 2.1.199 </em>/}as of Claude Code v2.1.199 raises the default for other transient errors to <code>300</code> and removes the cap on this variable.</li>
 <li><code>CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS</code>: stall watchdog for subagents launched with <code>run_in_background</code>. Default <code>600000</code>. Resets on each stream event; on stall it aborts the subagent, marks the task failed, and surfaces the error to the parent with any partial result. Does not apply to synchronous subagents.</li>
-<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> with <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code>: aborts the request when headers have arrived but the response body stops streaming. The watchdog is on by default for all providers; set <code>CLAUDE_ENABLE_STREAM_WATCHDOG=0</code> to disable it. <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> defaults to <code>300000</code> and is clamped to that minimum. The aborted request goes through the normal retry path.</li>
+<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> with <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code>: aborts the request when headers have arrived but the response body stops streaming. The watchdog is on by default for all providers; set <code>CLAUDE_ENABLE_STREAM_WATCHDOG=0</code> to disable it. <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> defaults to <code>300000</code> and is clamped to that minimum. After the abort, Claude Code retries the request at most once, and only before Claude has started a block of text or a tool call in the response; once Claude has completed a block of text or a tool call, Claude Code keeps the completed output, appends an <a href="/docs/en/errors#the-response-above-may-be-incomplete">incomplete-response notice</a> instead of retrying, and still runs any completed tool call.</li>
 </ul>
 <h3 id="outputformat"><code>OutputFormat</code></h3>
 <p>Configuration for structured output validation. Pass this as a <code>dict</code> to the <code>output_format</code> field on <code>ClaudeAgentOptions</code>:</p>
@@ -7945,7 +8000,7 @@ SettingSource = Literal[&quot;user&quot;, &quot;project&quot;, &quot;local&quot;
 </tr>
 <tr>
 <td style="text-align: left;"><code>"local"</code></td>
-<td style="text-align: left;">Local project settings (not version controlled)</td>
+<td style="text-align: left;">Local project settings, gitignored when Claude Code saves a setting to it</td>
 <td style="text-align: left;"><code>.claude/settings.local.json</code></td>
 </tr>
 </tbody>
@@ -8344,7 +8399,7 @@ ThinkingConfig = ThinkingConfigAdaptive | ThinkingConfigEnabled | ThinkingConfig
 </tr>
 </tbody>
 </table>
-<p>The optional <code>display</code> field controls whether thinking text is returned <code>"summarized"</code> or <code>"omitted"</code>. On Claude Opus 4.7 and later, the API default is <code>"omitted"</code>, so set <code>"summarized"</code> to receive thinking content in <a href="#thinkingblock"><code>ThinkingBlock</code></a> outputs.</p>
+<p>The optional <code>display</code> field controls whether thinking text is returned <code>"summarized"</code> or <code>"omitted"</code>. On Claude Opus 4.7 and later, the API default is <code>"omitted"</code>, so set <code>"summarized"</code> to receive thinking content in <a href="#thinkingblock"><code>ThinkingBlock</code></a> outputs. Claude Code doesn't send <code>display</code> to Amazon Bedrock or Google Cloud's Agent Platform, so on those providers Opus 4.7 and later return empty <code>ThinkingBlock</code> outputs even when you set <code>display</code> to <code>"summarized"</code>.</p>
 <p>Because these are <code>TypedDict</code> classes, they're plain dicts at runtime. Either construct them as dict literals or call the class like a constructor; both produce a <code>dict</code>. Access fields with <code>config["budget_tokens"]</code>, not <code>config.budget_tokens</code>:</p>
 <p>```python theme={null}
 from claude_agent_sdk import ClaudeAgentOptions, ThinkingConfigEnabled</p>
@@ -8386,7 +8441,7 @@ SdkBeta = Literal["context-1m-2025-08-07"]
 <div class="highlight"><pre><span></span><code>Use with the `betas` field in `ClaudeAgentOptions` to enable beta features.
 
 &lt;Warning&gt;
-  The `context-1m-2025-08-07` beta is retired as of April 30, 2026. Passing this header with Claude Sonnet 4.5 or Sonnet 4 has no effect, and requests that exceed the standard 200k-token context window return an error. To use a 1M-token context window, migrate to [Claude Sonnet 5, Claude Sonnet 4.6, Claude Opus 4.6, Claude Opus 4.7, or Claude Opus 4.8](https://platform.claude.com/docs/en/about-claude/models/overview), which include 1M context at standard pricing with no beta header required.
+  The `context-1m-2025-08-07` beta is retired as of April 30, 2026. Passing this header with Claude Sonnet 4.5 or Sonnet 4 has no effect, and requests that exceed the standard 200k-token context window return an error. To use a 1M-token context window, migrate to [Claude Opus 5, Claude Sonnet 5, Claude Sonnet 4.6, Claude Opus 4.6, Claude Opus 4.7, or Claude Opus 4.8](https://platform.claude.com/docs/en/about-claude/models/overview), which include 1M context at standard pricing with no beta header required.
 &lt;/Warning&gt;
 
 ### `McpSdkServerConfig`
@@ -8621,10 +8676,11 @@ AssistantMessageError = Literal[
     "rate_limit",
     "invalid_request",
     "server_error",
-    "max_output_tokens",
     "unknown",
 ]
-<div class="highlight"><pre><span></span><code>### `SystemMessage`
+<div class="highlight"><pre><span></span><code>The underlying CLI process can emit error types this Literal doesn&#39;t list, such as `max_output_tokens`. The SDK passes the value through unmodified, so treat strings outside this list the way you treat `unknown`. The TypeScript [`SDKAssistantMessageError`](/docs/en/agent-sdk/typescript#sdkassistantmessage) type lists the full set of values the CLI can emit.
+
+### `SystemMessage`
 
 System message with metadata.
 
@@ -8665,7 +8721,7 @@ Several fields carry diagnostic detail about how the conversation ended:
 * `api_error_status`: the HTTP status code of the terminating API error. `None` when the turn ended without one. Populated only on `subtype=&quot;success&quot;`.
 * `result`: text of the final assistant message on `subtype=&quot;success&quot;`, or `None` on the `error_*` subtypes. When `subtype=&quot;success&quot;` and `is_error=True`, this holds the API error string if one is available but can be empty, so check `api_error_status` and the preceding `AssistantMessage` content for detail.
 * `errors`: loop-level error strings such as the max-turns message. Populated only on the `error_*` subtypes.
-* `terminal_reason`: why the query loop terminated, such as `&quot;completed&quot;`, `&quot;max_turns&quot;`, or `&quot;aborted_streaming&quot;`. A value of `&quot;aborted_streaming&quot;` or `&quot;aborted_tools&quot;` means the turn was cancelled by an interrupt. `None` when the CLI didn&#39;t report a terminal reason, such as with an older CLI version. See [`SDKResultMessage`](/docs/en/agent-sdk/typescript#sdkresultmessage) for the full list of values.
+* `terminal_reason`: why the query loop ended, such as `&quot;completed&quot;`, `&quot;max_turns&quot;`, `&quot;api_error&quot;`, `&quot;aborted_streaming&quot;`, or `&quot;aborted_tools&quot;`. A value of `&quot;aborted_streaming&quot;` or `&quot;aborted_tools&quot;` means the turn was aborted before completing. Common causes are [`interrupt()`](#claudesdkclient) and a permission callback returning [`PermissionResultDeny`](#permissionresultdeny) with `interrupt=True`. `None` on CLI versions that predate the field, on results that bypassed the query loop such as local slash commands, or on synthesized error results emitted when the session fails fatally. Mirrors the TypeScript SDK&#39;s [`SDKResultMessage.terminal_reason`](/docs/en/agent-sdk/typescript#sdkresultmessage), which lists the full set of values.
 
 The `usage` dict contains the following keys when present:
 
@@ -8990,6 +9046,7 @@ Base exception class for all SDK errors.
 class ClaudeSDKError(Exception):
     &quot;&quot;&quot;Base error for Claude SDK.&quot;&quot;&quot;
 </code></pre></div></p>
+<p>When a single-shot <code>query()</code> ends with an error result, for example a turn-limit error, the SDK raises a plain <code>Exception</code> after yielding the final result message, not a <code>ClaudeSDKError</code> subclass.</p>
 <h3 id="clinotfounderror"><code>CLINotFoundError</code></h3>
 <p>Raised when Claude Code CLI is not installed or not found.</p>
 <p>```python theme={null}
@@ -9093,7 +9150,8 @@ class HookMatcher:
         default_factory=list
     )  # List of callbacks to execute
     timeout: float | None = (
-        None  # Timeout in seconds. When omitted, the per-event default applies
+        None  # Timeout in seconds. When omitted, the per-event default applies:
+        # 600 for most events, 30 for UserPromptSubmit
     )
 </code></pre></div></p>
 <h3 id="hookinput"><code>HookInput</code></h3>
@@ -10427,6 +10485,9 @@ async def main():
         print(f&quot;Process failed with exit code: {e.exit_code}&quot;)
     except CLIJSONDecodeError as e:
         print(f&quot;Failed to parse response: {e}&quot;)
+    # A single-shot query() raises a plain Exception after yielding an error result
+    except Exception as e:
+        print(f&quot;Query ended with an error result: {e}&quot;)
 
 
 asyncio.run(main())
@@ -10555,11 +10616,12 @@ class SandboxSettings(TypedDict, total=False):
 ```python theme={null}
 import asyncio
 
-from claude_agent_sdk import query, ClaudeAgentOptions, SandboxSettings
+from claude_agent_sdk import query, ClaudeAgentOptions
 
-sandbox_settings: SandboxSettings = {
+sandbox_settings = {
     &quot;enabled&quot;: True,
     &quot;autoAllowBashIfSandboxed&quot;: True,
+    &quot;failIfUnavailable&quot;: True,
     &quot;network&quot;: {&quot;allowLocalBinding&quot;: True},
 }
 

@@ -1575,6 +1575,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
         
   
@@ -1772,6 +1799,33 @@
     
   
     Cli reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud environments
   
 
     
@@ -5502,7 +5556,11 @@ Use this file to discover all available pages before exploring further.</p>
 <li>If your gateway must reshape system content, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_ATTRIBUTION_HEADER=0</code></a> so Claude Code omits the block. Anthropic and the cloud providers' Claude endpoints read the block for attribution, so omit it at the client rather than stripping or moving it in the gateway.</li>
 </ul>
 <p>Requests that reach the endpoint unmodified are unaffected.</p>
-<p>{/<em> min-version: 2.1.181 </em>/}From Claude Code v2.1.181, the block is stable for the lifetime of a conversation when requests route through a custom base URL, so a gateway-side prompt cache keyed on the full request body works without disabling it. Before v2.1.181 the block included a per-request token; on those versions, set <code>CLAUDE_CODE_ATTRIBUTION_HEADER=0</code> if your gateway implements such a cache.</p>
+<p>{/<em> min-version: 2.1.181 </em>/}From Claude Code v2.1.181, the block is stable for the lifetime of a conversation when requests route through a custom base URL, so a gateway-side prompt cache keyed on the full request body works without disabling it, and any provider your gateway forwards to receives a stable prompt prefix. Before v2.1.181 the block included a per-request token that changed the start of the system prompt on every request. On those versions, set <code>CLAUDE_CODE_ATTRIBUTION_HEADER=0</code> when your gateway does either of these:</p>
+<ul>
+<li>Implements a prompt cache keyed on the request body.</li>
+<li>Forwards requests to a third-party provider such as Amazon Bedrock, Microsoft Foundry, or Google Cloud's Agent Platform, in the Anthropic Messages format or the provider's own, where the changing prefix reduces prompt-cache reuse on that provider.</li>
+</ul>
 <h2 id="feature-pass-through">Feature pass-through</h2>
 <p>Claude Code treats an <code>ANTHROPIC_BASE_URL</code> gateway as an Anthropic-format endpoint and sends it the beta headers and request body fields it sends to <code>api.anthropic.com</code>, except a small set of diagnostics and defaults reserved for direct connections, such as the fine-grained tool streaming default covered below. That set varies by release, so don't depend on its contents.</p>
 <p>Capabilities that add body fields pair them with a beta header, and the pair travels together. A gateway that strips the header while passing the body, or forwards an Anthropic-format body to an upstream with a different schema, produces hard <code>400</code> errors; only when both halves are absent together does the feature turn off quietly. A gateway that rewrites or redacts request bodies for content inspection breaks the pairing the same way stripping does, so inspect without modifying. The table notes where a feature deviates from the pairing.</p>
@@ -5591,7 +5649,7 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="picker-entries-and-caching">Picker entries and caching</h3>
 <p>The picker is the interactive model list that opens when a developer runs <code>/model</code> in Claude Code. Each discovered entry is labeled "From gateway" and uses <code>display_name</code> when provided. The <a href="/docs/en/settings#available-settings"><code>availableModels</code> managed setting</a> bounds what discovery can add.</p>
 <p>A discovered ID is skipped when it exactly matches a row already in the picker, or when both the discovered and existing IDs resolve to <a href="/docs/en/model-config#work-with-fable-5">Fable</a>. {/<em> min-version: 2.1.197 </em>/}As of Claude Code v2.1.197, a discovered explicit ID is also folded into a built-in entry when both resolve to the same model. Built-in rows are keyed on aliases such as <code>sonnet</code>, so a discovered explicit ID of the model the alias currently resolves to, such as <code>claude-sonnet-5</code>, collapses into the <code>sonnet</code> row, while an ID the alias doesn't resolve to, such as <code>claude-sonnet-4-6</code>, still adds its own "From gateway" row alongside the built-in entry.</p>
-<p>Results are cached to <code>~/.claude/cache/gateway-models.json</code>, or <code>%USERPROFILE%\.claude\cache\gateway-models.json</code> on Windows, and refreshed on each startup. If the request fails or the gateway doesn't implement <code>/v1/models</code>, the picker falls back to the cached list from the previous startup or to the built-in model list. If your gateway serves Claude models under aliases that don't match the discovery filter, developers can add those aliases manually with the <a href="/docs/en/model-config">model configuration</a> variables.</p>
+<p>Results are cached to <code>~/.claude/cache/gateway-models.json</code>, or <code>%USERPROFILE%\.claude\cache\gateway-models.json</code> on Windows, and refreshed on each startup. If you set <a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a>, the cache lives under that directory instead. If the request fails or the gateway doesn't implement <code>/v1/models</code>, the picker falls back to the cached list from the previous startup or to the built-in model list. If your gateway serves Claude models under aliases that don't match the discovery filter, developers can add those aliases manually with the <a href="/docs/en/model-config">model configuration</a> variables.</p>
 <h2 id="related-resources">Related resources</h2>
 <p>For the rest of the gateway documentation set and the underlying API references:</p>
 <ul>

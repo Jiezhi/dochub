@@ -1575,6 +1575,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
         
   
@@ -1772,6 +1799,33 @@
     
   
     Cli reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud environments
   
 
     
@@ -3405,6 +3459,17 @@
     <span class="md-ellipsis">
       
         Custom CA certificates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-your-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify your configuration
       
     </span>
   </a>
@@ -5254,6 +5319,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#verify-your-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify your configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#apply-network-settings-to-background-agents" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5363,6 +5439,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Configure Claude Code for enterprise environments with proxy servers, custom Certificate Authorities (CA), and mutual Transport Layer Security (mTLS) authentication.</p>
 </blockquote>
 <p>Claude Code supports various enterprise network and security configurations through environment variables. This includes routing traffic through corporate proxy servers, trusting custom Certificate Authorities (CA), and authenticating with mutual Transport Layer Security (mTLS) certificates for enhanced security.</p>
+<p>Set these environment variables before you launch Claude Code. Variables exported in your shell are read once at startup, so a running session doesn't pick up later changes to your shell environment.</p>
 <p><Note>
   All environment variables shown on this page can also be configured in <a href="/docs/en/settings"><code>settings.json</code></a>.
 </Note></p>
@@ -5380,7 +5457,9 @@ Use this file to discover all available pages before exploring further.</p>
 <p>export NO_PROXY="localhost,192.168.1.1,example.com,.example.com"</p>
 <h1 id="bypass-proxy-for-all-requests">Bypass proxy for all requests</h1>
 <p>export NO_PROXY="*"
-<div class="highlight"><pre><span></span><code>&lt;Note&gt;
+<div class="highlight"><pre><span></span><code>Lowercase variants also work, and Claude Code uses the first one that&#39;s set in the order `https_proxy`, `HTTPS_PROXY`, `http_proxy`, `HTTP_PROXY`.
+
+&lt;Note&gt;
   Claude Code does not support SOCKS proxies.
 &lt;/Note&gt;
 
@@ -5441,6 +5520,25 @@ export CLAUDE_CODE_CLIENT_KEY_PASSPHRASE=&quot;your-passphrase&quot;
 </ul>
 <p>Claude Code notes each ignored key in the session's debug log.</p>
 <p>In <a href="/docs/en/desktop">Claude Desktop</a> sessions where the app manages the provider connection, such as the Code tab on a <a href="/docs/en/third-party-integrations">third-party provider</a> and Cowork sessions, Claude Code reads these variables and the proxy variables <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code>, and <code>NO_PROXY</code> only from <a href="/docs/en/settings#settings-files">managed settings</a> and <code>~/.claude/settings.json</code>: it ignores them in a repository's own settings files, so a checked-out repository can't redirect the TLS or proxy path of a session whose credentials come from the app. In a local, SSH, or WSL Code tab session signed in through claude.ai, the app doesn't manage the connection, and Claude Code reads these variables from every settings scope, like any terminal session; <a href="/docs/en/claude-code-on-the-web">cloud sessions</a> follow the cloud-session rules above wherever you start them. Before v2.1.217, Claude Code ignored these variables in every settings file when the app managed the connection.</p>
+<h2 id="verify-your-configuration">Verify your configuration</h2>
+<p>You usually find out about a wrong proxy address or a bad certificate path from a <a href="/docs/en/errors#network-and-connection-errors">connection or certificate error</a> on a later request, since Claude Code doesn't validate most of these settings when it reads them. The one setting it checks at startup is the proxy URL: when it can't parse the value, such as one missing the <code>http://</code> scheme, Claude Code stops launch with an error naming the variable to fix.</p>
+<p>To confirm your configuration loaded before you send a request, start Claude Code with debug logging:</p>
+<p>```bash theme={null}
+claude --debug
+<div class="highlight"><pre><span></span><code>Debug output goes to `~/.claude/debug/&lt;session-id&gt;.txt` rather than the terminal, or to a path you set with `--debug-file &lt;path&gt;`. In the log, look for the lines that confirm each file loaded:
+
+```text theme={null}
+CA certs: Appended extra certificates from NODE_EXTRA_CA_CERTS (/etc/ssl/certs/corp-ca.pem)
+mTLS: Loaded client certificate from CLAUDE_CODE_CLIENT_CERT
+mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
+</code></pre></div></p>
+<p>If Claude Code can't read one of these files, the log shows a <code>Failed to read</code> or <code>Failed to load</code> line with the reason instead.</p>
+<p>You can also run <code>/status</code> in an interactive session and check these rows:</p>
+<ul>
+<li><strong>Proxy</strong>: shows the active proxy URL, and marks a value it can't parse as invalid and ignored.</li>
+<li><strong>mTLS client cert</strong> and <strong>mTLS client key</strong>: appear only when the files loaded, so a missing row means the load failed and the debug log has the reason.</li>
+<li><strong>Additional CA cert(s)</strong>: shows the <code>NODE_EXTRA_CA_CERTS</code> path without checking that the file loaded, so confirm this one in the debug log.</li>
+</ul>
 <h2 id="apply-network-settings-to-background-agents">Apply network settings to background agents</h2>
 <p><a href="/docs/en/agent-view">Background agents</a> don't run inside the terminal that dispatched them. A per-user supervisor process starts on demand, outlives your shell, and hosts every <code>claude agents</code>, <code>--bg</code>, and <code>/background</code> session. See <a href="/docs/en/agent-view#how-background-sessions-are-hosted">How background sessions are hosted</a>. This changes how the configuration on this page reaches those sessions.</p>
 <h3 id="set-network-variables-in-settings-not-the-shell">Set network variables in settings, not the shell</h3>

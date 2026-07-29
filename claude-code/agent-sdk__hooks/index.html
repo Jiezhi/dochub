@@ -1978,6 +1978,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
         
   
@@ -2175,6 +2202,33 @@
     
   
     Cli reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud environments
   
 
     
@@ -5874,7 +5928,7 @@ for await (const message of query({
 <td><code>PermissionRequest</code></td>
 <td>Yes</td>
 <td>Yes</td>
-<td>Permission dialog would be displayed</td>
+<td>A tool call needs a permission decision</td>
 <td>Custom permission handling</td>
 </tr>
 <tr>
@@ -5989,6 +6043,13 @@ for await (const message of query({
 <td>A watched file is modified, created, or deleted</td>
 <td>Reload configuration when project files change</td>
 </tr>
+<tr>
+<td><code>DirectoryAdded</code></td>
+<td>No</td>
+<td>Yes</td>
+<td>A working directory is added during a session</td>
+<td>Install dependencies for a repository added mid-session</td>
+</tr>
 </tbody>
 </table>
 <h2 id="configure-hooks">Configure hooks</h2>
@@ -6053,7 +6114,7 @@ for await (const message of query({
 <td><code>timeout</code></td>
 <td><code>number</code></td>
 <td><code>undefined</code></td>
-<td>Timeout in seconds. When omitted, the per-event default applies: 10 minutes for most events, 30 seconds for <code>UserPromptSubmit</code>. A few events run with shorter limits, such as 10 seconds for <code>MessageDisplay</code></td>
+<td>Timeout in seconds. When omitted, Claude Code applies the <a href="#hook-timeout">event's default timeout</a>: 10 minutes for most events, 30 seconds for <code>UserPromptSubmit</code>. Claude Code uses shorter limits for a few events, such as 10 seconds for <code>MessageDisplay</code> and a 1.5-second default <a href="/docs/en/hooks#sessionend-input">budget</a> for <code>SessionEnd</code>. Your SDK callbacks follow the <code>command</code> hook defaults</td>
 </tr>
 </tbody>
 </table>
@@ -6170,8 +6231,9 @@ const asyncHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
   ```
 </CodeGroup></p>
 <p><Note>
-  When using <code>updatedInput</code>, you must also include <code>permissionDecision: 'allow'</code> to auto-approve the modified input or <code>permissionDecision: 'ask'</code> to show it to the user. With <code>'defer'</code>, <code>updatedInput</code> is ignored. Always return a new object rather than mutating the original <code>tool_input</code>.
+  Pair <code>updatedInput</code> with <code>permissionDecision: 'allow'</code> to auto-approve the modified input, or <code>permissionDecision: 'ask'</code> to show it to the user. If you omit <code>permissionDecision</code>, the modified input still applies and flows through the normal permission evaluation. With <code>'defer'</code>, <code>updatedInput</code> is ignored. Always return a new object rather than mutating the original <code>tool_input</code>.
 </Note></p>
+<p>To confirm the redirect, set the prefix to a path you can write to, such as <code>./sandbox</code> or <code>/tmp/sandbox</code> (macOS doesn't allow creating a root-level <code>/sandbox</code> directory), then ask the agent to write a file: the Write tool's result in the message stream names the path with your sandbox prefix rather than the one Claude requested.</p>
 <h3 id="add-context-and-block-a-tool">Add context and block a tool</h3>
 <p>This example blocks writes to the <code>/etc</code> directory and explains why to both the model and the user:</p>
 <ul>
@@ -6434,6 +6496,7 @@ const options = {
   }
   ```
 </CodeGroup></p>
+<p>To confirm the hook fires, point the webhook URL at an endpoint you can watch and send a prompt that uses a tool: the hook sends a POST with the tool name and timestamp after each tool completes.</p>
 <h3 id="forward-notifications-to-slack">Forward notifications to Slack</h3>
 <p>Use <code>Notification</code> hooks to receive system notifications from the agent and forward them to external services. Notifications fire for event types such as:</p>
 <ul>
@@ -6442,6 +6505,7 @@ const options = {
 <li><code>auth_success</code> when authentication completes</li>
 <li><code>elicitation_dialog</code>, <code>elicitation_complete</code>, and <code>elicitation_response</code> for user-prompt elicitation flows</li>
 </ul>
+<p>In headless SDK sessions, only the elicitation events <code>elicitation_complete</code> and <code>elicitation_response</code> fire this hook; the other types are emitted by interactive UI that SDK sessions don't run. Permission requests, for example, go to the <code>canUseTool</code> callback instead.</p>
 <p>Each notification includes a <code>message</code> field with a human-readable description and optionally a <code>title</code>.</p>
 <p>This example forwards every notification to a Slack channel. It requires a <a href="https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/">Slack incoming webhook URL</a>, which you create by adding an app to your Slack workspace and enabling incoming webhooks:</p>
 <p><CodeGroup>
@@ -6526,6 +6590,7 @@ for await (const message of query({
 }
 </code></pre></div>
 </CodeGroup></p>
+<p>When a <code>Notification</code> event fires, the hook posts the notification's <code>message</code>, prefixed with <code>Agent status:</code>, to the channel your webhook targets.</p>
 <h2 id="fix-common-issues">Fix common issues</h2>
 <h3 id="hook-not-firing">Hook not firing</h3>
 <ul>
@@ -6547,12 +6612,17 @@ const myHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
   return {};
 };</code></p>
 <h3 id="hook-timeout">Hook timeout</h3>
+<p>Claude Code runs each callback with a timeout, which you set in seconds with the <code>timeout</code> field on its <code>HookMatcher</code>. When you don't set one, Claude Code uses the event's default: 600 seconds for most events, 30 seconds for <code>UserPromptSubmit</code>, and 10 seconds for <code>MessageDisplay</code>. Claude Code runs <code>SessionEnd</code> callbacks during shutdown under the shorter <a href="/docs/en/hooks#sessionend-input">SessionEnd timeout budget</a>.</p>
+<p>When a callback exceeds its timeout, Claude Code cancels it and treats it as a failed hook: it discards the callback's output and the session continues rather than hanging. What happens next depends on the event:</p>
 <ul>
-<li>Increase the <code>timeout</code> value in the <code>HookMatcher</code> configuration</li>
-<li>Use the <code>AbortSignal</code> from the third callback argument to handle cancellation gracefully in TypeScript</li>
+<li><code>PreToolUse</code>: {/<em> min-version: 2.1.210 </em>/}Claude Code doesn't run the tool call, Claude receives a tool result stating the hook didn't respond before its timeout, and the turn continues. If another <code>PreToolUse</code> hook returned an explicit deny, Claude receives that denial instead of the timeout error. Before v2.1.210, Claude Code reported the timeout to Claude as a user rejection, which made unattended sessions stop and wait for input.</li>
+<li><code>PostToolUse</code> and <code>PostToolUseFailure</code>: Claude Code keeps the tool result and the turn continues.</li>
+<li><code>UserPromptSubmit</code> and <a href="/docs/en/hooks#userpromptexpansion"><code>UserPromptExpansion</code></a>: {/<em> min-version: 2.1.208 </em>/}Claude Code blocks the prompt with a message naming the hook and the timeout, and the session continues. Because a callback on these events can act as a policy gate, Claude Code never lets a timed-out prompt through unscreened. Before v2.1.208, Claude Code ended the query with <code>error_during_execution</code> when a callback on these events timed out.</li>
+<li><code>Stop</code> and <code>SubagentStop</code>: Claude Code shows a warning and the agent stops normally.</li>
+<li>Other events, such as <code>Notification</code> and <code>PreCompact</code>: Claude Code logs the failure and continues.</li>
 </ul>
-<p>{/<em> min-version: 2.1.208 </em>/}A <code>UserPromptSubmit</code> or <a href="/docs/en/hooks#userpromptexpansion"><code>UserPromptExpansion</code></a> callback that exceeds its timeout blocks that prompt with a timeout message and the session continues. Interrupting the query while a callback is pending cancels the pending tool call. Before v2.1.208, a callback timeout on those events ended the query with <code>error_during_execution</code>, and an interrupt during a pending <code>PreToolUse</code> callback could let the tool call proceed.</p>
-<p>{/<em> min-version: 2.1.210 </em>/}A <code>PreToolUse</code> callback that exceeds its timeout blocks the tool call, and Claude receives an error result naming the timeout. If another <code>PreToolUse</code> hook returned an explicit deny, Claude receives that denial instead. Before v2.1.210, Claude Code reported the timeout to Claude as if the user had rejected the tool call, so an unattended session stopped and waited for input.</p>
+<p>{/<em> min-version: 2.1.208 </em>/}If you interrupt the query while a callback is pending, Claude Code cancels the pending tool call. Before v2.1.208, the tool call could still proceed if you interrupted during a pending <code>PreToolUse</code> callback.</p>
+<p>If your callback needs more time, set a higher <code>timeout</code> on its <code>HookMatcher</code>. In TypeScript, use the <code>AbortSignal</code> from the third callback argument to handle cancellation gracefully when the timeout fires.</p>
 <h3 id="tool-blocked-unexpectedly">Tool blocked unexpectedly</h3>
 <ul>
 <li>Check all <code>PreToolUse</code> hooks for <code>permissionDecision: 'deny'</code> returns</li>
@@ -6573,7 +6643,7 @@ const myHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
   };</code></p>
 <ul>
 <li>
-<p>Return <code>permissionDecision: 'allow'</code> to auto-approve the modified input, or <code>'ask'</code> to show it to the user for approval</p>
+<p>Don't pair <code>updatedInput</code> with <code>permissionDecision: 'defer'</code>, which drops the modified input. Omitting <code>permissionDecision</code> is fine: the modified input still applies through the normal permission evaluation. You can also return <code>'allow'</code> to auto-approve the modified input or <code>'ask'</code> to show it to the user for approval</p>
 </li>
 <li>
 <p>Include <code>hookEventName</code> in <code>hookSpecificOutput</code> to identify which hook type the output is for</p>

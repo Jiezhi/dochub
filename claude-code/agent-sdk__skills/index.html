@@ -1768,6 +1768,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
         
   
@@ -1965,6 +1992,33 @@
     
   
     Cli reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud environments
   
 
     
@@ -5247,13 +5301,15 @@ Use this file to discover all available pages before exploring further.</p>
 <h2 id="using-skills-with-the-sdk">Using Skills with the SDK</h2>
 <p>Set the <code>skills</code> option on <code>query()</code> to control which Skills are available to the session. When omitted, discovered Skills are enabled and the Skill tool is available, matching CLI behavior. Pass <code>"all"</code> to enable every discovered Skill, a list of Skill names to enable only those, or <code>[]</code> to disable all. When you set <code>skills</code>, the SDK adds the Skill tool to <code>allowedTools</code> automatically. If you also pass an explicit <code>tools</code> list, include <code>"Skill"</code> in that list so Claude can invoke skills.</p>
 <p>Once configured, Claude automatically discovers Skills from the filesystem and invokes them when relevant to the user's request.</p>
+<p>The following example sets <code>cwd</code> to the process's current working directory, so run it from inside a project that has a <code>.claude/skills/</code> directory in the current directory or any parent up to the repository root:</p>
 <p><CodeGroup>
   ```python Python theme={null}
   import asyncio
-  from claude_agent_sdk import query, ClaudeAgentOptions</p>
+  import os</p>
+<p>from claude_agent_sdk import query, ClaudeAgentOptions</p>
 <p>async def main():
       options = ClaudeAgentOptions(
-          cwd="/path/to/project",  # Project with .claude/skills/
+          cwd=os.getcwd(),  # .claude/skills/ here or in a parent directory
           setting_sources=["user", "project"],  # Load Skills from filesystem
           skills="all",  # Enable every discovered Skill
           allowed_tools=["Read", "Write", "Bash"],
@@ -5270,7 +5326,7 @@ import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
 for await (const message of query({
   prompt: &quot;Help me process this PDF document&quot;,
   options: {
-    cwd: &quot;/path/to/project&quot;, // Project with .claude/skills/
+    cwd: process.cwd(), // .claude/skills/ here or in a parent directory
     settingSources: [&quot;user&quot;, &quot;project&quot;], // Load Skills from filesystem
     skills: &quot;all&quot;, // Enable every discovered Skill
     allowedTools: [&quot;Read&quot;, &quot;Write&quot;, &quot;Bash&quot;]
@@ -5280,7 +5336,11 @@ for await (const message of query({
 }
 </code></pre></div>
 </CodeGroup></p>
+<p>Near the start of the stream, the SDK yields a system message with subtype <code>init</code>. Check its <code>skills</code> array to confirm your Skills loaded before Claude starts working. The array lists user-invocable Skills only. A Skill with <a href="/docs/en/skills#control-who-invokes-a-skill"><code>user-invocable: false</code></a> in its frontmatter loads and remains available to Claude but doesn't appear in the array.</p>
 <p>To enable only specific Skills, pass their names. Names match the <code>name</code> field in <code>SKILL.md</code> or the Skill's directory name. Use <code>plugin:skill</code> for plugin-provided Skills.</p>
+<p><Note>
+  Import statements from the first example are assumed in the following code snippets.
+</Note></p>
 <p><CodeGroup>
   ```python Python theme={null}
   options = ClaudeAgentOptions(skills=["pdf", "docx"])
@@ -5299,7 +5359,7 @@ const options = { skills: [&quot;pdf&quot;, &quot;docx&quot;] };
 <h2 id="creating-skills">Creating Skills</h2>
 <p>Skills are defined as directories containing a <code>SKILL.md</code> file with YAML frontmatter and Markdown content. The <code>description</code> field determines when Claude invokes your Skill.</p>
 <p><strong>Example directory structure</strong>:</p>
-<p>```bash theme={null}
+<p>```text theme={null}
 .claude/skills/processing-pdfs/
 └── SKILL.md
 <div class="highlight"><pre><span></span><code>For complete guidance on creating Skills, including SKILL.md structure, multi-file Skills, and examples, see:
@@ -5317,20 +5377,22 @@ const options = { skills: [&quot;pdf&quot;, &quot;docx&quot;] };
 
 To control tool access for Skills in SDK applications, use `allowedTools` to pre-approve specific tools. Without a `canUseTool` callback, anything not in the list is denied:
 
-&lt;Note&gt;
-  Import statements from the first example are assumed in the following code snippets.
-&lt;/Note&gt;
-
 &lt;CodeGroup&gt;
   ```python Python theme={null}
   options = ClaudeAgentOptions(
       setting_sources=[&quot;user&quot;, &quot;project&quot;],  # Load Skills from filesystem
       skills=&quot;all&quot;,
       allowed_tools=[&quot;Read&quot;, &quot;Grep&quot;, &quot;Glob&quot;],
+      permission_mode=&quot;dontAsk&quot;,  # Deny anything not pre-approved instead of prompting
   )
 
-  async for message in query(prompt=&quot;Analyze the codebase structure&quot;, options=options):
-      print(message)
+
+  async def main():
+      async for message in query(prompt=&quot;Analyze the codebase structure&quot;, options=options):
+          print(message)
+
+
+  asyncio.run(main())
   ```
 
   ```typescript TypeScript theme={null}
@@ -5340,7 +5402,7 @@ To control tool access for Skills in SDK applications, use `allowedTools` to pre
       settingSources: [&quot;user&quot;, &quot;project&quot;], // Load Skills from filesystem
       skills: &quot;all&quot;,
       allowedTools: [&quot;Read&quot;, &quot;Grep&quot;, &quot;Glob&quot;],
-      permissionMode: &quot;dontAsk&quot; // Deny anything not in allowedTools
+      permissionMode: &quot;dontAsk&quot; // Deny anything not pre-approved instead of prompting
     }
   })) {
     console.log(message);
@@ -5350,24 +5412,25 @@ To control tool access for Skills in SDK applications, use `allowedTools` to pre
 
 ## Discovering Available Skills
 
-To see which Skills are available in your SDK application, simply ask Claude:
+To see which Skills are available in your SDK application, ask Claude. The example below sets only the `skills` option and omits `settingSources`/`setting_sources`. When you leave `settingSources`/`setting_sources` unset, the SDK still loads Skills from the user and project sources, so the `skills` option set to `&quot;all&quot;` on its own makes them available to list.
 
 &lt;CodeGroup&gt;
   ```python Python theme={null}
-  options = ClaudeAgentOptions(
-      setting_sources=[&quot;user&quot;, &quot;project&quot;],  # Load Skills from filesystem
-      skills=&quot;all&quot;,
-  )
+  options = ClaudeAgentOptions(skills=&quot;all&quot;)
 
-  async for message in query(prompt=&quot;What Skills are available?&quot;, options=options):
-      print(message)
+
+  async def main():
+      async for message in query(prompt=&quot;What Skills are available?&quot;, options=options):
+          print(message)
+
+
+  asyncio.run(main())
   ```
 
   ```typescript TypeScript theme={null}
   for await (const message of query({
     prompt: &quot;What Skills are available?&quot;,
     options: {
-      settingSources: [&quot;user&quot;, &quot;project&quot;], // Load Skills from filesystem
       skills: &quot;all&quot;
     }
   })) {
@@ -5385,21 +5448,26 @@ Test Skills by asking questions that match their descriptions:
 &lt;CodeGroup&gt;
   ```python Python theme={null}
   options = ClaudeAgentOptions(
-      cwd=&quot;/path/to/project&quot;,
+      cwd=os.getcwd(),
       setting_sources=[&quot;user&quot;, &quot;project&quot;],  # Load Skills from filesystem
       skills=&quot;all&quot;,
       allowed_tools=[&quot;Read&quot;, &quot;Bash&quot;],
   )
 
-  async for message in query(prompt=&quot;Extract text from invoice.pdf&quot;, options=options):
-      print(message)
+
+  async def main():
+      async for message in query(prompt=&quot;Extract text from invoice.pdf&quot;, options=options):
+          print(message)
+
+
+  asyncio.run(main())
   ```
 
   ```typescript TypeScript theme={null}
   for await (const message of query({
     prompt: &quot;Extract text from invoice.pdf&quot;,
     options: {
-      cwd: &quot;/path/to/project&quot;,
+      cwd: process.cwd(),
       settingSources: [&quot;user&quot;, &quot;project&quot;], // Load Skills from filesystem
       skills: &quot;all&quot;,
       allowedTools: [&quot;Read&quot;, &quot;Bash&quot;]
@@ -5432,13 +5500,13 @@ Claude automatically invokes the relevant Skill if the description matches your 
 
   ```typescript TypeScript theme={null}
   // Skills not loaded: settingSources excludes user and project
-  const options = {
+  const optionsWithoutSkills = {
     settingSources: [],
     skills: &quot;all&quot;
   };
 
   // Skills loaded: user and project sources included
-  const options = {
+  const optionsWithSkills = {
     settingSources: [&quot;user&quot;, &quot;project&quot;],
     skills: &quot;all&quot;
   };

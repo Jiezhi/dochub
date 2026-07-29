@@ -1575,6 +1575,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-apps-gateway-on-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude apps gateway on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../claude-apps-gateway-on-gcp/" class="md-nav__link">
         
   
@@ -1772,6 +1799,33 @@
     
   
     Cli reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cloud-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud environments
   
 
     
@@ -6089,6 +6143,8 @@ A JSON entry that has a `url` but no `type` is a configuration error, because Cl
   The SSE (Server-Sent Events) transport is deprecated. Use HTTP servers instead, where available.
 &lt;/Warning&gt;
 
+Some services still expose only an SSE endpoint. Use the same command as the HTTP transport, with `--transport sse`:
+
 ```bash theme={null}
 # Basic syntax
 claude mcp add --transport sse &lt;name&gt; &lt;url&gt;
@@ -6143,12 +6199,16 @@ claude mcp add-json events-server \
 <h1 id="list-all-configured-servers">List all configured servers</h1>
 <p>claude mcp list</p>
 <h1 id="get-details-for-a-specific-server">Get details for a specific server</h1>
-<p>claude mcp get github</p>
+<p>claude mcp get notion</p>
 <h1 id="remove-a-server">Remove a server</h1>
-<p>claude mcp remove github</p>
+<p>claude mcp remove notion</p>
 <h1 id="within-claude-code-check-server-status">(within Claude Code) Check server status</h1>
 <p>/mcp
-<div class="highlight"><pre><span></span><code>Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list` and `claude mcp get &lt;name&gt;` as ``⏸ Pending approval (run `claude` to approve)``. Run `claude` interactively to review and approve them. `claude mcp get &lt;name&gt;` shows rejected servers as `✘ Rejected (see disabledMcpjsonServers in settings)`.
+<div class="highlight"><pre><span></span><code>`claude mcp add` confirms a successful add by printing an `Added ...` line, which means the configuration was written. `claude mcp list` then shows a health status next to each server it lists, such as `✔ Connected`, `! Needs authentication`, or `✘ Failed to connect`. A failure status means Claude Code couldn&#39;t connect to that server, not that the list command failed.
+
+Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list` and `claude mcp get &lt;name&gt;` as ``⏸ Pending approval (run `claude` to approve)``. Run `claude` interactively to review and approve them. `claude mcp get &lt;name&gt;` shows rejected servers as `✘ Rejected (see disabledMcpjsonServers in settings)`.
+
+WebSocket servers don&#39;t appear in `claude mcp list` output. Use `claude mcp get &lt;name&gt;` or the `/mcp` panel to check them.
 
 As of v2.1.196, `claude mcp list` and `claude mcp get` read `.mcp.json` approvals only from settings files that aren&#39;t checked into the repository until you trust the workspace by running `claude` in it and accepting the workspace trust dialog. A cloned repository can&#39;t approve its own servers: [`enableAllProjectMcpServers` or `enabledMcpjsonServers`](/docs/en/settings#available-settings) committed to the project&#39;s `.claude/settings.json` is ignored in an untrusted folder, and the server stays at `⏸ Pending approval` instead of being connected and health-checked.
 
@@ -6166,7 +6226,7 @@ The `/mcp` panel shows the tool count next to each connected server and flags se
 
 A remote server whose configuration has an empty `url` shows as `not configured` in `/mcp`, in `claude mcp list`, and in the [`/plugin`](/docs/en/plugins) manager, and Claude Code doesn&#39;t attempt to connect to it. A plugin can include a placeholder entry like this for a connector you configure later, so Claude Code doesn&#39;t report it as an error or a setup issue. The server&#39;s detail view in `/mcp` reads `No URL configured for this server`; set the entry&#39;s `url` to connect it. Before v2.1.208, Claude Code reported an empty `url` as a configuration issue with a prompt to reconnect.
 
-If your request needs tools from a server that is still connecting in the background, Claude waits for that server before continuing. With [tool search](#scale-with-mcp-tool-search) enabled, which is the default, the wait happens inside the `ToolSearch` call. In configurations without tool search, such as Google Cloud&#39;s Agent Platform, a custom `ANTHROPIC_BASE_URL`, or `ENABLE_TOOL_SEARCH=false`, Claude uses the `WaitForMcpServers` tool instead.
+If your request needs tools from a server that is still connecting in the background, Claude waits for that server before continuing. With [tool search](#scale-with-mcp-tool-search) enabled, which is the default, the wait happens inside the `ToolSearch` call. In configurations without tool search, such as Google Cloud&#39;s Agent Platform, a custom `ANTHROPIC_BASE_URL`, or `ENABLE_TOOL_SEARCH=false`, Claude uses the `WaitForMcpServers` tool instead. A Microsoft Foundry [deployment hosted on Azure](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry#hosting-options) starts on the tool-search path rather than with `WaitForMcpServers`, since Claude Code discovers the deployment&#39;s server-side rejection only from the API; after Claude Code switches that deployment to [upfront loading](#scale-with-mcp-tool-search), tools from a server that finishes connecting become available on Claude&#39;s next request.
 
 Some server names are reserved for Claude Code&#39;s built-in servers: `workspace`, `claude-in-chrome`, `computer-use`, `Claude Preview`, and `Claude Browser`. If your configuration defines a server with a reserved name, Claude Code skips it at load time and shows a warning asking you to rename it. `claude mcp add` rejects a reserved name with an error.
 
@@ -6289,7 +6349,7 @@ In `.mcp.json` at plugin root:
 
 * **Automatic lifecycle**: servers connect and disconnect at these points:
   * At session startup, Claude Code connects the servers for enabled plugins automatically
-  * If you enable or disable a plugin during a session, run `/reload-plugins` to connect or disconnect its MCP servers
+  * If you enable or disable a plugin during a session, run `/reload-plugins` to connect or disconnect its MCP servers. When you reload, Claude Code keeps the live connections of plugin servers whose configuration is unchanged, and does the same when you [replace the session&#39;s MCP server list](/docs/en/agent-sdk/typescript#mcpsetserversresult) from the Agent SDK without naming them. {/* min-version: 2.1.210 */}Before v2.1.210, Claude Code disconnected plugin-provided MCP servers that the new SDK server list didn&#39;t name
   * In [web sessions](/docs/en/claude-code-on-the-web), an MCP call to a plugin server that isn&#39;t connected yet, such as right after an idle session wakes, starts the server on demand and waits for it to connect. {/* min-version: 2.1.211 */}Before v2.1.211, plugin servers in a web session reconnected only when the next message started a turn, so MCP calls after an idle session woke failed until then
 * **Path placeholders**: `${CLAUDE_PLUGIN_ROOT}` resolves to the plugin&#39;s installation directory, `${CLAUDE_PLUGIN_DATA}` to its [persistent state](/docs/en/plugins-reference#persistent-data-directory) directory, and `${CLAUDE_PROJECT_DIR}` to the stable project root. Substitution applies to:
   * `stdio` servers: `command`, `args`, `env`
@@ -6379,16 +6439,15 @@ In `.mcp.json` at plugin root:
 <p>Project-scoped servers enable team collaboration by storing configurations in a <code>.mcp.json</code> file at your project's root directory. This file is designed to be checked into version control, ensuring all team members have access to the same MCP tools and services. When you add a project-scoped server, Claude Code automatically creates or updates this file with the appropriate configuration structure.</p>
 <p>```bash theme={null}</p>
 <h1 id="add-a-project-scoped-server">Add a project-scoped server</h1>
-<p>claude mcp add --transport http paypal --scope project https://mcp.paypal.com/mcp
+<p>claude mcp add --transport http shared-server --scope project https://example.com/mcp
 <div class="highlight"><pre><span></span><code>The resulting `.mcp.json` file follows a standardized format:
 
 ```json theme={null}
 {
   &quot;mcpServers&quot;: {
     &quot;shared-server&quot;: {
-      &quot;command&quot;: &quot;/path/to/server&quot;,
-      &quot;args&quot;: [],
-      &quot;env&quot;: {}
+      &quot;type&quot;: &quot;http&quot;,
+      &quot;url&quot;: &quot;https://example.com/mcp&quot;
     }
   }
 }
@@ -6410,6 +6469,8 @@ When the same server is defined in more than one place, Claude Code connects to 
 5. [claude.ai connectors](#use-mcp-servers-from-claude-ai)
 
 The three scopes match duplicates by name. Plugins and connectors match by endpoint, so one that points at the same URL or command as a server above is treated as a duplicate.
+
+If you open a local session in the [Desktop app&#39;s Code tab](/docs/en/desktop#mcp-servers-from-the-claude-desktop-chat-app) with the same stdio server name at the top level of `~/.claude.json` (user scope) and in `.mcp.json`, the Code tab uses the `~/.claude.json` definition.
 
 ### Environment variable expansion in `.mcp.json`
 
@@ -6447,20 +6508,23 @@ Environment variables can be expanded in:
 <p>If a referenced environment variable isn't set and has no default value, the config still loads: Claude Code reports a missing-variable warning for that server in <code>claude mcp list</code> output and uses the unexpanded <code>${VAR}</code> text as-is. Set the variable or add a <code>:-default</code> fallback so the server starts with the value you intend.</p>
 <h2 id="practical-examples">Practical examples</h2>
 <h3 id="example-monitor-errors-with-sentry">Example: Monitor errors with Sentry</h3>
+<p>Sentry's remote MCP server gives Claude access to the errors your applications report to Sentry. It authenticates through OAuth rather than an API key, so you don't pass a credential when you add it.</p>
+<p>If you already added the <code>sentry</code> server in the <a href="/docs/en/mcp-quickstart">MCP quickstart</a>, skip this command: running <code>claude mcp add</code> again with the same server name at the same scope fails with <code>MCP server sentry already exists in local config</code>.</p>
 <p>```bash theme={null}
 claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
 <div class="highlight"><pre><span></span><code>Authenticate with your Sentry account:
 
-```text theme={null}
+```text wrap theme={null}
 /mcp
 </code></pre></div></p>
+<p>Follow the sign-in steps in your browser. Once you're signed in, the <code>sentry</code> server shows <code>connected</code> in the <code>/mcp</code> menu.</p>
 <p>Then debug production issues:</p>
-<p>```text theme={null}
+<p>```text wrap theme={null}
 What are the most common errors in the last 24 hours?
-<div class="highlight"><pre><span></span><code>```text theme={null}
+<div class="highlight"><pre><span></span><code>```text wrap theme={null}
 Show me the stack trace for error ID abc123
 </code></pre></div></p>
-<p>```text theme={null}
+<p>```text wrap theme={null}
 Which deployment introduced these new errors?
 <div class="highlight"><pre><span></span><code>### Example: Connect to GitHub for code reviews
 
@@ -6472,26 +6536,29 @@ claude mcp add --transport http github https://api.githubcopilot.com/mcp/ \
 </code></pre></div></p>
 <p>Replace <code>YOUR_GITHUB_PAT</code> with your personal access token. The <code>claude mcp add</code> command saves the configuration without validating credentials, so a placeholder value is accepted here but the server fails to connect later. To verify the connection, run <code>/mcp</code> and check that the server shows <code>connected</code>. A server with bad credentials shows <code>failed</code>.</p>
 <p>Then work with GitHub:</p>
-<p>```text theme={null}
+<p>```text wrap theme={null}
 Review PR #456 and suggest improvements
-<div class="highlight"><pre><span></span><code>```text theme={null}
+<div class="highlight"><pre><span></span><code>```text wrap theme={null}
 Create a new issue for the bug we just found
 </code></pre></div></p>
-<p>```text theme={null}
+<p>```text wrap theme={null}
 Show me all open PRs assigned to me
 <div class="highlight"><pre><span></span><code>### Example: Query your PostgreSQL database
+
+[DBHub](https://github.com/bytebase/dbhub), the `@bytebase/dbhub` package, is an MCP server that connects Claude to a relational database through the connection string you pass in `--dsn`. Use a read-only database user in the connection string so the queries Claude runs can&#39;t modify data:
 
 ```bash theme={null}
 claude mcp add --transport stdio db -- npx -y @bytebase/dbhub \
   --dsn &quot;postgresql://readonly:pass@prod.db.com:5432/analytics&quot;
 </code></pre></div></p>
+<p>To confirm the server starts, run <code>/mcp</code> and check that <code>db</code> shows <code>connected</code>.</p>
 <p>Then query your database naturally:</p>
-<p>```text theme={null}
+<p>```text wrap theme={null}
 What's our total revenue this month?
-<div class="highlight"><pre><span></span><code>```text theme={null}
+<div class="highlight"><pre><span></span><code>```text wrap theme={null}
 Show me the schema for the orders table
 </code></pre></div></p>
-<p>```text theme={null}
+<p>```text wrap theme={null}
 Find customers who haven't made a purchase in 90 days
 <div class="highlight"><pre><span></span><code>## Authenticate with remote MCP servers
 
@@ -6513,7 +6580,7 @@ If you configured `headers.Authorization` for the server and the server rejects 
 
 &lt;Steps&gt;
   &lt;Step title=&quot;Add the server that requires authentication&quot;&gt;
-    For example:
+    If you already added this server in the [Sentry example](#example-monitor-errors-with-sentry) or the [MCP quickstart](/docs/en/mcp-quickstart), skip this step: running `claude mcp add` again with the same server name at the same scope fails with `MCP server sentry already exists in local config`. Otherwise, run:
 
     ```bash theme={null}
     claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
@@ -6523,7 +6590,7 @@ If you configured `headers.Authorization` for the server and the server rejects 
   &lt;Step title=&quot;Use the /mcp command within Claude Code&quot;&gt;
     In Claude Code, use the command:
 
-    ```text theme={null}
+    ```text wrap theme={null}
     /mcp
     ```
 
@@ -6799,7 +6866,7 @@ claude mcp add-json my-server '{"type":"http","url":"https://mcp.example.com/mcp
   </Step></p>
 <p><Step title="View and manage servers in Claude Code">
     In Claude Code, use the command:</p>
-<pre><code>```text theme={null}
+<pre><code>```text wrap theme={null}
 /mcp
 ```
 
@@ -6841,7 +6908,9 @@ ENABLE_CLAUDEAI_MCP_SERVERS=false claude
 <p>```bash theme={null}</p>
 <h1 id="start-claude-as-a-stdio-mcp-server">Start Claude as a stdio MCP server</h1>
 <p>claude mcp serve
-<div class="highlight"><pre><span></span><code>You can use this in Claude Desktop by adding this configuration to claude\_desktop\_config.json:
+<div class="highlight"><pre><span></span><code>The command prints nothing when it starts. A stdio MCP server communicates over stdin and stdout, so a silent, blocked terminal means the server is running and waiting for a client to connect.
+
+You can use this in Claude Desktop by adding this configuration to claude\_desktop\_config.json:
 
 ```json theme={null}
 {
@@ -6977,11 +7046,11 @@ MCP servers can expose resources that you can reference using @ mentions, simila
   &lt;Step title=&quot;Reference a specific resource&quot;&gt;
     Use the format `@server:protocol://resource/path` to reference a resource:
 
-    ```text theme={null}
+    ```text wrap theme={null}
     Can you analyze @github:issue://123 and suggest a fix?
     ```
 
-    ```text theme={null}
+    ```text wrap theme={null}
     Please review the API documentation at @docs:file://api/authentication
     ```
   &lt;/Step&gt;
@@ -6989,7 +7058,7 @@ MCP servers can expose resources that you can reference using @ mentions, simila
   &lt;Step title=&quot;Multiple resource references&quot;&gt;
     You can reference multiple resources in a single prompt:
 
-    ```text theme={null}
+    ```text wrap theme={null}
     Compare @postgres:schema://users with @docs:file://database/user-model
     ```
   &lt;/Step&gt;
@@ -7007,6 +7076,10 @@ MCP servers can expose resources that you can reference using @ mentions, simila
 ## Scale with MCP tool search
 
 Tool search keeps MCP context usage low by deferring tool definitions until Claude needs them. Only tool names and server instructions load at session start, so adding more MCP servers has minimal impact on your context window. Claude Code doesn&#39;t impose a fixed per-server tool cap; the practical limit is your context window budget.
+
+&lt;Note&gt;
+  Tool search isn&#39;t supported on Microsoft Foundry [deployments hosted on Azure](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry#hosting-options), which reject it server-side: Claude Code detects the rejection and loads MCP tools upfront for that deployment instead. [`ENABLE_TOOL_SEARCH`](#configure-tool-search) can&#39;t override this, since the rejection comes from the deployment itself.
+&lt;/Note&gt;
 
 ### How it works
 
@@ -7036,13 +7109,13 @@ Tool search requires a model that supports `tool_reference` blocks: Claude Sonne
 
 Control tool search behavior with the `ENABLE_TOOL_SEARCH` environment variable:
 
-| Value    | Behavior                                                                                                                                                                                                                                                                 |
-| :------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| (unset)  | All MCP tools deferred and loaded on demand. Falls back to loading upfront on Google Cloud&#39;s Agent Platform or when `ANTHROPIC_BASE_URL` is a non-first-party host                                                                                                       |
-| `true`   | All MCP tools deferred. Claude Code sends the beta header even on Google Cloud&#39;s Agent Platform and through proxies. Requests fail on Google Cloud&#39;s Agent Platform models earlier than Sonnet 4.5 or Opus 4.5, or on proxies that don&#39;t support `tool_reference` blocks |
-| `auto`   | Threshold mode: tools load upfront if they fit within 10% of the context window, deferred otherwise                                                                                                                                                                      |
-| `auto:N` | Threshold mode with a custom percentage, where `N` is 0-100. For example, `auto:5` for 5%                                                                                                                                                                                |
-| `false`  | All MCP tools loaded upfront, no deferral                                                                                                                                                                                                                                |
+| Value    | Behavior                                                                                                                                                                                                                                                                                                                                                                                         |
+| :------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (unset)  | All MCP tools deferred and loaded on demand. Falls back to loading upfront on Google Cloud&#39;s Agent Platform, when `ANTHROPIC_BASE_URL` is a non-first-party host, or on a Microsoft Foundry deployment hosted on Azure                                                                                                                                                                           |
+| `true`   | All MCP tools deferred, except on a Microsoft Foundry deployment hosted on Azure, where the server-side rejection still forces upfront loading. Claude Code sends the beta header even on Google Cloud&#39;s Agent Platform and through proxies. Requests fail on Google Cloud&#39;s Agent Platform models earlier than Sonnet 4.5 or Opus 4.5, or on proxies that don&#39;t support `tool_reference` blocks |
+| `auto`   | Threshold mode: tools load upfront if they fit within 10% of the context window, deferred otherwise                                                                                                                                                                                                                                                                                              |
+| `auto:N` | Threshold mode with a custom percentage, where `N` is 0-100. For example, `auto:5` for 5%                                                                                                                                                                                                                                                                                                        |
+| `false`  | All MCP tools loaded upfront, no deferral                                                                                                                                                                                                                                                                                                                                                        |
 
 ```bash theme={null}
 # Use a custom 5% threshold
@@ -7086,16 +7159,16 @@ The following `.mcp.json` entry exempts one HTTP server while leaving other serv
     Type <code>/</code> to see all available commands, including those from MCP servers. MCP prompts appear with the format <code>/mcp__servername__promptname</code>.
   </Step></p>
 <p><Step title="Execute a prompt without arguments">
-    <code>text theme={null}
+    <code>text wrap theme={null}
     /mcp__github__list_prs</code>
   </Step></p>
 <p><Step title="Execute a prompt with arguments">
     Many prompts accept arguments. Pass them space-separated after the command:</p>
-<pre><code>```text theme={null}
+<pre><code>```text wrap theme={null}
 /mcp__github__pr_review 456
 ```
 
-```text theme={null}
+```text wrap theme={null}
 /mcp__jira__create_issue "Bug in login flow" high
 ```
 </code></pre>
