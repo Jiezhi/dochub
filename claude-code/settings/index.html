@@ -4160,6 +4160,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#strictpluginonlycustomization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strictPluginOnlyCustomization
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5431,6 +5442,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#strictpluginonlycustomization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        strictPluginOnlyCustomization
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5881,6 +5903,7 @@ This tolerance applies only to managed settings. User, project, and local settin
 | `statusLine`                       | Configure a custom status line to display context. The object&#39;s optional `padding`, `refreshInterval`, and `hideVimModeIndicator` fields control spacing, periodic re-runs, and whether the built-in vim mode indicator below the prompt is hidden. See [`statusLine` documentation](/docs/en/statusline#manually-configure-a-status-line)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `{&quot;type&quot;: &quot;command&quot;, &quot;command&quot;: &quot;~/.claude/statusline.sh&quot;}`                                                                     |
 | `strictKnownMarketplaces`          | (Managed settings only) Allowlist of plugin marketplace sources. Undefined = no restrictions, empty array = lockdown. Enforced on marketplace add and on plugin install, update, refresh, and auto-update, so a marketplace added before the policy was set cannot be used to fetch plugins. See [Managed marketplace restrictions](/docs/en/plugin-marketplaces#managed-marketplace-restrictions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `[{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }]`                                                                         |
 | `strictPluginOnlyCustomization`    | (Managed settings only) Block skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings. `true` locks all four surfaces; an array locks only the named ones. See [`strictPluginOnlyCustomization`](#strictpluginonlycustomization)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `[&quot;skills&quot;, &quot;hooks&quot;]`                                                                                                           |
+| `switchModelsOnFlag`               | {/* min-version: 2.1.170 */}**Default**: `true`. When a [safety classifier flags a request](/docs/en/model-config#automatic-model-fallback), switch to the fallback model automatically and continue the session. Set to `false` to pause instead and choose between switching and editing the prompt. See [Ask before switching](/docs/en/model-config#ask-before-switching). Appears in `/config` as **Switch models when a message is flagged**. Requires Claude Code v2.1.170 or later                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `false`                                                                                                                         |
 | `syntaxHighlightingDisabled`       | Disable syntax highlighting in diffs, code blocks, and file previews                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `true`                                                                                                                          |
 | `teammateMode`                     | **Default**: `in-process`. How [agent team](/docs/en/agent-teams) teammates display: `in-process`, `auto` (split panes when running inside tmux, or inside iTerm2 with `it2` on your `PATH`; in-process otherwise), `tmux` (split panes using tmux or iTerm2, detected from your terminal), or {/* min-version: 2.1.186 */}`iterm2` (iTerm2 native split panes via the `it2` CLI, added in v2.1.186). The default changed from `auto` in v2.1.179. `--teammate-mode` overrides this for one session. See [choose a display mode](/docs/en/agent-teams#choose-a-display-mode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `&quot;auto&quot;`                                                                                                                        |
 | `terminalProgressBarEnabled`       | **Default**: `true`. Show the terminal progress bar in supported terminals: ConEmu, Ghostty 1.2.0+, and iTerm2 3.6.6+. Appears in `/config` as **Terminal progress bar**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `false`                                                                                                                         |
@@ -6325,7 +6348,7 @@ To prevent Claude Code from accessing files containing sensitive information lik
 </code></pre></div></p>
 <p>This replaces the deprecated <code>ignorePatterns</code> configuration. Files matching these patterns are excluded from file discovery and search results, and read operations on these files are denied.</p>
 <h2 id="subagent-configuration">Subagent configuration</h2>
-<p>Claude Code supports custom AI subagents that can be configured at both user and project levels. These subagents are stored as Markdown files with YAML frontmatter:</p>
+<p>Claude Code supports custom AI subagents that can be configured at both user and project levels. You define each subagent as a Markdown file with YAML frontmatter, saved in one of these locations:</p>
 <ul>
 <li><strong>User subagents</strong>: <code>~/.claude/agents/</code>, available across all your projects</li>
 <li><strong>Project subagents</strong>: <code>.claude/agents/</code>, specific to your project and shareable with your team</li>
@@ -6626,76 +6649,52 @@ Marketplace sources must match exactly for a user&#39;s addition to be allowed. 
 * The `ref` field must match exactly (or both be undefined)
 * The `path` field must match exactly (or both be undefined)
 
-Examples of sources that don&#39;t match:
+For example, Claude Code treats each pair below as two different sources:
+
+* `{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }` and `{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot;, &quot;ref&quot;: &quot;main&quot; }`
+* `{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot;, &quot;path&quot;: &quot;marketplace&quot; }` and `{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }`
+
+**Comparison with `extraKnownMarketplaces`**:
+
+| Aspect                | `strictKnownMarketplaces`            | `extraKnownMarketplaces`             |
+| --------------------- | ------------------------------------ | ------------------------------------ |
+| **Purpose**           | Organizational policy enforcement    | Team convenience                     |
+| **Settings file**     | `managed-settings.json` only         | Any settings file                    |
+| **Behavior**          | Blocks non-allowlisted additions     | Auto-installs missing marketplaces   |
+| **When enforced**     | Before network/filesystem operations | After user trust prompt              |
+| **Can be overridden** | No (highest precedence)              | Yes (by higher precedence settings)  |
+| **Source format**     | Direct source object                 | Named marketplace with nested source |
+| **Use case**          | Compliance, security restrictions    | Onboarding, standardization          |
+
+**Format difference**:
+
+`strictKnownMarketplaces` uses direct source objects:
 
 ```json theme={null}
-// These are DIFFERENT sources:
-{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }
-{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot;, &quot;ref&quot;: &quot;main&quot; }
-
-// These are also DIFFERENT:
-{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot;, &quot;path&quot;: &quot;marketplace&quot; }
-{ &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }
-</code></pre></div></p>
-<p><strong>Comparison with <code>extraKnownMarketplaces</code></strong>:</p>
-<table>
-<thead>
-<tr>
-<th>Aspect</th>
-<th><code>strictKnownMarketplaces</code></th>
-<th><code>extraKnownMarketplaces</code></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Purpose</strong></td>
-<td>Organizational policy enforcement</td>
-<td>Team convenience</td>
-</tr>
-<tr>
-<td><strong>Settings file</strong></td>
-<td><code>managed-settings.json</code> only</td>
-<td>Any settings file</td>
-</tr>
-<tr>
-<td><strong>Behavior</strong></td>
-<td>Blocks non-allowlisted additions</td>
-<td>Auto-installs missing marketplaces</td>
-</tr>
-<tr>
-<td><strong>When enforced</strong></td>
-<td>Before network/filesystem operations</td>
-<td>After user trust prompt</td>
-</tr>
-<tr>
-<td><strong>Can be overridden</strong></td>
-<td>No (highest precedence)</td>
-<td>Yes (by higher precedence settings)</td>
-</tr>
-<tr>
-<td><strong>Source format</strong></td>
-<td>Direct source object</td>
-<td>Named marketplace with nested source</td>
-</tr>
-<tr>
-<td><strong>Use case</strong></td>
-<td>Compliance, security restrictions</td>
-<td>Onboarding, standardization</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Format difference</strong>:</p>
-<p><code>strictKnownMarketplaces</code> uses direct source objects:</p>
-<p>```json theme={null}
 {
-  "strictKnownMarketplaces": [
-    { "source": "github", "repo": "acme-corp/plugins" }
+  &quot;strictKnownMarketplaces&quot;: [
+    { &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }
   ]
 }
-<div class="highlight"><pre><span></span><code>`extraKnownMarketplaces` requires named marketplaces:
+</code></pre></div></p>
+<p><code>extraKnownMarketplaces</code> requires named marketplaces:</p>
+<p>```json theme={null}
+{
+  "extraKnownMarketplaces": {
+    "acme-tools": {
+      "source": { "source": "github", "repo": "acme-corp/plugins" }
+    }
+  }
+}
+<div class="highlight"><pre><span></span><code>**Using both together**:
+
+`strictKnownMarketplaces` is a policy gate: it controls what users may add but does not register any marketplaces. To both restrict and pre-register a marketplace for all users, set both in `managed-settings.json`:
 
 ```json theme={null}
 {
+  &quot;strictKnownMarketplaces&quot;: [
+    { &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }
+  ],
   &quot;extraKnownMarketplaces&quot;: {
     &quot;acme-tools&quot;: {
       &quot;source&quot;: { &quot;source&quot;: &quot;github&quot;, &quot;repo&quot;: &quot;acme-corp/plugins&quot; }
@@ -6703,41 +6702,22 @@ Examples of sources that don&#39;t match:
   }
 }
 </code></pre></div></p>
-<p><strong>Using both together</strong>:</p>
-<p><code>strictKnownMarketplaces</code> is a policy gate: it controls what users may add but does not register any marketplaces. To both restrict and pre-register a marketplace for all users, set both in <code>managed-settings.json</code>:</p>
-<p>```json theme={null}
+<p>With only <code>strictKnownMarketplaces</code> set, users can still add the allowed marketplace manually via <code>/plugin marketplace add</code>, but it is not available automatically.</p>
+<p><strong>Important notes</strong>:</p>
+<ul>
+<li>Restrictions are checked before any network requests or filesystem operations</li>
+<li>When blocked, users see clear error messages indicating the source is blocked by managed policy</li>
+<li>The restriction is enforced on marketplace add and on plugin install, update, refresh, and auto-update. A marketplace added before the policy was set cannot be used to install or update plugins once its source no longer matches the allowlist</li>
+<li>Managed settings have the highest precedence and cannot be overridden</li>
+</ul>
+<p>See <a href="/docs/en/plugin-marketplaces#managed-marketplace-restrictions">Managed marketplace restrictions</a> for user-facing documentation.</p>
+<h4 id="strictpluginonlycustomization"><code>strictPluginOnlyCustomization</code></h4>
+<p><strong>Managed settings only</strong>: blocks skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings. Combine it with <code>strictKnownMarketplaces</code> to control the full customization supply chain: the marketplace allowlist controls which plugins users can install, and this setting blocks everything that doesn't come from a plugin or from managed settings.</p>
+<p>The value is either <code>true</code> to lock all four surfaces, or an array naming the surfaces to lock:</p>
+<p><code>json theme={null}
 {
-  "strictKnownMarketplaces": [
-    { "source": "github", "repo": "acme-corp/plugins" }
-  ],
-  "extraKnownMarketplaces": {
-    "acme-tools": {
-      "source": { "source": "github", "repo": "acme-corp/plugins" }
-    }
-  }
-}
-<div class="highlight"><pre><span></span><code>With only `strictKnownMarketplaces` set, users can still add the allowed marketplace manually via `/plugin marketplace add`, but it is not available automatically.
-
-**Important notes**:
-
-* Restrictions are checked before any network requests or filesystem operations
-* When blocked, users see clear error messages indicating the source is blocked by managed policy
-* The restriction is enforced on marketplace add and on plugin install, update, refresh, and auto-update. A marketplace added before the policy was set cannot be used to install or update plugins once its source no longer matches the allowlist
-* Managed settings have the highest precedence and cannot be overridden
-
-See [Managed marketplace restrictions](/docs/en/plugin-marketplaces#managed-marketplace-restrictions) for user-facing documentation.
-
-#### `strictPluginOnlyCustomization`
-
-**Managed settings only**: blocks skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings. Combine it with `strictKnownMarketplaces` to control the full customization supply chain: the marketplace allowlist controls which plugins users can install, and this setting blocks everything that doesn&#39;t come from a plugin or from managed settings.
-
-The value is either `true` to lock all four surfaces, or an array naming the surfaces to lock:
-
-```json theme={null}
-{
-  &quot;strictPluginOnlyCustomization&quot;: [&quot;skills&quot;, &quot;hooks&quot;]
-}
-</code></pre></div></p>
+  "strictPluginOnlyCustomization": ["skills", "hooks"]
+}</code></p>
 <p>For each locked surface, Claude Code skips user-level and project-level sources and loads only plugin-provided and managed sources:</p>
 <table>
 <thead>

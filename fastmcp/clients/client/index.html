@@ -207,7 +207,7 @@
   <span class="md-ellipsis">
     
   
-    Welcome to FastMCP
+    FastMCP: The Framework for MCP
   
 
     
@@ -15055,10 +15055,10 @@ This is a programmatic client that requires explicit function calls and provides
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Instructions: </span><span class="si">{</span><span class="n">client</span><span class="o">.</span><span class="n">instructions</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Capabilities: </span><span class="si">{</span><span class="n">client</span><span class="o">.</span><span class="n">server_capabilities</span><span class="o">.</span><span class="n">tools</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>For advanced scenarios where you need precise control over when initialization happens, disable automatic initialization and call <code>initialize()</code> manually:</p>
+<p>For advanced scenarios where you need precise control over when initialization happens, disable automatic initialization and call <code>initialize()</code> manually. <code>initialize()</code> is a handshake-era operation, so pin the connection with <code>mode="legacy"</code>: the modern protocol has no <code>initialize</code> round trip, and calling it on a modern connection raises.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
-<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span> <span class="n">auto_initialize</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">,</span> <span class="n">auto_initialize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;legacy&quot;</span><span class="p">)</span>
 
 <span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
     <span class="c1"># Connection established, but not initialized yet</span>
@@ -15104,7 +15104,7 @@ This is a programmatic client that requires explicit function calls and provides
 </Note></p>
 <h2 id="response-caching">Response caching</h2>
 <p><VersionBadge version="4.0.0" /></p>
-<p>The client can cache the results of <code>list_tools</code>, <code>list_resources</code>, <code>list_prompts</code>, and <code>read_resource</code> so that repeated calls avoid a network round-trip. Caching is opt-in and honors the server's own cache hints, so it only takes effect against modern-era servers that advertise them — a cache is inert on a legacy connection.</p>
+<p>The client can cache the results of <code>list_tools</code>, <code>list_resources</code>, and <code>list_prompts</code> so that repeated calls avoid a network round-trip. Caching is opt-in and honors the server's own cache hints, so it only takes effect against modern-era servers that advertise them — a cache is inert on a legacy connection.</p>
 <p>Enable the default in-memory cache by passing <code>cache=True</code>. It respects the <code>ttlMs</code> and <code>cacheScope</code> hints the server attaches to each response.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
@@ -15121,7 +15121,7 @@ This is a programmatic client that requires explicit function calls and provides
 <span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span><span class="n">target_id</span><span class="o">=</span><span class="s2">&quot;weather-api&quot;</span><span class="p">,</span> <span class="n">default_ttl_ms</span><span class="o">=</span><span class="mi">60_000</span><span class="p">)</span>
 <span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;https://example.com/mcp&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
-<p>The high-level <code>list_tools</code>, <code>list_resources</code>, <code>list_prompts</code>, and <code>read_resource</code> methods always use the cache when one is configured. To override the behavior for a single call, use the lower-level <code>*_mcp</code> variants, which accept a <code>cache_mode</code> argument: <code>"use"</code> (the default) serves and stores, <code>"refresh"</code> stores a fresh result without serving a cached one, and <code>"bypass"</code> skips the cache entirely.</p>
+<p>The high-level <code>list_tools</code>, <code>list_resources</code>, and <code>list_prompts</code> methods always use the cache when one is configured. To override the behavior for a single call, use the lower-level <code>list_tools_mcp</code>, <code>list_resources_mcp</code>, <code>list_resource_templates_mcp</code>, and <code>list_prompts_mcp</code> variants, which accept a <code>cache_mode</code> argument: <code>"use"</code> (the default) serves and stores, <code>"refresh"</code> stores a fresh result without serving a cached one, and <code>"bypass"</code> skips the cache entirely.</p>
 <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">fresh</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools_mcp</span><span class="p">(</span><span class="n">cache_mode</span><span class="o">=</span><span class="s2">&quot;refresh&quot;</span><span class="p">)</span>
 </code></pre></div>

@@ -5626,7 +5626,7 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Control what Claude Code can access and do with fine-grained permission rules, modes, and managed policies.</p>
 </blockquote>
-<p>Claude Code supports fine-grained permissions so that you can specify exactly what the agent is allowed to do and what it can't. Permission settings can be checked into version control and distributed to all developers in your organization, as well as customized by individual developers.</p>
+<p>Claude Code supports fine-grained permissions so that you can specify exactly what the agent is allowed to do and what it can't. You can check permission settings into version control to share them with every developer in your organization, and each developer can customize their own.</p>
 <h2 id="permission-system">Permission system</h2>
 <p>Claude Code uses a tiered permission system to balance power and safety:</p>
 <table>
@@ -5801,7 +5801,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>The value is compared against the literal input Claude sends, before any normalization. <code>Agent(model:opus)</code> matches the alias <code>opus</code> but not a full model ID. Run with <a href="/docs/en/cli-reference"><code>--verbose</code></a> to see the exact parameter names and values in each tool call</li>
 <li>Whitespace around the colon is ignored</li>
 </ul>
-<p>Fields that a tool already matches with its own canonicalizing rules are not matchable this way: <code>command</code> for Bash and PowerShell, <code>file_path</code> for Read, Edit, and Write, <code>path</code> for Grep and Glob, <code>notebook_path</code> for NotebookEdit, and <code>url</code> for WebFetch. A rule like <code>Bash(command:rm *)</code> would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use <code>Bash(rm *)</code>, <code>Read(./path)</code>, or <code>WebFetch(domain:host)</code> instead.</p>
+<p>You can't match a tool's primary content field this way: <code>command</code> for Bash and PowerShell, <code>file_path</code> for Read, Edit, and Write, <code>path</code> for Grep and Glob, <code>notebook_path</code> for NotebookEdit, and <code>url</code> for WebFetch. A rule like <code>Bash(command:rm *)</code> would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use <code>Bash(rm *)</code>, <code>Read(./path)</code>, or <code>WebFetch(domain:host)</code> instead.</p>
 <h3 id="wildcard-patterns">Wildcard patterns</h3>
 <p>Bash rules support glob patterns with <code>*</code>. Wildcards can appear at any position in the command. This configuration allows npm and git commit commands while blocking git push:</p>
 <p>```json theme={null}
@@ -5922,9 +5922,9 @@ Claude Code parses the PowerShell AST and checks each command in a compound comm
 
 {/* min-version: 2.1.208 */}A `Read` deny rule also blocks the [Edit tool](/docs/en/errors#file-is-covered-by-a-read-deny-rule) on the same path, including creating a new file there. Write and NotebookEdit aren&#39;t covered, so add an `Edit` deny rule for paths no tool may change. Requires Claude Code v2.1.208 or later.
 
-{/* min-version: 2.1.210 */}The file permission checks match only `Edit(path)` and `Read(path)` rules. A `Write(path)`, `NotebookEdit(path)`, or `Glob(path)` rule is accepted but never matched by those checks, so Claude Code warns at startup for each allow, deny, or ask rule in one of these unmatched forms. Use `Edit(docs/**)` in place of `Write(docs/**)` or `NotebookEdit(docs/**)`, and `Read(docs/**)` in place of `Glob(docs/**)`. A tool-name rule with no path, such as a deny rule for `Write`, isn&#39;t affected: it matches the tool everywhere and produces no warning. Requires Claude Code v2.1.210 or later.
+{/* min-version: 2.1.210 */}Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only. If you write a path rule for `Write`, `NotebookEdit`, `Glob`, or the legacy `MultiEdit` tool instead, Claude Code accepts the rule but never consults it, and [warns at startup](/docs/en/errors#is-not-matched-by-file-permission-checks), except for a `Glob` rule passed in `--allowedTools`. Use `Edit(docs/**)` in place of `Write(docs/**)`, `NotebookEdit(docs/**)`, or `MultiEdit(docs/**)`, and `Read(docs/**)` in place of `Glob(docs/**)`. Claude Code doesn&#39;t warn about a tool-name rule with no path, such as a deny rule for `Write`; it matches that rule at the tool level everywhere. Requires Claude Code v2.1.210 or later.
 
-A deny rule `Write(docs/**)` in project settings produces this startup warning:
+If you put a deny rule `Write(docs/**)` in project settings, Claude Code prints this startup warning:
 
 ```text theme={null}
 Permission deny rule (.claude/settings.json): Write(docs/**) is not matched by file permission checks — only Edit(path) rules are. Use Edit(docs/**) instead (Edit rules cover all file-editing tools).

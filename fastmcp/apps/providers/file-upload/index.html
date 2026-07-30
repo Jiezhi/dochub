@@ -207,7 +207,7 @@
   <span class="md-ellipsis">
     
   
-    Welcome to FastMCP
+    FastMCP: The Framework for MCP
   
 
     
@@ -14844,13 +14844,19 @@
 <p><Warning>
 In <strong>stateless HTTP</strong> mode, each request creates a new session object with a new ID. Files stored during one request (e.g. the UI upload) will be invisible to the next request (e.g. the LLM calling <code>list_files</code>). You <strong>must</strong> override <code>_get_scope_key</code> to use a stable identifier like a user ID from your auth token.
 </Warning></p>
-<p>For stateless deployments, override <code>_get_scope_key</code> to return a stable identifier. For example, to scope files by authenticated user:</p>
+<p>For stateless deployments, override <code>_get_scope_key</code> to return a stable identifier. To scope files by authenticated user, read the caller from <code>get_access_token()</code>.</p>
+<p>Reject the request when there is no subject to key on. <code>get_access_token()</code> returns <code>None</code> on an unauthenticated request, and <code>subject</code> is optional even on a valid token, since not every verifier populates it. Returning a fallback in either case would put every such caller in one shared bucket, so they would see each other's uploads.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.apps.file_upload</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileUpload</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.dependencies</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_access_token</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">UserScopedUpload</span><span class="p">(</span><span class="n">FileUpload</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_scope_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">ctx</span><span class="o">.</span><span class="n">access_token</span><span class="p">[</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">get_access_token</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">token</span><span class="o">.</span><span class="n">subject</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File scoping requires an authenticated user with a subject&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">token</span><span class="o">.</span><span class="n">subject</span>
 </code></pre></div>
+<p>If your provider carries the user identity in a different claim, read it from <code>token.claims</code> and validate it the same way.</p>
 <p>For process-wide shared storage (all users see all files):</p>
 <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SharedUpload</span><span class="p">(</span><span class="n">FileUpload</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_scope_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
@@ -14861,10 +14867,17 @@ In <strong>stateless HTTP</strong> mode, each request creates a new session obje
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.apps.file_upload</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileUpload</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.dependencies</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_access_token</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">S3Upload</span><span class="p">(</span><span class="n">FileUpload</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_scope_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">get_access_token</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">token</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">token</span><span class="o">.</span><span class="n">subject</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;File scoping requires an authenticated user with a subject&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">token</span><span class="o">.</span><span class="n">subject</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">on_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">files</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
-        <span class="n">user_id</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">access_token</span><span class="p">[</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span>
+        <span class="n">user_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_scope_key</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
             <span class="n">s3</span><span class="o">.</span><span class="n">put_object</span><span class="p">(</span>
                 <span class="n">Bucket</span><span class="o">=</span><span class="s2">&quot;uploads&quot;</span><span class="p">,</span>
@@ -14874,7 +14887,7 @@ In <strong>stateless HTTP</strong> mode, each request creates a new session obje
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_list</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">on_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
-        <span class="n">user_id</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">access_token</span><span class="p">[</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span>
+        <span class="n">user_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_scope_key</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
         <span class="n">objects</span> <span class="o">=</span> <span class="n">s3</span><span class="o">.</span><span class="n">list_objects</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="s2">&quot;uploads&quot;</span><span class="p">,</span> <span class="n">Prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">user_id</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span>
             <span class="p">{</span>
@@ -14888,7 +14901,7 @@ In <strong>stateless HTTP</strong> mode, each request creates a new session obje
         <span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">on_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ctx</span><span class="p">):</span>
-        <span class="n">user_id</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">access_token</span><span class="p">[</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span>
+        <span class="n">user_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_scope_key</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
         <span class="n">obj</span> <span class="o">=</span> <span class="n">s3</span><span class="o">.</span><span class="n">get_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="s2">&quot;uploads&quot;</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">user_id</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">content</span> <span class="o">=</span> <span class="n">obj</span><span class="p">[</span><span class="s2">&quot;Body&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
         <span class="k">return</span> <span class="p">{</span>

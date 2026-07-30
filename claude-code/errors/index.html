@@ -6562,6 +6562,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#workspace-has-not-been-trusted">Configuration warnings</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>... is not matched by file permission checks</code></td>
+<td style="text-align: left;"><a href="#is-not-matched-by-file-permission-checks">Configuration warnings</a></td>
+</tr>
+<tr>
 <td style="text-align: left;">Responses seem lower quality than usual</td>
 <td style="text-align: left;"><a href="#responses-seem-lower-quality-than-usual">Response quality</a></td>
 </tr>
@@ -7807,17 +7811,33 @@ Restored the code, but skipped 2 files: the tracked path is (or became) a link o
 <li>If you didn't create the link, inspect the path before trusting its contents: something replaced the file after the checkpoint</li>
 </ul>
 <h2 id="configuration-warnings">Configuration warnings</h2>
-<p>Claude Code writes these messages to stderr at startup rather than showing an error in the conversation. They report configuration it read but didn't apply.</p>
+<p>Claude Code writes these messages to stderr at startup rather than showing an error in the conversation, except where an entry notes that it writes the message to the debug log instead. They report configuration it read but didn't apply.</p>
 <h3 id="workspace-has-not-been-trusted">Workspace has not been trusted</h3>
 <p>Claude Code found <code>permissions.allow</code> rules or <code>permissions.additionalDirectories</code> entries in the project's <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code> and didn't apply them, because <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">allow rules from project settings require workspace trust</a>. The count, the setting name, and the file named in the message vary with your configuration. <code>deny</code> and <code>ask</code> rules aren't affected.</p>
-<p><code>text theme={null}
-Ignoring 2 permissions.allow entries from .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/Users/you/project"].hasTrustDialogAccepted: true in /Users/you/.claude.json.</code></p>
+<p>```text theme={null}
+Ignoring 2 permissions.allow entries from .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/Users/you/project"].hasTrustDialogAccepted: true in /Users/you/.claude.json.
+<div class="highlight"><pre><span></span><code>**What to do:**
+
+* Run `claude` in the directory and accept the trust dialog. {/* min-version: 2.1.200 */}The dialog appears even when a parent directory is already trusted, lists the rules being held back, and lets you decline and keep working without them. Before v2.1.200, no dialog appeared in that situation, so this step couldn&#39;t be completed there.
+* In [non-interactive mode](/docs/en/headless) with `-p` no dialog is shown. Set the `hasTrustDialogAccepted` entry in `~/.claude.json` using the exact `projects` key the message prints.
+* {/* min-version: 2.1.200 */}If the message names `.claude/settings.local.json` and you started Claude Code outside a git repository or in your home directory, update to v2.1.200 or later. Versions 2.1.196 through 2.1.199 treated your own `.claude/settings.local.json` as repository-supplied in those workspaces. {/* min-version: 2.1.207 */}On v2.1.207 and later, updating isn&#39;t enough outside a git repository if you haven&#39;t trusted the folder: determining that a folder isn&#39;t inside a repository runs git, and Claude Code runs that check only after you accept the trust dialog, so use the first step. Your home directory and any other [configuration home](/docs/en/permissions#project-allow-rules-and-workspace-trust) are exempt and don&#39;t wait for the dialog. See [Project allow rules and workspace trust](/docs/en/permissions#project-allow-rules-and-workspace-trust).
+
+### Is not matched by file permission checks
+
+{/* min-version: 2.1.210 */}Claude Code found a `Write`, `NotebookEdit`, `MultiEdit`, or `Glob` [permission rule](/docs/en/permissions#read-and-edit) with a path in one of your [settings files](/docs/en/settings#settings-files), in [managed settings](/docs/en/permissions#managed-settings), or in a `--allowedTools`, `--disallowedTools`, or `--settings` flag value. It checks file permissions against `Edit` and `Read` rules only, so it never consults a path rule that names one of the other file tools. It keeps the rule and changes nothing else; the warning names the rule, its source in parentheses, and the replacement to write:
+
+```text theme={null}
+Permission deny rule (.claude/settings.json): Write(docs/**) is not matched by file permission checks — only Edit(path) rules are. Use Edit(docs/**) instead (Edit rules cover all file-editing tools).
+</code></pre></div></p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Run <code>claude</code> in the directory and accept the trust dialog. {/<em> min-version: 2.1.200 </em>/}The dialog appears even when a parent directory is already trusted, lists the rules being held back, and lets you decline and keep working without them. Before v2.1.200, no dialog appeared in that situation, so this step couldn't be completed there.</li>
-<li>In <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code> no dialog is shown. Set the <code>hasTrustDialogAccepted</code> entry in <code>~/.claude.json</code> using the exact <code>projects</code> key the message prints.</li>
-<li>{/<em> min-version: 2.1.200 </em>/}If the message names <code>.claude/settings.local.json</code> and you started Claude Code outside a git repository or in your home directory, update to v2.1.200 or later. Versions 2.1.196 through 2.1.199 treated your own <code>.claude/settings.local.json</code> as repository-supplied in those workspaces. {/<em> min-version: 2.1.207 </em>/}On v2.1.207 and later, updating isn't enough outside a git repository if you haven't trusted the folder: determining that a folder isn't inside a repository runs git, and Claude Code runs that check only after you accept the trust dialog, so use the first step. Your home directory and any other <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">configuration home</a> are exempt and don't wait for the dialog. See <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">Project allow rules and workspace trust</a>.</li>
+<li>Replace <code>Write(path)</code>, <code>NotebookEdit(path)</code>, and legacy <code>MultiEdit(path)</code> rules with <code>Edit(path)</code>. <code>Edit</code> rules cover all file-editing tools.</li>
+<li>Except in <code>--allowedTools</code>, where Claude Code accepts a <code>Glob</code> rule without warning, replace <code>Glob(path)</code> rules with <code>Read(path)</code>.</li>
+<li>Fix the rule at the source the warning names in parentheses: a settings file path, or the flag itself for <code>--allowed-tools</code> and <code>--disallowed-tools</code>. A <code>claude-settings-&lt;hash&gt;.json</code> path that doesn't exist on disk stands for an inline <code>--settings</code> value; fix the JSON you pass to that flag.</li>
+<li>Leave bare tool-name rules such as <code>Write</code> or <code>Glob</code> alone. Claude Code matches them at the <a href="/docs/en/permissions#match-all-uses-of-a-tool">tool level</a> and doesn't warn about them.</li>
+<li>If the source reads <code>managed policy settings</code>, forward the warning to whoever maintains your managed settings; you can't clear it yourself.</li>
 </ul>
+<p>In a <a href="/docs/en/agent-view">background session</a> or with <code>--output-format json</code> or <code>stream-json</code>, Claude Code writes the warning to the debug log instead of stderr, so machine-read output stays clean; run with <code>--debug</code> to capture it at <code>~/.claude/debug/&lt;session-id&gt;.txt</code>. Before v2.1.210, Claude Code accepted these rules without a warning.</p>
 <h2 id="responses-seem-lower-quality-than-usual">Responses seem lower quality than usual</h2>
 <p>If Claude's answers seem less capable than you expect but no error is shown, the cause is usually conversation state rather than the model itself. Claude Code doesn't silently change model versions. It can switch to a fallback model in three specific cases:</p>
 <ul>

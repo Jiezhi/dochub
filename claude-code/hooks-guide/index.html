@@ -5404,7 +5404,7 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Run shell commands automatically when Claude Code edits files, finishes tasks, or needs input. Format code, send notifications, validate commands, and enforce project rules.</p>
 </blockquote>
-<p>Hooks are user-defined shell commands that execute at specific points in Claude Code's lifecycle. They provide deterministic control over Claude Code's behavior, ensuring certain actions always happen rather than relying on the LLM to choose to run them. Use hooks to enforce project rules, automate repetitive tasks, and integrate Claude Code with your existing tools.</p>
+<p>Hooks are user-defined shell commands. Claude Code runs them at specific points in its lifecycle, which gives you deterministic control: certain actions always happen rather than relying on the LLM to choose to run them. Use hooks to enforce project rules, automate repetitive tasks, and integrate Claude Code with your existing tools.</p>
 <p>For decisions that require judgment rather than deterministic rules, you can also use <a href="#prompt-based-hooks">prompt-based hooks</a> or <a href="#agent-based-hooks">agent-based hooks</a> that use a Claude model to evaluate conditions.</p>
 <p>For other ways to extend Claude Code, see <a href="/docs/en/skills">skills</a> for giving Claude additional instructions and executable commands, <a href="/docs/en/sub-agents">subagents</a> for running tasks in isolated contexts, and <a href="/docs/en/plugins">plugins</a> for packaging extensions to share across projects.</p>
 <p><Tip>
@@ -5473,7 +5473,7 @@ You can also ask Claude to write the hook for you by describing what you want in
 <p>For a production example of hooks that run a separate model review and feed findings back into the session, see <a href="/docs/en/security-guidance#how-the-plugin-integrates-with-claude-code">how the <code>security-guidance</code> plugin integrates with Claude Code</a>.</p>
 <h3 id="get-notified-when-claude-needs-input">Get notified when Claude needs input</h3>
 <p>Get a desktop notification whenever Claude finishes working and needs your input, so you can switch to other tasks without checking the terminal.</p>
-<p>This hook uses the <code>Notification</code> event, which fires when Claude is waiting for input or permission. Each tab below uses the platform's native notification command. Add this to <code>~/.claude/settings.json</code>:</p>
+<p>This hook uses the <code>Notification</code> event, which Claude Code fires when Claude is waiting for input or permission. Each tab below uses the platform's native notification command. Add this to <code>~/.claude/settings.json</code>:</p>
 <p><Tabs>
   <Tab title="macOS">
     <code>json theme={null}
@@ -5780,7 +5780,7 @@ Pairing a `SessionStart` hook with a `CwdChanged` hook fixes this. `SessionStart
 
 Skip the approval dialog for tool calls you always allow. This example auto-approves `ExitPlanMode`, the tool Claude calls when it finishes presenting a plan and asks to proceed, so you aren&#39;t prompted every time a plan is ready.
 
-Unlike the exit-code examples above, auto-approval requires your hook to write a JSON decision to stdout. A `PermissionRequest` hook fires when Claude Code is about to ask you for permission, and returning `&quot;behavior&quot;: &quot;allow&quot;` answers the request on your behalf.
+Unlike the exit-code examples above, auto-approval requires your hook to write a JSON decision to stdout. Claude Code runs `PermissionRequest` hooks when it&#39;s about to ask you for permission, and if your hook returns `&quot;behavior&quot;: &quot;allow&quot;`, Claude Code answers the request on your behalf.
 
 The matcher scopes the hook to `ExitPlanMode` only, so no other prompts are affected. Add this to `~/.claude/settings.json`:
 
@@ -5823,7 +5823,7 @@ The matcher scopes the hook to `ExitPlanMode` only, so no other prompts are affe
 
 ## How hooks work
 
-Hook events fire at specific lifecycle points in Claude Code. When an event fires, all matching hooks run in parallel, and identical hook commands are automatically deduplicated. The table below shows each event and when it triggers:
+Claude Code fires hook events at specific points in its lifecycle. When an event fires, Claude Code runs all matching hooks in parallel and deduplicates identical hook commands automatically. The table below shows each event and when it triggers:
 
 | Event                 | When it fires                                                                                                                                          |
 | :-------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -5930,7 +5930,7 @@ exit 0  # exit 0 = no decision; the normal permission flow applies
 <p>The exit code determines what happens next:</p>
 <ul>
 <li><strong>Exit 0</strong>: the hook reports no objection and the action proceeds normally. For a <code>PreToolUse</code> hook this doesn't approve the tool call: the normal <a href="/docs/en/permissions">permission flow</a> still applies. For <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, and <code>SessionStart</code> hooks, anything you write to stdout is added to Claude's context.</li>
-<li><strong>Exit 2</strong>: the action is blocked. Write a reason to stderr, and Claude receives it as feedback so it can adjust. Some events can't be blocked: for <code>SessionStart</code>, <code>Setup</code>, <code>Notification</code>, and others, exit 2 shows stderr to the user and execution continues. See <a href="/docs/en/hooks#exit-code-2-behavior-per-event">exit code 2 behavior per event</a> for the full list.</li>
+<li><strong>Exit 2</strong>: Claude Code blocks the action. Write a reason to stderr, and Claude receives it as feedback so it can adjust. Some events can't be blocked: for <code>SessionStart</code>, <code>Setup</code>, <code>Notification</code>, and others, exit 2 shows stderr to the user and execution continues. See <a href="/docs/en/hooks#exit-code-2-behavior-per-event">exit code 2 behavior per event</a> for the full list.</li>
 <li><strong>Any other exit code</strong>: the action proceeds. The transcript shows a <code>&lt;hook name&gt; hook error</code> notice followed by the first line of stderr; the full stderr goes to the <a href="/docs/en/hooks#debug-hooks">debug log</a>.</li>
 </ul>
 <h4 id="structured-json-output">Structured JSON output</h4>
