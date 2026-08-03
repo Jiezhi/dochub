@@ -5145,13 +5145,16 @@ This example asks Claude a question about your codebase and prints the response:
 ```bash theme={null}
 claude -p &quot;What does the auth module do?&quot;
 </code></pre></div></p>
+<p>Claude Code exits with code 0 on success and a non-zero code when the run fails, so your scripts can branch on the exit status. If you pass an invalid flag, Claude Code reports the error to stderr before the run starts. When a failure happens inside the run, such as missing authentication, Claude Code prints the failure as the result on stdout.</p>
 <h3 id="start-faster-with-bare-mode">Start faster with bare mode</h3>
 <p>Add <code>--bare</code> to reduce startup time by skipping auto-discovery of hooks, skills, plugins, MCP servers, auto memory, and CLAUDE.md. Without it, <code>claude -p</code> loads the same <a href="/docs/en/how-claude-code-works#the-context-window">context</a> an interactive session would, including anything configured in the working directory or <code>~/.claude</code>.</p>
 <p>Bare mode is useful for CI and scripts where you need the same result on every machine. A hook in a teammate's <code>~/.claude</code> or an MCP server in the project's <code>.mcp.json</code> won't run, because bare mode never reads them. Only flags you pass explicitly take effect.</p>
-<p>This example runs a one-off summarize task in bare mode and pre-approves the Read tool so the call completes without a permission prompt:</p>
+<p>This example runs a one-off summarize task in bare mode and pre-approves the Read tool so the call completes without a permission prompt. Set <code>ANTHROPIC_API_KEY</code> before running it, because bare mode doesn't use your subscription login:</p>
 <p>```bash theme={null}
-claude --bare -p "Summarize this file" --allowedTools "Read"
-<div class="highlight"><pre><span></span><code>In bare mode Claude has access to the Bash, file read, and file edit tools. Pass any context you need with a flag:
+claude --bare -p "Summarize README.md" --allowedTools "Read"
+<div class="highlight"><pre><span></span><code>Bare mode skips OAuth and the system keychain, so Claude Code only sees credentials you pass explicitly. For the Anthropic API, set `ANTHROPIC_API_KEY` in the environment, with a key created in the [Claude Console](https://platform.claude.com), or supply an `apiKeyHelper` in the `--settings` JSON. Amazon Bedrock, Google Cloud&#39;s Agent Platform, and Microsoft Foundry continue to read their own provider credentials as usual.
+
+In bare mode Claude has access to the Bash, file read, and file edit tools. Pass any context you need with a flag:
 
 | To load                 | Use                                                     |
 | ----------------------- | ------------------------------------------------------- |
@@ -5160,8 +5163,6 @@ claude --bare -p "Summarize this file" --allowedTools "Read"
 | MCP servers             | `--mcp-config &lt;file-or-json&gt;`                           |
 | Custom agents           | `--agents &lt;json&gt;`                                       |
 | A plugin                | `--plugin-dir &lt;path&gt;`, `--plugin-url &lt;url&gt;`             |
-
-Bare mode skips OAuth and keychain reads. For Anthropic authentication, set `ANTHROPIC_API_KEY` or configure an `apiKeyHelper` in the JSON you pass to `--settings`. Amazon Bedrock, Google Cloud&#39;s Agent Platform, and Microsoft Foundry use their usual provider credentials.
 
 &lt;Note&gt;
   `--bare` is the recommended mode for scripted and SDK calls, and will become the default for `-p` in a future release.
@@ -5177,7 +5178,7 @@ If you stop a `claude -p` run with SIGTERM, for example from `kill`, a process s
 
 ## Examples
 
-These examples highlight common CLI patterns. For CI and other scripted calls, add [`--bare`](#start-faster-with-bare-mode) so they don&#39;t pick up whatever happens to be configured locally.
+These examples highlight common CLI patterns. Where a command names a file such as `auth.py` or `build-error.txt`, substitute a file from your own project. In CI or other scripted environments, add [`--bare`](#start-faster-with-bare-mode) so Claude Code ignores any local configuration on the host.
 
 ### Pipe data through Claude
 
@@ -5202,7 +5203,9 @@ cat build-error.txt | claude -p &#39;concisely explain the root cause of this bu
     "lint:claude": "git diff main | claude -p \"you are a typo linter. for each typo in this diff, report filename:line on one line and the issue on the next. return nothing else.\""
   }
 }
-<div class="highlight"><pre><span></span><code>### Get structured output
+<div class="highlight"><pre><span></span><code>Run it with `npm run lint:claude`.
+
+### Get structured output
 
 Use `--output-format` to control how responses are returned:
 
@@ -5343,12 +5346,14 @@ claude -p &quot;Look at my staged changes and create an appropriate commit&quot;
   User-invoked <a href="/docs/en/skills">skills</a> and custom commands work in <code>-p</code> mode: include <code>/skill-name</code> in the prompt string and Claude Code expands it before running. Built-in commands that only run in the terminal interface, such as <code>/login</code>, aren't available in <code>-p</code> mode. {/<em> min-version: 2.1.205 </em>/}<code>/model</code>, <code>/effort</code>, <code>/fast</code>, <code>/color</code>, and <code>/rename</code> accept the value as an argument, for example <code>/model sonnet</code>, and <code>/mcp</code> with no argument prints a text summary of server status; these forms require Claude Code v2.1.205 or later and follow each command's <a href="/docs/en/commands#all-commands">availability notes</a>. {/<em> min-version: 2.1.181 </em>/}To change a setting from a <code>-p</code> invocation, pass <code>key=value</code> to <code>/config</code>, for example <code>/config thinking=false</code>.
 </Note></p>
 <h3 id="customize-the-system-prompt">Customize the system prompt</h3>
-<p>Use <code>--append-system-prompt</code> to add instructions while keeping Claude Code's default behavior. This example pipes a PR diff to Claude and instructs it to review for security vulnerabilities:</p>
+<p>Use <code>--append-system-prompt</code> to add instructions while keeping Claude Code's default behavior. This example pipes a PR diff to Claude and instructs it to review for security vulnerabilities. Save it as a shell script, for example <code>review.sh</code>:</p>
 <p>```bash theme={null}
 gh pr diff "$1" | claude -p \
   --append-system-prompt "You are a security engineer. Review for vulnerabilities." \
   --output-format json
-<div class="highlight"><pre><span></span><code>See [system prompt flags](/docs/en/cli-reference#system-prompt-flags) for more options including `--system-prompt` to fully replace the default prompt.
+<div class="highlight"><pre><span></span><code>In the script, `&quot;$1&quot;` stands for the first argument you pass on the command line. Run `bash review.sh 123` and the shell replaces `&quot;$1&quot;` with `123`, so the script fetches the diff for PR 123. Claude Code prints the review as JSON, with the text in the `result` field.
+
+See [system prompt flags](/docs/en/cli-reference#system-prompt-flags) for more options including `--system-prompt` to fully replace the default prompt.
 
 ### Continue conversations
 

@@ -5849,6 +5849,7 @@ Claude Code fires hook events at specific points in its lifecycle. When an event
 | `InstructionsLoaded`  | When a CLAUDE.md or `.claude/rules/*.md` file is loaded into context. Fires at session start and when files are lazily loaded during a session         |
 | `ConfigChange`        | When a configuration file changes during a session                                                                                                     |
 | `CwdChanged`          | When the working directory changes, for example when Claude executes a `cd` command. Useful for reactive environment management with tools like direnv |
+| `DirectoryAdded`      | When a working directory is added mid-session via `/add-dir` or the SDK `register_repo_root` control request                                           |
 | `FileChanged`         | When a watched file changes on disk. The `matcher` field specifies which filenames to watch                                                            |
 | `WorktreeCreate`      | When a worktree is being created via `--worktree`, `isolation: &quot;worktree&quot;`, or for a background session. Replaces default git behavior                 |
 | `WorktreeRemove`      | When a worktree is being removed at session exit, when a subagent finishes, or when you delete a background session                                    |
@@ -5898,15 +5899,21 @@ The example below registers two `PreToolUse` hooks on `Bash`. The first appends 
 <h3 id="read-input-and-return-output">Read input and return output</h3>
 <p>Hooks communicate with Claude Code through stdin, stdout, stderr, and exit codes. When an event fires, Claude Code passes event-specific data as JSON to your script's stdin. Your script reads that data, does its work, and tells Claude Code what to do next via the exit code.</p>
 <h4 id="hook-input">Hook input</h4>
-<p>Every event includes common fields like <code>session_id</code> and <code>cwd</code>, but each event type adds different data. For example, when Claude runs a Bash command, a <code>PreToolUse</code> hook receives something like this on stdin:</p>
+<p>Every event includes common fields like <code>session_id</code>, a unique ID for the session, and <code>cwd</code>, the working directory when the event fired, but each event type adds different data. When Claude runs a Bash command, a <code>PreToolUse</code> hook receives these fields on stdin:</p>
+<ul>
+<li><code>hook_event_name</code>: the event that triggered the hook</li>
+<li><code>tool_name</code>: the tool Claude is about to use</li>
+<li><code>tool_input</code>: the arguments Claude passed to the tool. For Bash, its <code>command</code> field holds the shell command.</li>
+</ul>
+<p>For example, the hook input for an <code>npm test</code> command looks like this:</p>
 <p>```json theme={null}
 {
-  "session_id": "abc123",          // unique ID for this session
-  "cwd": "/Users/sarah/myproject", // working directory when the event fired
-  "hook_event_name": "PreToolUse", // which event triggered this hook
-  "tool_name": "Bash",             // the tool Claude is about to use
-  "tool_input": {                  // the arguments Claude passed to the tool
-    "command": "npm test"          // for Bash, this is the shell command
+  "session_id": "abc123",
+  "cwd": "/Users/sarah/myproject",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "npm test"
   }
 }
 <div class="highlight"><pre><span></span><code>Your script can parse that JSON and act on any of those fields. `UserPromptSubmit` hooks get the `prompt` text instead, `SessionStart` hooks get a `source` of `startup`, `resume`, `clear`, `compact`, or `fork`, and so on. See [Common input fields](/docs/en/hooks#common-input-fields) in the reference for shared fields, and each event&#39;s section for event-specific schemas.
