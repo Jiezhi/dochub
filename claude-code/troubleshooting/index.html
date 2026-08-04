@@ -5305,16 +5305,22 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="high-cpu-or-memory-usage">High CPU or memory usage</h3>
 <p>Claude Code is designed to work with most development environments, but may consume significant resources when processing large codebases. If you're experiencing performance issues:</p>
 <ol>
-<li>Use <code>/compact</code> regularly to reduce context size</li>
+<li>Use <code>/compact</code> regularly to reduce context size. If it returns <code>Not enough messages to compact.</code>, the conversation has too few turns to summarize; that can happen even with a full context when a single large paste filled it</li>
 <li>Close and restart Claude Code between major tasks</li>
 <li>Consider adding large build directories to your <code>.gitignore</code> file</li>
 <li>Restart with <a href="/docs/en/cli-reference#cli-flags"><code>claude --safe-mode</code></a> to check whether a plugin, MCP server, or hook is the source. It disables all customizations for the session; if usage drops, see <a href="/docs/en/debug-your-config#test-against-a-clean-configuration">Debug your configuration</a> to find which one</li>
 </ol>
-<p>If memory usage stays high after these steps, run <code>/heapdump</code> to write a JavaScript heap snapshot and a memory breakdown to <code>~/Desktop</code>. On Linux without a Desktop folder, the files are written to your home directory.</p>
-<p>The breakdown shows resident set size, JS heap, array buffers, and unaccounted native memory, which helps identify whether the growth is in JavaScript objects or in native code. To inspect retainers, open the <code>.heapsnapshot</code> file in Chrome DevTools under Memory → Load; the breakdown is the file ending in <code>-diagnostics.json</code>.</p>
+<p>If memory usage stays high after these steps, run <code>/heapdump</code> to write two files to <code>~/Desktop</code>: a JavaScript heap snapshot named <code>&lt;session-id&gt;.heapsnapshot</code> and a memory breakdown named <code>&lt;session-id&gt;-diagnostics.json</code>. The command doesn't appear in the command menu; type it in full. On Linux without a Desktop folder, the files are written to your home directory.</p>
 <p><Warning>
-  The <code>.heapsnapshot</code> file contains every string in the process. Don't attach it to a public issue or share it. Attach only the <code>-diagnostics.json</code> file when reporting a memory issue on <a href="https://github.com/anthropics/claude-code/issues">GitHub</a>. That file contains memory statistics and no conversation content or credentials.
+  The <code>.heapsnapshot</code> file contains every string in the process, including your full conversation and credentials. Don't attach it to a public issue or share it.
 </Warning></p>
+<p>The command also prints a summary in the conversation, showing resident set size, JS heap, array buffers, and unaccounted native memory, plus any leak indicators it detected, such as a high memory growth rate or an unusually high number of open handles. The summary says whether most memory is in the JS heap, which the snapshot captures, or in native memory, which it doesn't.</p>
+<p>Do one of two things with the output:</p>
+<ul>
+<li><strong>Report it</strong>: open a <a href="https://github.com/anthropics/claude-code/issues">GitHub issue</a> and attach only the <code>-diagnostics.json</code> file, which carries the statistics behind the printed summary and no conversation content or credentials</li>
+<li><strong>Investigate it yourself</strong>: if the summary says most memory is JS heap, open the <code>.heapsnapshot</code> file in Chrome DevTools under Memory → Load and sort by retained size to see what's holding the memory</li>
+</ul>
+<p>If the summary says most memory is native, the snapshot can't show it; include the summary's leak indicators in your report instead.</p>
 <h3 id="large-tables-are-cut-off-in-the-terminal">Large tables are cut off in the terminal</h3>
 <p>A Markdown table with more than 200 rows renders its first 200 rows followed by a <code>… N more rows not shown</code> line. Only the display is capped: the full table stays in the conversation, and <a href="/docs/en/commands"><code>/copy</code></a> copies every row. For a table too large to read in the terminal, ask Claude to write it to a file instead. Before v2.1.208, Claude Code rendered every row, so resuming a session that contained a very large table could stall while it re-rendered.</p>
 <h3 id="auto-compaction-stops-with-a-thrashing-error">Auto-compaction stops with a thrashing error</h3>
@@ -5361,7 +5367,14 @@ Use this file to discover all available pages before exploring further.</p>
     winget install BurntSushi.ripgrep.MSVC</code>
   </Tab>
 </Tabs></p>
-<p>Then set <code>USE_BUILTIN_RIPGREP=0</code> in your <a href="/docs/en/env-vars">environment</a>. To confirm the switch took effect, run <code>claude doctor</code> in your terminal and check that the Search line shows the path of your system ripgrep instead of <code>OK (bundled)</code>.</p>
+<p>Then set <code>USE_BUILTIN_RIPGREP</code> to <code>0</code>, either in your shell <a href="/docs/en/env-vars">environment</a> or in the <code>env</code> block of your <a href="/docs/en/settings#available-settings"><code>settings.json</code></a>:</p>
+<p><code>json theme={null}
+{
+  "env": {
+    "USE_BUILTIN_RIPGREP": "0"
+  }
+}</code></p>
+<p>To confirm the switch took effect, run <code>claude doctor</code> in your terminal and check that the Search line shows the path of your system ripgrep instead of <code>OK (bundled)</code>.</p>
 <h3 id="slow-or-incomplete-search-results-on-wsl">Slow or incomplete search results on WSL</h3>
 <p>Disk read performance penalties when <a href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">working across file systems on WSL</a> may result in fewer-than-expected matches when using Claude Code on WSL. Search still functions, but returns fewer results than on a native filesystem.</p>
 <p><Note>
