@@ -1035,6 +1035,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__typescript-v2-preview/" class="md-nav__link">
         
   
@@ -4273,6 +4300,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Timeout and output limits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#output-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4479,33 +4523,6 @@
     
   
     Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ultraplan/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ultraplan
   
 
     
@@ -5322,6 +5339,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Timeout and output limits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#output-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5651,7 +5685,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>SendMessage</code></td>
-<td style="text-align: left;">Sends a message to an <a href="/docs/en/agent-teams">agent team</a> teammate, or <a href="/docs/en/sub-agents#resume-subagents">resumes a subagent</a> by its agent ID or name. A completed subagent auto-resumes in the background; a subagent you stopped from <code>/tasks</code> doesn't and the call returns a refusal. Structured team-protocol messages require agent teams. A receiver never treats a message from another agent as your consent or approval. As of v2.1.198, a subagent treats a message from the agent that launched it as normal task direction rather than as a peer request. As of v2.1.199, a send to a name that now resolves to a different agent than it did earlier in the conversation is refused instead of delivered; see <a href="/docs/en/sub-agents#resume-subagents">Resume subagents</a></td>
+<td style="text-align: left;">Sends a message to an <a href="/docs/en/agent-teams">agent team</a> teammate, or <a href="/docs/en/sub-agents#resume-subagents">resumes a subagent</a> by its agent ID or name. A completed subagent auto-resumes in the background; a subagent you stopped from <code>/tasks</code> doesn't and the call returns a refusal. Structured team-protocol messages require agent teams. A receiver never treats a message from another agent as your consent or approval. In <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, and in <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode while the auto classifier reviews commands</a>, the classifier reviews each send, plain or structured, before Claude Code delivers it; the classifier review requires Claude Code v2.1.222 or later. A subagent treats a message from the agent that launched it as normal task direction rather than as a peer request; before v2.1.198, it treated such a message as a peer request. Claude Code refuses a send to a name that now resolves to a different agent than it did earlier in the conversation, where before v2.1.199 it delivered the message; see <a href="/docs/en/sub-agents#resume-subagents">Resume subagents</a></td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
@@ -5840,11 +5874,33 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>Activate your virtualenv or conda environment before launching Claude Code. To make environment variables persist across Bash commands, set <a href="/docs/en/env-vars"><code>CLAUDE_ENV_FILE</code></a> to a shell script before launching Claude Code, or use a <a href="/docs/en/hooks#persist-environment-variables">SessionStart hook</a> to populate it dynamically.</p>
 <h3 id="timeout-and-output-limits">Timeout and output limits</h3>
-<p>Two limits bound each command:</p>
+<p>Each command runs under a timeout, and Claude manages it: when it wants longer than the default for a command, it passes the <code>timeout</code> parameter with that call — you never set a per-command timeout. Two <a href="/docs/en/env-vars">environment variables</a> bound what Claude gets:</p>
 <ul>
-<li><strong>Timeout</strong>: two minutes by default. Claude can request up to 10 minutes per command with the <code>timeout</code> parameter. Override the default and ceiling with <a href="/docs/en/env-vars"><code>BASH_DEFAULT_TIMEOUT_MS</code> and <code>BASH_MAX_TIMEOUT_MS</code></a>.</li>
-<li><strong>Output length</strong>: 30,000 characters by default. When a command produces more than that, Claude Code saves the full output to a file in the session directory and gives Claude the file path plus a short preview from the start. Claude reads or searches that file when it needs the rest. Raise the limit with <a href="/docs/en/env-vars"><code>BASH_MAX_OUTPUT_LENGTH</code></a>, up to a hard ceiling of 150,000 characters.</li>
+<li><code>BASH_DEFAULT_TIMEOUT_MS</code> — the default when Claude passes no timeout; two minutes out of the box</li>
+<li><code>BASH_MAX_TIMEOUT_MS</code> — with the default, sets the ceiling that caps whatever Claude requests: the effective ceiling is the larger of the two, ten minutes out of the box</li>
 </ul>
+<h4 id="output-limits">Output limits</h4>
+<p>Claude Code streams a command's output to a working file as the command runs; a command whose output passes 5 GB is killed. When the command finishes, Claude Code reads the output back from that file, up to the read-back window described below. How much of the output reaches Claude inline depends on whether Claude Code treats the result as a failure:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Result</th>
+<th style="text-align: left;">What Claude gets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Valid</td>
+<td style="text-align: left;">Inline up to roughly 30,000 characters; past that, the path of a file saved to the session directory, truncated past 64 MiB, plus a short preview from the start, and Claude reads or searches the file when it needs the rest</td>
+</tr>
+<tr>
+<td style="text-align: left;">Failure</td>
+<td style="text-align: left;">Inline up to roughly 10,000 characters; past that, a head-and-tail excerpt of that size cut from the read-back window, with no file path</td>
+</tr>
+</tbody>
+</table>
+<p>A command that exits 1 counts as a valid result for the Bash tool only when Claude Code recognizes exit code 1 as a benign outcome for that command: <code>grep</code>, <code>rg</code>, <code>egrep</code>, <code>fgrep</code>, <code>find</code>, <code>diff</code>, <code>test</code>, and <code>[</code>, plus <code>git diff</code> and <code>git grep</code>. Every other command that exits 1 counts as a failure, even when exit 1 is a benign informational outcome: no matches for <code>pgrep</code> and <code>jq -e</code>, files that differ for <code>cmp</code>.</p>
+<p><a href="/docs/en/env-vars"><code>BASH_MAX_OUTPUT_LENGTH</code></a> sets how many characters of output Claude Code reads back from the working file into a command's result: 30,000 by default, up to a hard ceiling of 150,000. Raise it when your commands routinely overflow that window, such as a verbose build or a full test-suite log. Raising it enlarges the read-back window, and the window a failing command's excerpt is cut from. It does not raise the inline ceilings above: a valid result over roughly 30,000 characters arrives as a file path plus preview regardless of this variable.</p>
 <h3 id="background-commands">Background commands</h3>
 <p>For long-running processes such as dev servers or watch builds, Claude can set <code>run_in_background: true</code> to start the command as a background task and continue working while it runs. List and stop background tasks with <code>/tasks</code>. In non-interactive mode with the <code>-p</code> flag, <a href="/docs/en/headless#background-tasks-at-exit">background tasks end shortly after the run's final result</a>.</p>
 <p>When a command reaches its timeout without finishing, Claude Code moves it to the background instead of stopping it, so Claude keeps working while the command runs to completion. Claude Code never auto-backgrounds a command that starts with <code>sleep</code>, and setting <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1</code></a> disables auto-backgrounding along with the rest of the background task functionality. The result of a command moved this way states what happened:</p>
@@ -5987,6 +6043,8 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Windows with Git Bash installed</strong>: the tool is rolling out progressively.</li>
 <li><strong>Linux, macOS, and WSL</strong>: the tool is opt-in.</li>
 </ul>
+<p>Your <a href="/docs/en/hooks#powershell">PreToolUse hooks</a> receive the tool's command string in <code>tool_input.command</code>, with the same fields as the Bash tool.</p>
+<p>Match <code>Bash|PowerShell</code> in hooks that inspect shell commands; the <a href="/docs/en/hooks#powershell">PowerShell hook input section</a> explains why matching <code>Bash</code> alone is not enough.</p>
 <h3 id="enable-the-powershell-tool">Enable the PowerShell tool</h3>
 <p>Set <code>CLAUDE_CODE_USE_POWERSHELL_TOOL=1</code> in your environment or in <code>settings.json</code>:</p>
 <p>```json theme={null}
@@ -6011,7 +6069,7 @@ Three additional settings control where PowerShell is used:
 
 The same main-session working-directory reset behavior described under the Bash tool section applies to PowerShell commands, including the `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR` environment variable.
 
-As of v2.1.196, the PowerShell tool matches the Bash tool&#39;s handling of search and diff exit codes. Exit code 1 from `grep`, `egrep`, `fgrep`, and `git grep` means no matches, and exit code 1 from `git diff` means differences exist, so these results aren&#39;t reported to Claude as command failures.
+As of v2.1.196, exit code 1 from `grep`, `egrep`, `fgrep`, and `git grep` means no matches, and exit code 1 from `git diff` means differences exist, so these results aren&#39;t reported to Claude as command failures.
 
 ### Windows encoding and exit codes
 
@@ -6048,7 +6106,7 @@ Read handles several file types beyond plain text:
 * **PDFs**: Claude reads short `.pdf` files whole. For PDFs longer than 10 pages, it reads in ranges with a `pages` parameter, such as `&quot;1-5&quot;`, up to 20 pages at a time.
 * **Jupyter notebooks**: `.ipynb` files return all cells with their outputs, including code, markdown, and visualizations.
 
-Read only reads files, not directories. Claude uses `ls` via the Bash tool to list directory contents.
+Read only reads files, not directories. Claude lists directory contents with a shell command such as `ls`.
 
 ## WebFetch tool behavior
 

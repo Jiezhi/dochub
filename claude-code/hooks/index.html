@@ -1035,6 +1035,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__typescript-v2-preview/" class="md-nav__link">
         
   
@@ -5345,33 +5372,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../ultraplan/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ultraplan
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../ultrareview/" class="md-nav__link">
         
   
@@ -7201,7 +7201,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Tip>
   For a quickstart guide with examples, see <a href="/docs/en/hooks-guide">Automate actions with hooks</a>.
 </Tip></p>
-<p>Hooks are user-defined shell commands, HTTP endpoints, or LLM prompts that execute automatically at specific points in Claude Code's lifecycle. Use this reference to look up event schemas, configuration options, JSON input/output formats, and advanced features like async hooks, HTTP hooks, and MCP tool hooks. If you're setting up hooks for the first time, start with the <a href="/docs/en/hooks-guide">guide</a> instead.</p>
+<p>Hooks are user-defined shell commands, HTTP endpoints, or LLM prompts that execute automatically at specific points in Claude Code's lifecycle. Hooks run wherever Claude Code runs: sessions in the terminal, IDE extensions, the <a href="/docs/en/desktop-quickstart">Desktop app</a>, and <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> all fire the same hook events. Use this reference to look up event schemas, configuration options, JSON input/output formats, and advanced features like async hooks, HTTP hooks, and MCP tool hooks. If you're setting up hooks for the first time, start with the <a href="/docs/en/hooks-guide">guide</a> instead.</p>
 <h2 id="hook-lifecycle">Hook lifecycle</h2>
 <p>Claude Code runs hooks at specific points during a session. When an event fires and a matcher matches, Claude Code passes JSON context about the event to your hook handler. For command hooks, input arrives on stdin. For HTTP hooks, it arrives as the POST request body. Your handler can then inspect the input, take action, and optionally return a decision.</p>
 <p>Events fall into three cadences:</p>
@@ -7354,8 +7354,11 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <h3 id="how-a-hook-resolves">How a hook resolves</h3>
-<p>To see how these pieces fit together, consider this <code>PreToolUse</code> hook that blocks destructive shell commands. The <code>matcher</code> narrows to Bash tool calls and the <code>if</code> condition narrows further to Bash subcommands matching <code>rm *</code>, so <code>block-rm.sh</code> only spawns when both filters match:</p>
-<p>```json theme={null}
+<p>To see how these pieces fit together, consider this <code>PreToolUse</code> hook that blocks destructive shell commands.</p>
+<p><Tabs>
+  <Tab title="macOS/Linux">
+    The <code>matcher</code> narrows to Bash tool calls and the <code>if</code> condition narrows further to Bash subcommands matching <code>rm *</code>, so <code>block-rm.sh</code> only spawns when both filters match:</p>
+<pre><code>```json theme={null}
 {
   "hooks": {
     "PreToolUse": [
@@ -7373,28 +7376,96 @@ Use this file to discover all available pages before exploring further.</p>
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>The script reads the JSON input from stdin, extracts the command, and returns a `permissionDecision` of `&quot;deny&quot;` if it contains `rm -rf`. Save it to `.claude/hooks/block-rm.sh` in your project:
+```
+
+The script reads the JSON input from stdin, extracts the command, and returns a `permissionDecision` of `"deny"` if it contains `rm -rf`. Save it to `.claude/hooks/block-rm.sh` in your project and make it executable with `chmod +x .claude/hooks/block-rm.sh` so Claude Code can run it:
 
 ```bash theme={null}
 #!/bin/bash
 # .claude/hooks/block-rm.sh
-COMMAND=$(jq -r &#39;.tool_input.command&#39;)
+COMMAND=$(jq -r '.tool_input.command')
 
-if echo &quot;$COMMAND&quot; | grep -q &#39;rm -rf&#39;; then
-  jq -n &#39;{
+if echo "$COMMAND" | grep -q 'rm -rf'; then
+  jq -n '{
     hookSpecificOutput: {
-      hookEventName: &quot;PreToolUse&quot;,
-      permissionDecision: &quot;deny&quot;,
-      permissionDecisionReason: &quot;Destructive command blocked by hook&quot;
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: "Destructive command blocked by hook"
     }
-  }&#39;
+  }'
 else
   exit 0  # no decision; normal permission flow applies
 fi
-</code></pre></div></p>
-<p>On macOS and Linux, make the script executable with <code>chmod +x .claude/hooks/block-rm.sh</code> so Claude Code can run it. On Windows, write the hook in PowerShell instead and register it with <code>"command": "powershell.exe"</code>, as shown in the <a href="#messagedisplay">MessageDisplay example</a>.</p>
-<p>This script and the Bash examples on this page that parse JSON input use <code>jq</code>, so install <code>jq</code> and make sure it is on your <code>PATH</code> before trying them.</p>
-<p>Now suppose Claude Code decides to run <code>Bash "rm -rf /tmp/build"</code>. Here's what happens:</p>
+```
+
+This script, like the other Bash examples on this page that parse JSON input, uses `jq`, so install `jq` and make sure it is on your `PATH` before trying them.
+</code></pre>
+<p></Tab></p>
+<p><Tab title="Windows (PowerShell)">
+    The matcher <code>Bash|PowerShell</code> covers the <a href="#powershell">PowerShell tool</a> as well as Bash. A single <code>if</code> rule matches only one tool's calls, so each tool gets its own handler: the first narrows to Bash subcommands matching <code>rm *</code>, the second to PowerShell commands matching <code>Remove-Item *</code>. Both run the same script through <code>powershell.exe</code>:</p>
+<pre><code>```json theme={null}
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(rm *)",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/block-rm.ps1"
+            ]
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(Remove-Item *)",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/block-rm.ps1"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The `-NoProfile` flag skips loading your PowerShell profile so the hook starts fast, and `-ExecutionPolicy Bypass` lets PowerShell run the local script file.
+
+The script reads the JSON input from stdin, extracts the command, and returns a `permissionDecision` of `"deny"` if it contains `rm -rf` or `Remove-Item` followed by `-Recurse`. Save it to `.claude/hooks/block-rm.ps1` in your project:
+
+```powershell theme={null}
+# .claude/hooks/block-rm.ps1
+$callInput = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$command = $callInput.tool_input.command
+
+if ($command -match 'rm -rf|Remove-Item.*-Recurse') {
+  @{
+    hookSpecificOutput = @{
+      hookEventName = "PreToolUse"
+      permissionDecision = "deny"
+      permissionDecisionReason = "Destructive command blocked by hook"
+    }
+  } | ConvertTo-Json
+} else {
+  exit 0  # no decision; normal permission flow applies
+}
+```
+</code></pre>
+<p></Tab>
+</Tabs></p>
+<p>Now suppose Claude Code decides to run <code>Bash "rm -rf /tmp/build"</code> against the macOS/Linux config. Here's what happens:</p>
 <p><Frame>
   <img src="https://mintcdn.com/claude-code/ikqp3_70mqIahteV/images/hook-resolution.svg?fit=max&auto=format&n=ikqp3_70mqIahteV&q=85&s=be0bf3053550c26de5f54cd64674c197" className="dark:hidden" alt="Diagram of hook resolution: PreToolUse fires, the matcher checks for a Bash match, then the if condition checks for a Bash(rm *) match. If both match, the hook command runs and returns permissionDecision deny, so the tool call is blocked and Claude Code continues. If either check fails to match, the hook is skipped and the tool call is allowed to proceed." width="930" height="270" data-path="images/hook-resolution.svg" /></p>
 <p><img src="https://mintcdn.com/claude-code/_xqph1dUOslCOwsj/images/hook-resolution-dark.svg?fit=max&auto=format&n=_xqph1dUOslCOwsj&q=85&s=e80af91f8507cee6bd51ac3c2dd92f63" className="hidden dark:block" alt="Diagram of hook resolution: PreToolUse fires, the matcher checks for a Bash match, then the if condition checks for a Bash(rm *) match. If both match, the hook command runs and returns permissionDecision deny, so the tool call is blocked and Claude Code continues. If either check fails to match, the hook is skipped and the tool call is allowed to proceed." width="930" height="270" data-path="images/hook-resolution-dark.svg" />
@@ -7487,6 +7558,7 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 </tr>
 </tbody>
 </table>
+<p>Cloud sessions on <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> don't read your local <code>~/.claude/settings.json</code>; hooks there come from the repo and from your organization's server-managed settings. See <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">what carries over from your setup</a> for which files reach a cloud session.</p>
 <p>For details on settings file resolution, see <a href="/docs/en/settings">settings</a>.</p>
 <p>Hooks from settings files, managed policy settings, and plugins also run inside <a href="/docs/en/sub-agents">subagents</a>. When a subagent calls a tool, tool events such as <code>PreToolUse</code> and <code>PostToolUse</code> fire the same configured hooks as in the main conversation, and the input carries the <code>agent_id</code> and <code>agent_type</code> <a href="#common-input-fields">common input fields</a> that identify the subagent.</p>
 <p>Enterprise administrators can use <code>allowManagedHooksOnly</code> to block user, project, and plugin hooks. Hooks from plugins force-enabled in managed settings <code>enabledPlugins</code> are exempt, so administrators can distribute vetted hooks through an organization marketplace. See <a href="/docs/en/settings#hook-configuration">Hook configuration</a>.</p>
@@ -7710,7 +7782,7 @@ This example logs all memory server operations and validates write operations fr
 <li><strong><a href="#prompt-and-agent-hook-fields">Prompt hooks</a></strong> (<code>type: "prompt"</code>): send a prompt to a Claude model for single-turn evaluation. The model returns a yes/no decision as JSON. See <a href="#prompt-based-hooks">Prompt-based hooks</a>.</li>
 <li><strong><a href="#prompt-and-agent-hook-fields">Agent hooks</a></strong> (<code>type: "agent"</code>): spawn a subagent that can use tools like Read, Grep, and Glob to verify conditions before returning a decision. Agent hooks are experimental and may change. See <a href="#agent-based-hooks">Agent-based hooks</a>.</li>
 </ul>
-<p>All matching hooks run in parallel, and identical handlers are deduplicated automatically. Command hooks are deduplicated by command string and <code>args</code>, and HTTP hooks are deduplicated by URL.</p>
+<p>All matching hooks run in parallel. If you define the same handler in more than one settings file, it runs once. A plugin's or skill's copy of the same handler stays separate.</p>
 <p>Handlers run in the current directory with Claude Code's environment. The <code>$CLAUDE_CODE_REMOTE</code> environment variable is set to <code>"true"</code> in remote web environments and not set in the local CLI. As of v2.1.199, <a href="/docs/en/env-vars"><code>$CLAUDE_CODE_BRIDGE_SESSION_ID</code></a> is set to the <a href="/docs/en/remote-control">Remote Control</a> session ID while the local session has an active Remote Control connection.</p>
 <h4 id="common-fields">Common fields</h4>
 <p>These fields apply to all hook types:</p>
@@ -8212,7 +8284,7 @@ Exit codes only let you block or stay silent, but JSON output gives you finer-gr
 
 Your hook&#39;s stdout must contain only the JSON object. If your shell profile prints text on startup, it can interfere with JSON parsing. See [JSON validation failed](/docs/en/hooks-guide#json-validation-failed) in the troubleshooting guide.
 
-Hook output strings, including `additionalContext`, `systemMessage`, and plain stdout, are capped at 10,000 characters. Output that exceeds this limit is saved to a file and replaced with a preview and file path, the same way large tool results are handled.
+Hook output strings, including `additionalContext`, `systemMessage`, and plain stdout, are capped at 10,000 characters. Output that exceeds this limit is saved to a file and replaced with a preview and file path, the same way a large valid Bash result is handled under [Output limits](/docs/en/tools-reference#output-limits).
 
 The JSON object supports three kinds of fields:
 
@@ -8880,7 +8952,7 @@ Batches with no markdown pass through unchanged. If the script fails, for exampl
 
 ### PreToolUse
 
-Runs after Claude creates tool parameters and before processing the tool call. Matches on tool name: `Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `Agent`, `WebFetch`, `WebSearch`, `AskUserQuestion`, `ExitPlanMode`, and any [MCP tool names](#match-mcp-tools).
+Runs after Claude creates tool parameters and before processing the tool call. Matches on tool name: `Bash`, `PowerShell`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `Agent`, `WebFetch`, `WebSearch`, `AskUserQuestion`, `ExitPlanMode`, and any [MCP tool names](#match-mcp-tools).
 
 &lt;Warning&gt;
   PreToolUse runs only when Claude calls a tool. Files you [reference with `@` in your prompt](/docs/en/common-workflows#reference-files-and-directories) are added without any tool call: Claude Code inserts their contents while building the prompt, so no PreToolUse hook fires for them, including hooks matching `Read`. To block specific paths from `@` references, use a [`Read` deny rule](/docs/en/permissions#read-and-edit) instead.
@@ -8906,6 +8978,27 @@ Executes shell commands.
 | `description`       | string  | `&quot;Run test suite&quot;` | Optional description of what the command does                                                                                                        |
 | `timeout`           | number  | `120000`           | Optional timeout in milliseconds. Values above the [maximum](/docs/en/tools-reference#bash-tool-behavior) are reduced to the maximum rather than rejected |
 | `run_in_background` | boolean | `false`            | Whether to run the command in background                                                                                                             |
+
+&lt;a id=&quot;powershell&quot; /&gt;
+
+##### PowerShell
+
+Executes PowerShell commands. See the [PowerShell tool](/docs/en/tools-reference#powershell-tool) for availability by platform.
+
+The fields match the Bash tool, with the command string in `command`:
+
+| Field               | Type    | Example                    | Description                                   |
+| :------------------ | :------ | :------------------------- | :-------------------------------------------- |
+| `command`           | string  | `&quot;Get-ChildItem -Recurse&quot;` | The PowerShell command to execute             |
+| `description`       | string  | `&quot;List files recursively&quot;` | Optional description of what the command does |
+| `timeout`           | number  | `120000`                   | Optional timeout in milliseconds              |
+| `run_in_background` | boolean | `false`                    | Whether to run the command in background      |
+
+Match `Bash|PowerShell` in hooks that inspect shell commands, so they cover both tools:
+
+* On Windows, wherever the PowerShell tool is enabled, Claude treats PowerShell as the primary shell and routes shell commands through it.
+* On Windows without Git Bash, the tool is enabled automatically and Claude Code doesn&#39;t register the Bash tool at all.
+* A hook that matches only `Bash` never fires there.
 
 ##### Write
 
@@ -9314,7 +9407,7 @@ Matches on tool name, same values as PreToolUse.
 
 #### PostToolUseFailure input
 
-PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as PostToolUse, along with error information as top-level fields:
+PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as PostToolUse, along with error information as top-level fields. For example, a failed `npm test` command might deliver:
 
 ```json theme={null}
 {
@@ -9329,7 +9422,7 @@ PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as
     &quot;description&quot;: &quot;Run test suite&quot;
   },
   &quot;tool_use_id&quot;: &quot;toolu_01ABC123...&quot;,
-  &quot;error&quot;: &quot;Command exited with non-zero status code 1&quot;,
+  &quot;error&quot;: &quot;Exit code 1\nError: Cannot find module &#39;express&#39;&quot;,
   &quot;is_interrupt&quot;: false,
   &quot;duration_ms&quot;: 4187
 }
@@ -9344,11 +9437,11 @@ PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as
 <tbody>
 <tr>
 <td style="text-align: left;"><code>error</code></td>
-<td style="text-align: left;">String describing what went wrong</td>
+<td style="text-align: left;">String describing what went wrong. The format depends on the tool that failed</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>is_interrupt</code></td>
-<td style="text-align: left;">Optional boolean indicating whether the failure was caused by user interruption</td>
+<td style="text-align: left;">Optional boolean. True when the failure reached Claude Code as an abort rather than as an error the tool reported; the shell tools convert mid-run cancellations into ordinary exit-code errors, so an exit-code payload carries <code>is_interrupt: false</code> even when the command was cancelled</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>duration_ms</code></td>
@@ -9356,6 +9449,13 @@ PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as
 </tr>
 </tbody>
 </table>
+<p>The <code>error</code> string is generally the same text Claude receives as the failed tool's result. Its format varies by tool and failure. Key your hook on <code>tool_name</code>, <code>is_interrupt</code>, and the <code>Exit code N</code> first line; treat the rest of the string as display text, not a stable format.</p>
+<ul>
+<li>For Bash and PowerShell, a command that ran and exited produces a first line <code>Exit code N</code>, then any output the command produced as one block with stdout and stderr interleaved</li>
+<li>The line <code>[Request interrupted by user for tool use]</code> appears when the command was cancelled while running</li>
+<li>A payload may also carry a bare failure message with no exit-code line, when Claude Code could not start the shell process itself</li>
+<li>Claude Code middle-truncates strings longer than 10,000 characters around a <code>... [N characters truncated] ...</code> marker, and can insert lines of its own, such as <code>Command timed out after 2m 0s</code></li>
+</ul>
 <h4 id="posttoolusefailure-decision-control">PostToolUseFailure decision control</h4>
 <p><code>PostToolUseFailure</code> hooks can provide context to Claude after a tool failure. In addition to the <a href="#json-output">JSON output fields</a> available to all hooks, your hook script can return these event-specific fields:</p>
 <table>
@@ -10693,6 +10793,11 @@ This hook runs a test script after every `Write` tool call. Claude continues wor
 }
 </code></pre></div></p>
 <p>The <code>timeout</code> field sets the maximum time in seconds for the background process. If not specified, async hooks use the same 10-minute default as sync hooks.</p>
+<p>You receive an async hook's results only while the session runs:</p>
+<ul>
+<li>In <a href="/docs/en/headless">non-interactive mode</a> with the <code>-p</code> flag, Claude Code kills any async hook still running at teardown and finalizes it with outcome <code>cancelled</code></li>
+<li>If your hook's work must outlive a <code>claude -p</code> session, start a fully detached process from it</li>
+</ul>
 <h3 id="how-async-hooks-execute">How async hooks execute</h3>
 <p>When an async hook fires, Claude Code starts the hook process and immediately continues without waiting for it to finish. The hook receives the same JSON input via stdin as a synchronous hook.</p>
 <p>After the background process exits, if the hook produced a JSON response with an <code>additionalContext</code> field, that content is delivered to Claude as context on the next conversation turn. A <code>systemMessage</code> field is shown to you, not to Claude.</p>

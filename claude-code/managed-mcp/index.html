@@ -1035,6 +1035,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__typescript-v2-preview/" class="md-nav__link">
         
   
@@ -3209,6 +3236,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How a server is evaluated">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-policy-entries-expand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How policy entries expand
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4409,33 +4453,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../ultraplan/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Ultraplan
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../ultrareview/" class="md-nav__link">
         
   
@@ -5222,6 +5239,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How a server is evaluated">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-policy-entries-expand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How policy entries expand
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5568,7 +5602,7 @@ Deploy a `managed-mcp.json` containing an empty server map to block every MCP se
 <p>Three matching rules apply inside those checks:</p>
 <ul>
 <li><strong>Commands match exactly.</strong> Every argument, in order. <code>["npx", "-y", "server"]</code> does not match <code>["npx", "server"]</code> or <code>["npx", "-y", "server", "--flag"]</code>.</li>
-<li><strong><code>serverCommand</code> and <code>serverUrl</code> values expand before matching.</strong> Both the policy entry and the server's configured value go through the same <a href="/docs/en/mcp#environment-variable-expansion-in-mcp-json"><code>${VAR}</code> and <code>${VAR:-default}</code> expansion</a> as <code>.mcp.json</code>, so an entry written as <code>["${HOME}/bin/server"]</code> matches a server config that uses either the same reference or the expanded path. On Windows, reference an environment variable that is set there, such as <code>${USERPROFILE}</code> instead of <code>${HOME}</code>. <code>serverName</code> values match literally and never expand.</li>
+<li><strong><code>serverCommand</code> and <code>serverUrl</code> values expand before matching.</strong> Both the policy entry and the server's configured value go through <a href="/docs/en/mcp#environment-variable-expansion-in-mcp-json"><code>${VAR}</code> and <code>${VAR:-default}</code> expansion</a>, so an entry written as <code>["${HOME}/bin/server"]</code> matches a server config that uses either the same reference or the expanded path. On Windows, reference an environment variable that is set there, such as <code>${USERPROFILE}</code> instead of <code>${HOME}</code>. <code>serverName</code> values match literally and never expand. The two sides read different environments; <a href="#how-policy-entries-expand">How policy entries expand</a> covers which, and how allowlist and denylist entries differ.</li>
 <li><strong>URLs support <code>*</code> wildcards</strong> anywhere in the pattern, including the scheme. Hostname matching is case-insensitive and ignores a trailing FQDN dot, so <code>https://Mcp.Example.com/*</code> matches <code>https://mcp.example.com/api</code>. Paths stay case-sensitive.</li>
 </ul>
 <table>
@@ -5601,7 +5635,30 @@ Deploy a `managed-mcp.json` containing an empty server map to block every MCP se
 </tr>
 </tbody>
 </table>
-<p>Because <code>${VAR}</code> expansion reads Claude Code's own process environment, a <code>serverCommand</code> or <code>serverUrl</code> policy entry that references a variable expands to whatever value a user sets. Use literal URLs and commands for entries you rely on for enforcement.</p>
+<h4 id="how-policy-entries-expand">How policy entries expand</h4>
+<p>The server's configured value expands from the live process environment, like the rest of <code>.mcp.json</code>. A policy entry expands from a pinned environment instead, so a variable set by a project or user settings file can't change what an allowlist entry means. Because a policy entry still depends on the launching shell's value for any variable it references, use literal URLs and commands for entries you rely on for enforcement.</p>
+<table>
+<thead>
+<tr>
+<th>Entry list</th>
+<th>Expands from</th>
+<th>Expansion that would change a URL entry's scheme, host, or path scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowedMcpServers</code></td>
+<td>The environment Claude Code started with, plus <code>env</code> values from managed settings</td>
+<td>Claude Code ignores the entry</td>
+</tr>
+<tr>
+<td><code>deniedMcpServers</code></td>
+<td>The same, and a variable with no startup value and no <code>:-default</code> fills from settings files outside the repository, such as user or managed settings, which only ever widens what the entry matches</td>
+<td>The entry still matches</td>
+</tr>
+</tbody>
+</table>
+<p>Before v2.1.219, both sides expanded from the same live process environment, which included variables set by settings files.</p>
 <h3 id="example-configuration">Example configuration</h3>
 <p>The configuration below sets up a hard allowlist with a denylist. The highlighted lines change how the rest of the list is evaluated, and the callouts after the block explain each one:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
