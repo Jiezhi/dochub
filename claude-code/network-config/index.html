@@ -1818,6 +1818,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-tag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude tag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli-reference/" class="md-nav__link">
         
   
@@ -2555,6 +2582,33 @@
     
   
     Gateways
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-actions-cloud-providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Github actions cloud providers
   
 
     
@@ -3539,6 +3593,17 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#streaming-idle-watchdogs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming idle watchdogs
+      
+    </span>
+  </a>
   
 </li>
         
@@ -5369,6 +5434,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#streaming-idle-watchdogs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming idle watchdogs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#network-access-requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5550,8 +5626,48 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
 <p><Note>
   An already-running supervisor keeps the launch configuration it started with. After deploying the launcher setting, run <a href="/docs/en/agent-view#the-supervisor-process"><code>claude daemon stop --any</code></a> so the next <code>claude agents</code> or <code>--bg</code> starts a supervisor that honors it. An installed service takes <code>claude daemon stop</code> without <code>--any</code>.
 </Note></p>
+<h2 id="streaming-idle-watchdogs">Streaming idle watchdogs</h2>
+<p>Claude Code runs three independent timers that abort a streaming model response when it goes quiet, so a dead connection fails and retries instead of hanging. Each timer watches a different signal:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Timer</th>
+<th style="text-align: left;">Aborts when</th>
+<th style="text-align: left;">Runs on</th>
+<th style="text-align: left;">Default timeout</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Event-level watchdog</td>
+<td style="text-align: left;">No response events parse. On connections where the byte-level watchdog runs, arriving bytes, including keep-alive pings, also reset this watchdog, for up to about five minutes without a parsed event</td>
+<td style="text-align: left;">Every provider</td>
+<td style="text-align: left;">300 seconds</td>
+</tr>
+<tr>
+<td style="text-align: left;">Byte-level watchdog</td>
+<td style="text-align: left;">No bytes arrive on the wire, including SSE keep-alive pings</td>
+<td style="text-align: left;">Direct Anthropic API, <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>, and <a href="/docs/en/gateways">gateway</a> connections, including a custom <code>ANTHROPIC_BASE_URL</code>. Opt-in on Amazon Bedrock <code>vnd.amazon.eventstream</code> responses with <code>CLAUDE_ENABLE_BYTE_WATCHDOG_BEDROCK=1</code>; doesn't run on Google Cloud's Agent Platform or Microsoft Foundry</td>
+<td style="text-align: left;">180 seconds on the direct Anthropic API, 300 seconds elsewhere</td>
+</tr>
+<tr>
+<td style="text-align: left;">Body idle timeout</td>
+<td style="text-align: left;">No bytes arrive for 5 minutes</td>
+<td style="text-align: left;">Providers other than the direct Anthropic API and Claude Platform on AWS, unless <a href="/docs/en/env-vars"><code>API_FORCE_IDLE_TIMEOUT</code></a> changes that</td>
+<td style="text-align: left;">5 minutes</td>
+</tr>
+</tbody>
+</table>
+<p>Configure the timers with these variables, each detailed in the <a href="/docs/en/env-vars">environment variables reference</a>:</p>
+<ul>
+<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> and <code>CLAUDE_ENABLE_BYTE_WATCHDOG</code> force the corresponding watchdog on with <code>1</code> or off with <code>0</code>, within the connections the table lists; neither variable extends a watchdog to a connection type it doesn't cover.</li>
+<li><code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> sets both watchdogs' timeout. Claude Code raises values below 5 minutes to 5 minutes, and caps the value at 30 minutes for the byte-level watchdog.</li>
+<li><code>CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS</code> sets the byte-level watchdog's timeout alone, clamped to between 10 seconds and 30 minutes, and takes precedence over <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> for that watchdog.</li>
+<li><code>API_FORCE_IDLE_TIMEOUT</code> set to <code>0</code> turns the body idle timeout off, and set to <code>1</code> turns it on for every provider. The watchdogs run independently of it, so to let a stream pause longer than their thresholds, also raise or disable them.</li>
+</ul>
+<p>When a timer aborts a stalled stream, Claude Code handles it like any other mid-stream failure: it retries, keeps completed output with an <a href="/docs/en/errors#the-response-above-may-be-incomplete">incomplete-response notice</a>, or ends the turn, depending on where the response stood.</p>
 <h2 id="network-access-requirements">Network access requirements</h2>
-<p>Claude Code requires access to the following URLs. Allowlist these in your proxy configuration and firewall rules, especially in containerized or restricted network environments.</p>
+<p>Claude Code requires access to the following URLs. Allowlist these in your proxy configuration and firewall rules, especially in containerized or restricted network environments. The first-run setup connectivity check points here when it can't reach <code>api.anthropic.com</code> or <code>platform.claude.com</code>; see <a href="/docs/en/errors#unable-to-connect-to-anthropic-services">Unable to connect to Anthropic services</a> for the check's messages and recovery steps.</p>
 <table>
 <thead>
 <tr>

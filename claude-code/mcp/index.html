@@ -1818,6 +1818,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-tag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude tag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli-reference/" class="md-nav__link">
         
   
@@ -2555,6 +2582,33 @@
     
   
     Gateways
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-actions-cloud-providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Github actions cloud providers
   
 
     
@@ -6229,6 +6283,8 @@ A `disabledMcpjsonServers` entry in any settings file still rejects the server.
 
 The `/mcp` panel shows the tool count next to each connected server and flags servers that advertise the tools capability but expose no tools.
 
+In `/mcp`, a server&#39;s menu, and the [`/plugin`](/docs/en/plugins) manager, a remote (HTTP or SSE) server you&#39;ve used before can show a `cached` status such as `cached 2h ago · connects on first use · 5 tools`. Claude Code loaded the server&#39;s tool list from a previous session instead of connecting at startup, and it connects the server the first time Claude calls one of its tools. The tools are available from your first message, so you don&#39;t need to do anything. To make every server connect at startup instead, set [`MCP_DISCOVERY_CACHE=0`](/docs/en/env-vars). The discovery cache and its `cached` status require Claude Code v2.1.221 or later.
+
 A remote server whose configuration has an empty `url` shows as `not configured` in `/mcp`, in `claude mcp list`, and in the [`/plugin`](/docs/en/plugins) manager, and Claude Code doesn&#39;t attempt to connect to it. A plugin can include a placeholder entry like this for a connector you configure later, so Claude Code doesn&#39;t report it as an error or a setup issue. The server&#39;s detail view in `/mcp` reads `No URL configured for this server`; set the entry&#39;s `url` to connect it. Before v2.1.208, Claude Code reported an empty `url` as a configuration issue with a prompt to reconnect.
 
 If your request needs tools from a server that is still connecting in the background, Claude waits for that server before continuing. With [tool search](#scale-with-mcp-tool-search) enabled, which is the default, the wait happens inside the `ToolSearch` call. In configurations without tool search, such as a custom `ANTHROPIC_BASE_URL`, `ENABLE_TOOL_SEARCH=false`, or a model earlier than the Claude 4.5 generation on Google Cloud&#39;s Agent Platform, Claude uses the `WaitForMcpServers` tool instead. A Microsoft Foundry [deployment hosted on Azure](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry#hosting-options) starts on the tool-search path rather than with `WaitForMcpServers`, since Claude Code discovers the deployment&#39;s server-side rejection only from the API; after Claude Code switches that deployment to [upfront loading](#scale-with-mcp-tool-search), tools from a server that finishes connecting become available on Claude&#39;s next request.
@@ -6353,7 +6409,7 @@ In `.mcp.json` at plugin root:
 <div class="highlight"><pre><span></span><code>**Plugin MCP features**:
 
 * **Automatic lifecycle**: servers connect and disconnect at these points:
-  * At session startup, Claude Code connects the servers for enabled plugins automatically
+  * At session startup, Claude Code connects the servers for enabled plugins automatically. In `/mcp`, a remote (HTTP or SSE) plugin server you&#39;ve used before can show the [`cached` status](#managing-your-servers) instead; Claude Code connects it when Claude first calls one of its tools
   * If you enable or disable a plugin during a session, run `/reload-plugins` to connect or disconnect its MCP servers. When you reload, Claude Code keeps the live connections of plugin servers whose configuration is unchanged, and does the same when you [replace the session&#39;s MCP server list](/docs/en/agent-sdk/typescript#mcpsetserversresult) from the Agent SDK without naming them. Before v2.1.210, Claude Code disconnected plugin-provided MCP servers that the new SDK server list didn&#39;t name
   * In [web sessions](/docs/en/claude-code-on-the-web), an MCP call to a plugin server that isn&#39;t connected yet, such as right after an idle session wakes, starts the server on demand and waits for it to connect. Before v2.1.211, plugin servers in a web session reconnected only when the next message started a turn, so MCP calls after an idle session woke failed until then
 * **Path placeholders**: `${CLAUDE_PLUGIN_ROOT}` resolves to the plugin&#39;s installation directory, `${CLAUDE_PLUGIN_DATA}` to its [persistent state](/docs/en/plugins-reference#persistent-data-directory) directory, and `${CLAUDE_PROJECT_DIR}` to the stable project root. Substitution applies to:
@@ -6569,7 +6625,7 @@ Find customers who haven't made a purchase in 90 days
 
 Many cloud-based MCP servers require authentication. Claude Code supports OAuth 2.0 for secure connections.
 
-Claude Code marks a remote server as needing authentication when the server responds with `401 Unauthorized` or `403 Forbidden`. For a server you haven&#39;t signed in to, either status code flags it in `/mcp` so you can complete the OAuth flow.
+Claude Code marks a remote server as needing authentication when the server responds with `401 Unauthorized` or `403 Forbidden`. For a server you haven&#39;t signed in to, either status code flags it in `/mcp` so you can complete the OAuth flow. For a [claude.ai connector](#use-mcp-servers-from-claude-ai), a `401` caused by claude.ai rejecting your session token doesn&#39;t flag the connector this way, because re-authorizing the connector can&#39;t fix your login; Claude Code shows the [session-token-rejected state](/docs/en/errors#claude-ai-rejected-the-session-token) instead.
 
 When a request to an OAuth server you already signed in to returns `401 Unauthorized`, Claude Code refreshes the stored token, reconnects, and retries the request once. It flags the server in `/mcp` only if that retry also fails. Before v2.1.206, a token refresh that failed for a transient reason, such as a network error, flagged an OAuth server as needing authentication for the rest of the session even though its refresh token was still valid.
 
@@ -6880,8 +6936,19 @@ Servers from claude.ai appear in the list with indicators showing they come from
 <p></Step>
 </Steps></p>
 <p>From v2.1.161, connectors you have never signed in to are collapsed behind a <code>Show unused connectors</code> row at the end of the claude.ai section, so an organization-provisioned list doesn't fill the panel. Select the row to expand them. A connector you signed in to before stays visible even when it currently needs re-authentication.</p>
-<p>Connectors from claude.ai are fetched only when your active <a href="/docs/en/authentication#authentication-precedence">authentication method</a> is a claude.ai subscription login. They aren't loaded when <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, <code>apiKeyHelper</code>, or a third-party provider such as Amazon Bedrock or Google Cloud's Agent Platform is active, even if you previously ran <code>/login</code>. They also aren't loaded when <code>CLAUDE_CODE_OAUTH_TOKEN</code> holds a token from <a href="/docs/en/authentication#generate-a-long-lived-token"><code>claude setup-token</code></a>, which can only make model requests.</p>
+<p>Connectors from claude.ai are fetched only when your active <a href="/docs/en/authentication#authentication-precedence">authentication method</a> is a claude.ai subscription login. They aren't loaded, even if you previously ran <code>/login</code>, when:</p>
+<ul>
+<li><code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code> is active</li>
+<li>A third-party provider such as Amazon Bedrock or Google Cloud's Agent Platform is active</li>
+<li><code>CLAUDE_CODE_OAUTH_TOKEN</code> holds a token from <a href="/docs/en/authentication#generate-a-long-lived-token"><code>claude setup-token</code></a>, which can only make model requests</li>
+</ul>
 <p>If <code>/mcp</code> doesn't list a connector you added, run <code>/status</code> to confirm which authentication method is active, unset that environment variable or remove the <code>apiKeyHelper</code> setting, then run <code>/login</code> to select your claude.ai account.</p>
+<p>If <code>/mcp</code> shows a connector as <code>connected · session token rejected</code>, or its detail view shows <a href="/docs/en/errors#claude-ai-rejected-the-session-token"><code>claude.ai rejected the session token</code></a>, claude.ai rejected the token from your Claude Code login, usually because the login expired and couldn't be refreshed. Authorizing the connector again doesn't clear this state, because the connector's own authorization in claude.ai isn't what was rejected. To clear it:</p>
+<ol>
+<li>Run <code>/login</code> to sign in again.</li>
+<li>Reconnect the connector from <code>/mcp</code>.</li>
+</ol>
+<p>Before v2.1.222, Claude Code marked connectors as needing authentication instead, and authorizing them didn't resolve it.</p>
 <p>A server you've added in Claude Code takes <a href="#scope-hierarchy-and-precedence">precedence</a> over a claude.ai connector that points at the same URL. When this happens, <code>/mcp</code> lists the connector as hidden and shows how to remove the duplicate if you'd rather use the connector.</p>
 <p>Some Anthropic-hosted connectors, such as Microsoft 365, Gmail, and Google Calendar, don't support local OAuth from Claude Code because the upstream identity provider only accepts the redirect URL that claude.ai registered. From v2.1.162, authenticating one of these hosts in <code>/mcp</code> shows a message directing you to connect it at Settings → Connectors on claude.ai instead. Once connected there, the connector appears in Claude Code automatically.</p>
 <h3 id="organization-controls-on-connector-tools">Organization controls on connector tools</h3>
@@ -7162,7 +7229,7 @@ The following `.mcp.json` entry exempts one HTTP server while leaving other serv
 }
 </code></pre></div></p>
 <p>The <code>alwaysLoad</code> field is available on all server types and requires Claude Code v2.1.121 or later. An MCP server can also mark individual tools as always-loaded by including <code>"anthropic/alwaysLoad": true</code> in the tool's <code>_meta</code> object, which has the same effect for that tool only.</p>
-<p>Setting <code>alwaysLoad: true</code> also blocks startup until the server connects, capped at the standard 5-second connect timeout. This applies even though MCP startup is otherwise <a href="/docs/en/env-vars">non-blocking by default</a>, since the tools must be present when the first prompt is built. Other servers continue to connect in the background.</p>
+<p>Setting <code>alwaysLoad: true</code> also makes startup wait for the server's tools, capped at the standard 5-second connect timeout, since they must be present when the first prompt is built. A remote server with a valid <a href="#managing-your-servers"><code>cached</code> entry</a> supplies its tools from the cache without connecting, so it doesn't hold startup. Other servers connect in the background by default; set <a href="/docs/en/env-vars"><code>MCP_CONNECTION_NONBLOCKING=0</code></a> to make startup wait for them too.</p>
 <h2 id="use-mcp-prompts-as-commands">Use MCP prompts as commands</h2>
 <p>MCP servers can expose prompts that become available as commands in Claude Code.</p>
 <h3 id="execute-mcp-prompts">Execute MCP prompts</h3>

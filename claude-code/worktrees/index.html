@@ -1818,6 +1818,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../claude-tag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude tag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli-reference/" class="md-nav__link">
         
   
@@ -2555,6 +2582,33 @@
     
   
     Gateways
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-actions-cloud-providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Github actions cloud providers
   
 
     
@@ -5032,6 +5086,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#claude-code-refuses-to-use-a-worktree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Code refuses to use a worktree
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-session-resumes-outside-its-worktree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The session resumes outside its worktree
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5247,6 +5323,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#claude-code-refuses-to-use-a-worktree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Code refuses to use a worktree
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-session-resumes-outside-its-worktree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The session resumes outside its worktree
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5337,13 +5435,29 @@ On Windows, removing a worktree doesn&#39;t delete files outside it. If a folder
 
 When you resume a session that was inside a worktree, Claude Code returns the session to that worktree. This holds for interactive resumes, for `--continue` and `--resume` in [non-interactive mode](/docs/en/headless) with `-p`, and for the Agent SDK. Back inside the worktree, Claude can still exit it with the [`ExitWorktree`](/docs/en/tools-reference) tool.
 
-A resume that forks the session with `--fork-session` starts in the directory you launched Claude from and leaves the original session&#39;s worktree untouched. If the worktree directory no longer exists, the session resumes in the directory you launched Claude from.
+Before returning the session to its worktree, Claude Code verifies that the worktree is still a checkout separate from the main one, and declines to re-enter a worktree that fails the check. For a git worktree, the check reads its git metadata. A worktree without git metadata, such as one a [`WorktreeCreate` hook](#non-git-version-control) created, can pass the check; the cases Claude Code still refuses are listed with their recoveries under [Claude Code refuses to use a worktree](#claude-code-refuses-to-use-a-worktree). For the messages and how to recover from each, see [The session resumes outside its worktree](#the-session-resumes-outside-its-worktree).
+
+Where you launch from, and how you resume, change what Claude Code re-enters:
+
+* **Launch directory**: resume from the main checkout or another directory of the repository. Claude Code re-enters a worktree it created with git under `.claude/worktrees/` even when you launch from inside it. When you launch from inside any other worktree, Claude Code re-enters it only if it can vouch for it from there: a worktree that is its own repository, one without git metadata, or a launch from a subdirectory of a worktree you created with `git worktree add` declines, so launch those from the main checkout.
+* **`--fork-session`**: the forked session starts in the directory you launched Claude from, and Claude Code leaves the original session&#39;s worktree untouched.
+* **Deleted worktree**: if the worktree directory no longer exists, Claude Code resumes the session in the directory you launched Claude from. It tells you the worktree is gone and clears the session&#39;s worktree binding.
 
 &lt;Note&gt;
   Before v2.1.212, a non-interactive resume stayed in the starting directory and `ExitWorktree` reported that there was no active worktree session to exit.
 &lt;/Note&gt;
 
 When Claude enters or exits a worktree that Claude Code created with git, the transcript follows: Claude Code records the session under the session&#39;s new working directory, the same way [`/cd`](/docs/en/commands) does, so `/desktop` and `--resume` find it there. Exiting moves it back the same way. A worktree created by a [`WorktreeCreate` hook](#non-git-version-control) keeps its transcript at the launch directory. Requires Claude Code v2.1.198 or later.
+
+## How Claude Code enforces isolation
+
+While a session is isolated in a worktree, whether you started it with `--worktree`, Claude entered one with `EnterWorktree`, or you resumed a worktree session, Claude Code blocks the tool calls listed below when they would reach the main checkout. The same enforcement covers every subagent Claude spawns from the isolated session, and it applies whether the session is interactive or runs in the [background](/docs/en/agent-view#how-file-edits-are-isolated). [Subagents that run in their own worktree](#isolate-subagents-with-worktrees) carry the same checks; their version history is under [Write subagent files](/docs/en/sub-agents#write-subagent-files). Claude Code applies three checks:
+
+* **File edits**: Claude Code blocks an `Edit`, `Write`, or `NotebookEdit` that targets a path in the main checkout.
+* **Command working directory**: Claude Code blocks a Bash, PowerShell, or Monitor command whose working directory resolves to the main checkout, or whose working directory it can&#39;t verify stays outside it.
+* **Git redirects**: Claude Code blocks a Bash or Monitor command that redirects git into the main checkout, whether through `git -C`, `--git-dir`, a `GIT_DIR` or `GIT_WORK_TREE` variable, or a `cd` into the main checkout before running git. Claude Code also blocks a command it can&#39;t verify stays inside the worktree. For PowerShell commands, Claude Code applies only the working-directory check.
+
+The checks apply to the repository you launched Claude Code from, including the main checkout a linked worktree is linked from. Claude sees each refusal as a tool error that names the worktree and says how to proceed.
 
 ## Isolate subagents with worktrees
 
@@ -5477,11 +5591,59 @@ git worktree remove ../project-feature-a
 }</code></p>
 <p>Pair it with a <code>WorktreeRemove</code> hook to clean up when the session ends. See the <a href="/docs/en/hooks#worktreecreate">hooks reference</a> for the input schema and a removal example.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
-<p>The errors below occur when Claude Code creates a worktree or enters one at startup.</p>
+<p>Claude Code reports the errors below when it creates a worktree, enters one at startup, or returns a resumed session to one.</p>
 <h3 id="claude-code-cant-enter-the-worktree-at-startup">Claude Code can't enter the worktree at startup</h3>
 <p>When Claude Code can't enter the worktree directory at startup, it prints an error naming the path and exits with code 1. This can happen when a <a href="/docs/en/hooks#worktreecreate"><code>WorktreeCreate</code> hook</a> prints something other than the directory it created, or when the directory was deleted after it was set up. Before v2.1.205, this crashed the session, and with <code>-p</code> it stalled for about 30 seconds before exiting with code 0.</p>
 <h3 id="worktree-creation-fails-on-a-symlinked-path">Worktree creation fails on a symlinked path</h3>
 <p>Claude Code refuses to create a worktree when <code>.claude</code>, <code>.claude/worktrees</code>, or the worktree directory itself is a symlink, and the error names the symlinked path. Remove the symlink and retry. Before v2.1.212, if the repository already contained a committed symlink at one of those paths, worktree creation followed it and could create files outside the repository.</p>
+<h3 id="claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</h3>
+<p>An error starting <code>Refusing to use &lt;path&gt; as an isolation worktree</code> means Claude Code checked the directory's git identity before adopting it as a session's or subagent's isolated checkout, and declined it. The check runs whether Claude Code is creating the worktree, entering an existing one, or reusing one from an earlier run.</p>
+<p>In most cases the rest of the message says the directory's git metadata resolves into the main checkout: for example, its <code>.git</code> file points at the main repository's own <code>.git</code> directory, or git resolves its working tree to the main checkout through a <code>core.worktree</code> redirect. From such a directory, an ordinary git command such as <code>git reset --hard</code> would act on the main checkout instead of the worktree. Claude Code also refuses when the directory has a <code>.git</code> entry it can't read, rather than assuming the worktree is safe.</p>
+<p>Claude Code leaves the refused directory in place, since it may hold work. Match the message to its recovery, whether it follows <code>Refusing to use &lt;path&gt;</code> or appears in a <a href="#the-session-resumes-outside-its-worktree">resume message</a>; some endings occur only in resume messages:</p>
+<ul>
+<li><strong>Says <code>launch from the parent checkout</code> or <code>Run the resume from the project checkout</code></strong>: you launched Claude Code from inside the worktree. Launch from the main checkout instead; the worktree needs no recreation.</li>
+<li><strong>Says <code>it cannot be resumed or re-entered</code></strong>: nothing in this session vouches for the worktree from where you launched. Recreate it; the directory and its work remain on disk for manual recovery, and when the worktree has a parent checkout, resuming from there also works.</li>
+<li><strong>Says <code>it contains the protected checkout</code></strong>: the refused directory is a parent of your main checkout, such as your home directory. Don't delete it. Change the worktree path, such as the path your <code>WorktreeCreate</code> hook returns or the <code>EnterWorktree</code> target, so the worktree doesn't contain the checkout.</li>
+<li><strong>Says <code>the protected checkout &lt;path&gt; has a .git entry that could not be examined</code> or <code>has git metadata that could not be resolved</code></strong>: the problem is the main checkout's git metadata, not the worktree's. Don't delete the worktree, and ignore the message's trailing advice to recreate it, which doesn't apply to these two endings. Repair the main checkout, for example a permissions problem or a git <code>dubious ownership</code> refusal on its <code>.git</code>, and retry.</li>
+<li><strong>Says <code>its recorded path has a network spelling</code></strong>: Claude Code never resumes into a worktree at a network path. Recreate the worktree at a local path.</li>
+<li><strong>Any other ending</strong>: the message names the problem and its fix, such as removing a <code>core.worktree</code> redirect or recreating the worktree; follow it. Before deleting a directory whose message says its git identity could not be verified, address the named cause first, for example a symbolic link in the worktree's path or git itself failing to run, since the directory may be healthy. When you do recreate, salvage any changes you need from the old directory first; it stays on disk.</li>
+</ul>
+<h3 id="the-session-resumes-outside-its-worktree">The session resumes outside its worktree</h3>
+<p>When an interactive resume can't return the session to its worktree, Claude Code says so with one of the messages below.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Message starts with</th>
+<th style="text-align: left;">What happened and what to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>Your worktree &lt;path&gt; no longer exists</code></td>
+<td style="text-align: left;">The worktree directory was removed. The session continues in the current directory without isolation, and Claude Code clears the worktree binding. No action needed.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Could not verify your worktree &lt;path&gt; this time</code></td>
+<td style="text-align: left;">Claude Code couldn't verify the worktree, usually for a transient reason; the binding is kept, and the session continues in the current directory without isolation. Resume again to retry; if it keeps happening, enter the worktree in a new session and match the refusal message under <a href="#claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</a>, which can name the main checkout's metadata rather than the worktree's.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Did not re-enter your worktree &lt;path&gt;</code></td>
+<td style="text-align: left;">Claude Code refused the worktree binding as unsafe; it clears the binding and the session continues without isolation. The message includes the specific refusal: match it under <a href="#claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</a>, since the fix is recreation for some refusals and a path change for others.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Could not re-enter your worktree &lt;path&gt;</code></td>
+<td style="text-align: left;">Claude Code couldn't vouch for the worktree from where you launched, most commonly because you launched from inside it; the binding is kept. The rest of the message names the fix; match it under <a href="#claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>In <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code>, and on resumes the <a href="/docs/en/agent-sdk/sessions">Agent SDK</a> runs, Claude Code stops the resume with a stderr error for every refusal except a gone worktree, instead of continuing without isolation, and the messages take different shapes from the ones in the table above:</p>
+<ul>
+<li><code>Error: cannot resume into worktree &lt;path&gt;: ...This session was not started.</code> for a refusal the table shows as <code>Did not re-enter</code></li>
+<li><code>Error: could not verify worktree &lt;path&gt; for this resume, so the resume was aborted...</code> for <code>Could not verify</code></li>
+<li><code>Error: ...The worktree binding is kept.</code> for <code>Could not re-enter</code></li>
+<li><code>Notice: the worktree &lt;path&gt; for this session no longer exists...</code> for a gone worktree; Claude Code prints it and continues the session, as an interactive resume does</li>
+</ul>
+<p>The refusal ending embedded in each error is shared with the interactive notices, so it still matches its entry under <a href="#claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</a>.</p>
 <h2 id="see-also">See also</h2>
 <p>Worktrees handle file isolation. The related pages below cover delegating work into those isolated checkouts and switching between the sessions you create:</p>
 <ul>
