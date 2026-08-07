@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -4576,6 +4576,195 @@
   
   
     <li class="md-nav__item">
+      <a href="../self-hosted-environments-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-identity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments identity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../server-managed-settings/" class="md-nav__link">
         
   
@@ -6290,6 +6479,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#the-response-above-may-be-incomplete">Server errors</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>Connection closed while thinking</code> / <code>Response stalled while thinking</code></td>
+<td style="text-align: left;"><a href="#automatic-retries">Automatic retries</a></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>&lt;model&gt; is temporarily unavailable, so auto mode cannot determine the safety of...</code></td>
 <td style="text-align: left;"><a href="#auto-mode-cannot-determine-the-safety-of-an-action">Server errors</a></td>
 </tr>
@@ -6652,18 +6845,18 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <h2 id="automatic-retries">Automatic retries</h2>
-<p>Claude Code retries transient failures up to 10 times with exponential backoff before showing you an error. It doesn't always retry a failure that arrives partway through Claude's response. When you see one of the errors on this page, Claude Code has already exhausted those retries, unless the failure is one it doesn't retry.</p>
+<p>Claude Code retries transient failures up to 10 times with exponential backoff before showing you an error. It doesn't always retry a failure that arrives partway through Claude's response. When you see one of the errors on this page, Claude Code has already made whatever retries apply to that failure; the lists below say which failures get the full budget, which get a smaller one, and which get none.</p>
 <p>Claude Code retries these failures:</p>
 <ul>
-<li>Server errors, overloaded responses, and request timeouts.</li>
-<li>Dropped connections. This covers a connection that drops in the middle of a request, before Claude has started a block of text or a tool call in its response: Claude Code re-issues the request with the same backoff, and the turn continues. Before v2.1.198, Claude Code stopped the turn with a connection error when the connection dropped mid-response, before any visible output had streamed.</li>
-<li>A stalled response stream while the response is still in progress, before Claude has started a block of text or a tool call: Claude Code aborts the stalled connection and re-issues the request at most once, outside the 10-attempt budget above.</li>
+<li>Server errors, overloaded responses, and request timeouts that arrive before any of Claude's response has streamed.</li>
+<li>Dropped connections. When a connection drops partway through a request before Claude has completed any part of its response, including its thinking, Claude Code re-issues the request with the same backoff and the turn continues, even if some text had already started streaming. When it drops after Claude has finished thinking but before it has started any text or tool call, Claude Code instead re-issues the request up to two times in quick succession, and ends the turn with <code>Connection closed while thinking, before producing a response</code> if the connection keeps dropping at that point.</li>
+<li>A stalled response stream, when none of the response has arrived yet or when Claude has finished thinking but hasn't started any text or tool call: Claude Code aborts the stalled connection and re-issues the request at most once, outside the 10-attempt budget above. If the response stalls a second time after Claude has finished thinking but before any text or tool call, Claude Code ends the turn with <code>Response stalled while thinking, before producing a response</code>.</li>
 <li>Temporary 429 throttles. When you're signed in with a claude.ai subscription, this includes 429 throttles that don't carry your plan's quota headers. Before v2.1.199, Claude Code retried those throttles only for API key and Enterprise sign-ins.</li>
 </ul>
 <p>Claude Code doesn't retry these failures:</p>
 <ul>
 <li>A TLS certificate validation failure, such as a TLS-inspecting proxy, a missing <code>NODE_EXTRA_CA_CERTS</code> bundle, or an expired certificate. Claude Code reports the error on the first attempt, so you can fix the certificate setup right away; see <a href="#ssl-certificate-errors">SSL certificate errors</a>. Claude Code still retries transient TLS conditions such as a handshake timeout. Before v2.1.199, Claude Code retried certificate failures through the full retry budget before showing the error.</li>
-<li>A server error, dropped connection, or stalled stream that arrives after Claude has started a block of text or a tool call in its response, but before it finishes the response. Claude Code could execute the same tool calls twice if it re-ran the request, so it keeps what Claude completed and shows an <a href="#the-response-above-may-be-incomplete">incomplete-response notice</a>. Claude Code still runs any tool calls Claude completed and continues the turn from their results. Before v2.1.199, Claude Code discarded the partial output and reported the whole turn as an error when a server error arrived mid-stream.</li>
+<li>A server error, dropped connection, or stalled stream that arrives after Claude has completed a block of text or a tool call, or has started one after finishing its thinking, but before it finishes the response. Claude Code could execute the same tool calls twice if it re-ran the request, so it keeps what Claude completed and shows an <a href="#the-response-above-may-be-incomplete">incomplete-response notice</a>. Claude Code still runs any tool calls Claude completed and continues the turn from their results. Before v2.1.199, Claude Code discarded the partial output and reported the whole turn as an error when a server error arrived mid-stream.</li>
 <li>A failure that arrives after Claude has finished the response: nothing needs retrying, so Claude Code keeps the complete response and ends the turn normally.</li>
 <li>An <a href="#bedrock-streaming-response-has-an-unexpected-content-type">Amazon Bedrock streaming response with an unexpected content-type</a>, because the gateway or proxy rewriting the response would rewrite the retry the same way. Requires Claude Code v2.1.208 or later.</li>
 </ul>
@@ -6746,7 +6939,7 @@ Request timed out
 
 ### The response above may be incomplete
 
-A streaming request failed after Claude had started a block of text or a tool call, while the response was still in progress. Re-sending the request could run the same tool calls twice, so Claude Code keeps the output Claude completed and appends this notice instead of discarding the turn. Which variant you see names the cause:
+A streaming request failed while the response was still in progress, after Claude had completed a block of text or a tool call, or had started one after finishing its thinking. Re-sending the request could run the same tool calls twice, so Claude Code keeps the output Claude completed and appends this notice instead of discarding the turn. Which variant you see names the cause:
 
 ```text theme={null}
 API Error: Server error mid-response. The response above may be incomplete.
@@ -6758,9 +6951,9 @@ API Error: Response stalled mid-stream. The response above may be incomplete.
 <li><code>Connection closed mid-response</code>: the connection dropped.</li>
 <li><code>Response stalled mid-stream</code>: the stream stopped sending data. Before v2.1.222, this variant could also appear on <a href="/docs/en/gateways">gateway</a> connections reached through <code>ANTHROPIC_BASE_URL</code> or <code>ANTHROPIC_AWS_BASE_URL</code> while the server's keep-alive pings were still arriving, because Claude Code counted only parsed response events there; upgrading stops those spurious timeouts on those routes. Gateways reached through a provider base URL such as <code>ANTHROPIC_BEDROCK_BASE_URL</code> aren't wrapped by the byte watchdog; see <a href="/docs/en/network-config#streaming-idle-watchdogs">Streaming idle watchdogs</a>.</li>
 </ul>
-<p>Claude Code shows this notice only when the failure lands after Claude has started a block of text or a tool call and before the response finishes:</p>
+<p>When one of these failures lands at another point in the turn, Claude Code handles it without this notice:</p>
 <ul>
-<li>While the response is in progress, before Claude has started a block of text or a tool call, Claude Code either retries the failure or ends the turn with a different error. See <a href="#automatic-retries">Automatic retries</a>.</li>
+<li>Earlier in the response, Claude Code either retries the failure or ends the turn with a different error. See <a href="#automatic-retries">Automatic retries</a>.</li>
 <li>When one of these failures arrives after Claude has finished the response, Claude Code keeps the complete response and ends the turn normally, without this notice. Before v2.1.222, Claude Code showed the <code>Connection closed mid-response</code> or <code>Response stalled mid-stream</code> notice when the connection dropped or stalled after the response finished, and reported the turn as an error even though the response was complete.</li>
 </ul>
 <p><strong>What to do:</strong></p>
@@ -6962,7 +7155,7 @@ Invalid API key · Fix external API key
 <p><strong>What to do:</strong></p>
 <ul>
 <li>Check for typos and confirm the key has not been revoked in the <a href="https://platform.claude.com/settings/keys">Console</a></li>
-<li>Run <code>env | grep ANTHROPIC</code> in the same shell. Tools like direnv, dotenv shell plugins, and IDE terminals can load a stale key from a <code>.env</code> file in your project without you setting it explicitly.</li>
+<li>In the same shell, run <code>env | grep ANTHROPIC</code>, or in PowerShell <code>Get-ChildItem Env:ANTHROPIC*</code>. Tools like direnv, dotenv shell plugins, and IDE terminals can load a stale key from a <code>.env</code> file in your project without you setting it explicitly.</li>
 <li>Unset <code>ANTHROPIC_API_KEY</code> and run <code>/login</code> to use subscription auth instead</li>
 <li>If the key comes from an <a href="/docs/en/settings#available-settings"><code>apiKeyHelper</code></a> script, run the script directly to confirm it prints a valid key on stdout</li>
 <li>Run <code>/status</code> to confirm which credential source Claude Code is actually using</li>
@@ -7082,7 +7275,7 @@ Please run /login · API Error: 401 Invalid authentication credentials
 </code></pre></div></p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>If <code>/status</code> shows an <code>API key</code> row, an approved <a href="/docs/en/authentication#authentication-precedence"><code>ANTHROPIC_API_KEY</code></a> is the active credential and takes precedence over your login, so <code>/login</code> doesn't replace it. Rotate the key in the Claude Console, or run <code>unset ANTHROPIC_API_KEY</code> to fall back to your subscription.</li>
+<li>If <code>/status</code> shows an <code>API key</code> row, an approved <a href="/docs/en/authentication#authentication-precedence"><code>ANTHROPIC_API_KEY</code></a> is the active credential and takes precedence over your login, so <code>/login</code> doesn't replace it. Rotate the key in the Claude Console, or fall back to your subscription by running <code>unset ANTHROPIC_API_KEY</code>, or in PowerShell <code>Remove-Item Env:ANTHROPIC_API_KEY</code>.</li>
 <li>If <code>/status</code> shows only your login, run <code>/login</code> once. If the credential was revoked, a fresh login replaces it.</li>
 <li>If the same message returns for the same login account, the account or organization is no longer active. Check the account and organization that <code>/status</code> reports, and ask your organization admin to restore access.</li>
 <li>If <a href="/docs/en/env-vars"><code>ANTHROPIC_BASE_URL</code></a> points at an <a href="/docs/en/llm-gateway">LLM gateway</a>, the text after <code>401</code> is your gateway's message rather than Anthropic's, and <code>/login</code> doesn't change it. Fix the credential your gateway expects instead.</li>
@@ -7221,10 +7414,11 @@ A proxy is configured via HTTPS_PROXY. Check that it allows connections to the h
 
 `Socket is closed` means the connection carrying a streaming response was closed while the response was still arriving. The most common cause is a corporate proxy on Windows dropping an established tunnel mid-response.
 
-Claude Code either retries the request or keeps the response Claude produced:
+Depending on how far the response had progressed, Claude Code retries the request, keeps what Claude produced, or ends the turn:
 
-* If the response is still in progress and Claude hasn&#39;t started any block of text or a tool call, Claude Code treats the failure as a dropped connection and [retries the request automatically](#automatic-retries), so the turn continues.
-* If Claude has started a block of text or a tool call but hasn&#39;t finished the response, Claude Code keeps what Claude completed and shows an [incomplete-response notice](#the-response-above-may-be-incomplete). It still runs any tool calls Claude completed and continues the turn from their results.
+* If Claude hasn&#39;t completed any part of the response yet, including its thinking, Claude Code treats the failure as a dropped connection and [retries the request automatically](#automatic-retries), so the turn continues, even if some text had started streaming.
+* If Claude has finished thinking but hasn&#39;t started any text or tool call, Claude Code re-issues the request up to two times in quick succession, then ends the turn with `Connection closed while thinking, before producing a response` if the connection keeps dropping at that point.
+* If Claude has completed a block of text or a tool call, or has started one after finishing its thinking, but hasn&#39;t finished the response, Claude Code keeps what Claude completed and shows an [incomplete-response notice](#the-response-above-may-be-incomplete). It still runs any tool calls Claude completed and continues the turn from their results.
 * If the socket closes after Claude has finished the response, Claude Code ends the turn normally with the complete response.
 
 Before v2.1.214, Claude Code didn&#39;t retry this failure, and the turn stopped with an error containing `Socket is closed`.
@@ -7679,8 +7873,8 @@ Use &#39;--&#39; to separate paths from revisions, like this:
 <p>The quoted command varies between runs: the review starts several <code>git</code> commands against <code>origin/HEAD</code> at once and reports whichever fails first, so you may see <code>git log</code> or a different <code>git diff</code> in its place. Git creates the ref only when the remote's default branch is both advertised by the remote and covered by your fetch refspec. A full <code>git clone</code> of a remote with commits meets both conditions. Single-branch and CI checkouts fetch too narrow a refspec, a server-side HEAD left pointing at a branch nobody pushed advertises no default, and a repository with no <code>origin</code> remote, or one you never fetched, provides neither.</p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Create the ref by naming your remote's default branch: <code>git remote set-head origin &lt;default-branch&gt;</code>. This works whenever the local tracking ref <code>origin/&lt;default-branch&gt;</code> exists. If it doesn't, as in single-branch clones, fetch the branch first: <code>git remote set-branches --add origin &lt;branch&gt; &amp;&amp; git fetch origin</code>, then rerun the set-head command. Rerun <code>/security-review</code>.</li>
-<li>If you'd rather not name the branch, run <code>git fetch origin &amp;&amp; git remote set-head origin --auto</code>, which asks the remote which branch is its default. It fails with <code>error: Cannot determine remote HEAD</code> when the remote advertises no default branch, because it is empty or its HEAD points at a branch nobody pushed; name the branch explicitly instead. It fails with <code>error: Not a valid ref</code> when your clone doesn't fetch that branch; widen the refspec as above first.</li>
+<li>Create the ref by naming your remote's default branch: <code>git remote set-head origin &lt;default-branch&gt;</code>. This works whenever the local tracking ref <code>origin/&lt;default-branch&gt;</code> exists. If it doesn't, as in single-branch clones, fetch the branch first: run <code>git remote set-branches --add origin &lt;branch&gt;</code>, then <code>git fetch origin</code>, then rerun the set-head command. Rerun <code>/security-review</code>.</li>
+<li>If you'd rather not name the branch, run <code>git fetch origin</code> and then <code>git remote set-head origin --auto</code>, which asks the remote which branch is its default. It fails with <code>error: Cannot determine remote HEAD</code> when the remote advertises no default branch, because it is empty or its HEAD points at a branch nobody pushed; name the branch explicitly instead. It fails with <code>error: Not a valid ref</code> when your clone doesn't fetch that branch; widen the refspec as above first.</li>
 <li>If the repository has no remote, add one with <code>git remote add origin &lt;url&gt;</code> and fetch before creating the ref. If the remote is empty, push your branch first with <code>git push -u origin HEAD</code> and name that branch in the set-head command; <code>origin/HEAD</code> then points at the branch you just pushed, so <code>/security-review</code> sees an empty diff until the branch diverges from it.</li>
 </ul>
 <h3 id="input-must-be-provided-when-using-print">
@@ -7958,8 +8152,7 @@ Restored the code, but skipped 2 files: the tracked path is (or became) a link o
 </code></pre></div></p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Identify which files were skipped so you can handle each one with the steps below. The message gives only a count, so list your project's links to find them: <code>find . -type l</code> for symlinks and <code>find . -type f -links +1</code> for hard-linked files.</li>
-<li>If debug logging is on, the log at <code>~/.claude/debug/&lt;session-id&gt;.txt</code> names each skipped path as the restore runs. Turn it on with <code>/debug</code> before your next restore to skip the search.</li>
+<li>Identify which files were skipped so you can handle each one with the steps below. The message gives only a count; the debug log at <code>~/.claude/debug/&lt;session-id&gt;.txt</code> names each skipped path as the restore runs, so turn on debug logging with <code>/debug</code> before your next restore. On macOS or Linux, you can instead find the links directly: <code>find . -type l</code> for symlinks and <code>find . -type f -links +1</code> for hard-linked files.</li>
 <li>If a skipped file is a link you created on purpose, such as a config file managed by a dotfile manager or a file hard-linked by tools like pnpm, the rewind left its contents alone. To undo the session's changes to it, ask Claude to reverse the edit or edit the file yourself</li>
 <li>If you didn't create the link, inspect the path before trusting its contents: something replaced the file after the checkpoint</li>
 </ul>

@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -4283,6 +4283,195 @@
   
   
     <li class="md-nav__item">
+      <a href="../self-hosted-environments-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-identity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments identity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-hosted-environments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self hosted environments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../server-managed-settings/" class="md-nav__link">
         
   
@@ -6447,7 +6636,12 @@ managed:
 </table>
 <p>Every key is optional; Claude Desktop applies its own default for any key you omit. The gateway rejects unknown keys at boot. If you don't deploy Claude Desktop, leave <code>desktop</code> out of your policies entirely; <code>/user/bootstrap</code> then returns 404 for every user.</p>
 <h4 id="precedence-with-other-managed-sources">Precedence with other managed sources</h4>
-<p>If a device also has a local <code>managed-settings.json</code> or MDM-delivered policy, the managed sources don't merge. The highest-priority source provides all policy settings, ranked in this order with highest priority first:</p>
+<p>If a device also has a local <code>managed-settings.json</code> or MDM-delivered policy, the managed sources don't merge, with two per-key exceptions while no <a href="/docs/en/settings#compute-managed-settings-with-a-policy-helper">policy helper</a> is supplying managed settings, since a helper's output replaces the managed sources entirely:</p>
+<ul>
+<li>The <code>env</code> block, in Claude Code v2.1.223 or later</li>
+<li>The <a href="/docs/en/settings#settings-precedence">cross-source lock keys</a></li>
+</ul>
+<p>Both are covered in the list later in this section. The highest-priority source provides all policy settings, ranked in this order with highest priority first:</p>
 <ol>
 <li>The <a href="/docs/en/settings#compute-managed-settings-with-a-policy-helper">policy helper</a></li>
 <li>Gateway-delivered settings</li>
@@ -6467,12 +6661,10 @@ managed:
 <li><a href="/docs/en/settings#available-settings"><code>allowAllClaudeAiMcps</code></a>: allow-only override for the claude.ai MCP server allowlist</li>
 <li><code>sandbox.bwrapPath</code> and <code>sandbox.socatPath</code>: filesystem paths to the <a href="/docs/en/sandboxing">sandbox</a> helper binaries</li>
 <li><a href="/docs/en/server-managed-settings"><code>forceRemoteSettingsRefresh</code></a>: blocks startup until remote managed settings are freshly fetched, so an MDM or file policy that sets it is honored even when a cached remote payload that lacks the key is the highest-priority source</li>
+<li><code>env</code>: each variable comes from the highest-priority admin source that defines it, and lower admin sources fill in variables the higher sources leave unset. The telemetry unit and credential-paired routing variables follow their own rules; see <a href="/docs/en/server-managed-settings#per-key-exceptions-across-managed-sources">Per-key exceptions across managed sources</a>. Requires Claude Code v2.1.223 or later</li>
 </ul>
-<p>Every other key, including <code>disableBypassPermissionsMode</code>, comes from the highest-priority source only. Two <a href="/docs/en/claude-apps-gateway#restrict-parent-settings">parent-settings</a> checks read every admin source:</p>
-<ul>
-<li>When any admin source sets <code>allowManagedPermissionRulesOnly</code>, Claude Code drops parent-supplied permission allow rules and <code>additionalDirectories</code>. The key's effect on the developer's own rules still follows the highest-priority source.</li>
-<li>A <code>forceLoginOrgUUID</code> or <code>allowedMcpServers</code> value in any admin source blocks a parent-supplied one. The value that applies still comes from the highest-priority source.</li>
-</ul>
+<p>Every other key, including <code>disableBypassPermissionsMode</code>, comes from the highest-priority source only. One <a href="/docs/en/claude-apps-gateway#restrict-parent-settings">parent-settings</a> check reads every admin source: when any admin source sets <code>allowManagedPermissionRulesOnly</code>, Claude Code drops parent-supplied permission allow rules and <code>additionalDirectories</code>. The key's effect on the developer's own rules still follows the highest-priority source.</p>
+<p>A <code>forceLoginOrgUUID</code> or <code>allowedMcpServers</code> value in the highest-priority admin source blocks a parent-supplied one and is the value Claude Code enforces. A value in a non-winning admin source neither applies nor blocks the parent's. Before v2.1.223, a value in any admin source blocked the parent's.</p>
 <p>See <a href="/docs/en/settings#settings-precedence">Settings precedence</a> for the same rules on the settings page.</p>
 <p>Gateway policies apply to every Claude Code invocation on the machine, including non-interactive <code>claude -p</code> runs and sessions spawned by the Agent SDK. If the gateway is unreachable at startup, signed-in sessions exit with an error rather than running without their policy.</p>
 <p><Warning>
