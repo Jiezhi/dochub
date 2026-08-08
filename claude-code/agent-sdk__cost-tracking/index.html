@@ -618,6 +618,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__file-checkpointing/" class="md-nav__link">
         
   
@@ -2300,6 +2327,33 @@
     
   
     Costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-session-messaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross session messaging
   
 
     
@@ -5583,7 +5637,7 @@ Use this file to discover all available pages before exploring further.</p>
   </Step>
 </Steps></p>
 <h2 id="get-the-total-cost-of-a-query">Get the total cost of a query</h2>
-<p>The result message (<a href="/docs/en/agent-sdk/typescript#sdkresultmessage">TypeScript</a>, <a href="/docs/en/agent-sdk/python#resultmessage">Python</a>) marks the end of the agent loop for a <code>query()</code> call. It includes <code>total_cost_usd</code>, the cumulative estimated cost across all steps in that call. This works for both success and error results. If you use sessions to make multiple <code>query()</code> calls, each result only reflects the cost of that individual call.</p>
+<p>The result message (<a href="/docs/en/agent-sdk/typescript#sdkresultmessage">TypeScript</a>, <a href="/docs/en/agent-sdk/python#resultmessage">Python</a>) marks the end of the agent loop for a <code>query()</code> call. It includes <code>total_cost_usd</code>, the cumulative estimated cost across all steps in that call. This works for both success and error results, though in Python the field is typed as optional and may be <code>None</code> on some error paths. If you use sessions to make multiple <code>query()</code> calls, each result only reflects the cost of that individual call.</p>
 <p>The three result-level fields differ in what they count when the agent spawns <a href="/docs/en/agent-sdk/subagents">subagents</a>. Use <code>modelUsage</code>, or <code>model_usage</code> in Python, for whole-tree token accounting; the <code>usage</code> field undercounts as soon as nesting occurs.</p>
 <table>
 <thead>
@@ -5636,9 +5690,8 @@ async def main():
                 print(f&quot;Total cost: ${message.total_cost_usd or 0}&quot;)
     except Exception as error:
         # A single-shot query() raises after yielding an error result. If the
-        # failure was an error result, it still carried total_cost_usd and the
-        # branch above has already run; connection or process failures yield
-        # no result message.
+        # failure was an error result, the branch above has already run;
+        # connection or process failures yield no result message.
         print(f&quot;Session ended with an error: {error}&quot;)
 
 
@@ -5780,7 +5833,7 @@ asyncio.run(main())
 <li><strong>Report inconsistencies:</strong> file issues at the <a href="https://github.com/anthropics/claude-code/issues">Claude Code GitHub repository</a>.</li>
 </ol>
 <h3 id="track-costs-on-failed-conversations">Track costs on failed conversations</h3>
-<p>Both success and error result messages include <code>usage</code> and <code>total_cost_usd</code>. If a conversation fails mid-way, you still consumed tokens up to the point of failure. Always read cost data from the result message regardless of its <code>subtype</code>.</p>
+<p>Both success and error result messages include <code>usage</code> and <code>total_cost_usd</code>; in Python both fields are typed as optional and may be <code>None</code> on some error paths. If a conversation fails mid-way, you still consumed tokens up to the point of failure. Always read cost data from the result message regardless of its <code>subtype</code>.</p>
 <h3 id="track-cache-tokens">Track cache tokens</h3>
 <p>The Agent SDK automatically uses <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a> to reduce costs on repeated content. You do not need to configure caching yourself. The usage object includes two additional fields for cache tracking:</p>
 <ul>
@@ -5789,7 +5842,7 @@ asyncio.run(main())
 </ul>
 <p>Track these separately from <code>input_tokens</code> to understand caching savings. In TypeScript, these fields are typed on the <a href="/docs/en/agent-sdk/typescript#usage"><code>Usage</code></a> object. In Python, they appear as keys in the <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage.usage</code></a> dict (for example, <code>message.usage.get("cache_read_input_tokens", 0)</code>).</p>
 <h3 id="extend-the-prompt-cache-ttl-to-one-hour">Extend the prompt cache TTL to one hour</h3>
-<p>Cache entries written by the SDK use a 5-minute TTL by default when you authenticate with an API key or run on Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry. If your workload runs many short sessions against the same system prompt and context with gaps longer than 5 minutes between them, the cache expires between sessions and each new session pays full input price.</p>
+<p>Cache entries written by the SDK use a 5-minute TTL by default when you authenticate with an API key or run on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>. If your workload runs many short sessions against the same system prompt and context with gaps longer than 5 minutes between them, the cache expires between sessions and each new session pays full input price.</p>
 <p>To request a 1-hour TTL on cache writes, set the <a href="/docs/en/env-vars"><code>ENABLE_PROMPT_CACHING_1H</code></a> environment variable. You can export it in your shell or container environment, or pass it through <code>options.env</code>.</p>
 <p>The following example enables 1-hour TTL for an agent running on Amazon Bedrock. Because it sets <code>CLAUDE_CODE_USE_BEDROCK</code>, it requires working AWS credentials for <a href="/docs/en/amazon-bedrock">Amazon Bedrock</a>; without them the query fails.</p>
 <p><CodeGroup>
@@ -5823,7 +5876,7 @@ for await (const message of query({ prompt: &quot;Summarize this project&quot;, 
 }
 </code></pre></div>
 </CodeGroup></p>
-<p>Cache writes with a 1-hour TTL are billed at a higher rate than 5-minute writes, so enabling this trades higher write cost for more cache reads. See <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching pricing</a> for details. Claude subscription users already receive 1-hour TTL automatically and do not need to set this variable.</p>
+<p>Cache writes with a 1-hour TTL are billed at a higher rate than 5-minute writes, so enabling this trades higher write cost for more cache reads. See <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching pricing</a> for details. Claude subscription users within included usage receive the 1-hour TTL automatically without setting this variable. When you're drawing on <a href="https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans">usage credits</a>, the SDK drops to the 5-minute TTL unless you set <code>ENABLE_PROMPT_CACHING_1H</code>.</p>
 <h2 id="related-documentation">Related documentation</h2>
 <ul>
 <li><a href="/docs/en/agent-sdk/typescript">TypeScript SDK Reference</a> - Complete API documentation</li>

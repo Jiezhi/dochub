@@ -414,6 +414,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__file-checkpointing/" class="md-nav__link">
         
   
@@ -2372,6 +2399,33 @@
     
   
     Costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-session-messaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross session messaging
   
 
     
@@ -5744,6 +5798,8 @@ Anyone who uses the environment can read the values, and cloud environments have
 
 Run `/remote-env` in your terminal to choose the default environment for cloud sessions you create from the CLI, such as [`claude --cloud`](/docs/en/claude-code-on-the-web#from-terminal-to-web). The command opens a picker of your existing environments and saves your choice to the `remote.defaultEnvironmentId` key in your [user settings](/docs/en/settings#settings-files), so it applies in every project on your machine until you change it, unless the same key is set at a higher-precedence [settings layer](/docs/en/settings#settings-precedence), such as a repo&#39;s project settings.
 
+A [self-hosted environment](/docs/en/self-hosted-environments) ID, which has the form `ccpool_...`, follows a stricter source rule. See [`remote.defaultEnvironmentId`](/docs/en/settings#available-settings) for the settings layers Claude Code honors it from.
+
 `/remote-env` only sets the default: it doesn&#39;t start a session, and it can&#39;t add or edit environments. Manage them at [claude.ai/code](https://claude.ai/code).
 
 ### Archive an environment
@@ -5812,6 +5868,7 @@ registry.example.com
 <li><strong>API requests</strong>: requests from the built-in GitHub tools, and from <code>gh</code> under the <a href="#work-with-github-issues-and-pull-requests"><code>proxy-injected</code> placeholder</a>, go out with your real credentials substituted.</li>
 <li><strong>Push protection</strong>: <code>git push</code> works only against the session's current working branch; cloning, fetching, and PR operations work normally.</li>
 <li><strong>Repository scope</strong>: GitHub API and release-asset requests reach only repositories attached to the session, so a setup script that downloads release assets from an unattached repository gets a 403.</li>
+<li><strong>GraphQL restrictions</strong>: the proxy serves only a pinned set of GraphQL operations for pull-request workflows. The proxy rejects everything else on the GraphQL endpoint with a 403 that says <code>This GraphQL query is not enabled for this session</code> and names the REST fallback, <code>gh api repos/{owner}/{repo}/...</code>. The restriction applies to every request through the proxy regardless of the credentials you supply, so a <code>GH_TOKEN</code> you set gets the same 403. Claude can't reach GitHub APIs that exist only in GraphQL, such as Projects v2, through the proxy.</li>
 </ul>
 <p>Committed files from public repositories arrive through <code>raw.githubusercontent.com</code>, which the <a href="#security-proxy">security proxy</a> handles instead. That domain is in the default <a href="#default-allowed-domains">Trusted list</a>, so those files stay reachable unless the environment's <a href="#access-levels">access level</a> excludes it.</p>
 <h3 id="security-proxy">Security proxy</h3>
@@ -5823,7 +5880,10 @@ registry.example.com
 <li>A DNS-level audit trail of requested hostnames</li>
 </ul>
 <h2 id="whats-available-in-cloud-sessions">What's available in cloud sessions</h2>
-<p>Each session gets a fresh virtual machine (VM) running Ubuntu 24.04, regardless of your own operating system, with your repository cloned and common toolchains pre-installed. This section covers those defaults, the built-in GitHub tools, how to <a href="#run-tests-start-services-and-add-packages">run tests and services</a>, and the <a href="#resource-limits">resource limits</a> each VM gets.</p>
+<p>In Anthropic-hosted environments, each session gets a fresh virtual machine (VM) running Ubuntu 24.04 on x86_64, regardless of your own operating system and CPU architecture, with your repository cloned and common toolchains pre-installed. When a dependency provides precompiled binaries, such as Ruby gems with native extensions or prebuilt Python wheels, use its x86_64 Linux build to match the VM. This section covers the Anthropic-hosted defaults, the built-in GitHub tools, how to <a href="#run-tests-start-services-and-add-packages">run tests and services</a>, and the <a href="#resource-limits">resource limits</a> each VM gets.</p>
+<p><Note>
+  Sessions your organization routes to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> run on your own runners instead, with the tools your runner image provides.
+</Note></p>
 <h3 id="what-carries-over-from-your-setup">What carries over from your setup</h3>
 <p>Cloud sessions start from a fresh clone of your repository. Anything you commit to the repo is available. Anything you've installed or configured only on your own machine isn't available in the session. Your organization's policy arrives separately through <a href="/docs/en/server-managed-settings">server-managed settings</a>.</p>
 <table>
@@ -5925,7 +5985,7 @@ registry.example.com
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Node.js</strong></td>
-<td style="text-align: left;">20, 21, and 22 via nvm, with npm, yarn, pnpm, bun¹, eslint, prettier, chromedriver</td>
+<td style="text-align: left;">20, 21, and 22, with npm, yarn, pnpm, bun¹, eslint, prettier, chromedriver</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>Ruby</strong></td>
@@ -5967,6 +6027,7 @@ registry.example.com
 </table>
 <p>¹ Bun is installed but has known <a href="#install-dependencies-with-a-sessionstart-hook">proxy compatibility issues</a> for package fetching.</p>
 <p>For exact versions, ask Claude to run <code>check-tools</code> in a cloud session. It's a shell command installed on the session VM, not a slash command; you ask Claude because <a href="#run-tests-start-services-and-add-packages">Claude runs all VM commands for you</a>.</p>
+<p>Node.js versions are installed at <code>/opt/node20</code>, <code>/opt/node21</code>, and <code>/opt/node22</code>, with 22 on <code>PATH</code> by default. To work with a different version, ask Claude to prepend that version's <code>bin</code> directory, such as <code>/opt/node20/bin</code>, to <code>PATH</code>.</p>
 <p>Toolchains outside this list, such as the .NET SDK, aren't pre-installed even when their package registries are on the <a href="#default-allowed-domains">default allowlist</a>. Install them with a <a href="#setup-scripts">setup script</a>.</p>
 <h3 id="work-with-github-issues-and-pull-requests">Work with GitHub issues and pull requests</h3>
 <p>Cloud sessions include built-in GitHub tools that let Claude read issues, list pull requests, fetch diffs, and post comments without any setup. These tools authenticate through the <a href="#github-proxy">GitHub proxy</a> using whichever method you configured under <a href="/docs/en/claude-code-on-the-web#github-authentication-options">GitHub authentication options</a>, so your token never enters the container.</p>
@@ -6019,7 +6080,7 @@ To add packages that aren&#39;t pre-installed, use a [setup script](#setup-scrip
 
 ### Resource limits
 
-Cloud sessions run with approximate resource ceilings that may change over time:
+Cloud sessions in Anthropic-hosted environments run with approximate resource ceilings that may change over time:
 
 * 4 vCPUs
 * 16 GB of RAM

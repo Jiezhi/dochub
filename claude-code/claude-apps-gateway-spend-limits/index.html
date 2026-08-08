@@ -414,6 +414,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__file-checkpointing/" class="md-nav__link">
         
   
@@ -2295,6 +2322,33 @@
     
   
     Costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-session-messaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross session messaging
   
 
     
@@ -5589,7 +5643,7 @@ curl -sS https://claude-gateway.internal.example.com/v1/organizations/spend_limi
 <li>A gateway bearer token whose <code>groups</code> claim includes one of <a href="/docs/en/claude-apps-gateway-config#admin"><code>admin.admin_groups</code></a>. This is full access and audits as <code>oidc:&lt;sub&gt;</code>, so prefer it for human admins.</li>
 </ul>
 <h2 id="how-enforcement-works">How enforcement works</h2>
-<p>On each <code>/v1/messages</code> request, the gateway resolves the developer's caps and period-to-date spend in one Postgres query. If they're over any cap, the request returns <code>429</code> with <code>error.type: billing_error</code> and the header <code>x-should-retry: false</code>. The message is <code>spend limit reached</code>, followed by your <a href="/docs/en/claude-apps-gateway-config#admin"><code>admin.blocked_message</code></a> if set.</p>
+<p>On each <code>/v1/messages</code> request, the gateway resolves the developer's caps and period-to-date spend in one Postgres query. If they're over any cap, the request returns <code>429</code> with <code>error.type: billing_error</code> and the header <code>x-should-retry: false</code>. The message is <code>spend limit reached</code>, followed by your <a href="/docs/en/claude-apps-gateway-config#admin"><code>admin.blocked_message</code></a> if set. Caps reset on UTC calendar boundaries: daily at 00:00 UTC, weekly at 00:00 UTC on Monday, and monthly at 00:00 UTC on the first of the month.</p>
 <p><code>/v1/messages/count_tokens</code> is exempt. Token counting is free, so it runs regardless of cap state.</p>
 <p>After each response, a usage meter reads token counts off the response as it streams to the client, prices them at USD list price, and increments Postgres counters for all three period buckets. The meter is a single reader on the stream, so the client's bytes are untouched and a metering failure doesn't break the response.</p>
 <p>Spend limits estimate spend from token counts at USD list price; they're a circuit breaker, not an invoice. For authoritative billing, reconcile against your provider's own usage reporting, such as the Anthropic Usage &amp; Cost Admin API, invocation logs on Amazon Bedrock, or Cloud Monitoring on Google Cloud.</p>
@@ -5615,7 +5669,7 @@ curl -sS https://claude-gateway.internal.example.com/v1/organizations/spend_limi
 <tbody>
 <tr>
 <td><code>GET /v1/organizations/spend_limits</code></td>
-<td>List configured caps. Query: <code>?limit=&amp;after_id=&amp;before_id=</code>.</td>
+<td>List configured caps, optionally filtered to one <code>scope_type</code> of <code>organization</code>, <code>rbac_group</code>, or <code>user</code>. Query: <code>?limit=&amp;after_id=&amp;before_id=&amp;scope_type=</code>.</td>
 </tr>
 <tr>
 <td><code>POST /v1/organizations/spend_limits</code></td>
@@ -5635,7 +5689,7 @@ curl -sS https://claude-gateway.internal.example.com/v1/organizations/spend_limi
 </tr>
 <tr>
 <td><code>GET /v1/organizations/spend_limits/audit</code></td>
-<td>Admin mutation trail, newest-first. Query: <code>?limit=</code>.</td>
+<td>Admin mutation trail, newest-first. Query: <code>?limit=&amp;after_id=</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -5645,7 +5699,7 @@ curl -sS https://claude-gateway.internal.example.com/v1/organizations/spend_limi
 <li><code>spl_</code>-prefixed IDs</li>
 <li>Amounts as whole-number strings of USD cents; <code>POST</code> rejects any other <code>currency</code> with <code>400</code></li>
 <li>The <code>{type: "error", error: {type, message}, request_id}</code> error envelope</li>
-<li>A <code>request-id</code> response header on every admin response, success or error, matching the body's <code>request_id</code></li>
+<li>A <code>request-id</code> response header on every admin response, success or error; error bodies also carry it as <code>request_id</code></li>
 </ul>
 <p>Every mutation writes a before/after row to <code>admin_audit</code> in the same transaction, attributed to <code>admin-key:&lt;id&gt;</code> or <code>oidc:&lt;sub&gt;</code>.</p>
 <p>The gateway serves the spend-limits endpoints only. Other Admin API surfaces, such as the <code>spend_limit_increase_requests</code> queue, aren't part of the gateway's admin API.</p>
@@ -5692,9 +5746,9 @@ curl -sS https://claude-gateway.internal.example.com/v1/organizations/spend_limi
   <code>q=</code> and <code>user_ids[]=</code> ride GET query strings, so any fronting proxy or load balancer captures them in its access logs. If your PII log policy is strict, scrub these parameters there.
 </Warning></p>
 <h3 id="audit"><code>/audit</code></h3>
-<p>Returns the spend-limit mutation trail: who changed which cap, before/after snapshots, and the optional reason, newest-first. <code>has_more</code> is exact. This endpoint follows the local Admin API conventions rather than a first-party wire shape.</p>
+<p>Returns the spend-limit mutation trail: who changed which cap, with before/after snapshots, newest-first. <code>has_more</code> is exact. This endpoint follows the local Admin API conventions rather than a first-party wire shape.</p>
 <h3 id="pagination">Pagination</h3>
-<p>The raw list pages by <code>after_id</code> and <code>before_id</code>, which are mutually exclusive <code>spl_…</code> IDs; results are ordered by creation and <code>has_more</code> reflects the traversal direction. <code>/effective</code> pages by the opaque <code>next_page</code> token passed back as <code>?page=</code>, with principals ordered ascending so pages stay stable while spend is being recorded. <code>limit</code> is 1–1000, default 20, on both.</p>
+<p>The raw list pages by <code>after_id</code> and <code>before_id</code>, which are mutually exclusive <code>spl_…</code> IDs; results are ordered by creation and <code>has_more</code> reflects the traversal direction. <code>/effective</code> pages by the opaque <code>next_page</code> token passed back as <code>?page=</code>, with principals ordered ascending so pages stay stable while spend is being recorded. <code>limit</code> is 1–1000, default 20, on both. <code>/audit</code> pages by <code>after_id</code>, the numeric <code>id</code> of the last event on the previous page, and its <code>limit</code> defaults to 100.</p>
 <h2 id="data-lifecycle">Data lifecycle</h2>
 <p>The gateway holds four spend-related tables; an hourly sweep enforces the retention windows:</p>
 <table>

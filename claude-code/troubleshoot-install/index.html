@@ -414,6 +414,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__file-checkpointing/" class="md-nav__link">
         
   
@@ -2096,6 +2123,33 @@
     
   
     Costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-session-messaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross session messaging
   
 
     
@@ -5773,7 +5827,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#verify-your-path">Add the install directory to your PATH</a>, then open a new terminal</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>dyld: cannot load</code>, <code>dyld: Symbol not found</code>, or <code>Abort trap</code> on macOS</td>
+<td style="text-align: left;"><code>dyld: Symbol not found</code>, <code>dyld: cannot load</code>, or <code>Abort trap</code> on macOS</td>
 <td style="text-align: left;"><a href="#dyld-cannot-load-on-macos">Binary incompatibility</a></td>
 </tr>
 <tr>
@@ -5791,6 +5845,14 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>Error: claude native binary not installed</code></td>
 <td style="text-align: left;"><a href="#native-binary-not-found-after-npm-install">Complete the npm install</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>npm error code ENOTEMPTY</code> during update or reinstall</td>
+<td style="text-align: left;"><a href="#npm-enotempty-during-update-or-reinstall">Remove the leftover package directory</a></td>
+</tr>
+<tr>
+<td style="text-align: left;">On Windows, the install command prints script text and nothing installs</td>
+<td style="text-align: left;"><a href="#wrong-install-command-on-windows">Run the complete install command</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>App unavailable in region</code></td>
@@ -6265,7 +6327,7 @@ The installer couldn&#39;t reach the download server. This typically means `down
 
 ### Wrong install command on Windows
 
-If you see `&#39;irm&#39; is not recognized`, `The token &#39;&amp;&amp;&#39; is not valid`, `A parameter cannot be found that matches parameter name &#39;fsSL&#39;`, or `&#39;bash&#39; is not recognized as the name of a cmdlet`, you copied the install command for a different shell or operating system.
+If you see `&#39;irm&#39; is not recognized`, `The token &#39;&amp;&amp;&#39; is not valid`, `A parameter cannot be found that matches parameter name &#39;fsSL&#39;`, or `&#39;bash&#39; is not recognized as the name of a cmdlet`, you copied the install command for a different shell or operating system. If the command prints the script&#39;s text instead of installing anything, you ran only part of it.
 
 * **`irm` not recognized**: you&#39;re in CMD, not PowerShell. You have two options:
 
@@ -6295,6 +6357,20 @@ If you see `&#39;irm&#39; is not recognized`, `The token &#39;&amp;&amp;&#39; is
   ```powershell theme={null}
   irm https://claude.ai/install.ps1 | iex
   ```
+
+* **The command prints script text instead of installing**: you ran the download half of the command without the part that executes it. `irm https://claude.ai/install.ps1` on its own prints the downloaded script to the terminal. Pipe it to `iex` to run it:
+
+  ```powershell theme={null}
+  irm https://claude.ai/install.ps1 | iex
+  ```
+
+  In CMD, `curl -fsSL https://claude.ai/install.cmd` without `-o` prints the batch script instead of saving it. Run the complete command:
+
+  ```batch theme={null}
+  curl -fsSL https://claude.ai/install.cmd -o install.cmd &amp;&amp; install.cmd &amp;&amp; del install.cmd
+  ```
+
+Whichever installer you use, confirm it worked: open a new terminal and run `claude --version`, which prints a version number such as `2.1.211 (Claude Code)`.
 
 &lt;h3 id=&quot;running-scripts-is-disabled-on-this-system&quot;&gt;
   `running scripts is disabled on this system`
@@ -6445,16 +6521,17 @@ Error loading shared library libstdc++.so.6: No such file or directory
 <p>There is no native-binary workaround; track <a href="https://github.com/anthropics/claude-code/issues/50384">issue #50384</a> for status, and include your CPU model from <code>grep -m1 "model name" /proc/cpuinfo</code> on Linux or <code>sysctl -n machdep.cpu.brand_string</code> on macOS when reporting.</p>
 <p>Alternative install methods download the same native binary and won't resolve either cause.</p>
 <h3 id="dyld-cannot-load-on-macos"><code>dyld: cannot load</code> on macOS</h3>
-<p>If you see <code>dyld: cannot load</code>, <code>dyld: Symbol not found</code>, or <code>Abort trap: 6</code> during installation, the binary is incompatible with your macOS version or hardware.</p>
+<p>If you see <code>dyld: Symbol not found</code>, <code>dyld: cannot load</code>, or <code>Abort trap: 6</code> during installation, the binary is incompatible with your macOS version or hardware.</p>
+<p>A <code>Symbol not found</code> error that references <code>libicucore</code> means your macOS version is older than the binary supports:</p>
 <p>```text theme={null}
-dyld: cannot load 'claude-2.1.42-darwin-x64' (load command 0x80000034 is unknown)
-Abort trap: 6
-<div class="highlight"><pre><span></span><code>A `Symbol not found` error that references `libicucore` also indicates your macOS version is older than the binary supports:
-
-```text theme={null}
 dyld: Symbol not found: _ubrk_clone
   Referenced from: claude-darwin-x64 (which was built for Mac OS X 13.0)
   Expected in: /usr/lib/libicucore.A.dylib
+<div class="highlight"><pre><span></span><code>The loader can instead reject the binary&#39;s load commands, which also means your macOS version is too old:
+
+```text theme={null}
+dyld: cannot load &#39;claude-2.1.42-darwin-x64&#39; (load command 0x80000034 is unknown)
+Abort trap: 6
 </code></pre></div></p>
 <p><strong>Solutions:</strong></p>
 <ol>
@@ -6526,6 +6603,41 @@ Check the following causes:
 * **Install scripts are disabled.** `--ignore-scripts` and some pnpm configurations skip the postinstall step but still download the platform package. Run `node node_modules/@anthropic-ai/claude-code/install.cjs` as the message suggests, or reinstall without the flag. If postinstall can&#39;t run in your environment at all, `node node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs` finds the downloaded package and launches it, at the cost of an extra Node process on each start. If the wrapper prints `Could not find native binary package` instead, the platform package was never downloaded, so fix the optional-dependencies cause above first.
 * **Unsupported platform.** Prebuilt binaries are published for `darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`, `linux-x64-musl`, `linux-arm64-musl`, `win32-x64`, and `win32-arm64`. Claude Code does not ship a binary for other platforms; see the [system requirements](/docs/en/setup#system-requirements). On FreeBSD, the installer reports the platform as unsupported. Before v2.1.205, it treated FreeBSD as Linux and downloaded a binary that couldn&#39;t run.
 * **Corporate npm mirror is missing the platform packages.** Ensure your registry mirrors all eight `@anthropic-ai/claude-code-*` platform packages in addition to the meta package.
+
+&lt;h3 id=&quot;npm-enotempty-during-update-or-reinstall&quot;&gt;
+  npm `ENOTEMPTY` error during update or reinstall
+&lt;/h3&gt;
+
+When you run `npm install -g @anthropic-ai/claude-code` over an existing installation, npm can fail while moving the old package directory aside:
+
+```text theme={null}
+npm error code ENOTEMPTY
+npm error syscall rename
+npm error path /home/you/.nvm/versions/node/v22.13.1/lib/node_modules/@anthropic-ai/claude-code
+npm error dest /home/you/.nvm/versions/node/v22.13.1/lib/node_modules/@anthropic-ai/.claude-code-tVWAnUUt
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rename &#39;...&#39;
+</code></pre></div></p>
+<p>The <code>npm error path</code> line names the directory npm couldn't move. Delete that directory and any leftover <code>.claude-code-*</code> directories next to it, which earlier interrupted runs can leave behind. The commands below find your global package directory with <code>npm root -g</code>; if the directory the <code>npm error path</code> line names is not under the directory <code>npm root -g</code> prints, for example because you switched Node versions with nvm, delete the directories the error names instead:</p>
+<p><Tabs>
+  <Tab title="macOS/Linux">
+    ```bash theme={null}
+    rm -rf "$(npm root -g)/@anthropic-ai/claude-code"
+    <div class="highlight"><pre><span></span><code>Then remove any leftover temp directories. If zsh prints `no matches found`, there were none to remove:
+
+```bash theme={null}
+rm -rf &quot;$(npm root -g)/@anthropic-ai/.claude-code-&quot;*
+</code></pre></div>
+  </Tab></p>
+<p><Tab title="Windows PowerShell">
+    <code>powershell theme={null}
+    Remove-Item -Recurse -Force "$(npm root -g)/@anthropic-ai/claude-code", "$(npm root -g)/@anthropic-ai/.claude-code-*"</code>
+  </Tab>
+</Tabs></p>
+<p>Then reinstall:</p>
+<p>```bash theme={null}
+npm install -g @anthropic-ai/claude-code
+<div class="highlight"><pre><span></span><code>Confirm with `claude --version`, which prints a version number such as `2.1.211 (Claude Code)`.
 
 ## Login and authentication
 

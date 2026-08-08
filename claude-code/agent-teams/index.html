@@ -414,6 +414,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__file-checkpointing/" class="md-nav__link">
         
   
@@ -1506,21 +1533,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#teammates-stopping-on-errors" class="md-nav__link">
+  <a href="#agents-stopping-early" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Teammates stopping on errors
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#lead-shuts-down-before-work-is-done" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lead shuts down before work is done
+        Agents stopping early
       
     </span>
   </a>
@@ -2511,6 +2527,33 @@
     
   
     Costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-session-messaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross session messaging
   
 
     
@@ -5879,21 +5922,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#teammates-stopping-on-errors" class="md-nav__link">
+  <a href="#agents-stopping-early" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Teammates stopping on errors
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#lead-shuts-down-before-work-is-done" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Lead shuts down before work is done
+        Agents stopping early
       
     </span>
   </a>
@@ -5987,7 +6019,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>Agent teams add coordination overhead and use significantly more tokens than a single session. They work best when teammates can operate independently. For sequential tasks, same-file edits, or work with many dependencies, a single session or <a href="/docs/en/sub-agents">subagents</a> are more effective.</p>
 <h3 id="compare-with-subagents">Compare with subagents</h3>
-<p>Both agent teams and <a href="/docs/en/sub-agents">subagents</a> let you parallelize work, but they operate differently. Choose based on whether your workers need to communicate with each other:</p>
+<p>Both agent teams and <a href="/docs/en/sub-agents">subagents</a> let you parallelize work, but they operate differently. Choose based on whether your workers need to communicate with each other. For separate sessions that pass messages to each other without a team, see <a href="/docs/en/cross-session-messaging">cross-session messaging</a>.</p>
 <p><Frame caption="Subagents only report results back to the main agent and never talk to each other. In agent teams, teammates share a task list, claim work, and communicate directly with each other.">
   <img src="https://mintcdn.com/claude-code/nsvRFSDNfpSU5nT7/images/subagents-vs-agent-teams-light.png?fit=max&auto=format&n=nsvRFSDNfpSU5nT7&q=85&s=2f8db9b4f3705dd3ab931fbe2d96e42a" className="dark:hidden" alt="Diagram comparing subagent and agent team architectures. Subagents are spawned by the main agent, do work, and report results back. Agent teams coordinate through a shared task list, with teammates communicating directly with each other." width="4245" height="1615" data-path="images/subagents-vs-agent-teams-light.png" /></p>
 <p><img src="https://mintcdn.com/claude-code/nsvRFSDNfpSU5nT7/images/subagents-vs-agent-teams-dark.png?fit=max&auto=format&n=nsvRFSDNfpSU5nT7&q=85&s=d573a037540f2ada6a9ae7d8285b46fd" className="hidden dark:block" alt="Diagram comparing subagent and agent team architectures. Subagents are spawned by the main agent, do work, and report results back. Agent teams coordinate through a shared task list, with teammates communicating directly with each other." width="4245" height="1615" data-path="images/subagents-vs-agent-teams-dark.png" />
@@ -6206,8 +6238,12 @@ Spawn a teammate using the security-reviewer agent type to audit the auth module
 <p>Teammates start with the lead's permission settings. If the lead runs with <code>--dangerously-skip-permissions</code>, all teammates do too. After spawning, you can change individual teammate modes, but you can't set per-teammate modes at spawn time.</p>
 <p>Teammate permission prompts appear in the lead session, so approve them there yourself. <a href="#require-plan-approval-for-teammates">Plan approval</a> is the designed exception: the lead session grants teammate plan approvals without a separate prompt to you.</p>
 <h4 id="messages-between-agents">Messages between agents</h4>
-<p>When one agent sends another a message over <code>SendMessage</code>, Claude Code tells the receiving agent the message came from another Claude session, not from you. A teammate cannot approve a permission prompt or supply consent on your behalf, and a teammate that was denied an action cannot relay it to another teammate to bypass the check.</p>
-<p>In <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, the classifier treats an approval claim relayed from another agent as untrusted input rather than confirmation from you. The classifier also reviews each message an agent sends before Claude Code delivers it, whether a plain message or a structured protocol message such as a shutdown request or plan approval response. A message the classifier blocks never reaches the recipient.</p>
+<p>When one agent sends another a message over <code>SendMessage</code>, Claude Code tells the receiving agent the message came from another Claude session, not from you. A teammate can't approve a permission prompt or supply consent on your behalf, and a teammate that was denied an action can't relay it to another teammate to bypass the check. The same rules apply to a message that arrives from <a href="/docs/en/cross-session-messaging#how-a-session-treats-an-incoming-message">one of your other Claude Code sessions</a>, outside the team entirely.</p>
+<p>In <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, the classifier applies two checks to messages between agents:</p>
+<ul>
+<li>It treats an approval claim relayed from another agent as untrusted input rather than confirmation from you.</li>
+<li>It reviews each message before Claude Code delivers it, whether a plain message or a structured protocol message such as a shutdown request or plan approval response. A message it blocks never reaches the recipient.</li>
+</ul>
 <h3 id="context-and-communication">Context and communication</h3>
 <p>Each teammate has its own context window. When spawned, a teammate loads the same project context as a regular session: CLAUDE.md, MCP servers, and skills. It also receives the spawn prompt from the lead. The lead's conversation history does not carry over.</p>
 <p><strong>How teammates share information:</strong></p>
@@ -6260,9 +6296,7 @@ There&#39;s no hard limit on the number of teammates, but practical constraints 
 * **Coordination overhead increases**: more teammates means more communication, task coordination, and potential for conflicts
 * **Diminishing returns**: beyond a certain point, additional teammates don&#39;t speed up work proportionally
 
-Start with 3-5 teammates for most workflows. This balances parallel work with manageable coordination. The examples in this guide use 3-5 teammates because that range works well across different task types.
-
-Having 5-6 [tasks](/docs/en/agent-teams#architecture) per teammate keeps everyone productive without excessive context switching. If you have 15 independent tasks, 3 teammates is a good starting point.
+Start with 3-5 teammates for most workflows. This balances parallel work with manageable coordination. If you have 15 independent tasks, 3 teammates is a good starting point.
 
 Scale up only when the work genuinely benefits from having teammates work simultaneously. Three focused teammates often outperform five scattered ones.
 
@@ -6303,15 +6337,14 @@ Wait for your teammates to complete their tasks before proceeding
 </ul>
 <h3 id="too-many-permission-prompts">Too many permission prompts</h3>
 <p>Teammate permission requests bubble up to the lead, which can create friction. Pre-approve common operations in your <a href="/docs/en/permissions">permission settings</a> before spawning teammates to reduce interruptions.</p>
-<h3 id="teammates-stopping-on-errors">Teammates stopping on errors</h3>
+<h3 id="agents-stopping-early">Agents stopping early</h3>
 <p>Teammates may stop after encountering errors instead of recovering. Check their output by selecting the teammate in the agent panel and pressing Enter in in-process mode, or by clicking the pane in split mode, then either:</p>
 <ul>
 <li>Give them additional instructions directly</li>
 <li>Spawn a replacement teammate to continue the work</li>
 </ul>
 <p>As of v2.1.198, a message from the lead or another teammate wakes an in-process teammate that is waiting to retry a failed API request, so it retries immediately instead of waiting for the full retry delay.</p>
-<h3 id="lead-shuts-down-before-work-is-done">Lead shuts down before work is done</h3>
-<p>The lead may decide the team is finished before all tasks are actually complete. If this happens, tell it to keep going. You can also tell the lead to wait for teammates to finish before proceeding if it starts doing work instead of delegating.</p>
+<p>The lead can stop early too, deciding the team is finished before all tasks are actually complete. If that happens, tell it to keep going.</p>
 <h3 id="orphaned-tmux-sessions">Orphaned tmux sessions</h3>
 <p>If a tmux session persists after the Claude Code session ends, it may not have been fully cleaned up. List sessions and end the one created by the team:</p>
 <p><code>bash theme={null}

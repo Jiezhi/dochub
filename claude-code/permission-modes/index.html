@@ -414,6 +414,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__file-checkpointing/" class="md-nav__link">
         
   
@@ -2096,6 +2123,33 @@
     
   
     Costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-session-messaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross session messaging
   
 
     
@@ -5655,6 +5709,10 @@ claude --permission-mode plan
   Eliminate permission prompts with auto mode
 &lt;/h2&gt;
 
+&lt;Note&gt;
+  Starting August 14, 2026, auto mode becomes the default permission mode for new sessions on Pro, Max, and Team plans. You can switch modes at any time. A default you set yourself stays in place unless you accept the one-time switch prompt, and a default your organization manages is unchanged. For details, see [the announcement](https://claude.com/blog/auto-mode-default-in-claude-code) on the blog.
+&lt;/Note&gt;
+
 Auto mode lets Claude execute without routine permission prompts. A separate classifier model reviews actions before they run, blocking anything that escalates beyond your request, targets unrecognized infrastructure, or appears driven by hostile content Claude read. Explicit [ask rules](/docs/en/permissions#manage-permissions) still force a prompt.
 
 The classifier also decides removals targeting the filesystem root or home directory, such as `rm -rf /` and `rm -rf ~`, including when the removal sits inside command or process substitution. Before v2.1.218, the plain forms prompted for approval instead, and the substitution forms prompted in v2.1.208 through v2.1.217.
@@ -5833,7 +5891,7 @@ If you switch permission modes while a classifier check is pending, Claude Code 
 
     The session&#39;s first auto-mode request validates the Sonnet 5 default: if the request succeeds, Sonnet 5 stays the session&#39;s classifier model, and if it fails because the model isn&#39;t available, the session uses the fallback instead. After that validation settles, the classifier&#39;s model doesn&#39;t change for the session.
 
-    Classifier calls count toward your token usage. Each check sends a portion of the transcript plus the pending action, adding a round-trip before execution. Reads and working-directory edits outside protected paths skip the classifier, so the overhead comes mainly from shell commands and network operations.
+    On Enterprise plans and on accounts that use the Claude API, [Claude Platform on AWS](/docs/en/claude-platform-on-aws), Amazon Bedrock, Google Cloud&#39;s Agent Platform, or Microsoft Foundry, classifier calls count toward your token usage. Each check sends a portion of the transcript plus the pending action, adding a round-trip before execution. Reads and working-directory edits outside protected paths skip the classifier, so the overhead comes mainly from shell commands and network operations.
 
     The classifier reuses a sandbox network verdict for a host and port, so repeated connections to the same host don&#39;t each add a check. [What the classifier blocks by default](#what-the-classifier-blocks-by-default) describes how long an allow and a deny last.
   &lt;/Accordion&gt;
@@ -5856,6 +5914,11 @@ claude --permission-mode dontAsk
 <p><code>bypassPermissions</code> mode disables permission prompts and safety checks so tool calls execute immediately, including writes to <a href="#protected-paths">protected paths</a>.</p>
 <p>Explicit <a href="/docs/en/permissions#manage-permissions">ask rules</a> and connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> still force a prompt in this mode. MCP tools marked with <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a> also still prompt; this requires Claude Code v2.1.199 or later.</p>
 <p>Removals targeting the filesystem root or home directory, such as <code>rm -rf /</code> and <code>rm -rf ~</code>, still prompt as a circuit breaker against model error. The circuit breaker also fires when the command contains command substitution with <code>$(...)</code> or backticks, or process substitution with <code>&lt;(...)</code>, whether the removal sits inside the substitution, as in <code>echo "$(rm -rf ~)"</code>, or elsewhere in the same command. The plain form, typed as its own command, has prompted in this mode since the circuit breaker was introduced; before v2.1.208, commands containing those forms didn't prompt.</p>
+<p>Two <a href="/docs/en/cross-session-messaging">cross-session messaging</a> safeguards still apply in this mode, and in plan-mode sessions where bypass permissions are available:</p>
+<ul>
+<li>The <a href="/docs/en/settings#available-settings"><code>isolatePeerMachines</code></a> approval prompt for messages to your sessions beyond this machine still appears.</li>
+<li>When no <a href="/docs/en/cross-session-messaging#control-inbound-messages"><code>crossSessionInbound</code></a> value applies, Claude Code holds an inbound message from another of your sessions for your approval, and delivers without asking only when the sending session identifies itself as also bypassing permission prompts. If you leave the mode while messages are held, Claude Code re-applies the inbound rules and delivers any held message they now accept.</li>
+</ul>
 <p>In sessions with bypass permissions available, Claude Code also doesn't enforce <a href="#analyze-before-you-edit-with-plan-mode">plan mode's</a> blocks. Claude is still instructed to plan without editing, but a file edit or shell command it attempts during planning runs without prompting. Explicit <a href="/docs/en/permissions#manage-permissions">ask rules</a> and the removal circuit breaker above still prompt.</p>
 <p><Warning>
   Only use this mode in isolated environments like containers, VMs, or dev containers without internet access, where Claude Code cannot damage your host system.
