@@ -5416,6 +5416,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w30/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w30
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whats-new__2026-w32/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w32
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5802,7 +5856,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Deploy the Agent SDK in production: subprocess architecture, session persistence, scaling, observability, and multi-tenant isolation for Docker, Kubernetes, and sandbox providers.</p>
 </blockquote>
 <p>The Agent SDK spawns and supervises a <code>claude</code> CLI subprocess that owns a shell, a working directory, and session files on disk. Hosting it is not like hosting a stateless API wrapper. Every running agent is a long-lived process tied to local state, which shapes how you allocate resources, persist sessions, and scale across tenants.</p>
-<p>This page covers self-hosting on your own infrastructure: understand <a href="#the-subprocess-model">the subprocess model</a>, <a href="#choose-a-session-pattern">choose a session pattern</a>, <a href="#provision-the-container">provision the container</a>, and <a href="#handle-production-concerns">handle production concerns</a> like persistence, observability, auth, and multi-tenant isolation. For deployable Dockerfiles and Kubernetes manifests, see the <a href="https://github.com/anthropics/claude-cookbooks/tree/main/claude_agent_sdk/hosting">hosting cookbook</a>.</p>
+<p>This page covers self-hosting on your own infrastructure. For deployable Dockerfiles and Kubernetes manifests, see the <a href="https://github.com/anthropics/claude-cookbooks/tree/main/claude_agent_sdk/hosting">hosting cookbook</a>.</p>
 <p>If you do not need infrastructure control, custom isolation, or your own data plane, consider <a href="https://platform.claude.com/docs/en/managed-agents/overview">Managed Agents</a> instead: a hosted REST API where Anthropic runs the agent and the sandbox, so your application sends events and streams back results with no hosting infrastructure to operate.</p>
 <p><Info>
   For security hardening beyond basic sandboxing, including network controls, credential management, and isolation options, see <a href="/docs/en/agent-sdk/secure-deployment">Secure Deployment</a>.
@@ -5965,7 +6019,7 @@ asyncio.run(main())
 <ul>
 <li><strong>Transcripts only</strong>: <code>SessionStore</code> mirrors transcripts, not <code>CLAUDE.md</code> memory files or other working-directory artifacts. Mount a shared volume or sync those separately.</li>
 <li><strong>Mirror, not replacement</strong>: the subprocess writes to local disk first, and the store receives a copy of each batch. Local writes remain authoritative.</li>
-<li><strong><code>mirror_error</code> messages</strong>: a batch the store rejects is sent up to three times in total, with a short backoff before each retry; a timed-out call isn't retried. If the batch still fails, the SDK drops it, emits a <code>{ type: "system", subtype: "mirror_error" }</code> message, and continues the query. Alert on these if store durability matters.</li>
+<li><strong><code>mirror_error</code> messages</strong>: when the SDK can't deliver a batch to the store, it drops the batch, emits a <code>{ type: "system", subtype: "mirror_error" }</code> message, and continues the query. Alert on these if store durability matters. See <a href="/docs/en/agent-sdk/session-storage#mirror-writes-are-best-effort">Mirror writes are best-effort</a> for the retry and timeout behavior.</li>
 </ul>
 <h3 id="observability">Observability</h3>
 <p>Agent SDK agents are long-lived processes that spawn tool calls across many API round-trips. Without telemetry you cannot see which tools ran, how long they took, or where a session stalled.</p>
@@ -5999,7 +6053,6 @@ agents per host = (host RAM - overhead) / (per-session RAM ceiling)
 </code></pre></div></p>
 <p>Measure the per-session ceiling by running a representative session to your target length under your expected tool load and recording peak RSS. The 1 GiB starting point in <a href="#resources">Resources</a> is a floor, not the ceiling.</p>
 <p>Horizontal-scale routing depends on your pattern. For long-running sessions, where containers hold many sessions, run a pool of containers behind a load balancer and pin each session to one container using consistent hashing on <code>sessionId</code>. A pinned session keeps hitting the same container, and therefore the same running subprocess, until it is evicted or the container restarts.</p>
-<p>Large fanouts of concurrent <a href="/docs/en/agent-sdk/subagents">subagents</a> from a single session can hit API rate limits. Break the work into smaller batches rather than issuing one wide dispatch.</p>
 <h3 id="cost">Cost</h3>
 <p>Anthropic token cost typically dominates container infrastructure cost by an order of magnitude or more. A minimally provisioned container runs roughly \$0.05 per hour, while a single long agent session can spend dollars in tokens. See <a href="/docs/en/agent-sdk/cost-tracking">Cost tracking</a> for per-session token accounting.</p>
 <h3 id="multi-tenant-isolation">Multi-tenant isolation</h3>
