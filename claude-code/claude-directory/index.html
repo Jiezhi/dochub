@@ -7434,7 +7434,7 @@ marginTop: '20px'
 <tr>
 <td>Installed plugins</td>
 <td><code>~/.claude/plugins</code></td>
-<td>Cloned marketplaces, installed plugin versions, and per-plugin data, managed by <code>claude plugin</code> commands. Orphaned versions are deleted 14 days after a plugin update or uninstall. See <a href="/docs/en/plugins-reference#plugin-caching-and-file-resolution">plugin caching</a>.</td>
+<td>Cloned marketplaces, installed plugin versions, and per-plugin data, managed by <code>claude plugin</code> commands. See <a href="/docs/en/plugins-reference#plugin-caching-and-file-resolution">plugin caching</a> for how orphaned versions are cleaned up.</td>
 </tr>
 </tbody>
 </table>
@@ -7655,7 +7655,7 @@ marginTop: '20px'
 <h2 id="application-data">Application data</h2>
 <p>Beyond the config you author, <code>~/.claude</code> holds data Claude Code writes during sessions. These files are plaintext. Anything that passes through a tool lands in a transcript on disk: file contents, command output, pasted text.</p>
 <h3 id="cleaned-up-automatically">Cleaned up automatically</h3>
-<p>Files in the paths below are deleted on startup once they're older than <a href="/docs/en/settings#available-settings"><code>cleanupPeriodDays</code></a>. The default is 30 days and the minimum is 1; setting <code>0</code> fails with a validation error. The same age cutoff applies to automatic removal of <a href="/docs/en/worktrees#clean-up-subagent-and-background-session-worktrees">orphaned worktrees</a>.</p>
+<p>Claude Code deletes the files in the paths below once they're older than <a href="/docs/en/settings#available-settings"><code>cleanupPeriodDays</code></a>, as long as it can safely determine the retention period. The default is 30 days and the minimum is 1; setting <code>0</code> fails with a validation error. The same age cutoff applies to automatic removal of <a href="/docs/en/worktrees#clean-up-subagent-and-background-session-worktrees">orphaned worktrees</a>.</p>
 <table>
 <thead>
 <tr>
@@ -7713,13 +7713,18 @@ marginTop: '20px'
 <td>Redacted transcript archives written by <code>/feedback</code> on third-party providers or when no Anthropic credentials are configured, for sending to your Anthropic account team</td>
 </tr>
 <tr>
+<td><code>usage-data/</code></td>
+<td><code>report.html</code> and timestamped report copies written by <a href="/docs/en/costs#analyze-your-usage-patterns"><code>/insights</code></a>, plus cached per-session analysis data used to build them</td>
+</tr>
+<tr>
 <td><code>todos/</code>, <code>statsig/</code>, <code>logs/</code></td>
 <td>Legacy directories from older versions. No longer written. The sweep removes their contents and then the empty directory.</td>
 </tr>
 </tbody>
 </table>
 <p><code>sessions/</code> holds one small file per running session, used to detect concurrent sessions and crashes. It isn't part of the age-based sweep: Claude Code removes each file when its session exits and clears crash leftovers on the next launch.</p>
-<p>If Claude Code can't read or parse a settings file, it pauses the retention cleanup sweep and shows a warning in <code>/status</code> until you fix the file, unless <a href="/docs/en/server-managed-settings">managed settings</a> provide <code>cleanupPeriodDays</code>, in which case the sweep runs at the managed value. Before v2.1.203, cleanup ran at the 30-day default in that state and could delete transcripts a longer <code>cleanupPeriodDays</code> was meant to keep; files newer than 30 days were never removed.</p>
+<p>When you run <code>claude -p</code> with <a href="/docs/en/headless#start-faster-with-bare-mode"><code>--bare</code></a>, Claude Code doesn't run the sweep in that session.</p>
+<p>If Claude Code can't safely determine the retention period, it pauses the retention cleanup sweep; the <a href="/docs/en/monitoring-usage#retention-sweep-event"><code>retention_sweep</code> event</a> lists each configuration that pauses it. When the cause is a settings file that can't be read or parsed, or settings errors with <code>cleanupPeriodDays</code> explicitly set, Claude Code also shows a warning in <code>/status</code> until you fix the settings errors. When <a href="/docs/en/server-managed-settings">managed settings</a> provide <code>cleanupPeriodDays</code>, Claude Code runs the sweep at the managed value in either case.</p>
 <h3 id="kept-until-you-delete-them">Kept until you delete them</h3>
 <p>The following paths are not covered by automatic cleanup and persist indefinitely.</p>
 <table>
@@ -7831,6 +7836,14 @@ claude project purge ~/work/my-repo --yes
 <tr>
 <td><code>~/.claude/stats-cache.json</code></td>
 <td>Historical totals shown by <code>/usage</code></td>
+</tr>
+<tr>
+<td><code>~/.claude/usage-data/</code></td>
+<td>Past <a href="/docs/en/costs#analyze-your-usage-patterns"><code>/insights</code></a> reports and the cached analysis data used to build them</td>
+</tr>
+<tr>
+<td><code>~/.claude/feedback-bundles/</code></td>
+<td>Feedback and bug-report archives you haven't yet sent to your Anthropic account team</td>
 </tr>
 <tr>
 <td><code>~/.claude/remote-settings.json</code></td>

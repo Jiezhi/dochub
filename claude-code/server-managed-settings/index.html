@@ -4408,6 +4408,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#approval-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approval memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#environment-variables-and-the-approval-dialog" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5748,6 +5759,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#approval-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approval memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#environment-variables-and-the-approval-dialog" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5955,7 +5977,7 @@ Because hooks execute shell commands, users see a [security approval dialog](#se
 </ul>
 <p>Restrict access to trusted personnel, as settings changes apply to all users in the organization.</p>
 <h3 id="managed-only-settings">Managed-only settings</h3>
-<p>Most <a href="/docs/en/settings#available-settings">settings keys</a> work in any scope. A handful of keys are only read from managed settings and have no effect when placed in user or project settings files. See <a href="/docs/en/permissions#managed-only-settings">managed-only settings</a> for the full list. Any setting not on that list can still be placed in managed settings and takes the highest precedence, apart from the exceptions listed in the <a href="/docs/en/settings#settings-precedence">settings reference's precedence section</a>.</p>
+<p>Most <a href="/docs/en/settings#available-settings">settings keys</a> work in any scope. A handful of keys are only read from managed settings and have no effect when placed in user or project settings files. See <a href="/docs/en/permissions#managed-only-settings">managed-only settings</a> for the full list.</p>
 <h3 id="current-limitations">Current limitations</h3>
 <p>Server-managed settings have the following limitations:</p>
 <ul>
@@ -6023,7 +6045,7 @@ Because hooks execute shell commands, users see a [security approval dialog](#se
 <p>You can also set this key in an <a href="/docs/en/settings#settings-files">endpoint-managed</a> MDM profile or system <code>managed-settings.json</code> file to enforce fail-closed behavior on first launch, before any server payload has been delivered. As of v2.1.191, this flag is an exception to the <a href="#settings-precedence">precedence rule</a> above: it is honored when set in any admin-controlled managed source even if a cached server-managed payload is also present, so an MDM-delivered value is not ignored when server-managed settings exist. When a <a href="/docs/en/settings#compute-managed-settings-with-a-policy-helper"><code>policyHelper</code></a> is configured, its output replaces every other managed source, this key included.</p>
 <p>The settings fetch also sends a <code>Cache-Control: no-cache</code> header so intermediate HTTP proxies don't serve a stale response.</p>
 <p>Before enabling this setting, ensure your network policies allow connectivity to <code>api.anthropic.com</code>. If that endpoint is unreachable, the CLI exits at startup and users cannot start Claude Code.</p>
-<p>As of v2.1.139, the <code>claude auth</code> subcommands such as <code>claude auth login</code> are exempt from this check, so users can re-authenticate when expired credentials are the reason the settings fetch fails.</p>
+<p>The <code>claude auth</code> subcommands such as <code>claude auth login</code> are exempt from this check, so users can re-authenticate when expired credentials are the reason the settings fetch fails.</p>
 <h3 id="security-approval-dialogs">Security approval dialogs</h3>
 <p>Certain settings that could pose security risks require explicit user approval before Claude Code applies them:</p>
 <ul>
@@ -6033,6 +6055,17 @@ Because hooks execute shell commands, users see a [security approval dialog](#se
 <li><strong>Managed CLAUDE.md content</strong>: a <code>claudeMd</code> value delivered through managed settings</li>
 </ul>
 <p>When these settings are present, users see a security dialog explaining what is being configured. Users must approve to proceed. If a user rejects the settings, Claude Code exits.</p>
+<h4 id="approval-memory">Approval memory</h4>
+<p>Claude Code records your approval in your configuration directory, <code>~/.claude</code> unless you set <a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a>. What it records depends on the credential the settings fetch uses:</p>
+<ul>
+<li><strong>A claude.ai login saved by <code>/login</code> or <code>claude auth login</code></strong>: one approval per organization, held by the account that approved most recently.</li>
+<li><strong>Any other credential</strong>, such as a <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a>, an API key, or <code>CLAUDE_CODE_OAUTH_TOKEN</code>: one approval for the delivered settings, kept with the cached copy of the settings in that configuration directory. Claude Code shows the dialog again when the settings that require approval change, and after you run <code>/logout</code> or <code>claude auth logout</code>, which delete the cached copy.</li>
+</ul>
+<p>With a saved claude.ai login:</p>
+<ul>
+<li>If you sign out and back in, or switch to another organization and later return, Claude Code doesn't show the dialog again while those settings are unchanged, unless another account approved them for that organization in the same configuration directory in between.</li>
+<li>If you sign in to the same organization with a different account, Claude Code shows the dialog again even when the settings are unchanged. That account's approval replaces the previous one, so when you switch back, Claude Code shows the dialog once more.</li>
+</ul>
 <p>If an interactive session can't show the dialog, Claude Code doesn't apply the delivered settings and keeps the last-approved settings; the dialog appears in the next session that can show it. Requires Claude Code v2.1.211 or later.</p>
 <p><Note>
   A non-interactive run, such as <code>claude -p</code> or an Agent SDK session, can't show the dialog. When the delivered settings would require approval, Claude Code applies them for that run only: it doesn't record them as approved or write them to the <a href="#fetch-and-caching-behavior">local cache</a>, and the next interactive session shows the dialog. Until a user approves in an interactive session, each non-interactive run fetches the settings again at startup. Before v2.1.207, a non-interactive run saved the settings as approved, so later interactive sessions never showed the dialog for them.

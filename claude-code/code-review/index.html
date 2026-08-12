@@ -2189,6 +2189,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#let-claude-start-the-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Let Claude start the review
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#escalate-to-ultrareview" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5754,6 +5765,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#let-claude-start-the-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Let Claude start the review
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#escalate-to-ultrareview" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5827,9 +5849,6 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#troubleshooting">Troubleshooting</a> failed runs and missing comments</li>
 <li><a href="#review-a-diff-locally">Reviewing a diff locally</a> with the <code>/code-review</code> command</li>
 </ul>
-<p><Note>
-  To review a diff locally in your terminal without installing the GitHub App, run the <code>/code-review</code> command in any Claude Code session. See <a href="#review-a-diff-locally">Review a diff locally</a>.
-</Note></p>
 <h2 id="how-reviews-work">How reviews work</h2>
 <p>Once an Owner <a href="#set-up-code-review">enables Code Review</a> for your organization, reviews trigger when a PR opens, on every push, or when manually requested, depending on the repository's configured behavior. Commenting <code>@claude review</code> <a href="#manually-trigger-reviews">starts a review on a PR</a> in any mode.</p>
 <p>When a review runs, multiple agents analyze the diff and surrounding code in parallel on Anthropic infrastructure. Each agent looks for a different class of issue, then a verification step checks candidates against actual code behavior to filter out false positives. The results are deduplicated, ranked by severity, and posted as inline comments on the specific lines where issues were found, with a summary in the review body. If no issues are found, Code Review updates the GitHub check run to show that no issues were detected. Claude may also post a short confirmation comment on the PR.</p>
@@ -6068,7 +6087,7 @@ issues.&quot;
 </tr>
 </tbody>
 </table>
-<p>The repositories table in admin settings also shows average cost per review for each repo. Dashboard cost figures are estimates for monitoring activity; for invoice-accurate spend, refer to your Anthropic bill.</p>
+<p>Dashboard cost figures are estimates for monitoring activity. For invoice-accurate spend, refer to your Anthropic bill.</p>
 <h2 id="pricing">Pricing</h2>
 <p>Code Review is billed based on token usage. Each review averages \$15-25 in cost, scaling with PR size, codebase complexity, and how many issues require verification. Code Review usage is billed separately through <a href="https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans">usage credits</a> and does not count against your plan's included usage.</p>
 <p>The review trigger you choose affects total cost:</p>
@@ -6111,6 +6130,7 @@ You can also add flags:
 
 * `--fix`: applies the findings to your working tree after the review
 * `--comment`: posts the findings as inline PR comments
+* `--post`: on an `ultra` cloud review of a `github.com` pull request, preselects posting the finished findings to the PR in the launch dialog; see [Post findings to the pull request](/docs/en/ultrareview#post-findings-to-the-pull-request). Requires Claude Code v2.1.227 or later
 </code></pre>
 <p></Step></p>
 <p><Step title="Keep working">
@@ -6144,9 +6164,26 @@ You can also add flags:
 <li>You run it in non-interactive mode, with the <code>-p</code> flag or the Agent SDK; Claude Code waits for the review and includes the findings in the response, except for <code>ultra</code>, which <a href="#escalate-to-ultrareview">launches the cloud review without waiting</a></li>
 <li>You set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS</code></a> to <code>1</code>, which also turns off every other background task feature</li>
 </ul>
-<p>You can't schedule the review: <code>/code-review</code> is marked <a href="/docs/en/skills#frontmatter-reference"><code>disable-model-invocation</code></a>, so if you set it as a <a href="/docs/en/scheduled-tasks">scheduled task</a>'s prompt, Claude reads it as plain text instead of running the review.</p>
+<h3 id="let-claude-start-the-review">Let Claude start the review</h3>
+<p>Claude can start <code>/code-review</code> on its own. Ask it to review your changes in plain language and it can run the skill without you typing the command, and a <a href="/docs/en/scheduled-tasks">scheduled task</a> with <code>/code-review</code> as its prompt runs the review.</p>
+<p>Exceptions include the following sessions, where <code>/code-review</code> runs only when you type it yourself and a scheduled <code>/code-review</code> reaches Claude as plain text instead of running the review:</p>
+<ul>
+<li><strong>Cloud providers</strong>: sessions on Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, or Microsoft Foundry, unless a host platform that embeds Claude Code sets <a href="/docs/en/env-vars"><code>CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST</code></a></li>
+<li><strong>Claude apps gateway</strong>: sessions that connect through the <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a></li>
+<li><strong>Privacy environment variables</strong>: sessions that opt out of telemetry or feature-flag fetching with <a href="/docs/en/env-vars#variables"><code>DISABLE_TELEMETRY</code>, <code>DO_NOT_TRACK</code>, <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code>, or <code>DISABLE_GROWTHBOOK</code></a></li>
+</ul>
+<p>A scheduled task never launches the <a href="#escalate-to-ultrareview">cloud review</a>, so schedule <code>/code-review</code> without the <code>ultra</code> argument.</p>
+<p>To stop both Claude and scheduled tasks from starting the review while keeping <code>/code-review</code> available for you to type, add a <a href="/docs/en/skills#override-skill-visibility-from-settings"><code>skillOverrides</code></a> entry to a <a href="/docs/en/settings#settings-files">settings file</a> such as <code>~/.claude/settings.json</code>:</p>
+<p><code>json theme={null}
+{
+  "skillOverrides": {
+    "code-review": "user-invocable-only"
+  }
+}</code></p>
+<p>From v2.1.215 through v2.1.222, Claude never started <code>/code-review</code> on its own in any configuration.</p>
 <h3 id="escalate-to-ultrareview">Escalate to ultrareview</h3>
 <p><code>/code-review ultra --fix</code> runs the deeper <a href="/docs/en/ultrareview">ultrareview</a> in the cloud, then applies its findings to your working tree when they arrive back in your session. Ultrareview uses its own scope: your current branch against the repository's default branch, plus any uncommitted and staged changes in the working tree. Pass a branch name, such as <code>/code-review ultra develop</code>, to compare against a different base.</p>
+<p>When the target is a <code>github.com</code> pull request, you can have Claude <a href="/docs/en/ultrareview#post-findings-to-the-pull-request">post the finished findings to the PR</a> as a comment from your GitHub account. Requires Claude Code v2.1.227 or later.</p>
 <p><Note>
   Ultrareview requires authentication with a claude.ai account and is not available on Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry, or to organizations with Zero Data Retention enabled. When ultrareview is not available, <code>/code-review ultra</code> runs a local review in your session instead.
 </Note></p>
@@ -6154,7 +6191,6 @@ You can also add flags:
 <p>When the review would bill <a href="https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans">usage credits</a>, Claude Code stops before launching, because the billing confirmation needs an interactive session. Run the <a href="/docs/en/ultrareview#run-ultrareview-non-interactively"><code>claude ultrareview</code> subcommand</a> instead; by running it, you consent to the charge.</p>
 <p>The command was named <code>/simplify</code> before v2.1.147, when it applied fixes by default. From v2.1.154, <code>/simplify</code> runs a separate cleanup-only review that applies fixes without hunting for bugs. If you scripted <code>/simplify</code> for bug-finding, switch to <code>/code-review --fix</code>, which is unchanged.</p>
 <h2 id="related-resources">Related resources</h2>
-<p>Code Review is designed to work alongside the rest of Claude Code. If you want to run reviews locally before opening a PR, need a self-hosted setup, or want to go deeper on how <code>CLAUDE.md</code> shapes Claude's behavior across tools, these pages are good next stops:</p>
 <ul>
 <li><a href="/docs/en/commands">Commands</a>: run <code>/code-review</code> in a local Claude Code session to check a diff before pushing</li>
 <li><a href="/docs/en/github-actions">GitHub Actions</a>: run Claude in your own GitHub Actions workflows for custom automation beyond code review</li>

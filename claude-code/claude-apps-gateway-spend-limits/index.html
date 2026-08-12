@@ -1802,10 +1802,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#how-requests-are-priced" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How requests are priced
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#postgres-availability" class="md-nav__link">
     <span class="md-ellipsis">
       
         Postgres availability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage-warnings-in-claude-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage warnings in Claude Code
       
     </span>
   </a>
@@ -5527,10 +5549,32 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#how-requests-are-priced" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How requests are priced
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#postgres-availability" class="md-nav__link">
     <span class="md-ellipsis">
       
         Postgres availability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage-warnings-in-claude-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage warnings in Claude Code
       
     </span>
   </a>
@@ -5697,21 +5741,31 @@ curl -sS https://claude-gateway.internal.example.com/v1/organizations/spend_limi
 <li>A gateway bearer token whose <code>groups</code> claim includes one of <a href="/docs/en/claude-apps-gateway-config#admin"><code>admin.admin_groups</code></a>. This is full access and audits as <code>oidc:&lt;sub&gt;</code>, so prefer it for human admins.</li>
 </ul>
 <h2 id="how-enforcement-works">How enforcement works</h2>
-<p>On each <code>/v1/messages</code> request, the gateway resolves the developer's caps and period-to-date spend in one Postgres query. If they're over any cap, the request returns <code>429</code> with <code>error.type: billing_error</code> and the header <code>x-should-retry: false</code>. The message is <code>spend limit reached</code>, followed by your <a href="/docs/en/claude-apps-gateway-config#admin"><code>admin.blocked_message</code></a> if set. Caps reset on UTC calendar boundaries: daily at 00:00 UTC, weekly at 00:00 UTC on Monday, and monthly at 00:00 UTC on the first of the month.</p>
-<p><code>/v1/messages/count_tokens</code> is exempt. Token counting is free, so it runs regardless of cap state.</p>
-<p>A running gateway serves a protocol description at <code>&lt;public_url&gt;/protocol</code> that lists the exact usage-limit response headers and the shape of the blocked <code>429</code>. Requires v2.1.227 or later.</p>
-<p>After each response, a usage meter reads token counts off the response as it streams to the client, prices them at USD list price, and increments Postgres counters for all three period buckets. The meter is a single reader on the stream, so the client's bytes are untouched and a metering failure doesn't break the response.</p>
-<p>Spend limits estimate spend from token counts at USD list price; they're a circuit breaker, not an invoice. For authoritative billing, reconcile against your provider's own usage reporting, such as the Anthropic Usage &amp; Cost Admin API, invocation logs on Amazon Bedrock, or Cloud Monitoring on Google Cloud.</p>
-<p>Pricing uses the same table the Claude Code CLI uses for its own cost display, with the same model-ID canonicalization across Anthropic, Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry ID forms, such as Bedrock's <code>us.anthropic.…-v1:0</code> and Agent Platform's <code>claude-…@date</code>. The meter resolves each request's rate tier in order:</p>
+<p>On each <code>/v1/messages</code> request, the gateway looks up the developer's caps and period-to-date spend in one Postgres query. A developer over any cap gets a <code>429</code> with <code>error.type: billing_error</code> and header <code>x-should-retry: false</code>.</p>
+<p>The message names the period and reset time, such as <code>spend limit reached (daily; resets 2026-08-08 00:00 UTC)</code>, followed by your <a href="/docs/en/claude-apps-gateway-config#admin"><code>admin.blocked_message</code></a> if set. When a developer exceeds several caps at once, the message names the cap that resets last. The response also carries a <code>retry-after</code> header with the seconds remaining until that reset. Before v2.1.225 on the gateway server, the message was <code>spend limit reached</code> with no period, reset time, or <code>retry-after</code> header.</p>
+<p>On v2.1.227 or later, the protocol reference at <code>&lt;public_url&gt;/protocol</code> also lists the exact usage-limit response headers and <code>429</code> body.</p>
+<p>Caps reset on UTC calendar boundaries: daily at 00:00 UTC, weekly on Monday, and monthly on the first. The gateway never blocks <code>/v1/messages/count_tokens</code>, because token counting is free.</p>
+<h3 id="how-requests-are-priced">How requests are priced</h3>
+<p>After each response, a usage meter reads the token counts and adds the cost to the daily, weekly, and monthly counters. It never touches the bytes sent to the client, so a metering failure can't break a response. The amounts are USD estimates, a circuit breaker rather than an invoice; for billing, reconcile against your provider's usage reporting.</p>
+<p>The meter picks each request's rates in this order:</p>
 <ol>
-<li>Exact rates for the upstream model ID, the model string the gateway sends to the provider. When the table recognizes it, such as <code>us.anthropic.claude-…</code>, the meter prices the request by the model that served it.</li>
-<li>Rates for the configured <a href="/docs/en/claude-apps-gateway-config#models"><code>models[].id</code></a> you mapped to the upstream ID. This step covers upstream strings that carry no model name, such as an Amazon Bedrock application-inference-profile ARN or a Microsoft Foundry deployment name, and requires Claude Code v2.1.218 or later on the gateway server.</li>
-<li>The unknown-model default tier of \$5/\$25 per million input/output tokens. The meter prices an ID that neither the table nor your <code>models</code> config can place, including a <code>models[].id</code> that is itself a custom alias, at this tier rather than zero, so an unrecognized ID can't bypass a cap by going unmetered.</li>
+<li>A matching <a href="/docs/en/claude-apps-gateway-config#pricing"><code>pricing.overrides</code></a> row for the upstream that served the request. Requires v2.1.227 or later.</li>
+<li>List price for the upstream model ID, the string the gateway sends to the provider, when the Claude Code cost table recognizes it. The table accepts Anthropic, Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry ID forms.</li>
+<li>List price for the <a href="/docs/en/claude-apps-gateway-config#models"><code>models[].id</code></a> you mapped to that upstream ID, for upstream strings that carry no model name, such as an Amazon Bedrock application-inference-profile ARN or a Microsoft Foundry deployment name. Requires v2.1.218 or later.</li>
+<li>The unknown-model tier of \$5/\$25 per million input/output tokens, so an ID the meter can't place is never free. The gateway warns at boot and once per ID at runtime when it uses this tier.</li>
 </ol>
-<p>The gateway warns at boot and once per ID at runtime when it prices a model at the unknown-model tier. Before v2.1.218, the meter skipped step 2: it priced any upstream ID the table couldn't place at the unknown-model tier and warned about it even when the configured ID's rates were known.</p>
-<p>Client aborts are billed too. The upstream reports output tokens only in the stream's terminal frame, so an aborted stream doesn't carry them. The meter keeps a conservative floor estimate from the streamed content size, about four characters per token, and bills it when and only when the terminal usage frame is missing. A complete stream always bills the upstream-reported count. Without this, a capped developer could stream output and abort each request immediately before the end, spending without ever being counted.</p>
+<p>Whichever rate applies, the meter then multiplies the amount by <a href="/docs/en/claude-apps-gateway-config#pricing"><code>pricing.multiplier</code></a>, default <code>1</code>.</p>
+<p>Client aborts are billed too. When a stream ends without the upstream's final usage frame, the meter bills a floor estimate of about four characters per output token for the text already sent to the client, so aborting requests early doesn't evade a cap.</p>
 <h3 id="postgres-availability">Postgres availability</h3>
-<p>The pre-check queries Postgres with a two-second timeout. If the store is unreachable or times out, enforcement fails open by default: the request proceeds and the gateway logs a warning. Set <a href="/docs/en/claude-apps-gateway-config#enforcement"><code>enforcement.fail_closed_on_error: true</code></a> to fail closed instead, which returns the same <code>429 billing_error</code> with the message <code>spend limit unavailable</code>. Fail-open keeps a store outage from becoming an inference outage; fail-closed guarantees no unmetered spend.</p>
+<p>The pre-check queries Postgres with a two-second timeout. If the store is unreachable or times out, enforcement fails open by default: the request proceeds, the gateway logs a warning, and the response carries no <code>anthropic-ratelimit-unified-*</code> headers. Set <a href="/docs/en/claude-apps-gateway-config#enforcement"><code>enforcement.fail_closed_on_error: true</code></a> to fail closed instead, which returns the same <code>429 billing_error</code> but with the message <code>spend limit unavailable</code> and no period, reset time, or <code>retry-after</code> header. Fail-open keeps a store outage from becoming an inference outage; fail-closed guarantees no unmetered spend.</p>
+<h3 id="usage-warnings-in-claude-code">Usage warnings in Claude Code</h3>
+<p>Claude Code warns a developer as they approach their cap: once utilization passes 75%, and again past 95% of their fullest cap. When the gateway blocks a request, Claude Code shows the gateway's <code>429</code> message as is, including your <code>admin.blocked_message</code>.</p>
+<p>The warning works off response headers:</p>
+<ul>
+<li>With v2.1.225 or later on the gateway server, each successful <code>/v1/messages</code> response for a developer who has a cap carries their own cap utilization and reset time in the <code>anthropic-ratelimit-unified-*</code> headers.</li>
+<li>With v2.1.225 or later on the developer's machine as well, Claude Code reads the headers and shows the warning.</li>
+</ul>
+<p>The headers always describe the developer's own cap: the gateway strips the upstream provider's rate-limit headers, which describe your shared quota, and never forwards them.</p>
 <h2 id="admin-api-reference">Admin API reference</h2>
 <p>The endpoints below are served under <code>/v1/organizations/spend_limits</code>.</p>
 <table>

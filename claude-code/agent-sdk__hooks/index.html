@@ -6285,8 +6285,8 @@ for await (const message of query({
 <td><code>PermissionDenied</code></td>
 <td>No</td>
 <td>Yes</td>
-<td>The auto mode classifier denies a tool call</td>
-<td>Log classifier denials or tell the model it may retry</td>
+<td>Auto mode denies a tool call, including denials without a classifier verdict</td>
+<td>Log denials, or tell the model it may retry; Claude Code ignores <code>retry: true</code> for no-verdict denials. See <a href="/docs/en/hooks#permissiondenied">PermissionDenied</a></td>
 </tr>
 <tr>
 <td><code>SessionStart</code></td>
@@ -6432,12 +6432,8 @@ for await (const message of query({
 <li><strong>Values</strong>: arrays of <a href="#matchers">matchers</a>, each containing an optional filter pattern and your <a href="#callback-functions">callback functions</a></li>
 </ul>
 <h3 id="matchers">Matchers</h3>
-<p>Use matchers to filter when your callbacks fire. The <code>matcher</code> field matches against a different value depending on the hook event type. For example, tool-based hooks match against the tool name, while <code>Notification</code> hooks match against the notification type. See the <a href="/docs/en/hooks#matcher-patterns">Claude Code hooks reference</a> for the full list of matcher values for each event type.</p>
-<p>SDK matchers follow the same rules as <a href="/docs/en/hooks#matcher-patterns">matchers in settings files</a>. A matcher containing only letters, digits, <code>_</code>, <code>-</code>, spaces, <code>,</code>, and <code>|</code> is compared as an exact string, with alternatives separated by <code>|</code> or <code>,</code> and optional surrounding whitespace, so <code>Write|Edit</code> and <code>Write, Edit</code> each match exactly those two tools and <code>code-reviewer</code> matches only that agent type. A matcher of <code>*</code>, an empty string, or omitting the matcher entirely matches every occurrence of the event.</p>
-<p>A matcher containing any other character is evaluated as an unanchored regular expression, so <code>^mcp__</code> matches every MCP tool and <code>Edit.*</code> matches both <code>Edit</code> and <code>NotebookEdit</code>. Wrap a regular expression in <code>^</code> and <code>$</code> when you need a whole-string match.</p>
-<p>A matcher like <code>mcp__memory</code> or <code>mcp__brave-search</code> contains only exact-match characters, so it is compared as an exact string and matches no tool; use <code>mcp__memory__.*</code> to match every tool from that server.</p>
-<p>Hyphens in the exact-match set require a Claude Code runtime of v2.1.195 or later. On earlier versions a hyphenated name like <code>code-reviewer</code> is evaluated as an unanchored regular expression and must be anchored as <code>^code-reviewer$</code> to match exactly.</p>
-<p><code>StopFailure</code> and <code>FileChanged</code> use a narrower exact-match set of letters, digits, <code>_</code>, and <code>|</code> only. A hyphen, space, or comma in a matcher for those two events keeps it on the regular-expression path, and only <code>|</code> separates alternatives, so write <code>rate_limit|overloaded</code>, not <code>rate_limit, overloaded</code>. <code>FileChanged</code> additionally uses its matcher to build the watch list of literal filenames; see <a href="/docs/en/hooks#filechanged">FileChanged in the hooks reference</a>.</p>
+<p>Use matchers to filter when your callbacks fire. The <code>matcher</code> field matches against a different value depending on the hook event type. For example, tool-based hooks match against the tool name, while <code>Notification</code> hooks match against the notification type.</p>
+<p>SDK matchers follow the same rules as <a href="/docs/en/hooks#matcher-patterns">matchers in settings files</a>. That section documents the exact-string and regular-expression evaluation paths, their version requirements, and the matcher values for each event type.</p>
 <table>
 <thead>
 <tr>
@@ -6452,7 +6448,7 @@ for await (const message of query({
 <td><code>matcher</code></td>
 <td><code>string</code></td>
 <td><code>undefined</code></td>
-<td>Pattern matched against the event's filter field, following the comparison rules above. For tool hooks, this is the tool name. Built-in tools include <code>Bash</code>, <code>Read</code>, <code>Write</code>, <code>Edit</code>, <code>Glob</code>, <code>Grep</code>, <code>WebFetch</code>, <code>Agent</code>, and others (see <a href="/docs/en/agent-sdk/typescript#tool-input-types">Tool Input Types</a> for the full list). MCP tools use the pattern <code>mcp__&lt;server&gt;__&lt;action&gt;</code>.</td>
+<td>Pattern matched against the event's filter field, following the <a href="/docs/en/hooks#matcher-patterns">rules for matchers in settings files</a>. For tool hooks, this is the tool name. Built-in tools include <code>Bash</code>, <code>Read</code>, <code>Write</code>, <code>Edit</code>, <code>Glob</code>, <code>Grep</code>, <code>WebFetch</code>, <code>Agent</code>, and others (see <a href="/docs/en/agent-sdk/typescript#tool-input-types">Tool Input Types</a> for the full list). MCP tools use the pattern <code>mcp__&lt;server&gt;__&lt;action&gt;</code>.</td>
 </tr>
 <tr>
 <td><code>hooks</code></td>
@@ -6464,12 +6460,11 @@ for await (const message of query({
 <td><code>timeout</code></td>
 <td><code>number</code></td>
 <td><code>undefined</code></td>
-<td>Timeout in seconds. When omitted, Claude Code applies the <a href="#hook-timeout">event's default timeout</a>: 10 minutes for most events, 30 seconds for <code>UserPromptSubmit</code>. Claude Code uses shorter limits for a few events, such as 10 seconds for <code>MessageDisplay</code> and a 1.5-second default <a href="/docs/en/hooks#sessionend-input">budget</a> for <code>SessionEnd</code>. Your SDK callbacks follow the <code>command</code> hook defaults</td>
+<td>Timeout in seconds. When omitted, Claude Code applies the <a href="#hook-timeout">event's default timeout</a>. Your SDK callbacks follow the <code>command</code> hook defaults</td>
 </tr>
 </tbody>
 </table>
 <p>Use the <code>matcher</code> pattern to target specific tools whenever possible. A matcher with <code>'Bash'</code> only runs for Bash commands, while omitting the pattern runs your callbacks for every occurrence of the event.</p>
-<p>For tool-based hooks, matchers only filter by tool name, not by file paths or other arguments. To filter by file path, check <code>tool_input.file_path</code> inside your callback.</p>
 <p><Tip>
   <strong>Discovering tool names:</strong> See <a href="/docs/en/agent-sdk/typescript#tool-input-types">Tool Input Types</a> for the full list of built-in tool names, or add a hook without a matcher to log all tool calls your session makes.</p>
 <p><strong>MCP tool naming:</strong> MCP tools always start with <code>mcp__</code> followed by the server name and action: <code>mcp__&lt;server&gt;__&lt;action&gt;</code>. For example, if you configure a server named <code>playwright</code>, its tools are named <code>mcp__playwright__browser_screenshot</code>, <code>mcp__playwright__browser_click</code>, and so on. The server name comes from the key you use in the <code>mcpServers</code> configuration.
@@ -6487,7 +6482,7 @@ for await (const message of query({
 <h4 id="outputs">Outputs</h4>
 <p>Your callback returns an object with two categories of fields:</p>
 <ul>
-<li><strong>Top-level fields</strong> work the same on every event: <code>systemMessage</code> shows a message to the user, and <code>continue</code> (<code>continue_</code> in Python) determines whether the agent keeps running after this hook.</li>
+<li><strong>Top-level fields</strong> are accepted on every event: <code>systemMessage</code> shows a message to the user, and <code>continue</code> (<code>continue_</code> in Python) determines whether the agent keeps running after this hook. Some events discard them or deliver them elsewhere. Each <a href="/docs/en/hooks#hook-events">event's section</a> on the hooks page says where they land.</li>
 <li><strong><code>hookSpecificOutput</code></strong> controls the current operation. The fields inside depend on the hook event type. For <code>PreToolUse</code> hooks, this is where you set <code>permissionDecision</code> (<code>"allow"</code>, <code>"deny"</code>, <code>"ask"</code>, or <code>"defer"</code>), <code>permissionDecisionReason</code>, and <code>updatedInput</code>. Returning <code>"defer"</code> ends the query so you can <a href="/docs/en/hooks#defer-a-tool-call-for-later">resume it later</a>. For <code>PostToolUse</code> hooks, you can set <code>additionalContext</code> to append information to the tool result. To replace the tool's output before Claude sees it, set <code>updatedToolOutput</code>, which works for any tool in both SDKs. The older <code>updatedMCPToolOutput</code> field replaces MCP tool output only and is deprecated.</li>
 </ul>
 <p>Return <code>{}</code> to allow the operation without changes. SDK callback hooks use the same JSON output format as <a href="/docs/en/hooks#json-output">Claude Code shell command hooks</a>, which documents every field and event-specific option. For the SDK type definitions, see the <a href="/docs/en/agent-sdk/typescript#synchookjsonoutput">TypeScript</a> and <a href="/docs/en/agent-sdk/python#synchookjsonoutput">Python</a> SDK references.</p>
@@ -6962,7 +6957,7 @@ const myHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
   return {};
 };</code></p>
 <h3 id="hook-timeout">Hook timeout</h3>
-<p>Claude Code runs each callback with a timeout, which you set in seconds with the <code>timeout</code> field on its <code>HookMatcher</code>. When you don't set one, Claude Code uses the event's default: 600 seconds for most events, 30 seconds for <code>UserPromptSubmit</code>, and 10 seconds for <code>MessageDisplay</code>. Claude Code runs <code>SessionEnd</code> callbacks during shutdown under the shorter <a href="/docs/en/hooks#sessionend-input">SessionEnd timeout budget</a>.</p>
+<p>Claude Code runs each callback with a timeout, which you set in seconds with the <code>timeout</code> field on its <code>HookMatcher</code>. When you don't set one, Claude Code uses the event's default: 600 seconds for most events, 30 seconds for <code>UserPromptSubmit</code>, and 10 seconds for <code>MessageDisplay</code>. Claude Code runs <code>SessionEnd</code> callbacks during shutdown under the shorter <a href="/docs/en/hooks#sessionend-input">SessionEnd timeout budget</a>, 1.5 seconds by default.</p>
 <p>When a callback exceeds its timeout, Claude Code cancels it and treats it as a failed hook: it discards the callback's output and the session continues rather than hanging. What happens next depends on the event:</p>
 <ul>
 <li><code>PreToolUse</code>: Claude Code doesn't run the tool call, Claude receives a tool result stating the hook didn't respond before its timeout, and the turn continues. If another <code>PreToolUse</code> hook returned an explicit deny, Claude receives that denial instead of the timeout error. Before v2.1.210, Claude Code reported the timeout to Claude as a user rejection, which made unattended sessions stop and wait for input.</li>
@@ -7022,7 +7017,8 @@ const myHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
 <li>Scope hooks to only run for the top-level agent session</li>
 </ul>
 <h3 id="systemmessage-not-appearing-in-output">systemMessage not appearing in output</h3>
-<p>The <code>systemMessage</code> field shows a message to the user, not the model. By default the SDK surfaces hook output in the message stream only for <code>SessionStart</code> and <code>Setup</code> hooks, so a message from any other hook event doesn't appear unless you set <code>includeHookEvents</code> (<code>include_hook_events</code> in Python). To pass context to the model instead, return <a href="/docs/en/hooks#add-context-for-claude"><code>additionalContext</code></a>.</p>
+<p>The <code>systemMessage</code> field shows a message to the user, not the model. On Claude Code v2.1.227 or later, a hook's <code>systemMessage</code> can surface in the message stream as an <a href="/docs/en/agent-sdk/typescript#sdkinformationalmessage"><code>SDKInformationalMessage</code></a>. Whether it does depends on the event. Each <a href="/docs/en/hooks#hook-events">event's section</a> on the hooks page says how output surfaces. To pass context to the model instead, return <a href="/docs/en/hooks#add-context-for-claude"><code>additionalContext</code></a>.</p>
+<p>Before v2.1.227, the SDK surfaced hook output in the message stream only for <code>SessionStart</code> and <code>Setup</code> hooks. For any other event, the output appeared only in the lifecycle events that <a href="/docs/en/agent-sdk/typescript#options"><code>includeHookEvents</code></a> (<code>include_hook_events</code> in Python) adds. That option's entry covers which lifecycle events each hook event produces.</p>
 <p>If you need to surface hook decisions to your application reliably, log them separately or use a dedicated output channel.</p>
 <h2 id="related-resources">Related resources</h2>
 <ul>
