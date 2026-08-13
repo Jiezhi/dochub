@@ -1639,6 +1639,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#task-notification-subkinds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task-notification subkinds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#peer-origin-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7295,6 +7306,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#task-notification-subkinds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task-notification subkinds
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#peer-origin-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8934,10 +8956,11 @@ Configuration object for the `query()` function.
 | `plugins`                         | [`SdkPluginConfig`](#sdkpluginconfig)`[]`                                                                | `[]`                                        | Load custom plugins from local paths. See [Plugins](/docs/en/agent-sdk/plugins) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `promptSuggestions`               | `boolean`                                                                                                | `false`                                     | Enable prompt suggestions. Emits a `prompt_suggestion` message after each turn with a predicted next user prompt                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `resume`                          | `string`                                                                                                 | `undefined`                                 | Session ID to resume                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `resumeDropsTurn`                 | `string`                                                                                                 | `undefined`                                 | With `resumeSessionAt`: the prompt UUID of the turn the truncating resume intends to discard. Claude Code refuses the resume when the discarded range contains anything not attributable to that turn, such as absorbed queued messages or task notifications, and names the `--resume-drops-turn` flag in the rejection message. Only the Agent SDK and print-mode resumes read the pair. Requires Claude Code v2.1.223 or later                                                                                                                                                                                                                                                                                                                                         |
 | `resumeSessionAt`                 | `string`                                                                                                 | `undefined`                                 | Resume session at a specific message UUID                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `sandbox`                         | [`SandboxSettings`](#sandboxsettings)                                                                    | `undefined`                                 | Configure sandbox behavior programmatically. See [Sandbox settings](#sandboxsettings) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `sessionId`                       | `string`                                                                                                 | Auto-generated                              | Use a specific UUID for the session instead of auto-generating one                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `sessionStore`                    | [`SessionStore`](/docs/en/agent-sdk/session-storage#the-sessionstore-interface)                               | `undefined`                                 | Mirror session transcripts to an external backend so any host can resume them. See [Persist sessions to external storage](/docs/en/agent-sdk/session-storage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `sessionStore`                    | [`SessionStore`](/docs/en/agent-sdk/session-storage#the-sessionstore-interface)                               | `undefined`                                 | Mirror session transcripts to an external backend so another host can resume them. See [Persist sessions to external storage](/docs/en/agent-sdk/session-storage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `sessionStoreFlush`               | `&#39;batched&#39; \| &#39;eager&#39;`                                                                                   | `&#39;batched&#39;`                                 | *Alpha.* Flush mode for `sessionStore`. Ignored when `sessionStore` is not set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `settings`                        | `string \| Settings`                                                                                     | `undefined`                                 | Inline [settings](/docs/en/settings) object or path to a settings file. Populates the flag-settings layer in the [precedence order](/docs/en/settings#settings-precedence). Change at runtime with [`applyFlagSettings()`](#applyflagsettings)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `settingSources`                  | [`SettingSource`](#settingsource)`[]`                                                                    | CLI defaults (all sources)                  | Control which filesystem settings to load. Pass `[]` to disable user, project, and local settings. [Endpoint-managed policy](/docs/en/settings#settings-files) loads regardless; server-managed settings are fetched when the session authenticates with an organization credential on an [eligible configuration](/docs/en/server-managed-settings#platform-availability). See [Use Claude Code features](/docs/en/agent-sdk/claude-code-features#what-settingsources-does-not-control)                                                                                                                                                                                                                                                                                                 |
@@ -9690,6 +9713,9 @@ type SDKResultMessage =
 * `ttft_stream_ms`: time in milliseconds until the first `message_start` stream event, when the response stream opens. Lower than `ttft_ms`; the gap between the two is time spent streaming the first message. Present on the success arm only.
 * `user_message_uuid`: the `uuid` of the [`SDKUserMessage`](#sdkusermessage) that started this turn, echoed back so you can match the result to the message you sent. Requires Claude Code v2.1.216 or later. Present on the success arm only, together with `request_sent_wall_ms`; absent on API-error results, subagent calls, and synthetic turns such as scheduled ones.
 * `request_sent_wall_ms`: epoch milliseconds at which Claude Code dispatched the API request, for joins against server-side timestamps. Present only together with `user_message_uuid`.
+* `usage`: main agent loop only. Excludes subagent and auxiliary model calls, and is per-turn in streaming-input sessions. Prefer `modelUsage` for token/cost accounting.
+* `modelUsage`: per-model totals for every model call made through the query pipeline during this `query()` call, including the main loop, subagents, and internal calls such as compaction and Workflow agents. Helper calls outside that pipeline, such as the permission classifier and token-counting requests, are excluded. In streaming-input sessions the totals are cumulative across turns, so read the latest result rather than summing across results. See [Track costs in streaming input mode](/docs/en/agent-sdk/cost-tracking#track-costs-in-streaming-input-mode) for resets and [Recover totals after a session crash](/docs/en/agent-sdk/cost-tracking#recover-totals-after-a-session-crash) for zeroed results.
+* `total_cost_usd`: cumulative estimated cost in USD for this `query()` call, covering the same calls as `modelUsage` and reset at the same points. It is an estimate, not a billing statement. See [Track cost and usage](/docs/en/agent-sdk/cost-tracking) for accuracy caveats.
 * `terminal_reason`: why the loop ended. One of `&quot;completed&quot;`, `&quot;max_turns&quot;`, `&quot;tool_deferred&quot;`, `&quot;aborted_streaming&quot;`, `&quot;aborted_tools&quot;`, `&quot;hook_stopped&quot;`, `&quot;stop_hook_prevented&quot;`, `&quot;background_requested&quot;`, `&quot;blocking_limit&quot;`, `&quot;rapid_refill_breaker&quot;`, `&quot;prompt_too_long&quot;`, `&quot;image_error&quot;`, `&quot;model_error&quot;`, `&quot;api_error&quot;`, `&quot;malformed_tool_use_exhausted&quot;`, `&quot;budget_exhausted&quot;`, `&quot;structured_output_retry_exhausted&quot;`, `&quot;tool_deferred_unavailable&quot;`, or `&quot;turn_setup_failed&quot;`.
 * `fast_mode_state`: one of `&quot;on&quot;`, `&quot;off&quot;`, or `&quot;cooldown&quot;`.
 * `fast_mode_disabled_reason`: why [fast mode](/docs/en/fast-mode) isn&#39;t available right now. Absent when nothing blocks fast mode, though a request may still run at standard speed. During the cooldown after a fast mode rate limit, Claude Code reports `fast_mode_state: &quot;cooldown&quot;` with no reason code and re-enables fast mode when the cooldown expires. Requires Claude Code v2.1.219 or later.
@@ -9711,7 +9737,9 @@ Use the reason code to explain why fast mode is off in your own UI instead of re
 
 The same pair of fields appears on [`SDKSystemMessage`](#sdksystemmessage) and on the [`SDKControlInitializeResponse`](#sdkcontrolinitializeresponse), so you can read the fast mode state before the first turn.
 
-The `origin` field forwards the [`SDKMessageOrigin`](#sdkmessageorigin) of the user message that triggered this result. When a background task finishes and the SDK injects a synthetic follow-up turn, the resulting `SDKResultMessage` carries `origin: { kind: &quot;task-notification&quot; }`. Check this field to distinguish results that answer your prompt from results emitted for background-task follow-ups, so you can route or suppress the latter. The field is absent for results emitted before any user turn, such as startup errors.
+The `origin` field forwards the [`SDKMessageOrigin`](#sdkmessageorigin) of the user message that triggered this result. When the SDK injects a synthetic follow-up turn, such as for a finished background task, the resulting `SDKResultMessage` carries `origin: { kind: &quot;task-notification&quot; }`. Routines whose trigger fired and server-verified messages from your other sessions arrive with this kind too, each with the `subkind` described in [Task-notification subkinds](#task-notification-subkinds). Check `kind` to distinguish results that answer your prompt from injected follow-ups before routing or suppressing them.
+
+The field is absent for results emitted before any user turn, such as startup errors.
 
 When a `PreToolUse` hook returns `permissionDecision: &quot;defer&quot;`, the result has `stop_reason: &quot;tool_deferred&quot;` and `deferred_tool_use` carries the pending tool&#39;s `id`, `name`, and `input`. Read this field to surface the request in your own UI, then resume with the same `session_id` to continue. See [Defer a tool call for later](/docs/en/hooks#defer-a-tool-call-for-later) for the full round trip.
 
@@ -9833,7 +9861,13 @@ type SDKPluginInstallMessage = {
 };
 <div class="highlight"><pre><span></span><code>### `SDKPermissionDeniedMessage`
 
-Stream event emitted when the permission system auto-denies a tool call without an interactive prompt. Use it to render the denial in your UI as it happens, rather than only observing the `is_error` tool result that follows. The interactive ask path reaches your application separately through the [`canUseTool`](#canusetool) callback. Denials issued by a `PreToolUse` hook are not reported through this event.
+Stream event emitted when the permission system denies a tool call without an interactive prompt. Use it to render the denial in your UI as it happens, rather than only observing the `is_error` tool result that follows. Which denials it reports depends on how the run handles permission prompts:
+
+* **With a [`canUseTool`](#canusetool) callback**: permission prompts go to your callback, and this event reports the denials Claude Code decides on its own without calling it.
+* **With neither**: a bare `-p` run, or `query()` that sets neither `canUseTool` nor `permissionPromptToolName`, denies any tool call that would have prompted, and this event reports those denials as well as the ones Claude Code decides on its own. Before v2.1.223, Claude Code didn&#39;t emit this event in runs without a callback.
+* **With an MCP prompt tool**, set with `permissionPromptToolName` or the [`--permission-prompt-tool`](/docs/en/cli-reference#cli-flags) flag: Claude Code doesn&#39;t emit this event at all, not even for the rule denials it decides on its own.
+
+In every configuration, this event skips any denial decided on the `PreToolUse` hook path, whether the hook denied the call itself or a deny rule overrode the hook&#39;s allow or ask decision. The event is also best-effort: occasionally Claude Code records a denial without emitting this event, so `permission_denials` on the [result message](#sdkresultmessage) is the authoritative record.
 
 ```typescript theme={null}
 type SDKPermissionDeniedMessage = {
@@ -9915,9 +9949,13 @@ type SDKMessageOrigin =
       body?: string;
       verifiedPeerPid?: number;
     }
-  | { kind: &quot;task-notification&quot; }
+  | {
+      kind: &quot;task-notification&quot;;
+      subkind?: &quot;scheduled-trigger&quot; | &quot;peer-send-message&quot;;
+    }
   | { kind: &quot;coordinator&quot; }
-  | { kind: &quot;auto-continuation&quot; };
+  | { kind: &quot;auto-continuation&quot; }
+  | { kind: &quot;unclassified&quot; };
 </code></pre></div></p>
 <table>
 <thead>
@@ -9941,7 +9979,7 @@ type SDKMessageOrigin =
 </tr>
 <tr>
 <td><code>task-notification</code></td>
-<td>Synthetic turn injected after a background task finished. See <a href="#sdktasknotificationmessage"><code>SDKTaskNotificationMessage</code></a>.</td>
+<td>Synthetic turn injected for a delivery that arrives without a fresh user prompt, such as a finished background task; see <a href="#sdktasknotificationmessage"><code>SDKTaskNotificationMessage</code></a> for that arm. The optional <code>subkind</code> marks what raised the notification. See <a href="#task-notification-subkinds">Task-notification subkinds</a>.</td>
 </tr>
 <tr>
 <td><code>coordinator</code></td>
@@ -9951,8 +9989,19 @@ type SDKMessageOrigin =
 <td><code>auto-continuation</code></td>
 <td>Synthetic turn injected when the session continues without fresh user input, such as a command result that triggers a follow-up prompt.</td>
 </tr>
+<tr>
+<td><code>unclassified</code></td>
+<td>Injected turn whose origin couldn't be determined. Requires Claude Code v2.1.223 or later. When Claude Code receives an <a href="#sdkusermessage"><code>SDKUserMessage</code></a> with <code>isSynthetic: true</code> and can't classify it as any other <code>kind</code>, it sets this kind as the message arrives and frames the turn to the model as a non-user source rather than treating it as human input. Your application shouldn't set this value.</td>
+</tr>
 </tbody>
 </table>
+<h3 id="task-notification-subkinds">Task-notification subkinds</h3>
+<p>When Claude Code delivers a task notification into a session, it sets <code>subkind</code> on the notification's <code>origin</code> only if Anthropic servers verified where that notification came from. <code>subkind</code> requires Claude Code v2.1.213 or later, and it takes one of two values:</p>
+<ul>
+<li><code>scheduled-trigger</code>: the notification is a <a href="/docs/en/routines">routine</a>'s stored prompt, delivered because one of the routine's triggers fired: its schedule, its <a href="/docs/en/routines#add-an-api-trigger">API trigger</a>, its <a href="/docs/en/routines#add-a-github-trigger">GitHub trigger</a>, or <strong>Run now</strong>. Claude Code frames these to the model as the session's assigned task, with a different notice from the <a href="#sdktasknotificationmessage">notice that other task notifications carry</a>.</li>
+<li><code>peer-send-message</code>: the notification is a message that another of your sessions sent with the server-side <code>send_message</code> tool that <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> sessions use to message each other, not the <a href="/docs/en/cross-session-messaging">cross-session <code>SendMessage</code> tool</a>, and Anthropic servers verified that both sessions belong to the same private group of sessions. Requires Claude Code v2.1.224 or later. A <code>send_message</code> delivery the servers didn't verify that way gets no subkind.</li>
+</ul>
+<p>Every other task notification has no <code>subkind</code>. That includes <a href="/docs/en/scheduled-tasks">scheduled tasks</a> that fire on your own machine, <a href="/docs/en/claude-code-on-the-web#how-claude-responds-to-pr-activity">PR activity</a> delivered into a session, and background events such as a finished task. Messages from the <a href="/docs/en/cross-session-messaging">cross-session <code>SendMessage</code> tool</a> aren't task notifications at all: whether they come from a session on the same machine or through Anthropic servers from another machine, Claude Code gives them <code>kind: "peer"</code> and the <a href="#peer-origin-fields">peer origin fields</a>.</p>
 <h3 id="peer-origin-fields">Peer origin fields</h3>
 <p>A <code>peer</code> origin identifies which agent sent the message: an in-process <a href="/docs/en/agent-teams">teammate</a> sending to <code>main</code> with <code>SendMessage</code>, or a <a href="/docs/en/cross-session-messaging">cross-session peer</a>, another of your Claude Code sessions. A cross-session peer can run on the same machine, or on <a href="/docs/en/cross-session-messaging#message-sessions-on-other-machines">another of your machines</a> or <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> when its message arrives through Remote Control. The two kinds of sender fill the fields differently:</p>
 <ul>
@@ -10969,7 +11018,7 @@ type ScheduleWakeupInput = {
   stop?: boolean;
 };
 </code></pre></div></p>
-<p>Schedules a one-shot wake-up that fires the given prompt after a delay. This tool backs the self-paced <code>/loop</code> command. The runtime clamps <code>delaySeconds</code> to between 60 and 3600 seconds. The <code>delaySeconds</code>, <code>reason</code>, and <code>prompt</code> fields are required unless <code>stop</code> is true. Setting <code>stop: true</code> cancels the pending wakeup and ends the self-paced <code>/loop</code>. The <code>stop</code> field requires Claude Code v2.1.202 or later. See the <a href="/docs/en/tools-reference">ScheduleWakeup row in the tools reference</a> for provider availability; it isn't available on Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, or Microsoft Foundry.</p>
+<p>Schedules a one-shot wake-up that fires the given prompt after a delay. This tool backs the self-paced <code>/loop</code> command. The runtime clamps <code>delaySeconds</code> to between 60 and 3600 seconds. The <code>delaySeconds</code>, <code>reason</code>, and <code>prompt</code> fields are required unless <code>stop</code> is true. Setting <code>stop: true</code> cancels the pending wakeup and ends the self-paced <code>/loop</code>. The <code>stop</code> field requires Claude Code v2.1.202 or later. See the <a href="/docs/en/tools-reference">ScheduleWakeup row in the tools reference</a> for availability; it isn't available on Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, or Microsoft Foundry, nor when you turn off <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">feature-flag fetching</a>.</p>
 <h3 id="remotetrigger">RemoteTrigger</h3>
 <p><strong>Tool name:</strong> <code>RemoteTrigger</code></p>
 <p>```typescript theme={null}
@@ -10996,7 +11045,7 @@ type RemoteTriggerInput = {
 
 `list_runs` lists a routine&#39;s recent runs, and `get_run_log` reads one run&#39;s log. `session_id` names the run to read, from a `list_runs` result, and `cursor` pages through either action&#39;s results. Both actions require Claude Code v2.1.227 or later.
 
-This tool is available only when the session is authenticated with a claude.ai account on a plan with Routines enabled, and is absent when your organization&#39;s policy disables [Claude Code on the web](/docs/en/claude-code-on-the-web). On Claude Code v2.1.227 or later, the tool is also absent when an Owner has [turned off routines for the organization](/docs/en/routines#routines-are-disabled-by-your-organizations-policy). Before v2.1.227, a session with only the routines toggle turned off still showed the tool, and the server denied its calls.
+This tool is available only when the session is authenticated with a claude.ai account on a plan with Routines enabled, and is absent when your organization&#39;s policy disables [Claude Code on the web](/docs/en/claude-code-on-the-web) or when you turn off [feature-flag fetching](/docs/en/env-vars#features-that-need-feature-flag-fetching). On Claude Code v2.1.227 or later, the tool is also absent when an Owner has [turned off routines for the organization](/docs/en/routines#routines-are-disabled-by-your-organizations-policy). Before v2.1.227, a session with only the routines toggle turned off still showed the tool, and the server denied its calls.
 
 ### PushNotification
 
@@ -11212,6 +11261,9 @@ type AgentOutput =
         inference_geo?: string | null;
         speed?: string | null;
         iterations?: unknown;
+        output_tokens_details?: {
+          thinking_tokens?: number | null;
+        } | null;
       };
       toolStats?: {
         readCount: number;
@@ -11250,7 +11302,8 @@ type AgentOutput =
 <p>Returns the result from the subagent. Discriminated on the <code>status</code> field: <code>"completed"</code> for finished tasks, <code>"async_launched"</code> for background tasks, and <code>"remote_launched"</code> for tasks Claude Code dispatched to a remote cloud session, where <code>sessionUrl</code> links to that session and <code>taskId</code> identifies it.</p>
 <p>On the <code>completed</code> variant, <code>resolvedModel</code> names the model the subagent started on, which can differ from the requested <code>model</code> input when <a href="/docs/en/model-config#restrict-model-selection"><code>availableModels</code></a> or another override applies. This field requires Claude Code v2.1.174 or later. On <code>async_launched</code>, it names the model in use when the task moved to the background.</p>
 <p><code>modelsUsed</code> lists the models the subagent used, in order. The field is present only when a mid-run swap happened, and a model appears again when the run swapped back to it. On <code>async_launched</code>, the list covers the models used before backgrounding. Both <code>modelsUsed</code> and the backgrounding behavior of <code>resolvedModel</code> require Claude Code v2.1.212 or later.</p>
-<p>On the <code>completed</code> variant, <code>worktreePath</code> is set when the subagent ran in an isolated git worktree, and <code>worktreeBranch</code> names that worktree's branch when Claude Code created it. <code>usage.service_tier</code> carries the service tier string the API reported for the subagent's requests.</p>
+<p>If Claude Code <a href="/docs/en/worktrees#isolate-subagents-with-worktrees">kept the subagent's isolated worktree</a>, <code>worktreePath</code> on the <code>completed</code> result is where to find it. <code>worktreeBranch</code> is its branch, present when Claude Code created the worktree with git.</p>
+<p>Claude Code fills <code>usage</code> and <code>totalTokens</code> from the subagent's final API request, not from the whole run, so <code>usage.service_tier</code> is the service tier string the API reported on that request. When present, <code>usage.output_tokens_details.thinking_tokens</code> is the number of that request's output tokens that were thinking tokens. The <code>output_tokens_details</code> field requires TypeScript SDK v0.3.228 or later, which bundles Claude Code v2.1.228.</p>
 <p>Before v2.1.207, the published type was narrower. It omitted <code>worktreePath</code>, <code>worktreeBranch</code>, <code>citations</code>, <code>toolStats.frameCount</code>, and the <code>inference_geo</code>, <code>speed</code>, and <code>iterations</code> usage fields, and it typed <code>service_tier</code> as <code>"standard" | "priority" | "batch"</code>. Fields the type marks optional can be absent on results recorded by earlier versions.</p>
 <h3 id="askuserquestion">AskUserQuestion</h3>
 <p><strong>Tool name:</strong> <code>AskUserQuestion</code></p>
@@ -12415,7 +12468,8 @@ type SDKTaskNotificationMessage = {
   session_id: string;
 };
 </code></pre></div></p>
-<p>Claude Code prepends a notice to every task notification it sends to the model. The notice states that no human input has occurred, so the model doesn't treat the notification as a user instruction or approval. To detect a task-notification turn, check <code>origin.kind === "task-notification"</code> on <a href="#sdkusermessage"><code>SDKUserMessage</code></a> or <a href="#sdkresultmessage"><code>SDKResultMessage</code></a> rather than matching on the notice text. Before v2.1.205, Claude Code left the notice off notifications that arrived while the session was idle.</p>
+<p>Claude Code prepends a notice to every task notification it sends to the model, except deliveries stamped with the <a href="#task-notification-subkinds"><code>scheduled-trigger</code> subkind</a>, which carry an assigned-task framing instead. The notice states that no human input has occurred, so the model doesn't treat the notification as a user instruction or approval.</p>
+<p>To detect a task-notification turn, check <code>origin.kind === "task-notification"</code> on the <a href="#sdkusermessage"><code>SDKUserMessage</code></a> or <a href="#sdkresultmessage"><code>SDKResultMessage</code></a> rather than matching on the notice text. Read <code>subkind</code> from the same field if you need to know what raised it. Before v2.1.205, Claude Code left the notice off notifications that arrived while the session was idle.</p>
 <h3 id="sdktoolusesummarymessage"><code>SDKToolUseSummaryMessage</code></h3>
 <p>Summary of tool usage in a conversation.</p>
 <p>```typescript theme={null}
@@ -12649,7 +12703,7 @@ type SDKRateLimitEvent = {
 
 ### `SDKLocalCommandOutputMessage`
 
-Output from a local slash command (for example, `/voice` or `/usage`). Displayed as assistant-style text in the transcript.
+Output from a local command such as `/voice` or `/usage`. Displayed as assistant-style text in the transcript.
 
 ```typescript theme={null}
 type SDKLocalCommandOutputMessage = {
@@ -12683,7 +12737,7 @@ type SDKPromptSuggestionMessage = {
 };
 </code></pre></div></p>
 <h3 id="sdkconversationresetmessage"><code>SDKConversationResetMessage</code></h3>
-<p>Emitted when the session's conversation is replaced without ending the session, such as after <code>/clear</code>, on plan-mode exit, or when a fresh conversation starts. Mount an empty transcript under <code>new_conversation_id</code> and discard any cached session title.</p>
+<p>Emitted when the session's conversation is replaced without ending the session. In a <code>query()</code> call, only <code>/clear</code> and its aliases produce this message. Mount an empty transcript under <code>new_conversation_id</code> and discard any cached session title.</p>
 <p>```typescript theme={null}
 type SDKConversationResetMessage = {
   type: "conversation_reset";
@@ -12778,17 +12832,17 @@ type SandboxNetworkConfig = {
   httpProxyPort?: number;
   socksProxyPort?: number;
 };
-<div class="highlight"><pre><span></span><code>| Property                  | Type       | Default     | Description                                                                                                                                                                                                                                                                                                           |
-| :------------------------ | :--------- | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `allowedDomains`          | `string[]` | `[]`        | Domain names that sandboxed processes can access                                                                                                                                                                                                                                                                      |
-| `deniedDomains`           | `string[]` | `[]`        | Domain names that sandboxed processes cannot access. Takes precedence over `allowedDomains`                                                                                                                                                                                                                           |
-| `strictAllowlist`         | `boolean`  | `false`     | Deny sandboxed commands access to hosts not in `allowedDomains` instead of prompting. Enforced for sandboxed commands only; in-process tools such as WebFetch aren&#39;t gated by it. Only honored from user, managed, or CLI `--settings` settings; project settings are ignored. Requires Claude Code v2.1.219 or later |
-| `allowManagedDomainsOnly` | `boolean`  | `false`     | Managed-settings only. When set in [managed settings](/docs/en/permissions#managed-settings), only `allowedDomains` entries from managed settings are honored and entries from user, project, or local settings are ignored. Has no effect when set via SDK options                                                        |
-| `allowLocalBinding`       | `boolean`  | `false`     | Allow processes to bind to local ports (e.g., for dev servers)                                                                                                                                                                                                                                                        |
-| `allowUnixSockets`        | `string[]` | `[]`        | Unix socket paths that processes can access (e.g., Docker socket)                                                                                                                                                                                                                                                     |
-| `allowAllUnixSockets`     | `boolean`  | `false`     | Allow access to all Unix sockets                                                                                                                                                                                                                                                                                      |
-| `httpProxyPort`           | `number`   | `undefined` | HTTP proxy port for network requests                                                                                                                                                                                                                                                                                  |
-| `socksProxyPort`          | `number`   | `undefined` | SOCKS proxy port for network requests                                                                                                                                                                                                                                                                                 |
+<div class="highlight"><pre><span></span><code>| Property                  | Type       | Default     | Description                                                                                                                                                                                                                                                                                                                                                     |
+| :------------------------ | :--------- | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allowedDomains`          | `string[]` | `[]`        | Domain names that sandboxed processes can access                                                                                                                                                                                                                                                                                                                |
+| `deniedDomains`           | `string[]` | `[]`        | Domain names that sandboxed processes cannot access. Takes precedence over `allowedDomains`                                                                                                                                                                                                                                                                     |
+| `strictAllowlist`         | `boolean`  | `false`     | Deny sandboxed commands access to hosts outside the [network allowlist](/docs/en/sandboxing#network-isolation) instead of prompting. Enforced for sandboxed commands only; in-process tools such as WebFetch aren&#39;t gated by it. Only honored from user, managed, or CLI `--settings` settings; project settings are ignored. Requires Claude Code v2.1.219 or later |
+| `allowManagedDomainsOnly` | `boolean`  | `false`     | Managed-settings only. When set in [managed settings](/docs/en/permissions#managed-settings), only `allowedDomains` entries and `WebFetch(domain:...)` allow rules from managed settings are honored, and allow entries from user, project, or local settings are ignored. Has no effect when set via SDK options                                                    |
+| `allowLocalBinding`       | `boolean`  | `false`     | Allow processes to bind to local ports (e.g., for dev servers)                                                                                                                                                                                                                                                                                                  |
+| `allowUnixSockets`        | `string[]` | `[]`        | Unix socket paths that processes can access (e.g., Docker socket)                                                                                                                                                                                                                                                                                               |
+| `allowAllUnixSockets`     | `boolean`  | `false`     | Allow access to all Unix sockets                                                                                                                                                                                                                                                                                                                                |
+| `httpProxyPort`           | `number`   | `undefined` | HTTP proxy port for network requests                                                                                                                                                                                                                                                                                                                            |
+| `socksProxyPort`          | `number`   | `undefined` | SOCKS proxy port for network requests                                                                                                                                                                                                                                                                                                                           |
 
 &lt;Note&gt;
   The built-in sandbox proxy enforces `allowedDomains` based on the requested hostname and does not terminate or inspect TLS traffic, so techniques such as [domain fronting](https://en.wikipedia.org/wiki/Domain_fronting) can potentially bypass it. See [Sandboxing security limitations](/docs/en/sandboxing#security-limitations) for details and [Secure deployment](/docs/en/agent-sdk/secure-deployment#traffic-forwarding) for configuring a TLS-terminating proxy.

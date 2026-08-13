@@ -5700,7 +5700,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--confine-repo-settings &lt;mode&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_CONFINE_REPO_SETTINGS</code></td>
 <td style="text-align: left;"><code>warn</code></td>
-<td style="text-align: left;">Warn without refusing (<code>warn</code>, the default), enforce (<code>enforce</code>), or disable (<code>off</code>) the guard that flags a session when a repository's committed settings try to grant write or read access outside that session's own workspace, set environment variables, or override the operator's sandbox or hooks posture, such as <code>sandbox.enabled: false</code> or <code>disableAllHooks</code>. See <a href="/docs/en/self-hosted-environments-deploy#harden-your-deployment">Harden your deployment</a>.</td>
+<td style="text-align: left;">Sets the mode of the guard that flags a session when a repository's committed settings try to grant write or read access outside that session's own workspace, set environment variables, or override the operator's sandbox or hooks posture, such as <code>sandbox.enabled: false</code> or <code>disableAllHooks</code>. The default <code>warn</code> logs the violation and still starts the session, <code>enforce</code> refuses the session, and <code>off</code> disables the scan. See <a href="/docs/en/self-hosted-environments-deploy#harden-your-deployment">Harden your deployment</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--debug-token-dir &lt;path&gt;</code></td>
@@ -5718,7 +5718,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--drain-wait-sec &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_DRAIN_WAIT_MS</code></td>
 <td style="text-align: left;"><code>0</code></td>
-<td style="text-align: left;">On <code>SIGTERM</code>, wait up to N seconds for each session's in-flight turn and background tasks to finish before terminating the child</td>
+<td style="text-align: left;">On <code>SIGTERM</code>, wait up to N seconds for each session's in-flight turn and background tasks to finish before terminating the child. During this wait, the runner counts a background task that has just finished as still running until the follow-up turn that reads its result starts, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></a> window.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--environment-secret-file &lt;path&gt;</code></td>
@@ -5802,7 +5802,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--release-idle-session-min &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_SESSION_IDLE_MS</code></td>
 <td style="text-align: left;"><code>0</code></td>
-<td style="text-align: left;">Release a session slot after N minutes of inactivity once a turn finishes or the session waits for the user's action. A session that's still mid-turn, including one holding a never-finishing background task or an approval requested from inside a running tool call, doesn't count as idle; pair with <code>--kill-session-after-min</code> as the hard backstop. A release that leaves the runner with no active sessions starts the same exit path as a normal drain, governed by <code>--drain-grace-sec</code>. <code>0</code> disables.</td>
+<td style="text-align: left;">Release a session slot after N minutes of inactivity once a turn finishes or the session waits for the user's action. A session that's still mid-turn, including one holding a never-finishing background task or an approval requested from inside a running tool call, doesn't count as idle; pair with <code>--kill-session-after-min</code> as the hard backstop. After a session's background task finishes, the runner considers the session busy until the follow-up turn that reads the result starts, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></a> window. A release that leaves the runner with no active sessions starts the same exit path as a normal drain, governed by <code>--drain-grace-sec</code>. <code>0</code> disables.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--retire-at &lt;epoch-seconds&gt;</code></td>
@@ -5929,6 +5929,11 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td style="text-align: left;"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></td>
+<td style="text-align: left;"><code>30000</code></td>
+<td style="text-align: left;">How long the runner considers a session busy after a background task finishes while the follow-up turn that reads the result hasn't started. The <a href="#runner-cli-flags"><code>--drain-wait-sec</code> and <code>--release-idle-session-min</code> rows</a> describe where the hold applies on drain and idle release, and <a href="/docs/en/self-hosted-environments#runner-lifecycle">Runner lifecycle</a> describes where it applies on <code>--retire-at</code> retirement. <code>0</code> or an unusable value falls back to the default, so the hold can't be turned off. Requires Claude Code v2.1.228 or later.</td>
+</tr>
 <tr>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_HOST_CONFIG_DIR</code></td>
 <td style="text-align: left;"><code>~/.claude</code></td>

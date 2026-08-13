@@ -7330,7 +7330,10 @@ managed:
 
 `availableModels` is also enforced server-side at `/v1/messages`, so a denied model returns `400` regardless of what the client sends.
 
-When a request&#39;s `model` value isn&#39;t a string, the gateway rejects the request with a `400` and the message `model must be a string`, so a malformed value never reaches an upstream. Requires a gateway running Claude Code v2.1.221 or later.
+The gateway validates the `model` value itself before it relays a request, so a malformed value never reaches an upstream. It rejects the request with a `400` in two cases:
+
+* When the value is missing or empty, the gateway rejects the request with the message `model is required`. That check requires a gateway running Claude Code v2.1.228 or later.
+* When the value is present but isn&#39;t a string, the gateway rejects the request with the message `model must be a string`. Requires a gateway running Claude Code v2.1.221 or later.
 
 | Matcher                                             | Behavior                                                                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -7434,13 +7437,14 @@ managed:
 </tr>
 </tbody>
 </table>
-<p>Because these settings arrive over the network, the CLI shows each developer a one-time security approval dialog before applying the settings listed below:</p>
+<p>Because these settings arrive over the network, the CLI shows each developer a security approval dialog before applying the settings listed below:</p>
 <ul>
 <li><code>hooks</code></li>
 <li><code>env</code> variables that require the developer's approval, such as proxy and base-URL variables</li>
 <li>shell-execution settings such as <code>apiKeyHelper</code> and <code>statusLine</code></li>
 <li>managed CLAUDE.md content</li>
 </ul>
+<p><a href="/docs/en/server-managed-settings#approval-memory">Approval memory</a> covers how long an approval lasts and when the dialog appears again.</p>
 <p>Claude Code applies some delivered <code>env</code> variables without showing the developer the approval dialog, such as model selection settings and numeric limits. Other delivered variables can require the developer's approval before they take effect; a non-empty proxy, base-URL, or <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> value always does. When a delivered variable needs approval, the dialog names it.</p>
 <p><a href="/docs/en/server-managed-settings#environment-variables-and-the-approval-dialog">Environment variables and the approval dialog</a> has the details, including four privacy toggles whose delivered value decides whether they need approval. Before v2.1.218, Claude Code applied fewer variables without asking the developer, so more delivered variables triggered the dialog.</p>
 <p>The gateway's <a href="#telemetry">telemetry</a> configuration pushes <code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, so setting <code>telemetry.forward_to</code> triggers the dialog on each interactive client. The dialog protects the developer's machine from a compromised or hostile gateway, not the organization from the developer.</p>
@@ -7471,14 +7475,18 @@ managed:
         isLocalDevMcpEnabled: false
         disableAutoUpdates: true
         banner: { text: "Contractor build: internal use only" }
-<div class="highlight"><pre><span></span><code>| Key                                                                | Effect                                                                                                             |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `modelDiscoveryEnabled`                                            | Whether Claude Desktop fetches `/v1/models` for its picker. Set `false` to rely solely on the policy&#39;s model list. |
-| `coworkTabEnabled`, `isClaudeCodeForDesktopEnabled`                | Show or hide individual tabs                                                                                       |
-| `isDesktopExtensionEnabled`, `isDesktopExtensionSignatureRequired` | Desktop extension loading and signature checks                                                                     |
-| `isLocalDevMcpEnabled`                                             | Allow locally defined MCP servers                                                                                  |
-| `disableAutoUpdates`, `autoUpdaterEnforcementHours`                | Auto-update policy                                                                                                 |
-| `banner`                                                           | Persistent banner at the top of the app: `enabled`, `text`, `backgroundColor`, `textColor`, `linkUrl`              |
+<div class="highlight"><pre><span></span><code>| Key                                                                | Effect                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modelDiscoveryEnabled`                                            | Whether Claude Desktop fetches `/v1/models` for its picker. Set `false` to rely solely on the policy&#39;s model list.                                                                                                                           |
+| `coworkTabEnabled`, `isClaudeCodeForDesktopEnabled`                | Show or hide the Cowork and Code tabs. Both show unless set `false`                                                                                                                                                                          |
+| `chatTabEnabled`                                                   | Show or hide the Chat tab. Hidden unless set `true`                                                                                                                                                                                          |
+| `chatAdvancedFileAnalysisEnabled`                                  | Let Claude run code in a local sandbox from the Chat tab to analyze attached files it can&#39;t read natively, such as spreadsheets and presentations. Off unless set `true`. Has no effect when the policy&#39;s `permissions.deny` disables `Bash` |
+| `isDesktopExtensionEnabled`, `isDesktopExtensionSignatureRequired` | Desktop extension loading and signature checks                                                                                                                                                                                               |
+| `isLocalDevMcpEnabled`                                             | Allow locally defined MCP servers                                                                                                                                                                                                            |
+| `disableAutoUpdates`, `autoUpdaterEnforcementHours`                | Auto-update policy                                                                                                                                                                                                                           |
+| `banner`                                                           | Persistent banner at the top of the app: `enabled`, `text`, `backgroundColor`, `textColor`, `linkUrl`                                                                                                                                        |
+
+`chatTabEnabled` and `chatAdvancedFileAnalysisEnabled` require Claude Code v2.1.227 or later on the gateway server. Earlier releases reject them at boot.
 
 Every key is optional; Claude Desktop applies its own default for any key you omit. The gateway rejects unknown keys at boot. If you don&#39;t deploy Claude Desktop, leave `desktop` out of your policies entirely; `/user/bootstrap` then returns 404 for every user.
 

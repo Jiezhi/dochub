@@ -6330,7 +6330,19 @@ Either way, Claude should respond with a short summary of your edit and a list o
 </tr>
 </tbody>
 </table>
-<p>When skills share the same name across levels, enterprise overrides personal, and personal overrides project. A skill at any of these levels also overrides a bundled skill with the same name. For example, a <code>code-review</code> skill in your project's <code>.claude/skills/</code> replaces the bundled <code>/code-review</code>. Plugin skills use a <code>plugin-name:skill-name</code> namespace, so they cannot conflict with other levels. If you have files in <code>.claude/commands/</code>, those work the same way, but if a skill and a command share the same name, the skill takes precedence.</p>
+<p>When skills share the same name, Claude Code resolves the conflict by source:</p>
+<ul>
+<li>Across levels, enterprise overrides personal, and personal overrides project.</li>
+<li>For example, with a <code>deploy</code> skill in both <code>~/.claude/skills/</code> and your project's <code>.claude/skills/</code>, <code>/deploy</code> runs the personal one.</li>
+<li>A skill at any of these levels also overrides a bundled skill with the same name.</li>
+<li>For example, a <code>code-review</code> skill in your project's <code>.claude/skills/</code> replaces the bundled <code>/code-review</code>.</li>
+<li>Plugin skills use a <code>plugin-name:skill-name</code> namespace, so they can't conflict with other levels.</li>
+<li>For example, <code>my-plugin/skills/deploy/SKILL.md</code> becomes <code>/my-plugin:deploy</code> and loads alongside a <code>deploy</code> skill in your project's <code>.claude/skills/</code>.</li>
+<li>If you have files in <code>.claude/commands/</code>, those work the same way, but if a skill and a command share the same name, the skill takes precedence.</li>
+<li>For example, with both <code>.claude/commands/deploy.md</code> and <code>.claude/skills/deploy/SKILL.md</code>, <code>/deploy</code> runs the skill.</li>
+<li>A skill or command from any of these sources overrides a skill <a href="#when-a-synced-skill-name-matches-another-command">synced from your claude.ai account</a> with the same name.</li>
+<li>For example, with a <code>deploy</code> skill enabled on claude.ai and another in your project's <code>.claude/skills/</code>, <code>/deploy</code> runs the project one.</li>
+</ul>
 <p>Skills also load from nested <code>.claude/skills/</code> directories below your working directory. When Claude reads or edits a file in a subdirectory, skills from that subdirectory's <code>.claude/skills/</code> become available. This lets a monorepo package provide its own skills that apply when working on that package, even if the session started at the repo root.</p>
 <p>If a nested skill shares a name with another skill, both stay available. For example, with a <code>deploy</code> skill at the project root and another in <code>apps/web/.claude/skills/</code>:</p>
 <ul>
@@ -6388,6 +6400,63 @@ If a skill exists only in `~/.claude/skills/` on your machine, Claude Code repor
 * For cloud sessions, you can instead commit the skill to the repository&#39;s `.claude/skills/`, or ship it in a plugin declared in the repository&#39;s `.claude/settings.json`. Repo-declared plugins [install at session start](/docs/en/cloud-environments#what-carries-over-from-your-setup); plugins enabled only in your user settings don&#39;t transfer.
 
 [Desktop scheduled tasks](/docs/en/desktop-scheduled-tasks) are different: they run locally on your machine and load skills from the same locations as any other local session.
+
+&lt;h3 id=&quot;how-synced-skills-behave&quot;&gt;
+  Skills synced from claude.ai
+&lt;/h3&gt;
+
+This section applies to you if you enabled skills for your claude.ai account. In Cowork and cloud sessions, Claude Code loads those skills without any setup on your machine. In any other session on your machine, Claude Code loads them only after you turn syncing on with [`CLAUDE_CODE_SYNC_SKILLS`](/docs/en/env-vars#variables) in a non-interactive run, as [Where synced skills load](#where-synced-skills-load) describes.
+
+Claude Code downloads a synced skill from your account rather than reading a file you wrote on the machine where the session runs, so it applies rules to synced skills that don&#39;t apply to the skills you store in the [skills locations](#where-skills-live).
+
+#### Where synced skills load
+
+In a Cowork or cloud session, Claude Code loads the skills enabled for your claude.ai account, and [Skills in Cowork and cloud sessions](#skills-in-cowork-and-cloud-sessions) says how to choose which skills those sessions get.
+
+In any other session on your machine, Claude Code loads them only after you download them once in a non-interactive run:
+
+&lt;Steps&gt;
+  &lt;Step title=&quot;Enable the skills for your claude.ai account&quot;&gt;
+    Enable each skill you want for your claude.ai account, as [Skills in Cowork and cloud sessions](#skills-in-cowork-and-cloud-sessions) describes. Claude Code downloads only the skills you enabled, and it needs your claude.ai sign-in to download them.
+  &lt;/Step&gt;
+
+  &lt;Step title=&quot;Run Claude Code in non-interactive mode with syncing turned on&quot;&gt;
+    Claude Code downloads synced skills only when you run it in [non-interactive mode](/docs/en/headless) with the `-p` flag and set [`CLAUDE_CODE_SYNC_SKILLS`](/docs/en/env-vars#variables) to `1`. The prompt you pass doesn&#39;t affect the download.
+
+    ```bash theme={null}
+    CLAUDE_CODE_SYNC_SKILLS=1 claude -p &quot;List the skills you have available&quot;
+    ```
+
+    Claude Code downloads the skills into `~/.claude/skills/synced/`, answers the prompt, and exits like any other non-interactive run. The downloaded skills stay on disk after it exits, so you don&#39;t need to keep the run open. Claude Code downloads skills only during a run with `CLAUDE_CODE_SYNC_SKILLS` set, so after you enable or change a skill on claude.ai, run the command again. To change how long the run waits for the sync before it answers the prompt, set [`CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS`](/docs/en/env-vars#variables).
+  &lt;/Step&gt;
+
+  &lt;Step title=&quot;Confirm the skills load in a local session&quot;&gt;
+    Start an interactive session, without `CLAUDE_CODE_SYNC_SKILLS` set, and run `/skills`. The menu lists the downloaded skills under `claude.ai sync`. Every local session you start afterwards loads them from `~/.claude/skills/synced/` too.
+  &lt;/Step&gt;
+&lt;/Steps&gt;
+
+#### When a synced skill name matches another command
+
+Claude Code skips a synced skill whose name matches any other command, and that other command runs. The other command can be a built-in command, a [bundled skill](#bundled-skills), a skill at any [local level](#where-skills-live), a plugin skill, a file in `.claude/commands/`, or an [MCP prompt](/docs/en/mcp#use-mcp-prompts-as-commands). Claude Code also reserves the names of its own built-in commands and bundled skills even when they&#39;re unavailable in your session, for example after you turn bundled skills off, so it skips a synced skill with one of those names too.
+
+Claude Code labels synced skills so you can tell where they came from. The `/skills` menu and `/context` group synced skills under `claude.ai sync`, and the `/` command menu marks them as coming from claude.ai.
+
+When it compares names, Claude Code ignores case, spacing, and invisible characters, and treats compatibility forms such as fullwidth letters and dash variants as their plain equivalents, so a synced `Commit` can&#39;t load beside a local `commit`. A name that differs only by a look-alike letter from another alphabet counts as a different name, and the `claude.ai sync` label is how you tell the two apart.
+
+#### How Claude Code handles the frontmatter of a synced skill
+
+Claude Code applies two rules to a synced skill&#39;s frontmatter:
+
+* Claude Code honors the frontmatter in every kind of session, so an `allowed-tools` grant goes through the normal [permission flow](/docs/en/permissions).
+* Claude Code sanitizes the display text the skill supplies, such as its description. It removes control characters, and in text that reaches Claude, such as the description, it also escapes angle brackets so the text can&#39;t imitate Claude Code&#39;s internal formatting.
+
+#### How Claude Code handles the body of a synced skill
+
+What Claude Code does with a synced skill&#39;s body depends on where the session runs:
+
+* In a cloud session, the body keeps the behavior a local skill has, because the session runs in an isolated container.
+* In a Cowork session on your desktop, the body keeps the behavior a local skill has, except that Claude Code replaces every `!` command line with the [`disableSkillShellExecution` placeholder](#inject-dynamic-context), as it does for every skill you supply there.
+* In any other session on your machine, Claude Code doesn&#39;t run [`!` commands](#inject-dynamic-context), doesn&#39;t attach the files that `@` references name the way it does for a local skill, and doesn&#39;t substitute the `${CLAUDE_PROJECT_DIR}` and `${CLAUDE_SESSION_ID}` placeholders, so the `@` references and both placeholders reach Claude as literal text. A `!` command line reaches Claude as literal text too, or as that placeholder when `disableSkillShellExecution` is on.
 
 ## Configure skills
 
@@ -6615,7 +6684,7 @@ Your skill instructions here...
 </tbody>
 </table>
 <p>In a plugin skill, the frontmatter <code>name</code> replaces the directory name in the last segment of the command, so <code>my-plugin/skills/review/SKILL.md</code> with <code>name: fancy</code> becomes <code>/my-plugin:fancy</code>. The bare <code>/fancy</code> also invokes the skill unless another command already uses that name. Before v2.1.216, the frontmatter name replaced the whole command name, so the menu showed <code>/fancy</code> without the plugin prefix and <code>/my-plugin:fancy</code> didn't autocomplete.</p>
-<p>In <a href="/docs/en/headless">non-interactive sessions</a>, Claude Code doesn't reserve the names <code>help</code> and <code>feedback</code> for their terminal-only built-in commands, so a plugin skill with one of those names keeps its bare command there. Claude Code still reserves the name of every other terminal-only built-in, such as <code>/login</code>, even though the command can't run in those sessions. From v2.1.216 through v2.1.220, <code>help</code> and <code>feedback</code> were reserved too, so a plugin skill with one of those names was invocable only by its namespaced command in non-interactive sessions.</p>
+<p>In <a href="/docs/en/headless">non-interactive sessions</a>, Claude Code doesn't reserve the names <code>help</code> and <code>feedback</code> for their terminal-only built-in commands, so a plugin skill with one of those names keeps its bare command there. Claude Code still reserves the name of every other terminal-only built-in, such as <code>/login</code>, even though the command can't run in those sessions. In those sessions Claude Code also skips a synced skill named <code>help</code> or <code>feedback</code>, because it <a href="#when-a-synced-skill-name-matches-another-command">skips a synced skill</a> whose name matches any built-in command whether or not that command can run. From v2.1.216 through v2.1.220, <code>help</code> and <code>feedback</code> were reserved too, so a plugin skill with one of those names was invocable only by its namespaced command in non-interactive sessions.</p>
 <p>For a plugin-root <code>SKILL.md</code>, there is no skill directory to take the name from, so <code>name</code> supplies the whole final segment. Without a <code>name</code> field, Claude Code falls back to the plugin's directory name.</p>
 <h4 id="available-string-substitutions">Available string substitutions</h4>
 <p>Skills support string substitution for dynamic values in the skill content:</p>
@@ -6659,9 +6728,17 @@ Your skill instructions here...
 <td style="text-align: left;"><code>${CLAUDE_PROJECT_DIR}</code></td>
 <td style="text-align: left;">The project root directory. This is the same path <a href="/docs/en/hooks#reference-scripts-by-path">hooks</a> and MCP servers receive as <code>CLAUDE_PROJECT_DIR</code>. Use this to reference project-local scripts or files, such as <code>${CLAUDE_PROJECT_DIR}/.claude/hooks/helper.sh</code>, independent of where the skill is installed.</td>
 </tr>
+<tr>
+<td style="text-align: left;"><code>${CLAUDE_PLUGIN_ROOT}</code></td>
+<td style="text-align: left;">The plugin's installation directory. Substituted only in plugin skills. Use this to reference scripts or files bundled anywhere in the plugin, including resources shared between the plugin's skills. See <a href="/docs/en/plugins-reference#environment-variables">plugin environment variables</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>${CLAUDE_PLUGIN_DATA}</code></td>
+<td style="text-align: left;">The plugin's <a href="/docs/en/plugins-reference#persistent-data-directory">persistent data directory</a>, which survives plugin updates. Substituted only in plugin skills. Use this to reference installed dependencies, generated files, or caches that must outlive an update.</td>
+</tr>
 </tbody>
 </table>
-<p>Claude Code substitutes <code>${CLAUDE_SKILL_DIR}</code> and <code>${CLAUDE_PROJECT_DIR}</code> in two places: the skill's markdown content, and Bash rules in the <a href="#frontmatter-reference"><code>allowed-tools</code></a> frontmatter. Using the same variable in both places lets a skill run a bundled script without a permission prompt. The following skill shows the pattern:</p>
+<p>Claude Code substitutes <code>${CLAUDE_SKILL_DIR}</code> and <code>${CLAUDE_PROJECT_DIR}</code> in two places: the skill's markdown content, and Bash rules in the <a href="#frontmatter-reference"><code>allowed-tools</code></a> frontmatter. In a plugin skill, Claude Code substitutes <code>${CLAUDE_PLUGIN_ROOT}</code> and <code>${CLAUDE_PLUGIN_DATA}</code> in the same two places. Using the same variable in both places lets a skill run a bundled script without a permission prompt. The following skill shows the pattern:</p>
 <h2 id="yaml-themenull_1">```yaml theme={null}</h2>
 <p>name: render-chart
 description: Render a chart from a CSV file
@@ -6676,7 +6753,7 @@ Indexed arguments use shell-style quoting, so wrap multi-word values in quotes t
 
 An indexed placeholder with no corresponding argument, such as `$2` when only one argument was passed, stays in the content unchanged. A named placeholder from the [`arguments`](#frontmatter-reference) frontmatter with no matching argument expands to an empty string.
 
-To include a literal `$` before a digit, `ARGUMENTS`, or a declared argument name, such as `$1.00` in prose, escape it with a backslash: `\$1.00`. A backslash before any other `$` is left unchanged. Only a single backslash directly before the token escapes it. A doubled backslash such as `\\$1` leaves both backslashes in place, and `$1` still expands to the argument value.
+To include a literal `$` before a digit, `ARGUMENTS`, or a declared argument name, such as `$1.00` in prose, escape it with a backslash: `\$1.00`. A backslash before any other `$` is left unchanged. Only a single backslash directly before the token escapes it. A doubled backslash such as `\\$1` leaves both backslashes in place, and `$1` still expands to the argument value. The backslash escape covers only these argument placeholders. A backslash doesn&#39;t prevent substitution of a `${CLAUDE_*}` variable where the variable applies.
 
 **Example using substitutions:**
 
@@ -6818,7 +6895,7 @@ Preserve all existing behavior and tests.
 
 ### Inject dynamic context
 
-The `` !`&lt;command&gt;` `` syntax runs shell commands before the skill content is sent to Claude. The command output replaces the placeholder, so Claude receives actual data, not the command itself.
+The `` !`&lt;command&gt;` `` syntax runs shell commands before the skill content is sent to Claude. The command output replaces the placeholder, so Claude receives actual data, not the command itself. Claude Code doesn&#39;t run these commands on your machine when the skill is [synced from your claude.ai account](#how-claude-code-handles-the-body-of-a-synced-skill).
 
 This skill summarizes a pull request by fetching live PR data with the GitHub CLI. The `` !`gh pr diff` `` and other commands run first, and their output gets inserted into the prompt:
 
@@ -6858,6 +6935,8 @@ git status --short
 <div class="highlight"><pre><span></span><code>````
 
 To disable this behavior for skills and custom commands from user, project, plugin, or [additional-directory](#skills-from-additional-directories) sources, set `&quot;disableSkillShellExecution&quot;: true` in [settings](/docs/en/settings). Each command is replaced with `[shell command execution disabled by policy]` instead of being run. Bundled and managed skills are not affected. This setting is most useful in [managed settings](/docs/en/permissions#managed-settings), where users cannot override it.
+
+Claude Code never runs these commands on your machine when they appear in skills [synced from your claude.ai account](#how-synced-skills-behave), regardless of this setting. [How Claude Code handles the body of a synced skill](#how-claude-code-handles-the-body-of-a-synced-skill) says what Claude receives in place of the command in each kind of session.
 
 &lt;Tip&gt;
   To request deeper reasoning when a skill runs, include `ultrathink` anywhere in the skill content. See [Use ultrathink for one-off deep reasoning](/docs/en/model-config#use-ultrathink-for-one-off-deep-reasoning).
@@ -7010,7 +7089,7 @@ Skill(deploy *)
 </tbody>
 </table>
 <p>The <code>/skills</code> menu labels the <code>"user-invocable-only"</code> state <code>user-only</code>.</p>
-<p>As of v2.1.199, <code>"off"</code> also hides the skill from the command lists advertised to <a href="/docs/en/remote-control">Remote Control</a> clients and to <a href="/docs/en/agent-sdk/slash-commands">Agent SDK</a> callers, not only the terminal <code>/</code> menu. Invoking a hidden skill by its full name still returns the <code>skillOverrides</code> error instead of running it.</p>
+<p>As of v2.1.199, <code>"off"</code> also hides the skill from the command lists advertised to <a href="/docs/en/remote-control">Remote Control</a> clients and to <a href="/docs/en/agent-sdk/slash-commands">Agent SDK</a> callers, in addition to the terminal <code>/</code> menu. Invoking a hidden skill by its full name still returns the <code>skillOverrides</code> error instead of running it.</p>
 <p>A skill that is absent from <code>skillOverrides</code> is treated as <code>"on"</code>. The example below collapses one skill to its name and turns another off entirely:</p>
 <p>```json theme={null}
 {

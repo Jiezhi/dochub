@@ -7722,9 +7722,13 @@ marginTop: '20px'
 </tr>
 </tbody>
 </table>
-<p><code>sessions/</code> holds one small file per running session, used to detect concurrent sessions and crashes. It isn't part of the age-based sweep: Claude Code removes each file when its session exits and clears crash leftovers on the next launch.</p>
-<p>When you run <code>claude -p</code> with <a href="/docs/en/headless#start-faster-with-bare-mode"><code>--bare</code></a>, Claude Code doesn't run the sweep in that session.</p>
-<p>If Claude Code can't safely determine the retention period, it pauses the retention cleanup sweep; the <a href="/docs/en/monitoring-usage#retention-sweep-event"><code>retention_sweep</code> event</a> lists each configuration that pauses it. When the cause is a settings file that can't be read or parsed, or settings errors with <code>cleanupPeriodDays</code> explicitly set, Claude Code also shows a warning in <code>/status</code> until you fix the settings errors. When <a href="/docs/en/server-managed-settings">managed settings</a> provide <code>cleanupPeriodDays</code>, Claude Code runs the sweep at the managed value in either case.</p>
+<p>Claude Code makes four exceptions to this sweep:</p>
+<ul>
+<li><strong><code>sessions/</code></strong>: holds one small file per running session, used to detect concurrent sessions and crashes. It isn't part of the age-based sweep: Claude Code removes each file when its session exits and clears crash leftovers on the next launch.</li>
+<li><strong>Auto memory</strong>: Claude Code excludes a project's <a href="/docs/en/memory#auto-memory">auto memory</a> directory, <code>projects/&lt;project&gt;/memory/</code>, from this sweep, and removes the directory itself only after it has been empty for the whole retention period. Before v2.1.228, the sweep treated folders inside the memory directory as session data and could delete old files beneath it.</li>
+<li><strong>Bare mode</strong>: when you run <code>claude -p</code> with <a href="/docs/en/headless#start-faster-with-bare-mode"><code>--bare</code></a>, Claude Code doesn't run the sweep in that session.</li>
+<li><strong>Paused sweep</strong>: if Claude Code can't safely determine the retention period, it pauses the retention cleanup sweep; the <a href="/docs/en/monitoring-usage#retention-sweep-event"><code>retention_sweep</code> event</a> lists each configuration that pauses it. When the cause is a settings file that can't be read or parsed, or settings errors with <code>cleanupPeriodDays</code> explicitly set, Claude Code also shows a warning in <code>/status</code> until you fix the settings errors. When <a href="/docs/en/server-managed-settings">managed settings</a> provide <code>cleanupPeriodDays</code>, Claude Code runs the sweep at the managed value in either case.</li>
+</ul>
 <h3 id="kept-until-you-delete-them">Kept until you delete them</h3>
 <p>The following paths are not covered by automatic cleanup and persist indefinitely.</p>
 <table>
@@ -7819,7 +7823,7 @@ claude project purge ~/work/my-repo --yes
 <tbody>
 <tr>
 <td><code>~/.claude/projects/</code></td>
-<td>Resume, continue, and rewind for past sessions</td>
+<td>Resume, continue, and rewind for past sessions, and auto memory for every project</td>
 </tr>
 <tr>
 <td><code>~/.claude/history.jsonl</code></td>

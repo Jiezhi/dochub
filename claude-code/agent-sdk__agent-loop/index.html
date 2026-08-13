@@ -6258,7 +6258,7 @@ try {
 <ul>
 <li><strong>Summarization instructions in CLAUDE.md:</strong> The compactor reads your CLAUDE.md like any other context, so you can include a section telling it what to preserve when summarizing. The section header is free-form (not a magic string); the compactor matches on intent.</li>
 <li><strong><code>PreCompact</code> hook:</strong> Run custom logic before compaction occurs, for example to archive the full transcript. The hook receives a <code>trigger</code> field (<code>manual</code> or <code>auto</code>). See <a href="/docs/en/agent-sdk/hooks">hooks</a>.</li>
-<li><strong>Manual compaction:</strong> Send <code>/compact</code> as a prompt string to trigger compaction on demand. Commands sent this way are SDK inputs, not CLI-only shortcuts. See <a href="/docs/en/agent-sdk/slash-commands">commands in the SDK</a>.</li>
+<li><strong>Manual compaction:</strong> Send <code>/compact</code> as a prompt string to trigger compaction on demand. Commands sent this way are ordinary SDK inputs. See <a href="/docs/en/agent-sdk/slash-commands">commands in the SDK</a>.</li>
 </ul>
 <p><Accordion title="Example: Summarization instructions in CLAUDE.md">
   Add a section to your project's CLAUDE.md telling the compactor what to preserve. The header name isn't special; use any clear label.</p>
@@ -6283,7 +6283,7 @@ try {
 <h2 id="sessions-and-continuity">Sessions and continuity</h2>
 <p>Each interaction with the SDK creates or continues a session. Capture the session ID from <code>ResultMessage.session_id</code> (available in both SDKs) to resume later. The TypeScript SDK also exposes it as a direct field on the init <code>SystemMessage</code>; in Python it's nested in <code>SystemMessage.data</code>.</p>
 <p>When you resume, the full context from previous turns is restored: files that were read, analysis that was performed, and actions that were taken. You can also fork a session to branch into a different approach without modifying the original.</p>
-<p>See <a href="/docs/en/agent-sdk/sessions">Session management</a> for the full guide on resume, continue, and fork patterns. To resume sessions across stateless containers or serverless hosts, pass a <a href="/docs/en/agent-sdk/session-storage"><code>session_store</code> / <code>sessionStore</code> adapter</a> so transcripts are mirrored to your own backend and any host can resume them. The Claude Code subprocess still writes to local disk first; point <code>CLAUDE_CONFIG_DIR</code> at a temp directory in <code>options.env</code> if the local copy needs to be ephemeral.</p>
+<p>See <a href="/docs/en/agent-sdk/sessions">Session management</a> for the full guide on resume, continue, and fork patterns. To resume sessions across stateless containers or serverless hosts, pass a <a href="/docs/en/agent-sdk/session-storage"><code>session_store</code> / <code>sessionStore</code> adapter</a> so the SDK mirrors transcripts to your own backend and another host can resume them. The Claude Code subprocess still writes to local disk first. See <a href="/docs/en/agent-sdk/session-storage#dual-write-architecture">Dual-write architecture</a> for which copy outlives a fresh session versus a run resumed from the store, and how to keep the local copy ephemeral.</p>
 <p><Note>
   In Python, <code>ClaudeSDKClient</code> handles session IDs automatically across multiple calls. See the <a href="/docs/en/agent-sdk/python#choosing-between-query-and-claudesdkclient">Python SDK reference</a> for details.
 </Note></p>
@@ -6325,15 +6325,22 @@ try {
 </tr>
 </tbody>
 </table>
-<p>The <code>result</code> field (the final text output) is only present on the <code>success</code> variant, so always check the subtype before reading it. All result subtypes carry <code>total_cost_usd</code>, <code>usage</code>, <code>num_turns</code>, and <code>session_id</code> so you can track cost and resume even after errors. In Python, <code>total_cost_usd</code> and <code>usage</code> are typed as optional and may be <code>None</code> on some error paths, so guard before formatting them. See <a href="/docs/en/agent-sdk/cost-tracking">Tracking costs and usage</a> for details on interpreting the <code>usage</code> fields.</p>
+<p>The <code>result</code> field holds the final text output and is only present on the <code>success</code> variant, so always check the subtype before reading it.</p>
+<p>All result subtypes carry <code>total_cost_usd</code>, <code>usage</code>, <code>num_turns</code>, and <code>session_id</code> so you can track cost and resume even after errors. Two things to guard for:</p>
+<ul>
+<li>After a session crash, the final result is an <code>error_during_execution</code> whose cost fields may be zeroed and whose <code>stop_reason</code> is <code>null</code>, and the process exits after emitting it. See <a href="/docs/en/agent-sdk/cost-tracking#recover-totals-after-a-session-crash">Recover totals after a session crash</a>.</li>
+<li>In Python, <code>total_cost_usd</code>, <code>usage</code>, and <code>model_usage</code> are typed as optional, so check that they aren't <code>None</code> before you read them.</li>
+</ul>
+<p>The <code>usage</code> field covers only the main agent loop. Use <code>modelUsage</code>, or <code>model_usage</code> in Python, for whole-tree token and cost accounting. See <a href="/docs/en/agent-sdk/cost-tracking">Tracking costs and usage</a> for details on interpreting the <code>usage</code> fields.</p>
 <p><Note>
   When a query ends on an error result:</p>
 <ul>
 <li>A single-shot <code>query()</code> call yields the final result message, then raises an error that includes the failure text, such as <code>Reached maximum number of turns</code>. The raise is intentional — wrap the loop in a try block if your code needs to continue past it. The underlying Claude Code process also exits with a nonzero code.</li>
-<li>A streaming input session stays alive, and you can keep sending messages.
+<li>A streaming input session stays alive, and you can keep sending messages, except after a session crash, which emits a final <code>error_during_execution</code> result and exits the process.
 </Note></li>
 </ul>
-<p>The result also includes a <code>stop_reason</code> field (<code>string | null</code> in TypeScript, <code>str | None</code> in Python) indicating why the model stopped generating on its final turn. Common values are <code>end_turn</code> (model finished normally), <code>max_tokens</code> (hit the output token limit), and <code>refusal</code> (the model declined the request). On error result subtypes, <code>stop_reason</code> carries the value from the last assistant response before the loop ended. To detect refusals, check <code>stop_reason === "refusal"</code> (TypeScript) or <code>stop_reason == "refusal"</code> (Python). See <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> (TypeScript) or <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> (Python) for the full type.</p>
+<p>The result also includes a <code>stop_reason</code> field (<code>string | null</code> in TypeScript, <code>str | None</code> in Python) indicating why the model stopped generating on its final turn. Common values are <code>end_turn</code> (model finished normally), <code>max_tokens</code> (hit the output token limit), and <code>refusal</code> (the model declined the request). On error results that the loop produced, <code>stop_reason</code> carries the value from the last assistant response before the loop ended; the result Claude Code synthesizes after a session crash carries <code>null</code>.</p>
+<p>To detect refusals, check <code>stop_reason === "refusal"</code> (TypeScript) or <code>stop_reason == "refusal"</code> (Python). See <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> (TypeScript) or <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> (Python) for the full type.</p>
 <h2 id="hooks">Hooks</h2>
 <p><a href="/docs/en/agent-sdk/hooks">Hooks</a> are callbacks that fire at specific points in the loop: before a tool runs, after it returns, when the agent finishes, and so on. Some commonly used hooks are:</p>
 <table>

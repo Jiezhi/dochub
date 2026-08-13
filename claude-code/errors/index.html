@@ -3060,6 +3060,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#could-not-read-claude-code-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Could not read Claude Code config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mcp-permission-prompt-tool-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6545,6 +6556,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#could-not-read-claude-code-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Could not read Claude Code config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mcp-permission-prompt-tool-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6993,6 +7015,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#aws-default-chain-credential-resolve-timed-out">Authentication</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>Could not load the default credentials</code> on Google Cloud's Agent Platform</td>
+<td style="text-align: left;"><a href="#automatic-retries">Automatic retries</a></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>Unable to connect to API</code></td>
 <td style="text-align: left;"><a href="#unable-to-connect-to-api">Network</a></td>
 </tr>
@@ -7143,6 +7169,14 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>Error: Workspace not trusted</code> when starting Remote Control</td>
 <td style="text-align: left;"><a href="#workspace-not-trusted-when-starting-remote-control">Command-line errors</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>`claude import` is not yet available in this build</code></td>
+<td style="text-align: left;"><a href="#claude-import-is-not-yet-available-in-this-build">Command-line errors</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Could not read Claude Code config</code></td>
+<td style="text-align: left;"><a href="#could-not-read-claude-code-config">Command-line errors</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Could not import &lt;server&gt;: &lt;reason&gt;</code></td>
@@ -7319,6 +7353,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>A request rejected because the input plus <code>max_tokens</code> exceeds the context limit. Re-sending it unchanged would fail the same way, so Claude Code retries with a reduced <code>max_tokens</code>, and stops retrying and compacts instead in two cases:</li>
 <li>When no reduction can fit, for example when the conversation itself nearly fills the context window.</li>
 <li>When a retry can't shrink <code>max_tokens</code> any further. Before v2.1.218, Claude Code could re-send a reduced request that still didn't fit, such as when the extended thinking budget exceeded the remaining context, until the retry budget ran out.</li>
+<li>An expired or missing Google Cloud credential on <a href="/docs/en/google-vertex-ai">Google Cloud's Agent Platform</a>, which surfaces as an error such as <code>Could not load the default credentials</code>. Claude Code discards its cached credentials and retries up to two times, running your <a href="/docs/en/google-vertex-ai#advanced-credential-configuration"><code>gcpAuthRefresh</code></a> command if you configured one, then reports the error so you can re-authenticate right away. <a href="/docs/en/google-vertex-ai#troubleshooting">Google Cloud's Agent Platform troubleshooting</a> covers re-authenticating. Before v2.1.228, Claude Code retried a failing credential through the full retry budget before showing the error.</li>
 </ul>
 <p>Before v2.1.227, <code>Connection lost before a response was produced</code> read <code>Connection closed while thinking, before producing a response</code> and <code>The response stalled before a response was produced</code> read <code>Response stalled while thinking, before producing a response</code>.</p>
 <p>Claude Code doesn't retry these failures:</p>
@@ -7464,24 +7499,35 @@ Auto mode could not evaluate this action and is blocking it for safety — run w
 <p>When a separate API safety check blocked the classifier request because of earlier conversation content:</p>
 <p>```text theme={null}
 Auto mode could not evaluate this action and is blocking it for safety — a safety check separate from auto mode blocked this request because of earlier conversation content — it isn't about the action itself — run with --debug for details
-<div class="highlight"><pre><span></span><code>Claude Code denies the action but tells Claude this isn&#39;t a judgment that the action is unsafe, and to continue with other tasks rather than retry. These denials don&#39;t count toward [auto mode&#39;s pause thresholds](/docs/en/permission-modes#when-auto-mode-falls-back). In [non-interactive mode](/docs/en/headless) the run aborts with `Agent aborted: auto mode classifier request refused by the safety safeguard in headless mode`, since there is no user to prompt and the refusal repeats on every retry. Before v2.1.225, Claude Code counted these refusals toward the pause thresholds and returned the same rejection message as a genuine classifier block.
+<div class="highlight"><pre><span></span><code>Claude Code denies the action but tells Claude this isn&#39;t a judgment that the action is unsafe, and to continue with other tasks rather than retry. These denials don&#39;t count toward [auto mode&#39;s pause thresholds](/docs/en/permission-modes#when-auto-mode-falls-back). In a [non-interactive](/docs/en/headless) `-p` run, Claude Code doesn&#39;t stop the run. What Claude receives depends on where it requested the action:
+
+* To a [background subagent](/docs/en/sub-agents#run-subagents-in-foreground-or-background) in a `-p` run without `--input-format stream-json`, Claude Code returns an error result containing `Agent aborted: auto mode classifier request refused by the safety safeguard in headless mode`
+* Everywhere else, including interactive sessions and the main conversation of a `-p` run, Claude Code returns that denial to Claude
+
+Before v2.1.225, Claude Code counted these refusals toward the pause thresholds and returned the same rejection message as a genuine classifier block.
 
 **What to do:**
 
 * This is not a decision about your action. Content already in your conversation triggered a safety filter on the API when auto mode sent the conversation to the classifier
 * Retrying will not help; the same conversation content will trigger the filter again
-* Switch to a different [permission mode](/docs/en/permission-modes) so you can approve the action when prompted, or start a fresh conversation without the triggering content
+* In an interactive session, switch to a different [permission mode](/docs/en/permission-modes) so you can approve the action when prompted
+* Start a fresh conversation without the triggering content
 
 When the conversation has grown larger than the classifier&#39;s context window:
 
 ```text theme={null}
 Auto mode classifier transcript exceeded context window — falling back to manual approval (try /compact to reduce conversation size)
 </code></pre></div></p>
-<p>In an interactive session, auto mode falls back to a normal permission prompt for that action so you can approve or deny it manually. In <a href="/docs/en/headless">non-interactive mode</a> the run aborts because the transcript only grows and retrying can't succeed.</p>
+<p>What happens to the action depends on where Claude requested it:</p>
+<ul>
+<li>In an interactive session, auto mode falls back to a normal permission prompt for that action so you can approve or deny it manually</li>
+<li>To a <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">background subagent</a> in a <a href="/docs/en/headless">non-interactive</a> <code>-p</code> run without <code>--input-format stream-json</code>, Claude Code returns an error result containing <code>Agent aborted: auto mode classifier transcript exceeded context window in headless mode</code>, and the run continues</li>
+<li>Elsewhere in a <code>-p</code> run without a <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a>, there is no prompt to fall back to, so the action doesn't run and the run continues</li>
+</ul>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Approve or deny the action in the prompt that appears</li>
-<li>Run <code>/compact</code> to reduce the conversation size so subsequent actions fit within the classifier window again</li>
+<li>In an interactive session, approve or deny the action in the prompt that appears</li>
+<li>In an interactive session, run <code>/compact</code> to reduce the conversation size so subsequent actions fit within the classifier window again</li>
 </ul>
 <h3 id="agent-terminated-early-due-to-an-api-error">Agent terminated early due to an API error</h3>
 <p>A <a href="/docs/en/sub-agents">subagent</a>'s API request failed terminally, for example because a usage limit was reached or retries for a server error ran out, so the subagent stopped before finishing its task. This message requires Claude Code v2.1.199 or later; before then the API error text was returned to Claude as if it were the subagent's result.</p>
@@ -8419,6 +8465,33 @@ Error: Workspace not trusted. /Users/you is your home directory, and for securit
 
 * Run `claude` in the directory, accept the [workspace trust dialog](/docs/en/permissions#project-allow-rules-and-workspace-trust), then run `claude remote-control` again
 * In your home directory, change to a project directory and start Remote Control there
+
+### claude import is not yet available in this build
+
+You ran [`claude import`](/docs/en/cli-reference#cli-commands), and Claude Code found the import flow turned off, so the command exits with code 1 instead of starting the import. Before v2.1.222, a build with the import flow off treated `import` as a prompt and started an interactive session instead of printing this message.
+
+```text theme={null}
+`claude import` is not yet available in this build. Run `claude` and use /mcp or edit ~/.claude/settings.json directly.
+</code></pre></div></p>
+<p>Claude Code turns <code>claude import</code> on through a feature flag it fetches from Anthropic and caches on disk. This message means the cached value is off. The cause is usually one of the following:</p>
+<ul>
+<li>You haven't started a session since installing, so Claude Code hasn't fetched the flag yet. The first <code>claude import</code> can print this even when the feature is available to you.</li>
+<li>You use Claude Code through Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or Claude Platform on AWS. Claude Code doesn't fetch feature flags on these providers, so <code>claude import</code> stays unavailable.</li>
+<li>You set <code>DISABLE_TELEMETRY</code>, <code>DO_NOT_TRACK</code>, <code>DISABLE_GROWTHBOOK</code>, or <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code></a>, which turn off feature-flag fetching, so <code>claude import</code> stays unavailable.</li>
+</ul>
+<p><strong>What to do:</strong></p>
+<ul>
+<li>On a fresh installation, start <code>claude</code>, wait for the session to load, exit, and run <code>claude import</code> again</li>
+<li>Where feature-flag fetching stays off, set the configuration up yourself: add MCP servers with <a href="/docs/en/mcp#installing-mcp-servers"><code>claude mcp add</code></a>, and create the <a href="/docs/en/memory#how-claude-md-files-load"><code>CLAUDE.md</code> files</a>, <a href="/docs/en/skills#where-skills-live">skills and commands</a>, and <a href="/docs/en/sub-agents#choose-the-subagent-scope">subagents</a> you want to carry over. The message also names <code>~/.claude/settings.json</code>. Of the configuration <code>claude import</code> carries, that file holds only the <a href="/docs/en/settings#permission-settings">permission mode</a>; Claude Code doesn't read MCP servers from it.</li>
+</ul>
+<h3 id="could-not-read-claude-code-config">Could not read Claude Code config</h3>
+<p>You ran <a href="/docs/en/cli-reference#cli-commands"><code>claude import</code></a> while Claude Code couldn't parse <code>~/.claude.json</code>, the file where it stores your login and per-project state. The subcommand reads that file to check availability but doesn't show the recovery dialog the interactive session shows, so it exits with code 1. Before v2.1.222, <code>claude import</code> with an unreadable config file started an interactive session, whose recovery dialog handled the file.</p>
+<p><code>``text theme={null}
+Could not read Claude Code config — run</code>claude` with no arguments to recover it.
+<div class="highlight"><pre><span></span><code>**What to do:**
+
+* Run `claude` with no arguments. Claude Code detects the invalid file and offers to reset it. Then run `claude import` again.
+* To keep manual edits you&#39;ve made, fix the JSON syntax in `~/.claude.json` in an editor instead, then rerun `claude import`
 
 ### Could not import a server from Claude Desktop
 

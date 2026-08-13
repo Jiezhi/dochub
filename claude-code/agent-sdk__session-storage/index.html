@@ -938,6 +938,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#resume-from-the-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resume from the store
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mirror-writes-are-best-effort" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5575,6 +5586,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#resume-from-the-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resume from the store
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mirror-writes-are-best-effort" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5685,12 +5707,12 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <h1 id="persist-sessions-to-external-storage">Persist sessions to external storage</h1>
 <blockquote>
-<p>Mirror session transcripts to S3, Redis, or your own backend so any host can resume them.</p>
+<p>Mirror session transcripts to S3, Redis, or your own backend so other hosts can resume your sessions.</p>
 </blockquote>
-<p>By default, the SDK writes session transcripts to JSONL files under <code>~/.claude/projects/</code> on the local filesystem. A <code>SessionStore</code> adapter lets you mirror those transcripts to your own backend, such as S3, Redis, or a database, so a session created on one host can be resumed on another.</p>
+<p>By default, the SDK writes session transcripts to JSONL files under <code>~/.claude/projects/</code> on the local filesystem. A <code>SessionStore</code> adapter lets you mirror those transcripts to your own backend, such as S3, Redis, or a database, so a session created on one host can be resumed on another host running from a matching working directory.</p>
 <p>Common reasons to use a session store:</p>
 <ul>
-<li><strong>Multi-host deployments.</strong> Serverless functions, autoscaled workers, and CI runners don't share a filesystem. A shared store lets any replica resume any session.</li>
+<li><strong>Multi-host deployments.</strong> Serverless functions, autoscaled workers, and CI runners don't share a filesystem. A shared store lets replicas resume each other's sessions.</li>
 <li><strong>Durability.</strong> Local containers are ephemeral. A store backed by S3 or a database survives restarts and redeploys.</li>
 <li><strong>Compliance and audit.</strong> Keep transcripts in storage you already govern, with your own retention rules, encryption, and access controls.</li>
 </ul>
@@ -5758,7 +5780,7 @@ class SessionSummaryEntry(TypedDict):
     data: dict[str, Any]
 </code></pre></div>
 </CodeGroup></p>
-<p><code>SessionKey</code> addresses one transcript. <code>projectKey</code> is a stable, filesystem-safe encoding of the working directory, <code>sessionId</code> is the session UUID, and <code>subpath</code> is set when the entry belongs to a subagent transcript or sidecar file rather than the main conversation. Treat <code>subpath</code> as an opaque key suffix; it follows the on-disk layout, for example <code>subagents/agent-&lt;id&gt;</code>. When <code>subpath</code> is undefined the key refers to the main transcript.</p>
+<p><code>SessionKey</code> addresses one transcript. <code>projectKey</code> is a stable, filesystem-safe encoding of the working directory, <code>sessionId</code> is the session UUID, and <code>subpath</code> is set when the entry belongs to a subagent transcript or sidecar file rather than the main conversation. Because <code>projectKey</code> encodes the working directory, resume or continue from the store from a working directory matching the original run's. Treat <code>subpath</code> as an opaque key suffix; it follows the on-disk layout, for example <code>subagents/agent-&lt;id&gt;</code>. When <code>subpath</code> is undefined the key refers to the main transcript.</p>
 <table>
 <thead>
 <tr>
@@ -5776,7 +5798,7 @@ class SessionSummaryEntry(TypedDict):
 <tr>
 <td style="text-align: left;"><code>load</code></td>
 <td style="text-align: left;">Yes</td>
-<td style="text-align: left;">Before the subprocess spawns when <code>resume</code> is set, and once per session when listing falls back from <code>listSessionSummaries</code>. Return <code>null</code> if the session is unknown.</td>
+<td style="text-align: left;">Before the subprocess spawns when <code>resume</code> is set or <code>continue: true</code> resolves the newest store session, and once per session when listing falls back from <code>listSessionSummaries</code>. Return <code>null</code> if the session is unknown.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>listSessions</code></td>
@@ -5802,6 +5824,7 @@ class SessionSummaryEntry(TypedDict):
 </table>
 <p>In a <code>SessionSummaryEntry</code>, <code>mtime</code> is the sidecar's storage write time and must share a clock source with the <code>mtime</code> values <code>listSessions</code> returns. <code>data</code> is opaque SDK-owned state; persist it verbatim without interpreting it.</p>
 <p>Build the entries by calling the exported <code>foldSessionSummary</code> helper, <code>fold_session_summary</code> in Python, on each batch inside <code>append</code>. Skip batches whose key has a <code>subpath</code>; subagent transcripts must not contribute to the main session's summary. The fold never sets <code>mtime</code>: stamp it at persist time, through the <code>options.mtime</code> argument in TypeScript or by overwriting the field on the returned entry in Python. Concurrent <code>append</code> calls for the same session can race on the sidecar, so serialize the read-fold-write with a transaction, a compare-and-swap, or a per-session lock; the fold itself is pure.</p>
+<p>For what the SDK does with the transcript <code>load</code> returns, see <a href="#resume-from-the-store">Resume from the store</a>.</p>
 <h2 id="quick-start">Quick start</h2>
 <p>The SDK ships an <code>InMemorySessionStore</code> for development and testing. The example below runs a query with the store attached, captures the session ID from the result message, then resumes from the store in a second <code>query()</code> call. The second call passes the same store instance plus <code>resume</code>, so the SDK loads the transcript from the store instead of the local filesystem:</p>
 <p><CodeGroup>
@@ -5949,10 +5972,39 @@ async def test_my_store_conformance():
 <p>Passing the <code>MyRedisStore</code> class itself, as this example does, works when the constructor takes no arguments. For an adapter that takes a pre-configured client, pass a lambda that constructs the store instead. Because the contracts reuse the same session keys, each store the factory returns must start with empty storage, so have the lambda provision isolated backing storage per call, such as a fresh in-memory fake, a unique key prefix, or a new test database.</p>
 <h2 id="behavior-notes">Behavior notes</h2>
 <h3 id="dual-write-architecture">Dual-write architecture</h3>
-<p>The store is a mirror, not a replacement. The Claude Code subprocess always writes to local disk first; the SDK then forwards each batch to <code>append()</code>. If you want the local copy to be ephemeral, point <code>CLAUDE_CONFIG_DIR</code> at a temp directory in <code>options.env</code>.</p>
-<p>Because the mirror depends on local writes, the TypeScript SDK throws if you combine <code>sessionStore</code> with <code>persistSession: false</code>. Both SDKs also throw if you combine the store with file checkpointing, <code>enableFileCheckpointing</code> in TypeScript or <code>enable_file_checkpointing</code> in Python, since file-history backup blobs are written directly to local disk and are not mirrored to the store.</p>
+<p>The Claude Code subprocess always writes each batch of transcript entries to local disk first, and the SDK then forwards the same batch to your store's <code>append()</code>, so the store is a mirror of the local transcript rather than a replacement for it. Which copy outlives the run depends on how the run started:</p>
+<ul>
+<li><strong>Fresh session, or a resume when the store has nothing for the session</strong>: the local transcript under your config directory outlives the run, and the store receives a copy.</li>
+<li><strong>Run <a href="#resume-from-the-store">resumed from the store</a></strong>: the local copy is deleted at run end, so the store holds the only durable copy.</li>
+</ul>
+<p>If you don't want a fresh session to leave a transcript on local disk, set <code>CLAUDE_CONFIG_DIR</code> to a temp directory in <code>options.env</code>. A run resumed from the store already deletes its local copy, so it needs no such setting. In TypeScript, spread <code>process.env</code> into <code>env</code> as well, since the <a href="/docs/en/agent-sdk/typescript#options"><code>env</code> option</a> replaces the subprocess environment.</p>
+<p>If your app signs in through files in the config directory, such as OAuth credentials or an <code>apiKeyHelper</code> in your user <code>settings.json</code>, copy those files into the temp directory first, or set <code>ANTHROPIC_API_KEY</code> in <code>env</code> instead. Otherwise the run fails with <code>Not logged in</code>.</p>
+<p>Two options conflict with the mirror, and the SDK throws at startup if you combine either with a store:</p>
+<ul>
+<li><strong><code>persistSession: false</code></strong> in TypeScript: turns off the local writes the mirror is built from. The Python SDK has no equivalent option.</li>
+<li><strong>File checkpointing</strong>, <code>enableFileCheckpointing</code> in TypeScript or <code>enable_file_checkpointing</code> in Python: writes its file backups straight to local disk, and the SDK doesn't mirror them to the store.</li>
+</ul>
+<h3 id="resume-from-the-store">Resume from the store</h3>
+<p>When you pass <code>resume</code>, or <code>continue: true</code> in TypeScript or <code>continue_conversation=True</code> in Python, together with a store, the SDK asks the store for a transcript before it spawns the subprocess:</p>
+<ul>
+<li><strong><code>resume</code></strong>: the SDK asks for the session whose ID you passed.</li>
+<li><strong><code>continue: true</code></strong> or <strong><code>continue_conversation=True</code></strong>: the SDK asks for the store's newest session.</li>
+</ul>
+<p>When the store returns the transcript, the SDK writes it into a temporary config directory, runs the subprocess with <code>CLAUDE_CONFIG_DIR</code> pointing there, and deletes the directory when the run ends. The local transcript that run writes is deleted with it, which is why the store holds the only durable copy on this path.</p>
+<p>The SDK also seeds the temporary directory with files from your real config directory. What it copies differs by language:</p>
+<ul>
+<li><strong>TypeScript</strong>: credentials, <code>.claude.json</code>, and your user <code>settings.json</code>. From <code>settings.json</code> it strips the three keys that misbehave under a temporary config directory: <code>enabledPlugins</code>, <code>extraKnownMarketplaces</code>, and any <code>CLAUDE_CONFIG_DIR</code> in the file's <code>env</code> block. Auth configured in settings, such as <a href="/docs/en/settings#available-settings"><code>apiKeyHelper</code></a>, works when you resume from the store. Before Agent SDK v0.3.222, the TypeScript SDK copied only credentials and <code>.claude.json</code>.</li>
+<li><strong>Python</strong>: credentials and <code>.claude.json</code> only, so an app that authenticates through <code>apiKeyHelper</code> in your user <code>settings.json</code> fails with <code>Not logged in</code> when resuming from a store. An <code>apiKeyHelper</code> in managed or project settings still works, because Claude Code reads those files from locations that <code>CLAUDE_CONFIG_DIR</code> doesn't affect.</li>
+</ul>
+<p>When the store has nothing for the session, the SDK runs under your real config directory instead, and the outcome depends on which option you passed:</p>
+<ul>
+<li><strong><code>resume</code></strong>: both SDKs pass the ID through to the subprocess, which resumes the local transcript exactly as <code>resume</code> does without a store.</li>
+<li><strong><code>continue: true</code></strong> in TypeScript: the SDK starts a fresh session.</li>
+<li><strong><code>continue_conversation=True</code></strong> in Python: the SDK continues from the newest local session.</li>
+</ul>
 <h3 id="mirror-writes-are-best-effort">Mirror writes are best-effort</h3>
-<p>If <code>append()</code> rejects, the SDK retries the batch up to two more times with a short backoff, for at most three attempts in total. A call that times out isn't retried, since the original call may still land. If the batch still fails, the error is logged, a <code>{ type: "system", subtype: "mirror_error" }</code> message is emitted into the iterator, the batch is dropped, and the query continues. The local transcript is already durable on disk, so a store outage doesn't interrupt the agent or lose data locally. Monitor for <code>mirror_error</code> if you need to detect store data loss. Because a retried batch can re-deliver entries that already landed, deduplicate by <code>entry.uuid</code> in your <code>append()</code> implementation.</p>
+<p>If <code>append()</code> rejects, the SDK retries the batch up to two more times with a short backoff, for at most three attempts in total. A call that times out isn't retried, since the original call may still land. If the batch still fails, the SDK logs the error, emits a <code>{ type: "system", subtype: "mirror_error" }</code> message into the iterator, drops the batch, and continues the query. Because a retried batch can re-deliver entries that already landed, deduplicate by <code>entry.uuid</code> in your <code>append()</code> implementation.</p>
+<p>A store outage doesn't interrupt the agent, since the subprocess writes locally first. Monitor for <code>mirror_error</code> if you need to detect store data loss. On a run <a href="#resume-from-the-store">resumed from the store</a>, a dropped batch has no surviving copy once the run ends.</p>
 <h3 id="getsessionmessages-returns-the-post-compaction-chain"><code>getSessionMessages</code> returns the post-compaction chain</h3>
 <p><code>getSessionMessages({ sessionStore })</code> returns the linked message chain the agent would see on resume. After auto-compaction, earlier turns are replaced by a summary, so a session whose store holds 503 raw entries may return 18 messages from <code>getSessionMessages</code>. For the full raw history, including pre-compaction turns and metadata entries, call <code>store.load(key)</code> directly.</p>
 <h3 id="forksession-is-not-a-byte-copy"><code>forkSession</code> is not a byte copy</h3>
@@ -5960,7 +6012,8 @@ async def test_my_store_conformance():
 <h3 id="subagent-transcripts">Subagent transcripts</h3>
 <p>Subagent transcripts are mirrored under <code>subpath: "subagents/agent-&lt;id&gt;"</code>. <code>listSubagents({ sessionStore })</code> requires the adapter to implement <code>listSubkeys</code>; <code>getSubagentMessages({ sessionStore })</code> uses it when available but falls back to the direct subpath when it is undefined. Resume also calls <code>listSubkeys</code> to restore subagent files; without it, only the main transcript is materialized.</p>
 <h3 id="retention">Retention</h3>
-<p>The SDK never deletes from your store on its own. Retention is the adapter's responsibility: implement TTLs, S3 lifecycle policies, or scheduled cleanup according to your compliance requirements. Local transcripts under <code>CLAUDE_CONFIG_DIR</code> are swept independently by the <code>cleanupPeriodDays</code> setting, following the <a href="/docs/en/claude-directory#cleaned-up-automatically">retention sweep rules</a>.</p>
+<p>The SDK never deletes from your store on its own. Retention is the adapter's responsibility: implement TTLs, S3 lifecycle policies, or scheduled cleanup according to your compliance requirements.</p>
+<p>Local transcripts under <code>CLAUDE_CONFIG_DIR</code> are swept independently by the <code>cleanupPeriodDays</code> setting, following the <a href="/docs/en/claude-directory#cleaned-up-automatically">retention sweep rules</a>. A run <a href="#resume-from-the-store">resumed from the store</a> leaves no local transcript, so for those runs your store's retention is the only retention there is.</p>
 <h2 id="supported-on">Supported on</h2>
 <p>The following TypeScript SDK functions accept a <code>sessionStore</code> option and operate against the store instead of the local filesystem when it is provided:</p>
 <ul>
