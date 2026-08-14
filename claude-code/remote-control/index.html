@@ -3945,6 +3945,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#resume-sessions-after-stopping-the-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resume sessions after stopping the server
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5806,6 +5817,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#resume-sessions-after-stopping-the-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resume sessions after stopping the server
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6168,11 +6190,11 @@ Available flags:
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--name "My Project"`                           | Set a custom session title visible in the session list at claude.ai/code.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `--remote-control-session-name-prefix &lt;prefix&gt;` | Prefix for auto-generated session names when no explicit name is set. Defaults to your machine's hostname, producing names like `myhost-graceful-unicorn`. Set `CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX` for the same effect.                                                                                                                                                                                                                                                    |
-| `-c`, `--continue`                              | Resume the most recent Remote Control session started from this directory instead of creating a new one. Can't be combined with `--session-id`, `--spawn`, `--capacity`, or `--create-session-in-dir`. Requires Claude Code v2.1.200 or later; earlier versions reject the flag as an unknown argument.                                                                                                                                                                            |
-| `--session-id &lt;id&gt;`                             | Resume a specific Remote Control session by its ID. Can't be combined with `--continue`, `--spawn`, `--capacity`, or `--create-session-in-dir`. Requires Claude Code v2.1.200 or later; earlier versions reject the flag as an unknown argument.                                                                                                                                                                                                                                   |
+| `-c`, `--continue`                              | Bring back the session that the last server in this directory started with, instead of creating a new one. See [Resume sessions after stopping the server](#resume-sessions-after-stopping-the-server). Can't be combined with `--session-id`, `--spawn`, `--capacity`, or `--create-session-in-dir`. Requires Claude Code v2.1.200 or later; earlier versions reject the flag as an unknown argument.                                                                             |
+| `--session-id &lt;id&gt;`                             | Bring back one session by its ID. See [Resume sessions after stopping the server](#resume-sessions-after-stopping-the-server). Can't be combined with `--continue`, `--spawn`, `--capacity`, or `--create-session-in-dir`. Requires Claude Code v2.1.200 or later; earlier versions reject the flag as an unknown argument.                                                                                                                                                        |
 | `--spawn &lt;mode&gt;`                                | How the server creates sessions.&lt;br /&gt;• `same-dir` (default): all sessions share the current working directory, so they can conflict if editing the same files.&lt;br /&gt;• `worktree`: each on-demand session gets its own [git worktree](/docs/en/worktrees). Requires a git repository.&lt;br /&gt;• `session`: single-session mode. Serves exactly one session and rejects additional connections. Set at startup only.&lt;br /&gt;Press `w` at runtime to toggle between `same-dir` and `worktree`. |
 | `--capacity &lt;N&gt;`                                | Maximum number of concurrent sessions. Default is 32. Cannot be used with `--spawn=session`.                                                                                                                                                                                                                                                                                                                                                                                       |
-| `--[no-]create-session-in-dir`                  | Pre-create one session in the current directory when the server starts, so you have somewhere to type immediately. In `worktree` mode this session stays in the current directory while on-demand sessions get isolated worktrees. On by default; pass `--no-create-session-in-dir` to start with none.                                                                                                                                                                            |
+| `--[no-]create-session-in-dir`                  | Pre-create one session in the current directory when the server starts, so you have somewhere to type immediately. In `worktree` mode this session stays in the current directory while on-demand sessions get isolated worktrees. On by default. If you pass `--no-create-session-in-dir` to start with none, Claude Code archives the server's sessions when you stop it, so there's nothing to [resume](#resume-sessions-after-stopping-the-server).                            |
 | `--verbose`                                     | Show detailed connection and session logs.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `--sandbox` / `--no-sandbox`                    | Enable or disable [sandboxing](/docs/en/sandboxing) for filesystem and network isolation. Off by default.                                                                                                                                                                                                                                                                                                                                                                               |
 
@@ -6277,6 +6299,15 @@ Unlike the CLI, the VS Code command does not accept a name argument or display a
 <p>To turn auto-connect on from a settings file instead, set <a href="/docs/en/settings#available-settings"><code>remoteControlAtStartup</code></a> to <code>true</code> in your user <code>~/.claude/settings.json</code> or in <a href="/docs/en/settings#settings-files">managed settings</a>. In project or local settings (<code>.claude/settings.json</code>, <code>.claude/settings.local.json</code>), Claude Code honors a <code>false</code> and turns auto-connect off for that repository, but ignores a <code>true</code>, so a checked-in file can't turn on Remote Control for everyone who opens the repository.</p>
 <p>Auto-connect signs in with your own claude.ai account, so a session it starts appears only in your own account's Claude apps and grants no one else access.</p>
 <p>With this setting on, each interactive Claude Code process registers one remote session. If you run multiple instances, each one gets its own remote session. To run multiple concurrent sessions from a single process, use <a href="#start-a-remote-control-session">server mode</a> instead.</p>
+<h3 id="resume-sessions-after-stopping-the-server">Resume sessions after stopping the server</h3>
+<p>When you stop <code>claude remote-control</code> with Ctrl+C, the sessions it was serving stop responding from your phone or browser. As long as you weren't running another <code>claude remote-control</code> in the same directory and didn't start this one with <code>--no-create-session-in-dir</code>, Claude Code doesn't archive them. To bring them back, run one of these commands in the same directory:</p>
+<ul>
+<li><strong><code>claude remote-control</code></strong>: brings back every session the server was serving.</li>
+<li><strong><code>claude remote-control --continue</code></strong>: brings back only the session the server started with, and exits when that session ends. If this directory has no record, Claude Code uses the newest one from this repository's other git worktrees.</li>
+<li><strong><code>claude remote-control --session-id &lt;id&gt;</code></strong>: brings back only the session whose ID you pass, and exits when that session ends. The ID is the part of the session's URL at claude.ai/code between <code>/code/</code> and any <code>?</code>.</li>
+</ul>
+<p>These commands work for about four hours after the server stopped. After that, run <code>claude remote-control</code> to start a new session. If you archived a session in the meantime, <code>--continue</code> and <code>--session-id</code> unarchive it on Claude Code v2.1.228 or later.</p>
+<p>A session you started with <code>claude --remote-control</code> or <code>/remote-control</code> comes back when you resume the conversation with <code>claude --continue</code> or <code>claude --resume</code>, as long as Remote Control was still on when the session ended.</p>
 <h2 id="connection-and-security">Connection and security</h2>
 <p>Your local Claude Code session makes outbound HTTPS requests only and never opens inbound ports on your machine. When you start Remote Control, it registers with the Anthropic API and polls for work. When you connect from another device, the server routes messages between the web or mobile client and your local session over a streaming connection.</p>
 <p>All traffic travels through the Anthropic API over TLS, the same transport security as any Claude Code session. The connection uses multiple short-lived credentials, each scoped to a single purpose and expiring independently.</p>
@@ -6352,7 +6383,7 @@ Unlike the CLI, the VS Code command does not accept a name argument or display a
 <h2 id="limitations">Limitations</h2>
 <ul>
 <li><strong>One remote session per interactive process</strong>: outside of server mode, each Claude Code instance supports one remote session at a time. Use <a href="#start-a-remote-control-session">server mode</a> to run multiple concurrent sessions from a single process.</li>
-<li><strong>Local process must keep running</strong>: Remote Control runs as a local process. If you close the terminal, quit VS Code, or otherwise stop the <code>claude</code> process, the session ends. To keep a session running on a remote machine after you disconnect from SSH, start it inside <code>tmux</code> or <code>screen</code>.</li>
+<li><strong>Local process must keep running</strong>: Remote Control runs as a local process. If you close the terminal, quit VS Code, or otherwise stop the <code>claude</code> process, the session goes offline until you <a href="#resume-sessions-after-stopping-the-server">bring it back</a>. To keep a session running on a remote machine after you disconnect from SSH, start it inside <code>tmux</code> or <code>screen</code>.</li>
 <li><strong>Extended network outage</strong>: if your machine is awake but unable to reach the network for more than roughly 10 minutes, the session times out and the process exits. Run <code>claude remote-control</code> again to start a new session.</li>
 <li><strong>Forwarded dialogs expire</strong>: Claude Code keeps permission prompts and <code>AskUserQuestion</code> questions open until you answer them. When Claude Code forwards another kind of dialog to the remote session, such as the model-choice prompt shown after a safety refusal, it waits five minutes by default, then closes the dialog and continues with the dialog's no-action default. Set <a href="/docs/en/settings#available-settings"><code>dialogExpiry</code></a> to adjust or disable the deadline. Requires Claude Code v2.1.224 or later. The approval dialog for a held cross-session message uses the same deadline. <a href="/docs/en/cross-session-messaging#control-inbound-messages">The held-message expiry rules</a> cover the cases where Claude Code keeps the dialog open past it.</li>
 <li><strong>Some commands are local-only</strong>: commands that only run in the terminal interface, such as <code>/plugin</code> or <code>/resume</code>, work only from the local CLI, whether or not you pass an argument. The following work from mobile and web:</li>

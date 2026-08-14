@@ -6135,14 +6135,14 @@ Example managed settings configuration:
 <li><strong>Endpoints</strong>: when you set <code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, Claude Code removes every developer-set per-signal endpoint. Developers can't point one signal at a different collector, so you don't need to also set the per-signal endpoint variables in managed settings.</li>
 <li><strong>Protocols</strong>: when you set <code>OTEL_EXPORTER_OTLP_PROTOCOL</code>, Claude Code removes every developer-set per-signal protocol.</li>
 <li><strong>Credentials</strong>: when you set <code>OTEL_EXPORTER_OTLP_HEADERS</code>, <code>OTEL_EXPORTER_OTLP_CLIENT_KEY</code>, or <code>OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE</code>, Claude Code removes the developer-set per-signal versions of that variable, plus every developer-set endpoint variable, generic or per-signal, since those credentials would otherwise reach a collector the managed settings didn't choose.</li>
-<li><strong>Exporter selectors</strong>: <code>OTEL_METRICS_EXPORTER</code>, <code>OTEL_LOGS_EXPORTER</code>, and the beta <code>OTEL_TRACES_EXPORTER</code> follow normal per-key precedence. A developer's setting can still disable a signal or switch it to the console exporter, so set the selectors in managed settings too if you need them locked. Across <a href="/docs/en/settings#settings-precedence">admin sources</a>, <code>OTEL_LOGS_EXPORTER</code> follows the <a href="/docs/en/server-managed-settings#per-key-exceptions-across-managed-sources">telemetry unit</a> while the other two selectors merge per key. Requires Claude Code v2.1.223 or later.</li>
+<li><strong>Exporter selectors</strong>: <code>OTEL_METRICS_EXPORTER</code>, <code>OTEL_LOGS_EXPORTER</code>, and the beta <code>OTEL_TRACES_EXPORTER</code> follow normal per-key precedence. A developer's setting can still disable a signal or switch it to the console exporter, so set the selectors in managed settings too if you need them locked. Across <a href="/docs/en/settings#precedence-within-the-managed-tier">admin sources</a>, <code>OTEL_LOGS_EXPORTER</code> follows the <a href="/docs/en/server-managed-settings#per-key-exceptions-across-managed-sources">telemetry unit</a> while the other two selectors merge per key. Requires Claude Code v2.1.223 or later.</li>
 </ul>
 <p>Claude Code doesn't remove per-signal variables that you set in managed settings itself, so you can route one signal to a different collector by setting its variable there, as the <a href="#send-events-to-a-siem">SIEM example</a> does. If you set a per-signal credential there, Claude Code removes the developer-set endpoint for that signal.</p>
 <p>This removal behavior changes where telemetry is delivered, not what Claude Code collects.</p>
 <p>Before v2.1.217, every variable followed per-key settings precedence independently, so a signal-specific endpoint set in user settings or the shell redirected that signal away from the managed collector.</p>
 <h2 id="configuration-details">Configuration details</h2>
 <h3 id="common-configuration-variables">Common configuration variables</h3>
-<p>These variables configure exporters, endpoints, and export behavior for all deployments. A per-signal variable overrides its generic counterpart. On machines with managed settings, see <a href="#how-managed-settings-lock-the-otlp-destination">How managed settings lock the OTLP destination</a> for what Claude Code removes.</p>
+<p>These variables configure exporters, endpoints, and export behavior for all deployments. If you set a per-signal endpoint or protocol variable, such as <code>OTEL_EXPORTER_OTLP_METRICS_ENDPOINT</code>, Claude Code uses it instead of the generic variable for that signal. If you set a per-signal headers variable, such as <code>OTEL_EXPORTER_OTLP_METRICS_HEADERS</code>, Claude Code merges it with the generic <code>OTEL_EXPORTER_OTLP_HEADERS</code> for that signal. On machines with managed settings, see <a href="#how-managed-settings-lock-the-otlp-destination">How managed settings lock the OTLP destination</a> for what Claude Code removes.</p>
 <table>
 <thead>
 <tr>
@@ -6200,6 +6200,16 @@ Example managed settings configuration:
 <tr>
 <td><code>OTEL_EXPORTER_OTLP_HEADERS</code></td>
 <td>Authentication headers for OTLP</td>
+<td><code>Authorization=Bearer token</code></td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_METRICS_HEADERS</code></td>
+<td>Authentication headers for metrics, merged with the general headers</td>
+<td><code>Authorization=Bearer token</code></td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_LOGS_HEADERS</code></td>
+<td>Authentication headers for logs, merged with the general headers</td>
 <td><code>Authorization=Bearer token</code></td>
 </tr>
 <tr>
@@ -6326,7 +6336,7 @@ Example managed settings configuration:
 <p>Lower cardinality generally means better performance and lower storage costs but less granular data for analysis.</p>
 <h3 id="traces-beta">Traces (beta)</h3>
 <p>Distributed tracing exports spans that link each user prompt to the API requests and tool executions it triggers, so you can view a full request as a single trace in your tracing backend.</p>
-<p>Tracing is off by default. To enable it, set both <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> and <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code>, then set <code>OTEL_TRACES_EXPORTER</code> to choose where spans are sent. Traces reuse the <a href="#common-configuration-variables">common OTLP configuration</a> for endpoint, protocol, headers, and <a href="#mtls-authentication">mTLS</a>. On machines with managed settings, Claude Code <a href="#how-managed-settings-lock-the-otlp-destination">may remove developer-set</a> <code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</code> and <code>OTEL_EXPORTER_OTLP_TRACES_PROTOCOL</code> variables at startup.</p>
+<p>Tracing is off by default. To enable it, set both <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> and <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code>, then set <code>OTEL_TRACES_EXPORTER</code> to choose where spans are sent. Traces reuse the <a href="#common-configuration-variables">common OTLP configuration</a> for endpoint, protocol, headers, and <a href="#mtls-authentication">mTLS</a>. On machines with managed settings, Claude Code <a href="#how-managed-settings-lock-the-otlp-destination">may remove developer-set per-signal credentials and endpoints</a> at startup.</p>
 <table>
 <thead>
 <tr>
@@ -6355,6 +6365,11 @@ Example managed settings configuration:
 <td><code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</code></td>
 <td>OTLP traces endpoint, overrides <code>OTEL_EXPORTER_OTLP_ENDPOINT</code></td>
 <td><code>http://localhost:4318/v1/traces</code></td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_TRACES_HEADERS</code></td>
+<td>Authentication headers for traces, merged with <code>OTEL_EXPORTER_OTLP_HEADERS</code></td>
+<td><code>Authorization=Bearer token</code></td>
 </tr>
 <tr>
 <td><code>OTEL_TRACES_EXPORT_INTERVAL</code></td>
@@ -6490,7 +6505,7 @@ This span is emitted only when detailed beta tracing is active, which requires `
 
 ### Dynamic headers
 
-For enterprise environments that require dynamic authentication, you can configure a script to generate headers dynamically. Dynamic headers apply only to the `http/protobuf` and `http/json` protocols. The `grpc` exporter uses only the static `OTEL_EXPORTER_OTLP_HEADERS` value.
+For enterprise environments that require dynamic authentication, you can configure a script to generate headers dynamically. Dynamic headers apply only to the `http/protobuf` and `http/json` protocols. With the `grpc` protocol, Claude Code uses only the static headers variables, `OTEL_EXPORTER_OTLP_HEADERS` and its per-signal variants.
 
 #### Settings configuration
 
@@ -6852,7 +6867,7 @@ Logged for each API request to Claude.
 * `cache_read_tokens`: Number of tokens read from cache
 * `cache_creation_tokens`: Number of tokens used for cache creation
 * `request_id`: Anthropic API request ID from the response&#39;s `request-id` header, such as `&quot;req_011...&quot;`. Present only when the API returns one.
-* `client_request_id`: Client-generated UUID sent as the `x-client-request-id` request header. Matches the same attribute on the `llm_request` trace span. Absent on third-party provider backends and when the request was retried through the non-streaming fallback. Requires Claude Code v2.1.214 or later
+* `client_request_id`: Client-generated UUID sent as the `x-client-request-id` request header; see the [event correlation attributes](#event-correlation-attributes) table for when it&#39;s present. Requires Claude Code v2.1.214 or later
 * `speed`: `&quot;fast&quot;` or `&quot;normal&quot;`, indicating whether fast mode was active
 * `query_source`: Subsystem that issued the request, such as `&quot;repl_main_thread&quot;`, `&quot;compact&quot;`, or a subagent name
 * `effort`: [Effort level](/docs/en/model-config#adjust-effort-level) applied to the request: `&quot;low&quot;`, `&quot;medium&quot;`, `&quot;high&quot;`, `&quot;xhigh&quot;`, or `&quot;max&quot;`. Absent when the model doesn&#39;t support effort.
@@ -6876,7 +6891,7 @@ Logged when an API request to Claude fails.
 * `duration_ms`: Request duration in milliseconds
 * `attempt`: Total number of attempts made, including the initial request (`1` means no retries occurred)
 * `request_id`: Anthropic API request ID from the response&#39;s `request-id` header, such as `&quot;req_011...&quot;`. Present only when the API returns one.
-* `client_request_id`: Client-generated UUID sent as the `x-client-request-id` request header. Available even when a failure such as a timeout or connection error never produced a server `request_id`. Absent on third-party provider backends and when the request was retried through the non-streaming fallback. Requires Claude Code v2.1.214 or later
+* `client_request_id`: Client-generated UUID sent as the `x-client-request-id` request header. Available even when a failure such as a timeout or connection error never produced a server `request_id`; see the [event correlation attributes](#event-correlation-attributes) table for when it&#39;s present. Requires Claude Code v2.1.214 or later
 * `speed`: `&quot;fast&quot;` or `&quot;normal&quot;`, indicating whether fast mode was active
 * `query_source`: Subsystem that issued the request, such as `&quot;repl_main_thread&quot;`, `&quot;compact&quot;`, or a subagent name
 * `effort`: [Effort level](/docs/en/model-config#adjust-effort-level) applied to the request. Absent when the model doesn&#39;t support effort.
@@ -7125,7 +7140,7 @@ Logged when Claude Code resolves an `@`-mention in a prompt. Not every mention e
 * `event.name`: `&quot;at_mention&quot;`
 * `event.timestamp`: ISO 8601 timestamp
 * `event.sequence`: monotonically increasing counter for ordering events within a session
-* `mention_type`: Type of mention (`&quot;file&quot;`, `&quot;directory&quot;`, `&quot;agent&quot;`, `&quot;mcp_resource&quot;`)
+* `mention_type`: Type of mention (`&quot;file&quot;`, `&quot;directory&quot;`, `&quot;agent&quot;`, `&quot;mcp_resource&quot;`, `&quot;peer&quot;`). The `&quot;peer&quot;` value means you mentioned [one of your other Claude Code sessions](/docs/en/cross-session-messaging). Requires Claude Code v2.1.232 or later
 * `success`: Whether the mention resolved successfully (`&quot;true&quot;` or `&quot;false&quot;`)
 
 #### API retries exhausted event

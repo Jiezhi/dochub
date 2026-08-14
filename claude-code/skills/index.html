@@ -6212,7 +6212,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Claude Code skills follow the <a href="https://agentskills.io">Agent Skills</a> open standard, which works across multiple AI tools. Claude Code extends the standard with additional features like <a href="#control-who-invokes-a-skill">invocation control</a>, <a href="#run-skills-in-a-subagent">subagent execution</a>, and <a href="#inject-dynamic-context">dynamic context injection</a>. See <a href="#using-skill-frontmatter-outside-claude-code">Using skill frontmatter outside Claude Code</a> for which frontmatter fields are part of the standard and which are Claude Code extensions.</p>
 <h2 id="bundled-skills">Bundled skills</h2>
 <p>Claude Code includes a set of bundled skills, such as <code>/doctor</code>, <code>/code-review</code>, <code>/batch</code>, <code>/debug</code>, <code>/loop</code>, and <code>/claude-api</code>. Bundled skills are prompt-based: they give Claude detailed instructions and let it orchestrate the work using its tools. Most built-in commands instead execute fixed logic directly.</p>
-<p>You invoke a bundled skill the same way as any other skill, by typing <code>/</code> followed by the skill name. Claude invokes some bundled skills automatically when relevant; others, including <code>/verify</code>, run only when you invoke them, which keeps you in control of when these longer-running checks spend time and tokens. Before v2.1.215, Claude could also run <code>/verify</code> on its own.</p>
+<p>You invoke a bundled skill the same way as any other skill, by typing <code>/</code> followed by the skill name. Claude invokes some bundled skills automatically when relevant; others, including <code>/verify</code>, run only when you invoke them, which keeps you in control of when these longer-running checks spend time and tokens.</p>
 <p>Bundled skills are available in every session. To turn them off, use the <a href="/docs/en/settings#available-settings"><code>disableBundledSkills</code></a> setting, which disables every bundled skill except <code>/doctor</code>.</p>
 <p><Note>
   The <a href="/docs/en/commands#all-commands"><code>/doctor</code></a> setup checkup stays typable when <code>disableBundledSkills</code> is on, in Claude Code v2.1.205 and later. To hide it, set the <code>DISABLE_DOCTOR_COMMAND</code> environment variable or a <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> entry of <code>"doctor": "off"</code>. Before v2.1.205, <code>/doctor</code> was a built-in command rather than a bundled skill.
@@ -6351,8 +6351,8 @@ Either way, Claude should respond with a short summary of your edit and a list o
 <li>Claude picks the variant that matches the files it is working on.</li>
 </ul>
 <p>Typing <code>/deploy</code> runs the project-root skill. Type the qualified name <code>/apps/web:deploy</code> to run the nested variant explicitly.</p>
-<p>When you or Claude invoke the unqualified name, the project-root skill loads, and Claude Code appends a list of the directory-qualified variants to its content with an instruction to also invoke any variant whose directory holds the files Claude is working on. A nested skill therefore still applies to work in its directory when only the unqualified name is invoked. Requires Claude Code v2.1.203 or later.</p>
-<p>The folder name <code>synced</code> is reserved in the enterprise, personal, and project skills locations, in any capitalization. Claude Code <a href="/docs/en/env-vars#variables">downloads the skills you enable on claude.ai</a> into <code>~/.claude/skills/synced/</code> when <code>CLAUDE_CODE_SYNC_SKILLS</code> is set in non-interactive mode, and skips a skill you author at that name. Before v2.1.227, a folder named <code>synced</code> loaded as a skill.</p>
+<p>When you or Claude invoke the unqualified name, the project-root skill loads, and Claude Code appends a list of the directory-qualified variants to its content with an instruction to also invoke any variant whose directory holds the files Claude is working on. A nested skill therefore still applies to work in its directory when only the unqualified name is invoked.</p>
+<p>The folder name <code>synced</code> is reserved in the enterprise, personal, and project skills locations, in any capitalization. Claude Code <a href="/docs/en/env-vars#variables">downloads the skills you enable on claude.ai</a> into <code>~/.claude/skills/synced/</code> when <code>CLAUDE_CODE_SYNC_SKILLS</code> is set in non-interactive mode, and skips a skill you author at that name.</p>
 <p>A <code>&lt;skill-name&gt;</code> entry in the enterprise, personal, or project locations can be a symlink to a directory elsewhere on disk. Claude Code follows the symlink and reads <code>SKILL.md</code> from the target directory, and if the same target is reachable from more than one location, Claude Code loads the skill once. Plugin skills handle symlinks differently; see <a href="/docs/en/plugins-reference#share-files-within-a-marketplace-with-symlinks">Share files within a marketplace with symlinks</a>.</p>
 <p><Note>
   Add a <code>.claude-plugin/plugin.json</code> to a skill folder and it loads as a <a href="/docs/en/plugins-reference#skills-directory-plugins">plugin</a> named <code>&lt;name&gt;@skills-dir</code>, so it can bundle agents, hooks, and MCP servers. In a project's <code>.claude/skills/</code>, this requires accepting the workspace trust dialog first.
@@ -6825,7 +6825,7 @@ Here&#39;s how the two fields affect invocation and context loading:
 
 When you or Claude invoke a skill, the rendered `SKILL.md` content enters the conversation as a single message and stays there for the rest of the session. This persistence applies to the skill&#39;s instructions, not its permissions: an [`allowed-tools`](#pre-approve-tools-for-a-skill) grant clears when you send your next message. Claude Code does not re-read the skill file on later turns, so write guidance that should apply throughout a task as standing instructions rather than one-time steps.
 
-When Claude re-invokes a skill whose rendered content is identical to the copy already in context, Claude Code adds a short note that the skill is already loaded rather than a second copy of the content. When the rendered content differs, because the arguments changed or a [dynamic context](#inject-dynamic-context) command produced new output, Claude Code appends the full content again. Before v2.1.202, every re-invocation appended another full copy of the skill&#39;s instructions.
+When Claude re-invokes a skill whose rendered content is identical to the copy already in context, Claude Code adds a short note that the skill is already loaded rather than a second copy of the content. When the rendered content differs, because the arguments changed or a [dynamic context](#inject-dynamic-context) command produced new output, Claude Code appends the full content again.
 
 [Auto-compaction](/docs/en/how-claude-code-works#when-context-fills-up) carries invoked skills forward within a token budget. When the conversation is summarized to free context, Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first 5,000 tokens of each. Re-attached skills share a combined budget of 25,000 tokens. Claude Code fills this budget starting from the most recently invoked skill, so older skills can be dropped entirely after compaction if you have invoked many in one session.
 
@@ -6835,7 +6835,7 @@ If a skill seems to stop influencing behavior after the first response, the cont
 
 The `allowed-tools` field grants permission for the listed tools during the turn that invokes the skill, so Claude can use them without prompting you for approval. The grant clears when you send your next message, even though the skill content [stays in context](#skill-content-lifecycle); invoking the skill again re-applies it for that turn. It does not restrict which tools are available: every tool remains callable, and your [permission settings](/docs/en/permissions) still govern tools that are not listed. To pre-approve tools for the whole session rather than a single turn, add allow rules to those permission settings instead.
 
-For skills checked into a project&#39;s `.claude/skills/` directory, `allowed-tools` takes effect after you accept the workspace trust dialog for that folder, the same as permission rules in `.claude/settings.json`. Review project skills before trusting a repository, since a skill can grant itself broad tool access.
+Workspace trust doesn&#39;t gate this field. Claude Code applies a project skill&#39;s `allowed-tools` whenever you or Claude invoke the skill, including in a `-p` run in a folder you&#39;ve never trusted. A skill can grant itself broad tool access, so review the `allowed-tools` of skills checked into a repository before you run Claude Code there.
 
 This skill lets Claude run git commands without per-use approval whenever you invoke it:
 
@@ -6916,13 +6916,6 @@ allowed-tools: Bash(gh *)
 ## Your task
 Summarize this pull request...
 </code></pre></div></p>
-<p>When this skill runs:</p>
-<ol>
-<li>Each <code>!`&lt;command&gt;`</code> executes immediately (before Claude sees anything)</li>
-<li>The output replaces the placeholder in the skill content</li>
-<li>Claude receives the fully-rendered prompt with actual PR data</li>
-</ol>
-<p>This is preprocessing, not something Claude executes. Claude only sees the final result.</p>
 <p>Substitution runs once over the original file. Command output is inserted as plain text and is not re-scanned for further <code>!`&lt;command&gt;`</code> placeholders, so a command cannot emit a placeholder for a later pass to expand.</p>
 <p>The inline form is only recognized when <code>!</code> appears at the start of a line or immediately after whitespace. If <code>!</code> follows another character, as in <code>KEY=!`cmd`</code>, the placeholder is left as literal text and the command does not run.</p>
 <p>For multi-line commands, use a fenced code block opened with <code>```!</code> instead of the inline form:</p>
@@ -7116,7 +7109,7 @@ The [`skill-creator` plugin](https://github.com/anthropics/claude-plugins-offici
 <p>If the install fails, match the message Claude Code reports:</p>
 <ul>
 <li><code>Marketplace "claude-plugins-official" not found</code>: add the marketplace with <code>/plugin marketplace add anthropics/claude-plugins-official</code>, then retry the install.</li>
-<li>The plugin is not found in the marketplace: check the plugin name. Claude Code <a href="/docs/en/discover-plugins#install-plugins">refreshes a stale marketplace catalog and retries</a> before reporting this, so if you turned off <a href="/docs/en/discover-plugins#configure-auto-updates">marketplace auto-update</a>, refresh manually with <code>/plugin marketplace update claude-plugins-official</code> and retry the install.</li>
+<li>The plugin is <a href="/docs/en/discover-plugins#install-plugins">not found in the marketplace</a>: check the plugin name.</li>
 </ul>
 <p>If the install summary reports <code>Run /reload-plugins to activate.</code>, run that command to make the plugin's skills available in the current session. Then ask Claude to evaluate an existing skill, for example <code>evaluate my summarize-changes skill with skill-creator</code>. The plugin walks you through writing test cases and runs the loop:</p>
 <ul>

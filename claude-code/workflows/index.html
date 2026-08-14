@@ -5407,6 +5407,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#prompt-caching-in-a-fan-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt caching in a fan-out
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#behavior-and-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5771,6 +5782,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#prompt-caching-in-a-fan-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt caching in a fan-out
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#behavior-and-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5979,7 +6001,7 @@ You can also watch from the task panel below the input box: a one-line progress 
 <p></Step></p>
 <p><Step title="Read the report">
     When the run finishes, the report lands in your session. It cites the sources each claim came from, with claims that didn't survive cross-checking already filtered out.</p>
-<pre><code>As of v2.1.196, when the verifier agents can't check a claim, such as after a rate limit or API error, the report lists that claim as unverified instead of counting it as refuted.
+<pre><code>When the verifier agents can't check a claim, such as after a rate limit or API error, the report lists that claim as unverified instead of counting it as refuted.
 </code></pre>
 <p></Step>
 </Steps></p>
@@ -6000,7 +6022,7 @@ You can also watch from the task panel below the input box: a one-line progress 
 </tr>
 </tbody>
 </table>
-<p><code>/deep-research</code> runs only when you invoke it. Before v2.1.218, Claude could also start it on its own.</p>
+<p><code>/deep-research</code> runs only when you invoke it.</p>
 <p><a href="#save-the-workflow-for-reuse">Workflows you save</a> yourself become commands the same way and appear in <code>/</code> autocomplete alongside the bundled ones.</p>
 <h3 id="watch-the-run">Watch the run</h3>
 <p>Workflows run in the background, so the session stays responsive while agents work. Run <code>/workflows</code> at any time to list running and completed workflows, then select one to open its progress view.</p>
@@ -6097,7 +6119,7 @@ Run `/workflows`, select the run you want to keep, and press `s`. In the save di
 * `.claude/workflows/` in your project: shared with everyone who clones the repo
 * `~/.claude/workflows/` in your home directory: available in every project, visible only to you. If you set [`CLAUDE_CONFIG_DIR`](/docs/en/env-vars), this location is the `workflows/` directory under that path.
 
-The save dialog shows the resolved path for the personal location. Before v2.1.208, it showed `~/.claude/workflows/` even when `CLAUDE_CONFIG_DIR` was set; the file was still saved under the configured directory.
+The save dialog shows the resolved path for the personal location.
 
 Press Enter to save. The workflow runs as `/&lt;name&gt;` in future sessions from either location.
 
@@ -6185,6 +6207,9 @@ export const meta = {
 <p>The workflow runtime executes the script in an isolated environment, separate from your conversation. Intermediate results stay in script variables instead of landing in Claude's context.</p>
 <p>Every run writes its script to a file under your session's directory in <code>~/.claude/projects/</code>. Claude receives the path when the run starts, so you can ask for it. You can open that file to read the orchestration Claude wrote, diff it against a previous run's script, or edit it and ask Claude to relaunch from the edited version.</p>
 <p>The runtime tracks each agent's result as the run progresses, which is what makes a run <a href="#resume-after-a-pause">resumable</a> within the same session.</p>
+<h3 id="prompt-caching-in-a-fan-out">Prompt caching in a fan-out</h3>
+<p>Agents in the same run can read each other's <a href="/docs/en/prompt-caching#subagents-and-the-cache">prompt cache</a>. Two agents that run with the same model, effort level, agent type, tools, output schema, and working directory build the same tools-and-system-prompt prefix, so an agent that starts after a matching sibling's response has begun reads that sibling's cache on its first request.</p>
+<p>When a fan-out starts several matching agents at once, Claude Code holds all but the first until the first agent's response begins, then releases the held agents together so their first requests read the shared prefix instead of each processing it uncached. Claude Code caps the hold at <a href="/docs/en/env-vars"><code>CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS</code></a> milliseconds, <code>5000</code> by default. Set it to <code>0</code> to disable the hold.</p>
 <h3 id="behavior-and-limits">Behavior and limits</h3>
 <p>The runtime applies the following constraints:</p>
 <table>
@@ -6208,8 +6233,12 @@ export const meta = {
 <td style="text-align: left;">The script body is plain JavaScript. Put work that needs a library in an agent's task</td>
 </tr>
 <tr>
-<td style="text-align: left;">Up to 16 concurrent agents, fewer on machines with limited CPU cores</td>
+<td style="text-align: left;">Up to 16 concurrent agents, fewer when Claude Code has fewer CPUs available, including inside a CPU-limited container</td>
 <td style="text-align: left;">Bounds local resource use</td>
+</tr>
+<tr>
+<td style="text-align: left;">In a fan-out, agents that share the first agent's prompt-cache prefix start up to 5 seconds after it by default</td>
+<td style="text-align: left;">All but the first read the <a href="#prompt-caching-in-a-fan-out">prefix the first agent cached</a> instead of each processing it uncached</td>
 </tr>
 <tr>
 <td style="text-align: left;">1,000 agents total per run</td>
@@ -6233,7 +6262,7 @@ export const meta = {
 <h3 id="cost">Cost</h3>
 <p>A workflow spawns many agents, so a single run can use meaningfully more tokens than working through the same task in conversation. Runs count toward your plan's usage and rate limits like any other session.</p>
 <p>To gauge the spend before committing to a large task, run the workflow on a small slice first: one directory instead of the whole repo, or a narrow question instead of a broad one. The <code>/workflows</code> view shows each agent's token usage as the run progresses, and you can stop the run there at any time, usually without losing completed work. <a href="#resume-after-a-pause">Resume after a pause</a> covers what a stopped run keeps. The runtime's <a href="#behavior-and-limits">agent caps</a> limit how many agents a single run can spawn, which bounds the cost of a runaway script. To keep runs to fewer agents, choose the <code>small</code> <a href="#set-a-size-guideline">size guideline</a>.</p>
-<p>Claude Code also flags a run that grows unusually large. When a workflow schedules more than 25 agents, or its projected token total passes 1.5 million, its progress line in the task panel below the input box shows a <code>Large workflow</code> warning. The warning points you to <a href="#watch-the-run"><code>/workflows</code></a>, where you can stop the run. Requires Claude Code v2.1.203 or later.</p>
+<p>Claude Code also flags a run that grows unusually large. When a workflow schedules more than 25 agents, or its projected token total passes 1.5 million, its progress line in the task panel below the input box shows a <code>Large workflow</code> warning. The warning points you to <a href="#watch-the-run"><code>/workflows</code></a>, where you can stop the run.</p>
 <p>The warning is advisory: it doesn't pause or limit the run. Two settings change when you see it:</p>
 <ul>
 <li>If you choose a <a href="#set-a-size-guideline">size guideline</a> yourself, its agent count replaces the 25-agent threshold. The built-in default guideline leaves the threshold at 25.</li>
