@@ -6334,8 +6334,8 @@ Either way, Claude should respond with a short summary of your edit and a list o
 <ul>
 <li>Across levels, enterprise overrides personal, and personal overrides project.</li>
 <li>For example, with a <code>deploy</code> skill in both <code>~/.claude/skills/</code> and your project's <code>.claude/skills/</code>, <code>/deploy</code> runs the personal one.</li>
-<li>A skill at any of these levels also overrides a bundled skill with the same name.</li>
-<li>For example, a <code>code-review</code> skill in your project's <code>.claude/skills/</code> replaces the bundled <code>/code-review</code>.</li>
+<li>A skill at any of these levels also overrides a bundled skill with the same name, but not the bundled skill's aliases.</li>
+<li>For example, a <code>code-review</code> skill in your project's <code>.claude/skills/</code> replaces the bundled <code>/code-review</code>, and typing the bundled alias <code>/review</code> never runs your skill.</li>
 <li>Plugin skills use a <code>plugin-name:skill-name</code> namespace, so they can't conflict with other levels.</li>
 <li>For example, <code>my-plugin/skills/deploy/SKILL.md</code> becomes <code>/my-plugin:deploy</code> and loads alongside a <code>deploy</code> skill in your project's <code>.claude/skills/</code>.</li>
 <li>If you have files in <code>.claude/commands/</code>, those work the same way, but if a skill and a command share the same name, the skill takes precedence.</li>
@@ -6377,14 +6377,14 @@ my-skill/
 <div class="highlight"><pre><span></span><code>The `SKILL.md` contains the main instructions and is required. Other files are optional and let you build more powerful skills: templates for Claude to fill in, example outputs showing the expected format, scripts Claude can execute, or detailed reference documentation. Reference these files from your `SKILL.md` so Claude knows what they contain and when to load them. See [Add supporting files](#add-supporting-files) for more details.
 
 &lt;Note&gt;
-  Files in `.claude/commands/` support the same [frontmatter](#frontmatter-reference). Skills are recommended since they support additional features like supporting files.
+  Files in `.claude/commands/` support the same [frontmatter](#frontmatter-reference), except `name` and `paths`, which Claude Code ignores in a command file. You invoke a command file by its file name. Skills are recommended since they support additional features like supporting files.
 &lt;/Note&gt;
 
 #### Skills from additional directories
 
-The `--add-dir` flag and `/add-dir` command [grant file access](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) rather than configuration discovery, but skills are an exception: `.claude/skills/` within an added directory is loaded automatically. This exception applies only to `--add-dir` and `/add-dir`. The `permissions.additionalDirectories` setting in `settings.json` grants file access only and does not load skills. See [Live change detection](#live-change-detection) for how edits are picked up during a session.
+The `--add-dir` flag and `/add-dir` command [grant file access](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) rather than configuration discovery, but skills and commands are an exception: Claude Code loads `.claude/skills/` and `.claude/commands/` from each added directory automatically. This exception applies only to `--add-dir` and `/add-dir`. The `permissions.additionalDirectories` setting in `settings.json` grants file access only and doesn&#39;t load skills or commands. See [Live change detection](#live-change-detection) for how skill edits are picked up during a session.
 
-Other `.claude/` configuration such as commands and output styles is not loaded from additional directories. See the [exceptions table](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) for the complete list of what is and isn&#39;t loaded, and the recommended ways to share configuration across projects.
+Other `.claude/` configuration such as output styles is not loaded from additional directories. See the [exceptions table](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) for the complete list of what is and isn&#39;t loaded, and the recommended ways to share configuration across projects.
 
 &lt;Note&gt;
   CLAUDE.md files from `--add-dir` directories are not loaded by default. To load them, set `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1`. See [Load from additional directories](/docs/en/memory#load-from-additional-directories).
@@ -6550,7 +6550,7 @@ Your skill instructions here...
 <tr>
 <td style="text-align: left;"><code>user-invocable</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Set to <code>false</code> to hide from the <code>/</code> menu. Use for background knowledge users shouldn't invoke directly. Default: <code>true</code>.</td>
+<td style="text-align: left;">Set to <code>false</code> when only Claude should invoke the skill: Claude Code hides it from the <code>/</code> menu and doesn't run it when you type <code>/name</code>. Use for background knowledge users shouldn't invoke directly. Default: <code>true</code>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>allowed-tools</code></td>
@@ -6590,7 +6590,7 @@ Your skill instructions here...
 <tr>
 <td style="text-align: left;"><code>hooks</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Hooks scoped to this skill's lifecycle. See <a href="/docs/en/hooks#hooks-in-skills-and-agents">Hooks in skills and agents</a> for configuration format.</td>
+<td style="text-align: left;">Hooks that Claude Code registers when the skill is invoked and keeps running for the rest of the session. See <a href="/docs/en/hooks#hooks-in-skills-and-agents">Hooks in skills and agents</a> for the configuration format and the <code>once</code> option.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>paths</code></td>
@@ -6645,7 +6645,7 @@ Your skill instructions here...
 </code></pre></div>
 <p>Restricting frontmatter to the spec's six fields avoids the unexpected-key error above. The <a href="https://agentskills.io">Agent Skills spec</a> and the <a href="https://docs.claude.com/en/api/skills-guide">Skills API requirements</a> define everything else those paths validate. Claude Code-only body features, such as <a href="#inject-dynamic-context">dynamic context injection</a>, don't function in claude.ai chat or through the API. Claude Code accepts all six fields, so frontmatter that follows the spec loads in Claude Code without changes.</p>
 <h4 id="how-a-skill-gets-its-command-name">How a skill gets its command name</h4>
-<p>The command you type to invoke a skill comes from where the skill file lives and, for plugin skills, also from the frontmatter <code>name</code> field. In a personal or project skill, <code>name</code> sets only the display label shown in skill listings, and the command still comes from the directory or file name. In a plugin skill, <code>name</code> sets the last segment of the command and the plugin prefix stays in place.</p>
+<p>The command you type to invoke a skill comes from where the skill file lives and, for plugin skills, also from the frontmatter <code>name</code> field. In a personal or project skill, <code>name</code> sets only the display label shown in skill listings, and the command still comes from the directory name. In a plugin skill, <code>name</code> sets the last segment of the command and the plugin prefix stays in place.</p>
 <p>The table below shows where the command name comes from for each layout:</p>
 <table>
 <thead>
@@ -6967,7 +6967,7 @@ With the default `bash` shell, append `|| true` to any other command you expect 
 
 Injected commands never prompt for permission. When a command&#39;s permission check returns anything other than allow, Claude Code aborts the invocation. This includes a rule that would normally ask you. The abort shows `Shell command permission check failed for pattern &quot;...&quot;`.
 
-To keep a command from aborting at the default permission prompt, pre-approve it with [`allowed-tools`](#pre-approve-tools-for-a-skill). A matching ask or deny rule still aborts the invocation regardless of `allowed-tools`. See [Manage permissions](/docs/en/permissions#manage-permissions).
+To keep an unmatched command from aborting here, pre-approve it with [`allowed-tools`](#pre-approve-tools-for-a-skill). A matching ask or deny rule still aborts the invocation regardless of `allowed-tools`. See [Manage permissions](/docs/en/permissions#manage-permissions).
 
 ### Run skills in a subagent
 
@@ -7045,7 +7045,7 @@ Skill(deploy *)
 <p>Permission syntax: <code>Skill(name)</code> for exact match, <code>Skill(name *)</code> for prefix match with any arguments.</p>
 <p><strong>Hide individual skills</strong> by adding <code>disable-model-invocation: true</code> to their frontmatter. This removes the skill from Claude's context entirely.</p>
 <p><Note>
-  The <code>user-invocable</code> field only controls menu visibility, not Skill tool access. Use <code>disable-model-invocation: true</code> to block programmatic invocation.
+  With <code>user-invocable: false</code>, you can't invoke the skill, but Claude still can. To keep Claude from invoking it through the Skill tool, set <code>disable-model-invocation: true</code>.
 </Note></p>
 <h3 id="override-skill-visibility-from-settings">Override skill visibility from settings</h3>
 <p>The <code>skillOverrides</code> setting controls skill visibility from your <a href="/docs/en/settings">settings</a> instead of the skill's own frontmatter. Use it for skills whose SKILL.md you don't want to edit, such as ones checked into a shared project repo. The <code>/skills</code> menu writes it for you: highlight a skill and press <code>Space</code> to cycle states, then <code>Enter</code> to save to <code>.claude/settings.local.json</code>.</p>

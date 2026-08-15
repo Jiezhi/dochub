@@ -8173,9 +8173,14 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 <td style="text-align: left;">Yes, bundled with the plugin</td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/skills">Skill</a> or <a href="/docs/en/sub-agents">agent</a> frontmatter</td>
-<td style="text-align: left;">While the component is active</td>
-<td style="text-align: left;">Yes, defined in the component file</td>
+<td style="text-align: left;"><a href="/docs/en/skills">Skill</a> frontmatter</td>
+<td style="text-align: left;">The rest of the session once the skill is invoked. See <a href="#hooks-in-skills-and-agents">Hooks in skills and agents</a></td>
+<td style="text-align: left;">Yes, defined in the skill file</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/sub-agents">Subagent</a> frontmatter</td>
+<td style="text-align: left;">While that subagent is running</td>
+<td style="text-align: left;">Yes, defined in the subagent file</td>
 </tr>
 </tbody>
 </table>
@@ -8406,7 +8411,7 @@ This example logs all memory server operations and validates write operations fr
 <li><strong><a href="#command-hook-fields">Command hooks</a></strong> (<code>type: "command"</code>): run a shell command. Your script receives the event's <a href="#hook-input-and-output">JSON input</a> on stdin and communicates results back through exit codes and stdout.</li>
 <li><strong><a href="#http-hook-fields">HTTP hooks</a></strong> (<code>type: "http"</code>): send the event's JSON input as an HTTP POST request to a URL. The endpoint communicates results back through the response body using the same <a href="#json-output">JSON output format</a> as command hooks.</li>
 <li><strong><a href="#mcp-tool-hook-fields">MCP tool hooks</a></strong> (<code>type: "mcp_tool"</code>): call a tool on an already-connected <a href="/docs/en/mcp">MCP server</a>. The tool's text output is treated like command-hook stdout.</li>
-<li><strong><a href="#prompt-and-agent-hook-fields">Prompt hooks</a></strong> (<code>type: "prompt"</code>): send a prompt to a Claude model for single-turn evaluation. The model returns a yes/no decision as JSON. See <a href="#prompt-based-hooks">Prompt-based hooks</a>.</li>
+<li><strong><a href="#prompt-and-agent-hook-fields">Prompt hooks</a></strong> (<code>type: "prompt"</code>): send a prompt to a Claude model for single-turn evaluation. The model returns its decision as JSON. See <a href="#prompt-based-hooks">Prompt-based hooks</a>.</li>
 <li><strong><a href="#prompt-and-agent-hook-fields">Agent hooks</a></strong> (<code>type: "agent"</code>): spawn a subagent that can use tools like Read, Grep, and Glob to verify conditions before returning a decision. Agent hooks are experimental and may change. See <a href="#agent-based-hooks">Agent-based hooks</a>.</li>
 </ul>
 <p>All matching hooks run in parallel. If you define the same handler in more than one settings file, it runs once. A plugin's or skill's copy of the same handler stays separate.</p>
@@ -8624,7 +8629,7 @@ In addition to the [common fields](#common-fields), MCP tool hooks accept these 
 | `tool`   | yes      | Name of the tool to call on that server                                                                                                                                                                                                                                                                              |
 | `input`  | no       | Arguments passed to the tool. String values support `${path}` substitution from the hook&#39;s [JSON input](#hook-input-and-output), such as `&quot;${tool_input.file_path}&quot;`                                                                                                                                                 |
 
-The tool&#39;s text content is treated like command-hook stdout: if it parses as valid [JSON output](#json-output) it is processed as a decision, otherwise it is treated as plain stdout. If the named server is not connected, or the tool returns `isError: true`, the hook produces a non-blocking error and execution continues.
+Claude Code reads the tool&#39;s text content the same way it reads command-hook stdout, following the [parsing rule under exit code 0](#exit-code-0). If the named server is not connected, or the tool returns `isError: true`, the hook produces a non-blocking error and execution continues.
 
 MCP tool hooks are available on every hook event once Claude Code has connected to your MCP servers. `SessionStart` and `Setup` typically fire before servers finish connecting, so hooks on those events should expect the &quot;not connected&quot; error on first run.
 
@@ -8733,9 +8738,12 @@ See the [plugin components reference](/docs/en/plugins-reference#hooks) for deta
 <p></Tab>
 </Tabs></p>
 <h3 id="hooks-in-skills-and-agents">Hooks in skills and agents</h3>
-<p>In addition to settings files and plugins, hooks can be defined directly in <a href="/docs/en/skills">skills</a> and <a href="/docs/en/sub-agents">subagents</a> using frontmatter. These hooks are scoped to the component's lifecycle and only run when that component is active.</p>
-<p>All hook events are supported. For subagents, <code>Stop</code> hooks are automatically converted to <code>SubagentStop</code> since that is the event that fires when a subagent completes.</p>
-<p>Hooks use the same configuration format as settings-based hooks but are scoped to the component's lifetime and cleaned up when it finishes.</p>
+<p>In addition to settings files and plugins, hooks can be defined directly in <a href="/docs/en/skills">skills</a> and <a href="/docs/en/sub-agents">subagents</a> using frontmatter, in the same configuration format as settings-based hooks. How long Claude Code keeps them registered depends on the component:</p>
+<ul>
+<li><strong>Subagent hooks</strong>: Claude Code runs them only while that subagent is running and removes them when it finishes. Claude Code converts a <code>Stop</code> hook here to <code>SubagentStop</code>, the event it fires when a subagent completes.</li>
+<li><strong>Skill hooks</strong>: Claude Code registers them when you or Claude invoke the skill and keeps running them for the rest of the session, on turns after the skill's own turn as well. To have Claude Code run a hook a single time instead, set <a href="#common-fields"><code>once: true</code></a> on it.</li>
+</ul>
+<p>All hook events are supported.</p>
 <p>This skill defines a <code>PreToolUse</code> hook that runs a security validation script before each <code>Bash</code> command:</p>
 <h2 id="yaml-themenull">```yaml theme={null}</h2>
 <p>name: secure-operations
@@ -8831,11 +8839,16 @@ For example, a `PreToolUse` hook for a Bash command receives this on stdin:
 </code></pre></div>
 <p>The <code>tool_name</code>, <code>tool_input</code>, and <code>tool_use_id</code> fields are event-specific. Each <a href="#hook-events">hook event</a> section documents the additional fields for that event.</p>
 <h3 id="exit-code-output">Exit code output</h3>
-<p>The exit code from your hook command tells Claude Code whether the action should proceed, be blocked, or be ignored. The exit code doesn't act alone. Claude Code reads <a href="#json-output">JSON output fields</a> from stdout on every exit code, not just 0, and for events that use the standard decision model, valid JSON takes effect alongside the code. Exit 2's block is the one outcome JSON can't override.</p>
+<p>The exit code from your hook command tells Claude Code whether the action should proceed, be blocked, or be ignored. The exit code doesn't act alone. Claude Code reads <a href="#json-output">JSON output fields</a> from stdout on every exit code, not just 0, and for events that use the standard decision model, a parsed object that passes schema validation takes effect alongside the code. Exit 2's block is the one outcome JSON can't override.</p>
 <p>Two tables own the per-event exceptions: <a href="#exit-code-2-behavior-per-event">Exit code 2 behavior per event</a> says what exit codes do for each event, and <a href="#decision-control">Decision control</a> says which decision fields each event honors. Universal fields such as <code>systemMessage</code> work across most events and are listed in the <a href="#json-output">JSON output</a> table.</p>
 <h4 id="exit-code-0">Exit code 0</h4>
-<p>Exit 0 means success, and is the intended exit code when you print JSON for structured control. For most events, stdout is written to the debug log but not shown in the transcript. The exceptions are <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, and <code>SessionStart</code>, where stdout is added as context that Claude can see and act on.</p>
-<p>For events that use the standard decision model, exit 0 with stdout that parses as JSON but fails <a href="#json-output">JSON output</a> schema validation is a non-blocking error: the action proceeds, and the transcript shows a <code>&lt;hook name&gt; hook error</code> notice with the validation message. The same happens on any exit code other than 2, while <a href="#exit-code-2">exit 2 still blocks</a>.</p>
+<p>Exit 0 means success, and is the intended exit code when you print JSON for structured control. For most events, stdout is written to the debug log but not shown in the transcript. The exceptions are <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, and <code>SessionStart</code>, where Claude Code adds plain-text stdout as context that Claude can see and act on.</p>
+<p>Whether Claude Code reads your stdout as <a href="#json-output">JSON output</a> or as plain text depends on its first character, ignoring leading whitespace:</p>
+<ul>
+<li><strong>Starts with <code>{</code></strong>: Claude Code parses it as JSON. If it isn't valid JSON, Claude Code treats it as plain text.</li>
+<li><strong>Starts with anything else</strong>: Claude Code treats it as plain text, a JSON array or a quoted JSON string included.</li>
+</ul>
+<p>For events that use the standard decision model, exit 0 with a parsed object that fails schema validation is a non-blocking error: the action proceeds, and the transcript shows a <code>&lt;hook name&gt; hook error</code> notice with the validation message. The same happens on any exit code other than 2, while <a href="#exit-code-2">exit 2 still blocks</a>.</p>
 <p>Stderr from a hook that exits 0 goes to the debug log only, never the transcript, and Claude never sees it. To read it yourself, enable <a href="#debug-hooks">debug logging</a>. To surface a warning to Claude from a <code>PostToolUse</code> or <code>PostToolUseFailure</code> hook, exit 2 instead so <a href="#exit-code-2-behavior-per-event">Claude sees the stderr</a> even though the tool already ran.</p>
 <h4 id="exit-code-2">Exit code 2</h4>
 <p>Exit 2 means a blocking error. On <a href="#exit-code-2-behavior-per-event">events that can block</a>, exit 2 blocks whether or not you print JSON: even a JSON <code>permissionDecision</code> of <code>"allow"</code> can't override it. Claude Code still reads any valid <a href="#json-output">JSON output</a> on stdout. On <code>Elicitation</code> and <code>ElicitationResult</code>, an exit-2 hook's <code>hookSpecificOutput</code> is ignored.</p>
@@ -8856,11 +8869,11 @@ fi</p>
 
 Any other exit code doesn&#39;t block on its own for most hook events. What happens depends on your stdout:
 
-* With JSON that passes schema validation, for events that use the standard decision model, Claude Code ignores the exit code and the JSON alone decides the outcome:
+* With a parsed object that passes schema validation, for events that use the standard decision model, Claude Code ignores the exit code and the JSON alone decides the outcome:
   * Each field the event supports is honored, including `permissionDecision`, `additionalContext`, `updatedInput`, and `systemMessage`, and the hook isn&#39;t reported as an error.
   * [Decision control](#decision-control) lists the decision fields per event; universal fields like `systemMessage` follow the [JSON output](#json-output) table.
-* With JSON that parses but fails schema validation, for events that use the standard decision model, it&#39;s the same non-blocking error as [on exit 0](#exit-code-0): the action proceeds, and the `&lt;hook name&gt; hook error` notice carries the validation message.
-* Without JSON on stdout, including plain text, output that fails to parse as JSON, and empty output, it&#39;s a non-blocking error for most hook events: the action proceeds, and the transcript shows a `&lt;hook name&gt; hook error` notice followed by the first line of stderr, prefixed with `Failed with non-blocking status code:`. To capture the full stderr, enable [debug logging](#debug-hooks).
+* With a parsed object that fails schema validation, for events that use the standard decision model, it&#39;s the same non-blocking error as [on exit 0](#exit-code-0): the action proceeds, and the `&lt;hook name&gt; hook error` notice carries the validation message.
+* With stdout that Claude Code [treats as plain text](#exit-code-0), or with empty stdout, it&#39;s a non-blocking error for most hook events: the action proceeds, and the transcript shows a `&lt;hook name&gt; hook error` notice followed by the first line of stderr, prefixed with `Failed with non-blocking status code:`. To capture the full stderr, enable [debug logging](#debug-hooks).
 
 Events outside the standard decision model keep their own rows in the [per-event table](#exit-code-2-behavior-per-event): `WorktreeCreate` fails creation on any nonzero exit no matter what your JSON says, and events that discard hook output entirely, like `StopFailure`, ignore your JSON on every exit code, apart from side-effect fields like `terminalSequence`, which still fire.
 
@@ -9037,9 +9050,14 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 <td style="text-align: left;"><code>decision: "block"</code>, <code>reason</code>. Stop and SubagentStop also accept <code>hookSpecificOutput.additionalContext</code> for <a href="#stop-decision-control">non-error feedback that continues the conversation</a></td>
 </tr>
 <tr>
-<td style="text-align: left;">TeammateIdle, TaskCreated, TaskCompleted</td>
+<td style="text-align: left;">TeammateIdle, TaskCompleted</td>
 <td style="text-align: left;">Exit code or <code>continue: false</code></td>
 <td style="text-align: left;">Exit code 2 blocks the action with stderr feedback. JSON <code>{"continue": false, "stopReason": "..."}</code> also stops the teammate entirely, matching <code>Stop</code> hook behavior</td>
+</tr>
+<tr>
+<td style="text-align: left;">TaskCreated</td>
+<td style="text-align: left;">Exit code or top-level <code>decision</code></td>
+<td style="text-align: left;">Exit code 2 or <code>decision: "block"</code> <a href="#taskcreated-decision-control">cancels the task</a> and returns the message to Claude. <code>continue: false</code> is ignored</td>
 </tr>
 <tr>
 <td style="text-align: left;">PreToolUse</td>
@@ -9216,7 +9234,7 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 }
 <div class="highlight"><pre><span></span><code>#### SessionStart decision control
 
-Any text your hook script prints to stdout is added as context for Claude. In addition to the [JSON output fields](#json-output) available to all hooks, you can return these event-specific fields:
+Claude Code adds stdout it [treats as plain text](#exit-code-0) to Claude&#39;s context. In addition to the [JSON output fields](#json-output) available to all hooks, you can return these event-specific fields:
 
 | Field                | Description                                                                                                                                                                                                                                                                                                                          |
 | :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -9310,7 +9328,7 @@ In addition to the [common input fields](#common-input-fields), Setup hooks rece
 }
 </code></pre></div></p>
 <h4 id="setup-decision-control">Setup decision control</h4>
-<p>Setup hooks can't block; execution continues on any exit code. Exit code 2 surfaces stderr to the user as a <code>&lt;hook name&gt; hook error</code> notice whether or not you print JSON. Any other non-zero exit surfaces that notice only when you don't print valid JSON; with valid JSON, the JSON's fields are honored and the hook isn't reported as an error. In <a href="/docs/en/headless">non-interactive mode</a>, hook output appears only when you launch with <code>--verbose</code>.</p>
+<p>Setup hooks can't block; execution continues on any exit code. Exit code 2 surfaces stderr to the user as a <code>&lt;hook name&gt; hook error</code> notice whether or not you print JSON. On any other non-zero exit, Claude Code applies the <a href="#other-exit-codes">other exit codes</a> rule: with a parsed object that passes schema validation it honors the fields and doesn't report the hook as an error, and with anything else on stdout it shows that notice. In <a href="/docs/en/headless">non-interactive mode</a>, hook output appears only when you launch with <code>--verbose</code>.</p>
 <p>To pass information into Claude's context, return <code>additionalContext</code> in JSON output; plain stdout is written to the debug log only. In addition to the <a href="#json-output">JSON output fields</a> available to all hooks, you can return these event-specific fields:</p>
 <table>
 <thead>
@@ -9391,7 +9409,7 @@ block certain types of prompts.</p>
 
 There are two ways to add context to the conversation on exit code 0:
 
-* **Plain text stdout**: any non-JSON text written to stdout is added as context
+* **Plain text stdout**: Claude Code adds stdout it [treats as plain text](#exit-code-0) to Claude&#39;s context
 * **JSON with `additionalContext`**: use the JSON format below for more control. The `additionalContext` field is added as context
 
 Neither channel produces a visible transcript entry. Plain stdout and the `additionalContext` value are each injected as a system reminder that starts with the hook&#39;s name; Claude reads both. To confirm delivery, check the [debug log](#debug-hooks).
@@ -10744,10 +10762,10 @@ In addition to the [common input fields](#common-input-fields), TaskCreated hook
 </tbody>
 </table>
 <h4 id="taskcreated-decision-control">TaskCreated decision control</h4>
-<p>TaskCreated hooks support two ways to control task creation:</p>
+<p>A TaskCreated hook can block the creation in two ways. Either way, Claude Code deletes the task and returns your message to Claude as the tool's error. Claude Code ignores <code>continue: false</code> from this event and Claude keeps working.</p>
 <ul>
-<li><strong>Exit code 2</strong>: the task is not created and the stderr message is fed back to the model as feedback.</li>
-<li><strong>JSON <code>{"continue": false, "stopReason": "..."}</code></strong>: stops the teammate entirely, matching <code>Stop</code> hook behavior. The <code>stopReason</code> is shown to the user.</li>
+<li><strong>Exit code 2</strong>: Claude Code returns the stderr text as the message.</li>
+<li><strong>JSON <code>{"decision": "block", "reason": "..."}</code></strong>: Claude Code returns <code>reason</code> as the message.</li>
 </ul>
 <p>This example blocks tasks whose subjects don't follow the required format:</p>
 <p>```bash theme={null}</p>
@@ -10837,7 +10855,7 @@ the stoppage occurred due to a user interrupt. API errors fire
 [StopFailure](#stopfailure) instead.
 
 &lt;Tip&gt;
-  The [`/goal`](/docs/en/goal) command is a built-in shortcut for a session-scoped prompt-based Stop hook. Use it when you want Claude to keep working until a condition holds without writing hook configuration.
+  The [`/goal`](/docs/en/goal) command is a built-in shortcut for a session-scoped prompt-based Stop hook. Use it when you want Claude to keep working toward a condition without writing hook configuration.
 &lt;/Tip&gt;
 
 #### Stop input
@@ -11572,6 +11590,7 @@ To override the user&#39;s response, return a JSON object with `hookSpecificOutp
 <li><code>ElicitationResult</code></li>
 <li><code>FileChanged</code></li>
 <li><code>InstructionsLoaded</code></li>
+<li><code>MessageDisplay</code></li>
 <li><code>Notification</code></li>
 <li><code>PostCompact</code></li>
 <li><code>PreCompact</code></li>
@@ -11607,13 +11626,13 @@ To override the user&#39;s response, return a JSON object with `hookSpecificOutp
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>| Field             | Required | Description                                                                                                                                                                                                                                                           |
-| :---------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`            | yes      | Must be `&quot;prompt&quot;`                                                                                                                                                                                                                                                    |
-| `prompt`          | yes      | The prompt text to send to the LLM. Use `$ARGUMENTS` as a placeholder for the hook input JSON. If `$ARGUMENTS` is not present, input JSON is appended to the prompt                                                                                                   |
-| `model`           | no       | Model to use for evaluation. Defaults to a fast model                                                                                                                                                                                                                 |
-| `timeout`         | no       | Timeout in seconds. Default: 30                                                                                                                                                                                                                                       |
-| `continueOnBlock` | no       | When the prompt returns `ok: false`, feed the reason back to Claude and continue the turn instead of stopping. Default: `false`. Implemented as `continue: true` on the resulting `decision: &quot;block&quot;`. See [Response schema](#response-schema) for per-event behavior |
+<div class="highlight"><pre><span></span><code>| Field             | Required | Description                                                                                                                                                                                               |
+| :---------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`            | yes      | Must be `&quot;prompt&quot;`                                                                                                                                                                                        |
+| `prompt`          | yes      | The prompt text to send to the LLM. Use `$ARGUMENTS` as a placeholder for the hook input JSON. If `$ARGUMENTS` is not present, input JSON is appended to the prompt                                       |
+| `model`           | no       | Model to use for evaluation. Defaults to a fast model                                                                                                                                                     |
+| `timeout`         | no       | Timeout in seconds. Default: 30                                                                                                                                                                           |
+| `continueOnBlock` | no       | On the events it applies to, `true` feeds an `ok: false` reason back to Claude and continues instead of ending the turn. Default: `false`. See [Response schema](#response-schema) for per-event behavior |
 
 ### Response schema
 
@@ -11622,7 +11641,8 @@ The LLM must respond with JSON containing:
 ```json theme={null}
 {
   &quot;ok&quot;: true | false,
-  &quot;reason&quot;: &quot;Explanation for the decision&quot;
+  &quot;reason&quot;: &quot;Explanation for the decision&quot;,
+  &quot;impossible&quot;: true | false
 }
 </code></pre></div></p>
 <table>
@@ -11635,17 +11655,21 @@ The LLM must respond with JSON containing:
 <tbody>
 <tr>
 <td style="text-align: left;"><code>ok</code></td>
-<td style="text-align: left;"><code>true</code> to allow. <code>false</code> produces a <code>decision: "block"</code>. See the per-event behavior below</td>
+<td style="text-align: left;"><code>true</code> to allow. For <code>false</code>, see the per-event behavior below</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>reason</code></td>
-<td style="text-align: left;">Required when <code>ok</code> is <code>false</code>. Used as the block reason</td>
+<td style="text-align: left;">Required when <code>ok</code> is <code>false</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>impossible</code></td>
+<td style="text-align: left;">Optional. The model returns it with <code>ok: false</code> when it judges the condition can never be satisfied. On <code>Stop</code> and <code>SubagentStop</code>, Claude Code then lets the turn end instead of feeding the reason back. Agent hooks and other events ignore it</td>
 </tr>
 </tbody>
 </table>
 <p>What happens on <code>ok: false</code> depends on the event:</p>
 <ul>
-<li><code>Stop</code> and <code>SubagentStop</code>: the reason is fed back to Claude as its next instruction and the turn continues</li>
+<li><code>Stop</code> and <code>SubagentStop</code>: the reason is fed back to Claude as its next instruction and the turn continues, unless the response also sets <code>impossible: true</code>, in which case Claude Code allows the stop and the turn ends</li>
 <li><code>PreToolUse</code>: the tool call is denied; by default the turn ends and the deny reason appears in the chat as a warning line. Set <code>continueOnBlock: true</code> to instead return the reason to Claude as the tool error so it can adjust and continue, equivalent to a command hook's <code>permissionDecision: "deny"</code>. Before v2.1.210, the deny reason was returned to Claude as the tool error and the turn continued</li>
 <li><code>PostToolUse</code>: by default the turn ends and the reason appears in the chat as a warning line. Set <code>continueOnBlock: true</code> to feed the reason back to Claude and continue the turn instead</li>
 <li><code>PostToolBatch</code>, <code>UserPromptSubmit</code>, and <code>UserPromptExpansion</code>: the turn ends and the reason appears as a warning line. These events end the turn on <code>decision: "block"</code> regardless of <code>continue</code></li>
@@ -11657,7 +11681,7 @@ The LLM must respond with JSON containing:
 </ul>
 <p>If you need finer control on any event, use a <a href="#command-hook-fields">command hook</a> with the per-event fields described in <a href="#decision-control">Decision control</a>.</p>
 <h3 id="check-multiple-conditions-before-stopping">Check multiple conditions before stopping</h3>
-<p>This <code>Stop</code> hook uses a detailed prompt to check three conditions before allowing Claude to stop. <code>SubagentStop</code> hooks use the same format to evaluate whether a <a href="/docs/en/sub-agents">subagent</a> should stop. If <code>"ok"</code> is <code>false</code>, Claude continues working with the provided reason as its next instruction:</p>
+<p>This <code>Stop</code> hook uses a detailed prompt to check three conditions before allowing Claude to stop. <code>SubagentStop</code> hooks use the same format to evaluate whether a <a href="/docs/en/sub-agents">subagent</a> should stop. If the model returns <code>"ok": false</code> because the condition isn't met yet, Claude continues working with the provided reason as its next instruction:</p>
 <p>```json theme={null}
 {
   "hooks": {
@@ -11689,13 +11713,13 @@ When an agent hook fires:
 1. Claude Code spawns a subagent with your prompt and the hook&#39;s JSON input
 2. The subagent can use tools like Read, Grep, and Glob to investigate
 3. After up to 50 turns, the subagent returns a structured `{ &quot;ok&quot;: true/false }` decision
-4. Claude Code processes the decision the same way as a prompt hook
+4. Claude Code allows the action if `ok` is `true`. If `ok` is `false`, Claude Code handles the block the same way as a prompt hook with `continueOnBlock: true` on that event, as listed under [Response schema](#response-schema)
 
 Agent hooks are useful when verification requires inspecting actual files or test output, not just evaluating the hook input data alone.
 
 ### Agent hook configuration
 
-Set `type` to `&quot;agent&quot;` and provide a `prompt` string. The configuration fields are the same as [prompt hooks](#prompt-hook-configuration), with a longer default timeout:
+Set `type` to `&quot;agent&quot;` and provide a `prompt` string. The configuration fields are the same as [prompt hooks](#prompt-hook-configuration), except that agent hooks have a longer default timeout and no `continueOnBlock` field:
 
 | Field     | Required | Description                                                                                 |
 | :-------- | :------- | :------------------------------------------------------------------------------------------ |
@@ -11704,7 +11728,7 @@ Set `type` to `&quot;agent&quot;` and provide a `prompt` string. The configurati
 | `model`   | no       | Model to use. Defaults to a fast model                                                      |
 | `timeout` | no       | Timeout in seconds. Default: 60                                                             |
 
-The response schema is the same as prompt hooks: `{ &quot;ok&quot;: true }` to allow or `{ &quot;ok&quot;: false, &quot;reason&quot;: &quot;...&quot; }` to block.
+The response schema is `{ &quot;ok&quot;: true }` to allow or `{ &quot;ok&quot;: false, &quot;reason&quot;: &quot;...&quot; }` to block. On `ok: false`, Claude Code handles an agent hook the way it handles a [prompt hook with `continueOnBlock: true`](#response-schema) on the same event; agent hooks have no `continueOnBlock` field, and don&#39;t support the prompt-hook `impossible` field.
 
 This `Stop` hook verifies that all unit tests pass before allowing Claude to finish:
 

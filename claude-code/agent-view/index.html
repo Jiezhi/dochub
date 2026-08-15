@@ -6282,7 +6282,7 @@ Completed
 </tr>
 </tbody>
 </table>
-<p>The <code>#N</code> label that can appear at the right edge of a row is a <a href="#pull-request-status">pull request the session is linked to</a>, not part of the state icon.</p>
+<p>The <code>#N</code> or <code>!N</code> label that can appear at the right edge of a row is a link to the session's <a href="#pull-request-status">pull request or merge request</a>, not part of the state icon.</p>
 <p>The terminal tab title shows the awaiting-input count while agent view is open: <code>2 awaiting input · claude agents</code> when sessions need input, or <code>claude agents</code> when none do.</p>
 <p>While agent view is open, Claude Code also sends a notification through your configured <a href="/docs/en/terminal-config#get-a-terminal-bell-or-notification">terminal notification channel</a> when a local background session starts needing your input, finishes, or fails. Sessions that run on a schedule, such as <a href="/docs/en/scheduled-tasks"><code>/loop</code></a> sessions, notify only when they need your input. Notifications use the same <a href="/docs/en/settings#available-settings"><code>preferredNotifChannel</code> setting</a> as the rest of Claude Code and fire the <a href="/docs/en/hooks#notification"><code>Notification</code> hook</a> with the <code>agent_needs_input</code> or <code>agent_completed</code> type.</p>
 <p>Background sessions don't need any terminal open to keep working. A separate <a href="#the-supervisor-process">supervisor process</a> runs them, so you can close agent view, close your shell, or start a new interactive session and your dispatched work keeps going.</p>
@@ -6294,7 +6294,12 @@ Completed
 <p>When the list is <a href="#organize-the-list">grouped by directory</a>, the summary opens with the session's state as a colored word, such as <code>Needs input · double jump or wall climb?</code>. In the default state grouping, the group header already names the state, so the row shows only the summary.</p>
 <p>The end-of-turn summary and each mid-turn rewrite are one short Haiku-class request through your normal provider, billed and handled under the same <a href="/docs/en/data-usage">data usage terms</a> as the session itself. The 15-second updates between model rewrites reuse the session's own output and don't send a request. On a third-party provider or gateway with no Haiku-class model configured, the request uses the session's main model instead; set <a href="/docs/en/model-config#environment-variables"><code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code></a> to choose one.</p>
 <h3 id="pull-request-status">Pull request status</h3>
-<p>When a session opens a pull request, a <code>#1234</code> label appears at the right edge of the row, linked to the pull request. Claude Code emits the link even when it can't detect hyperlink support, for example over SSH or tmux; set <a href="/docs/en/env-vars"><code>FORCE_HYPERLINK=0</code></a> to render the label as plain text. The label persists when you send a follow-up to the session, so the pull request remains visible while the row reverts to live progress. Claude opens these pull requests from the session itself when the task calls for one; <a href="#how-file-edits-are-isolated">How file edits are isolated</a> covers what Claude commits and pushes without asking and when it asks first.</p>
+<p>When a session <a href="#how-file-edits-are-isolated">opens a pull request</a>, Claude Code adds a label at the right edge of the row, linked to the pull request:</p>
+<ul>
+<li>Claude Code writes the label as <code>#1234</code> for a pull request and as <code>!1234</code> for a GitLab merge request.</li>
+<li>Claude Code emits the link even when it can't detect hyperlink support, for example over SSH or tmux. Set <a href="/docs/en/env-vars"><code>FORCE_HYPERLINK=0</code></a> to render the label as plain text.</li>
+<li>After you send a follow-up to the session, Claude Code keeps the label while the row returns to live progress.</li>
+</ul>
 <p>A session that works on an existing pull request is linked to it the same way. Claude Code finds the pull request differently depending on the command Claude runs:</p>
 <ul>
 <li>When Claude edits, comments on, closes, or marks a pull request ready with <code>gh</code>, Claude Code links the pull request that the command's own output names. A <code>gh</code> command whose captured output names no pull request doesn't create a link; <code>gh pr merge</code> is the common case, because it prints its result only to an interactive terminal.</li>
@@ -6411,8 +6416,8 @@ Completed
 <td style="text-align: left;">Sessions in the given state, such as <code>s:working</code>. Also accepts <code>s:blocked</code> for everything waiting on you</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>#&lt;number&gt;</code> or a PR URL</td>
-<td style="text-align: left;">The session working on that pull request</td>
+<td style="text-align: left;"><code>#&lt;number&gt;</code> or a pull or merge request URL</td>
+<td style="text-align: left;">The session working on that pull request or merge request</td>
 </tr>
 <tr>
 <td style="text-align: left;">Any other URL</td>
@@ -6537,8 +6542,8 @@ Completed
 <td style="text-align: left;">Run a shell command as a background job instead of starting a Claude session. The job appears as a row you can attach to, watch, and detach from</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>#&lt;number&gt;</code> or a pull request URL</td>
-<td style="text-align: left;">If a session is already working on that PR, select it instead of dispatching</td>
+<td style="text-align: left;"><code>#&lt;number&gt;</code> or a pull or merge request URL</td>
+<td style="text-align: left;">If a session is already working on that pull request or merge request, Claude Code selects its row instead of dispatching a new session</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Shift+Enter</code></td>
@@ -6991,6 +6996,10 @@ claude daemon stop --any --keep-workers</code></p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>v2.1.233</td>
+<td>For a session linked to a GitLab merge request, Claude Code writes the row's label in GitLab's <code>!1234</code> reference syntax. You can also paste the merge request's URL into the <a href="#filter-sessions">dispatch input</a> to select that session. Before this release, the label rendered as <code>#1234</code>, and a pasted merge request URL matched a session only when its first prompt contained the URL.</td>
+</tr>
 <tr>
 <td>v2.1.227</td>
 <td><a href="#what-deleting-a-session-removes">Deleting a session</a> keeps the session and its worktree while another live Claude Code session is running inside that worktree directory. Agent view shows <code>not deleted</code> on the row and the reason in the footer, and <code>claude rm</code> prints <code>kept &lt;id&gt;</code> with the reason, which names the other session's process ID. Before this release, deleting the session removed the worktree while the other session was still working in it.</td>

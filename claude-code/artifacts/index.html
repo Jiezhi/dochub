@@ -6069,6 +6069,7 @@ Turn this migration plan into a checklist artifact. Check items off as you compl
 ```</li>
 </ul>
 <p>Claude treats your design system as higher precedence than its own choices, and your prompt as higher precedence than both. The heading and format above are an example; any clear list of colors, fonts, and spacing works.</p>
+<p>For typography, Claude can load a typeface from Google Fonts, the one external font source an artifact page can load from. Claude inlines any other typeface as a <code>@font-face</code> data URI and gives every typeface a fallback stack, so the page still renders if a font doesn't load. To use a specific typeface, name it in your prompt or your design system.</p>
 <h2 id="page-constraints">Page constraints</h2>
 <p>Each artifact is one self-contained page. Claude Code wraps the file you publish in an HTML document shell and serves it under a strict Content Security Policy (CSP), which shapes what the page can do.</p>
 <table>
@@ -6080,8 +6081,8 @@ Turn this migration plan into a checklist artifact. Check items off as you compl
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;">No external requests</td>
-<td style="text-align: left;">The CSP blocks scripts, stylesheets, fonts, and images loaded from any other host, along with <code>fetch</code>, XHR, and WebSocket calls. Claude inlines CSS and JavaScript and embeds images as data URIs so the page renders without any external request. <a href="#pull-live-data-with-mcp-connectors">Connector calls</a> are the exception: the page hands them to claude.ai, which makes the network call itself.</td>
+<td style="text-align: left;">External requests</td>
+<td style="text-align: left;">Apart from Google Fonts and connector data, nothing reaches the page from outside. The CSP blocks scripts, stylesheets, fonts, and images from other hosts, along with <code>fetch</code>, XHR, and WebSocket calls, so Claude inlines CSS and JavaScript and embeds images as data URIs. Google Fonts stylesheets load through a <code>&lt;link&gt;</code> tag or a CSS <code>@import</code> from <code>fonts.googleapis.com</code>, along with the font files they reference from <code>fonts.gstatic.com</code>. <a href="#pull-live-data-with-mcp-connectors">Connector calls</a> go through claude.ai, which makes the network call itself.</td>
 </tr>
 <tr>
 <td style="text-align: left;">No backend</td>
@@ -6177,6 +6178,7 @@ Turn this migration plan into a checklist artifact. Check items off as you compl
 <p>Publishing, sharing, and deleting an artifact each appear in your organization's audit log under the <code>claude_artifact_*</code> event types, the same family used for artifacts created in claude.ai conversations.</p>
 <h3 id="allowlist-the-viewer-domain">Allowlist the viewer domain</h3>
 <p>The viewer on claude.ai loads each artifact from a sandboxed <code>*.claudeusercontent.com</code> origin. If your organization restricts outbound network access, add that domain to your allowlist alongside <code>claude.ai</code>. See <a href="/docs/en/network-config#network-access-requirements">Network access requirements</a> for the full list.</p>
+<p>An artifact that loads a typeface from <a href="#improve-the-visual-design">Google Fonts</a> also requests <code>fonts.googleapis.com</code> and <code>fonts.gstatic.com</code>. Both hosts are optional. If you block them, artifacts render in fallback typefaces. Block with a fast rejection rather than a silent drop so the font request fails immediately instead of delaying the page's first render.</p>
 <h3 id="list-and-delete-artifacts-with-the-compliance-api">List and delete artifacts with the Compliance API</h3>
 <p>The <a href="https://docs.claude.com/en/api/compliance">Compliance API</a> provides endpoints to list an organization's artifacts, retrieve a specific version's content, and delete an artifact:</p>
 <table>

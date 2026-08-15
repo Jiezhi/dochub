@@ -6101,7 +6101,7 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <p>Claude Code supports fine-grained permissions so that you can specify exactly what the agent is allowed to do and what it can't. You can check permission settings into version control to share them with every developer in your organization, and each developer can customize their own.</p>
 <h2 id="permission-system">Permission system</h2>
-<p>Claude Code uses a tiered permission system to balance power and safety:</p>
+<p>Claude Code uses a tiered permission system to balance power and safety. The table shows, for each tool type, whether Manual mode asks before the action runs. The other <a href="#permission-modes">permission modes</a> change which of these ask you; in auto mode a classifier reviews actions instead of you, and <a href="/docs/en/permission-modes#how-the-classifier-evaluates-actions">how the classifier evaluates actions</a> lists which ones it sees.</p>
 <table>
 <thead>
 <tr>
@@ -6150,7 +6150,7 @@ Use this file to discover all available pages before exploring further.</p>
   Permission rules are enforced by Claude Code, not by the model. Instructions in your prompt or <code>CLAUDE.md</code> shape what Claude tries to do, but they don't change what Claude Code allows. To grant or revoke access, use <code>/permissions</code>, the rules described here, a <a href="/docs/en/permission-modes">permission mode</a>, or a <a href="#extend-permissions-with-hooks">PreToolUse hook</a>.
 </Note></p>
 <h2 id="permission-modes">Permission modes</h2>
-<p>Claude Code supports several permission modes that control how it approves tool calls. See <a href="/docs/en/permission-modes">Permission modes</a> for when to use each one. Set the <code>defaultMode</code> in your <a href="/docs/en/settings#settings-files">settings files</a>. In sessions the VS Code extension starts, the extension resolves the starting mode instead. See <a href="/docs/en/permission-modes#switch-permission-modes">Switch permission modes</a>.</p>
+<p>Claude Code supports several permission modes that control how it approves tool calls. See <a href="/docs/en/permission-modes">Permission modes</a> for when to use each one. To change the mode sessions start in, set <code>defaultMode</code> in your <a href="/docs/en/settings#settings-files">settings files</a>. <a href="/docs/en/permission-modes#which-mode-a-session-starts-in">Which mode a session starts in</a> covers the built-in default for each plan and what the VS Code extension reads.</p>
 <table>
 <thead>
 <tr>
@@ -6161,7 +6161,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tbody>
 <tr>
 <td style="text-align: left;"><code>default</code></td>
-<td style="text-align: left;">Standard behavior: prompts for permission on first use of each tool. Labeled Manual in the CLI, the VS Code and JetBrains extensions, and the desktop app, and Claude Code accepts <code>manual</code> as an alias. The label and alias require Claude Code v2.1.200 or later. The desktop app's label doesn't depend on your CLI version</td>
+<td style="text-align: left;">Prompts for permission on first use of each tool. Labeled Manual in the CLI, the VS Code and JetBrains extensions, and the desktop app, and Claude Code accepts <code>manual</code> as an alias. The label and alias require Claude Code v2.1.200 or later. The desktop app's label doesn't depend on your CLI version</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>acceptEdits</code></td>
@@ -6337,11 +6337,11 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <p>Claude Code also strips a leading assignment of certain known-safe environment variables, so <code>Bash(npm test *)</code> matches <code>NODE_ENV=test npm test</code>. An allow rule won't match past an assignment of any other variable. A deny or ask rule matches past any leading assignment, so <code>Bash(rm *)</code> in deny still matches <code>FOO=bar rm -rf tmp/</code>.</p>
 <p>Bare <code>xargs</code> is also stripped, so <code>Bash(grep *)</code> matches <code>xargs grep pattern</code>. Stripping applies only when <code>xargs</code> has no flags: an invocation like <code>xargs -n1 grep pattern</code> is matched as an <code>xargs</code> command, so rules written for the inner command do not cover it.</p>
 <p>This wrapper list is built in and is not configurable. Development environment runners such as <code>direnv exec</code>, <code>devbox run</code>, <code>mise exec</code>, <code>npx</code>, and <code>docker exec</code> are not in the list. Because these tools execute their arguments as a command, a rule like <code>Bash(devbox run *)</code> matches whatever comes after <code>run</code>, including <code>devbox run rm -rf .</code>. To approve work inside an environment runner, write a specific rule that includes both the runner and the inner command, such as <code>Bash(devbox run npm test)</code>. Add one rule per inner command you want to allow.</p>
-<p>Exec wrappers such as <code>watch</code>, <code>setsid</code>, <code>ionice</code>, and <code>flock</code> always prompt and can't be auto-approved by a prefix rule like <code>Bash(watch *)</code>. The same applies to <code>find</code> with <code>-exec</code> or <code>-delete</code>: a <code>Bash(find *)</code> rule doesn't cover these forms. To approve a specific invocation, write an exact-match rule for the full command string.</p>
+<p>Exec wrappers such as <code>watch</code>, <code>setsid</code>, <code>ionice</code>, and <code>flock</code> can't be auto-approved by a prefix rule like <code>Bash(watch *)</code>, so in Manual mode they always prompt. The same applies to <code>find</code> with <code>-exec</code> or <code>-delete</code>: a <code>Bash(find *)</code> rule doesn't cover these forms. To approve a specific invocation, write an exact-match rule for the full command string.</p>
 <h4 id="read-only-commands">Read-only commands</h4>
 <p>Claude Code recognizes a built-in set of Bash commands as read-only and runs them without a permission prompt in every mode. These include <code>ls</code>, <code>cat</code>, <code>echo</code>, <code>pwd</code>, <code>head</code>, <code>tail</code>, <code>grep</code>, <code>find</code>, <code>wc</code>, <code>which</code>, <code>diff</code>, <code>stat</code>, <code>du</code>, <code>cd</code>, and read-only forms of <code>git</code>. The set is not configurable; to require a prompt for one of these commands, add an <code>ask</code> or <code>deny</code> rule for it.</p>
 <p>Unquoted glob patterns are permitted for commands whose every flag is read-only, so <code>ls *.ts</code> and <code>wc -l src/*.py</code> run without a prompt.</p>
-<p>Commands from this set still prompt in these cases:</p>
+<p>In Manual mode, commands from this set still prompt in these cases:</p>
 <ul>
 <li><strong>Unquoted globs for commands with write-capable flags</strong>: commands with write-capable or exec-capable flags, such as <code>find</code>, <code>sort</code>, <code>sed</code>, and <code>git</code>, prompt when an unquoted glob is present, because the glob could expand to a flag like <code>-delete</code>.</li>
 <li><strong><code>docker</code> pointed at another daemon</strong>: read-only forms of <code>docker</code> prompt when the command carries a flag that selects a different daemon, such as <code>-H</code>, <code>--context</code>, or Podman's <code>--url</code> and <code>--connection</code>.</li>
@@ -6596,6 +6596,10 @@ The following example shows each pattern shape against a project with a top-leve
 <td style="text-align: left;">Yes, with live reload</td>
 </tr>
 <tr>
+<td style="text-align: left;"><a href="/docs/en/skills#where-skills-live">Command files</a> in <code>.claude/commands/</code></td>
+<td style="text-align: left;">Yes. When the added directory and your project both define a command with the same name, Claude Code runs your project's command</td>
+</tr>
+<tr>
 <td style="text-align: left;"><a href="/docs/en/sub-agents">Subagents</a> in <code>.claude/agents/</code></td>
 <td style="text-align: left;">Yes</td>
 </tr>
@@ -6609,7 +6613,7 @@ The following example shows each pattern shape against a project with a top-leve
 </tr>
 </tbody>
 </table>
-<p>Claude Code discovers commands and output styles from the current working directory and its parents, your user directory at <code>~/.claude/</code>, and managed settings. Hooks and other <code>.claude/settings.json</code> keys load from the current working directory's <code>.claude/</code> folder with no parent-directory fallback, alongside your user <code>~/.claude/settings.json</code> and managed settings. <code>.claude/settings.local.json</code> loads from the git repository root instead, even when you start Claude Code in a subdirectory; before v2.1.211, it too loaded only from the current working directory. <a href="/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources">Agent SDK</a> sessions load it from the working directory in all versions.</p>
+<p>Claude Code discovers output styles from the current working directory and its parents, your user directory at <code>~/.claude/</code>, and managed settings. Hooks and other <code>.claude/settings.json</code> keys load from the current working directory's <code>.claude/</code> folder with no parent-directory fallback, alongside your user <code>~/.claude/settings.json</code> and managed settings. <code>.claude/settings.local.json</code> loads from the git repository root instead, even when you start Claude Code in a subdirectory; before v2.1.211, it too loaded only from the current working directory. <a href="/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources">Agent SDK</a> sessions load it from the working directory in all versions.</p>
 <p>To share that configuration across projects, use one of these approaches:</p>
 <ul>
 <li><strong>User-level configuration</strong>: place files in <code>~/.claude/agents/</code>, <code>~/.claude/output-styles/</code>, or <code>~/.claude/settings.json</code> to make them available in every project</li>

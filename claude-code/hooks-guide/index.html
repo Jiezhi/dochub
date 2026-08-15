@@ -5812,7 +5812,7 @@ You can also ask Claude to write the hook for you by describing what you want in
     Type <code>/hooks</code> to open the hooks browser. You'll see a list of all available hook events, with a count next to each event that has hooks configured. Select <code>Notification</code> to confirm your new hook appears in the list. Selecting the hook shows its details: the event, matcher, type, source file, and command.
   </Step></p>
 <p><Step title="Test the hook">
-    Press <code>Esc</code> to return to the CLI. Ask Claude to do something that requires permission, then switch away from the terminal. You should receive a desktop notification.
+    Press <code>Esc</code> to return to the CLI. Press <code>Shift+Tab</code> until the status bar shows <code>⏸ manual mode on</code>, ask Claude to do something that requires permission, then switch away from the terminal. You should receive a desktop notification.
   </Step>
 </Steps></p>
 <p><Tip>
@@ -6053,7 +6053,7 @@ This example uses a separate script file that the hook calls. The script checks 
 
 When Claude&#39;s context window fills up, compaction summarizes the conversation to free space. This can lose important details. Use a `SessionStart` hook with a `compact` matcher to re-inject critical context after every compaction.
 
-Any text your command writes to stdout is added to Claude&#39;s context. This example reminds Claude of project conventions and recent work. Add this to `.claude/settings.json` in your project root:
+Claude Code adds plain text your command writes to stdout to Claude&#39;s context. This example reminds Claude of project conventions and recent work. Add this to `.claude/settings.json` in your project root:
 
 ```json theme={null}
 {
@@ -6308,12 +6308,12 @@ exit 0  # exit 0 = no decision; the normal permission flow applies
 </code></pre></div></p>
 <p>The exit code determines what happens next:</p>
 <ul>
-<li><strong>Exit 0</strong>: the hook reports no objection through its exit code. For a <code>PreToolUse</code> hook this doesn't approve the tool call: the normal <a href="/docs/en/permissions">permission flow</a> still applies. For <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, and <code>SessionStart</code> hooks, anything you write to stdout is added to Claude's context.</li>
+<li><strong>Exit 0</strong>: the hook reports no objection through its exit code. For a <code>PreToolUse</code> hook this doesn't approve the tool call: the normal <a href="/docs/en/permissions">permission flow</a> still applies. For <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, and <code>SessionStart</code> hooks, Claude Code adds stdout it <a href="/docs/en/hooks#exit-code-0">treats as plain text</a> to Claude's context.</li>
 <li><strong>Exit 2</strong>: Claude Code blocks the action. Write a reason to stderr. Where it lands depends on the event: some events feed it to Claude as feedback so it can adjust, others show it to the user, and a few, such as <code>ConfigChange</code> and <code>Elicitation</code>, surface no message. Some events can't be blocked: for <code>SessionStart</code>, <code>Setup</code>, and others, exit 2 shows stderr to the user and execution continues. See <a href="/docs/en/hooks#exit-code-2-behavior-per-event">exit code 2 behavior per event</a> for the full list.</li>
 <li><strong>Any other exit code</strong>: for most events, the outcome depends on what your hook printed to stdout:</li>
-<li>JSON that passes schema validation: Claude Code ignores the exit code, the JSON alone decides the outcome, and the hook isn't reported as an error. The per-event exceptions, like <code>WorktreeCreate</code> failing on any nonzero exit, are listed in the reference's <a href="/docs/en/hooks#exit-code-output">Exit code output</a> section.</li>
-<li>JSON that parses but fails schema validation: a non-blocking error; the notice carries the validation message.</li>
-<li>No JSON on stdout: the action proceeds as a non-blocking error. The transcript shows a <code>&lt;hook name&gt; hook error</code> notice, then the first line of stderr prefixed with <code>Failed with non-blocking status code:</code>. To capture the full stderr, enable <a href="/docs/en/hooks#debug-hooks">debug logging</a> with <code>claude --debug</code> or by running <code>/debug</code> mid-session.</li>
+<li>A parsed object that passes schema validation: Claude Code ignores the exit code, the JSON alone decides the outcome, and the hook isn't reported as an error. The per-event exceptions, like <code>WorktreeCreate</code> failing on any nonzero exit, are listed in the reference's <a href="/docs/en/hooks#exit-code-output">Exit code output</a> section.</li>
+<li>A parsed object that fails schema validation: a non-blocking error; the notice carries the validation message.</li>
+<li>Stdout that Claude Code <a href="/docs/en/hooks#exit-code-0">treats as plain text</a>, or empty stdout: the action proceeds as a non-blocking error. The transcript shows a <code>&lt;hook name&gt; hook error</code> notice, then the first line of stderr prefixed with <code>Failed with non-blocking status code:</code>. To capture the full stderr, enable <a href="/docs/en/hooks#debug-hooks">debug logging</a> with <code>claude --debug</code> or by running <code>/debug</code> mid-session.</li>
 </ul>
 <h4 id="structured-json-output">Structured JSON output</h4>
 <p>Exit codes only let you block or stay silent. For more control, exit 0 and print a JSON object to stdout instead.</p>
@@ -6573,9 +6573,14 @@ For example, this configuration runs a hook only when Claude uses `git` commands
 <td style="text-align: left;">Yes, bundled with the plugin</td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/skills">Skill</a> or <a href="/docs/en/sub-agents">agent</a> frontmatter</td>
-<td style="text-align: left;">While the skill or agent is active</td>
-<td style="text-align: left;">Yes, defined in the component file</td>
+<td style="text-align: left;"><a href="/docs/en/skills">Skill</a> frontmatter</td>
+<td style="text-align: left;">The rest of the session once the skill is invoked. See <a href="/docs/en/hooks#hooks-in-skills-and-agents">Hooks in skills and agents</a></td>
+<td style="text-align: left;">Yes, defined in the skill file</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/sub-agents">Subagent</a> frontmatter</td>
+<td style="text-align: left;">While that subagent is running</td>
+<td style="text-align: left;">Yes, defined in the subagent file</td>
 </tr>
 </tbody>
 </table>
@@ -6584,16 +6589,16 @@ For example, this configuration runs a hook only when Claude uses `git` commands
 <p>If you edit settings files directly while Claude Code is running, the file watcher normally picks up hook changes automatically.</p>
 <h2 id="prompt-based-hooks">Prompt-based hooks</h2>
 <p>For decisions that require judgment rather than deterministic rules, use <code>type: "prompt"</code> hooks. Instead of running a shell command, Claude Code sends your prompt and the hook's input data to a Claude model, Haiku by default, to make the decision. You can specify a different model with the <code>model</code> field if you need more capability.</p>
-<p>The model's only job is to return a yes/no decision as JSON:</p>
+<p>The model's only job is to return its decision as JSON:</p>
 <ul>
 <li><code>"ok": true</code>: the action proceeds</li>
 <li><code>"ok": false</code>: what happens depends on the event:</li>
-<li><code>Stop</code> and <code>SubagentStop</code>: the <code>reason</code> is fed back to Claude so it keeps working</li>
+<li><code>Stop</code> and <code>SubagentStop</code>: the <code>reason</code> is fed back to Claude so it keeps working, unless the response also sets <code>"impossible": true</code> to mark the condition as one that can never be satisfied, in which case Claude Code allows the stop and the turn ends</li>
 <li><code>PreToolUse</code>: the tool call is denied; by default the turn ends and the deny <code>reason</code> appears in the chat as a warning line. Set <code>continueOnBlock: true</code> on the hook to instead return the <code>reason</code> to Claude as the tool error, so it can adjust and continue. Before v2.1.210, the deny <code>reason</code> was returned to Claude as the tool error and the turn continued</li>
 <li><code>PostToolUse</code>: by default the turn ends and the <code>reason</code> appears in the chat as a warning line. Set <code>continueOnBlock: true</code> to feed the <code>reason</code> back to Claude and continue the turn instead</li>
 <li><code>PostToolBatch</code>, <code>UserPromptSubmit</code>, and <code>UserPromptExpansion</code>: the turn ends and the <code>reason</code> appears in the chat as a warning line</li>
 </ul>
-<p>This example uses a <code>Stop</code> hook to ask the model whether all requested tasks are complete. If the model returns <code>"ok": false</code>, Claude keeps working and uses the <code>reason</code> as its next instruction:</p>
+<p>This example uses a <code>Stop</code> hook to ask the model whether all requested tasks are complete. If the model returns <code>"ok": false</code> because the condition isn't met yet, Claude keeps working and uses the <code>reason</code> as its next instruction:</p>
 <p>```json theme={null}
 {
   "hooks": {
@@ -6619,7 +6624,7 @@ For example, this configuration runs a hook only when Claude uses `git` commands
 
 When verification requires inspecting files or running commands, use `type: &quot;agent&quot;` hooks. Unlike prompt hooks, which make a single LLM call, agent hooks spawn a subagent that can read files, search code, and use other tools to verify conditions before returning a decision.
 
-Agent hooks use the same `&quot;ok&quot;` / `&quot;reason&quot;` response format as prompt hooks, but with a longer default timeout of 60 seconds and up to 50 tool-use turns. The `$ARGUMENTS` placeholder in the prompt is replaced with the hook&#39;s JSON input. See [prompt and agent hook fields](/docs/en/hooks#prompt-and-agent-hook-fields).
+Agent hooks use the `&quot;ok&quot;` / `&quot;reason&quot;` response format with a longer default timeout of 60 seconds and up to 50 tool-use turns. They don&#39;t support the prompt-hook `impossible` field. On `ok: false`, Claude Code handles an agent hook the way it handles a prompt hook with `continueOnBlock: true` on the same event, so on `PreToolUse` and `PostToolUse` the turn continues; agent hooks have no `continueOnBlock` field. See [agent hook configuration](/docs/en/hooks#agent-hook-configuration) for the fields, including the `$ARGUMENTS` placeholder that Claude Code replaces with the hook&#39;s JSON input.
 
 This example verifies that tests pass before allowing Claude to stop:
 

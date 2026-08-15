@@ -5553,9 +5553,9 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <h1 id="keep-claude-working-toward-a-goal">Keep Claude working toward a goal</h1>
 <blockquote>
-<p>Set a completion condition with /goal and Claude keeps working across turns until the condition is met.</p>
+<p>Set a completion condition with /goal and Claude keeps working across turns until the condition is met or judged impossible.</p>
 </blockquote>
-<p>The <code>/goal</code> command sets a completion condition and Claude keeps working toward it without you prompting each step. After each turn, a small fast model checks whether the condition holds. If not, Claude starts another turn instead of returning control to you. The goal clears automatically once the condition is met.</p>
+<p>The <code>/goal</code> command sets a completion condition and Claude keeps working toward it without you prompting each step. After each turn, a small fast model checks whether the condition holds. If the model judges it not yet met, Claude starts another turn instead of returning control to you. The goal clears automatically once the condition is met, or if the model judges the condition impossible to satisfy.</p>
 <p>Use a goal for substantial work with a verifiable end state:</p>
 <ul>
 <li>Migrating a module to a new API until every call site compiles and tests pass</li>
@@ -5577,7 +5577,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>/goal</code></td>
 <td style="text-align: left;">The previous turn finishes</td>
-<td style="text-align: left;">A model confirms the condition is met</td>
+<td style="text-align: left;">A model confirms the condition is met or judges it impossible</td>
 </tr>
 <tr>
 <td style="text-align: left;"><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop"><code>/loop</code></a></td>
@@ -5604,9 +5604,9 @@ Use this file to discover all available pages before exploring further.</p>
 /goal all tests in test/auth pass and the lint step is clean
 <div class="highlight"><pre><span></span><code>Setting a goal starts a turn immediately, with the condition itself as the directive. You don&#39;t need to send a separate prompt. While the goal is active, a `◎ /goal active` indicator shows how long the goal has been running.
 
-A goal doesn&#39;t change permissions. In the default permission mode, Claude still asks before tool calls that your settings don&#39;t already allow, such as the test command above. To let goal turns run unattended, pair `/goal` with [auto mode](/docs/en/auto-mode-config).
+A goal doesn&#39;t change your permission mode. To let goal turns run unattended, run `/goal` in [auto mode](/docs/en/auto-mode-config). In [Manual mode](/docs/en/permission-modes), Claude still asks before tool calls that your settings don&#39;t already allow, such as the test command above.
 
-After each turn, the evaluator returns a short reason explaining why the condition is or isn&#39;t met. The most recent reason appears in the status view and in the transcript so you can see what Claude is working toward next.
+While the goal is active, the transcript shows each verdict the evaluator returns, and you can press Ctrl+O to see the reason behind it. The status view also shows the most recent reason, so you can see what Claude is working toward next.
 
 ### Write an effective condition
 
@@ -5640,7 +5640,7 @@ Run `/goal` with no arguments to see the current state.
 <p>The turn count and the most recent reason appear after the first evaluation has run.</p>
 <p>If no goal is active but one was achieved earlier in the session, the status shows the achieved condition along with its duration, turn count, and token spend.</p>
 <h3 id="clear-a-goal">Clear a goal</h3>
-<p>Run <code>/goal clear</code> to remove an active goal before its condition is met.</p>
+<p>Run <code>/goal clear</code> to remove an active goal before it resolves.</p>
 <p>```text theme={null}
 /goal clear
 <div class="highlight"><pre><span></span><code>Claude prints `Goal cleared:` followed by the condition to confirm, or `No goal set` if nothing was active.
@@ -5658,14 +5658,17 @@ A goal that was still active when a session ended is restored when you resume th
 ```bash theme={null}
 claude -p &quot;/goal CHANGELOG.md has an entry for every PR merged this week&quot;
 </code></pre></div></p>
-<p>With the default text output, nothing prints until the condition is met, so a goal that runs many turns can look stuck. Add <code>--output-format stream-json --verbose</code> to emit each message as the loop runs.</p>
-<p>Interrupt the process with Ctrl+C to stop a non-interactive goal before the condition is met.</p>
+<p>With the default text output, nothing prints until the run ends, so a goal that runs many turns can look stuck. Add <code>--output-format stream-json --verbose</code> to emit each message as the loop runs.</p>
+<p>Interrupt the process with Ctrl+C to stop a non-interactive goal before it resolves.</p>
 <h2 id="how-evaluation-works">How evaluation works</h2>
-<p><code>/goal</code> is a wrapper around a session-scoped <a href="/docs/en/hooks#prompt-based-hooks">prompt-based Stop hook</a>. Each time Claude finishes a turn, Claude Code sends the condition and the conversation so far to your configured <a href="/docs/en/model-config">small fast model</a>, which defaults to Haiku on the Claude API; on a third-party provider, check your <a href="/docs/en/third-party-integrations">provider page</a> for the platform's default. The model answers yes or no and gives a short reason.</p>
+<p><code>/goal</code> is a wrapper around a session-scoped <a href="/docs/en/hooks#prompt-based-hooks">prompt-based Stop hook</a>. Each time Claude finishes a turn, Claude Code sends the condition and the conversation so far to your configured <a href="/docs/en/model-config">small fast model</a>, which defaults to Haiku on the Claude API; on a third-party provider, check your <a href="/docs/en/third-party-integrations">provider page</a> for the platform's default. The model returns one of three verdicts, each with a short reason:</p>
 <ul>
-<li><strong>No</strong>: Claude keeps working and takes the reason as guidance for the next turn.</li>
-<li><strong>Yes</strong>: Claude Code clears the goal and records an achieved entry in the transcript.</li>
+<li><strong>Not yet met</strong>: Claude keeps working and takes the reason as guidance for the next turn.</li>
+<li><strong>Met</strong>: Claude Code clears the goal and records an achieved entry in the transcript.</li>
+<li><strong>Impossible</strong>: the evaluator judged that the condition can never be satisfied. Claude Code clears the goal and records a failed entry in the transcript along with the reason. You don't need to clear it yourself.</li>
 </ul>
+<p>If Claude keeps answering the evaluator without making progress (no tool use for several turns in a row), Claude Code stops the loop, prints a warning, and returns control to you with the goal still set. Evaluation resumes after your next prompt. The <a href="/docs/en/hooks-guide#stop-hook-hits-the-block-cap">hooks guide</a> explains the underlying mechanism.</p>
+<p>If a subagent or a background shell command is still running when a turn ends, Claude Code skips the evaluation for that turn and evaluates when the next turn ends.</p>
 <p>To evaluate on a different model, set <a href="/docs/en/model-config#environment-variables"><code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code></a>.</p>
 <p><Warning>
   Claude Code reads <code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code> everywhere it uses the small fast model, not only for <code>/goal</code> evaluation. When you set it, Claude Code also resolves the <a href="/docs/en/model-config#model-aliases"><code>haiku</code> alias</a> to that model and runs <a href="/docs/en/costs#background-token-usage">background functionality</a>, such as conversation summarization, on it.
@@ -5678,7 +5681,7 @@ claude -p &quot;/goal CHANGELOG.md has an entry for every PR merged this week&qu
 <p>Claude Code makes <code>/goal</code> available under the same <a href="/docs/en/permissions#what-runs-before-you-trust-a-folder">workspace trust rule as hooks in settings files</a>, because the evaluator is part of the hooks system. <code>/goal</code> is also unavailable when <a href="/docs/en/hooks#disable-or-remove-hooks"><code>disableAllHooks</code></a> is <code>true</code> after settings precedence applies, or when <a href="/docs/en/settings#hook-configuration"><code>allowManagedHooksOnly</code></a> is set in managed settings. In each case, the command tells you why instead of silently doing nothing.</p>
 <h2 id="see-also">See also</h2>
 <ul>
-<li><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop">Run a prompt repeatedly with <code>/loop</code></a>: re-run on a time interval instead of until a condition holds</li>
+<li><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop">Run a prompt repeatedly with <code>/loop</code></a>: re-run on a time interval instead of toward a condition</li>
 <li><a href="/docs/en/hooks-guide#prompt-based-hooks">Prompt-based hooks</a>: write your own Stop hook when you need custom evaluation logic</li>
 <li><a href="/docs/en/auto-mode-config">Auto mode</a>: approve tool calls automatically so each goal turn runs unattended</li>
 <li><a href="/docs/en/scheduled-tasks#compare-scheduling-options">Scheduling comparison</a>: run work on a schedule independent of any open session</li>

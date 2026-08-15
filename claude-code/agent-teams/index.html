@@ -1522,32 +1522,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#too-many-permission-prompts" class="md-nav__link">
+  <a href="#claude-spawns-teammates-instead-of-subagents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Too many permission prompts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#agents-stopping-early" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Agents stopping early
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#orphaned-tmux-sessions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Orphaned tmux sessions
+        Claude spawns teammates instead of subagents
       
     </span>
   </a>
@@ -5965,32 +5943,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#too-many-permission-prompts" class="md-nav__link">
+  <a href="#claude-spawns-teammates-instead-of-subagents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Too many permission prompts
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#agents-stopping-early" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Agents stopping early
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#orphaned-tmux-sessions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Orphaned tmux sessions
+        Claude spawns teammates instead of subagents
       
     </span>
   </a>
@@ -6123,7 +6079,11 @@ Use this file to discover all available pages before exploring further.</p>
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   }
 }
-<div class="highlight"><pre><span></span><code>## Start your first agent team
+<div class="highlight"><pre><span></span><code>Enabling agent teams also changes ordinary delegation. Claude may [name a subagent](/docs/en/sub-agents#subagent-names) on its own, and while agent teams are enabled, a subagent that Claude names launches as a teammate, so teams can form even when you didn&#39;t ask for one. For more, see [How Claude starts agent teams](#how-claude-starts-agent-teams); to turn the behavior off, see [Claude spawns teammates instead of subagents](#claude-spawns-teammates-instead-of-subagents).
+
+Spawning teammates also requires an interactive session. In [non-interactive mode](/docs/en/headless) with the `-p` flag, including Agent SDK sessions, Claude doesn&#39;t spawn teammates, and a subagent that Claude names runs as an ordinary [subagent](/docs/en/sub-agents) even with agent teams enabled.
+
+## Start your first agent team
 
 After enabling agent teams, describe the task and the teammates you want in natural language. Claude spawns them and coordinates work based on your prompt.
 
@@ -6236,12 +6196,9 @@ This section covers the architecture and mechanics behind agent teams. If you wa
 
 ### How Claude starts agent teams
 
-An agent team forms when the first teammate is spawned, with the main session acting as the lead. There are two ways teammates get spawned:
+To start a team, ask Claude for teammates. Claude launches a teammate when it calls the [Agent tool](/docs/en/tools-reference) with a [`name`](/docs/en/sub-agents#subagent-names) while agent teams are enabled, and Claude Code doesn&#39;t ask you to confirm. Claude also names ordinary subagents on its own so it can message them later, and while agent teams are enabled, a named subagent launches as a teammate, so teams can form even when you didn&#39;t ask for one.
 
-* **You request teammates**: give Claude a task that benefits from parallel work and explicitly ask for teammates. Claude spawns them based on your instructions.
-* **Claude proposes teammates**: if Claude determines your task would benefit from parallel work, it may suggest spawning teammates. You confirm before it proceeds.
-
-In both cases, you stay in control. Claude won&#39;t spawn teammates without your approval.
+If you want subagents instead, [turn agent teams off](#claude-spawns-teammates-instead-of-subagents).
 
 ### Architecture
 
@@ -6303,7 +6260,7 @@ Spawn a teammate using the security-reviewer agent type to audit the auth module
 <p><strong>How teammates share information:</strong></p>
 <ul>
 <li><strong>Automatic message delivery</strong>: when teammates send messages, they're delivered automatically to recipients. The lead doesn't need to poll for updates.</li>
-<li><strong>Idle notifications</strong>: when a teammate finishes and stops, it automatically notifies the lead. As of v2.1.198, a teammate whose turn ends on an API error notifies the lead that it failed and includes the error text, instead of appearing to finish normally.</li>
+<li><strong>Idle notifications</strong>: when a teammate finishes and stops, it automatically notifies the lead. The notification doesn't carry the teammate's output; a teammate shares results by messaging the lead or updating the shared task list. As of v2.1.198, a teammate whose turn ends on an API error notifies the lead that it failed and includes the error text, instead of appearing to finish normally.</li>
 <li><strong>Shared task list</strong>: all agents can see task status and claim available work.</li>
 <li><strong>Teammate messaging</strong>: send a message to one specific teammate by name. To reach everyone, send one message per recipient.</li>
 </ul>
@@ -6389,21 +6346,51 @@ Wait for your teammates to complete their tasks before proceeding
   which tmux</code></li>
 <li>For iTerm2, verify the <code>it2</code> CLI is installed and the Python API is enabled in iTerm2 preferences.</li>
 </ul>
-<h3 id="too-many-permission-prompts">Too many permission prompts</h3>
-<p>Teammate permission requests bubble up to the lead, which can create friction. Pre-approve common operations in your <a href="/docs/en/permissions">permission settings</a> before spawning teammates to reduce interruptions.</p>
-<h3 id="agents-stopping-early">Agents stopping early</h3>
-<p>Teammates may stop after encountering errors instead of recovering. Check their output by selecting the teammate in the agent panel and pressing Enter in in-process mode, or by clicking the pane in split mode, then either:</p>
+<h3 id="claude-spawns-teammates-instead-of-subagents">Claude spawns teammates instead of subagents</h3>
+<p>While agent teams are enabled, a subagent that Claude names in the lead's session launches as a teammate. Claude <a href="#how-claude-starts-agent-teams">can name subagents on its own</a>, so this can happen during delegation you never framed as team work. Subagents and teammates report back differently:</p>
 <ul>
-<li>Give them additional instructions directly</li>
-<li>Spawn a replacement teammate to continue the work</li>
+<li><strong>Subagents</strong>: Claude receives the subagent's result when it completes.</li>
+<li><strong>Teammates</strong>: the <a href="#context-and-communication">idle notification</a> reports that the teammate stopped, without its output.</li>
 </ul>
-<p>A message from the lead or another teammate wakes an in-process teammate that is waiting to retry a failed API request, so it retries immediately instead of waiting for the full retry delay.</p>
-<p>The lead can stop early too, deciding the team is finished before all tasks are actually complete. If that happens, tell it to keep going.</p>
-<h3 id="orphaned-tmux-sessions">Orphaned tmux sessions</h3>
-<p>If a tmux session persists after the Claude Code session ends, it may not have been fully cleaned up. List sessions and end the one created by the team:</p>
-<p><code>bash theme={null}
+<p>An orchestration flow that waits on subagent results can stall. To make named subagents launch as subagents again, turn agent teams off by setting <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS</code> to <code>0</code>:</p>
+<p>```json settings.json theme={null}
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"
+  }
+}
+<div class="highlight"><pre><span></span><code>You don&#39;t need to start a new session: Claude Code reapplies settings-file `env` values to the running session when you save, and rereads the variable each time Claude spawns a subagent, so the next subagent Claude names launches as a subagent.
+
+Setting the variable to `0` in your user `settings.json` overrides a shell export. Other settings sources can still enable agent teams:
+
+* **Higher-precedence settings files**: project settings, local settings, and a `--settings` payload apply after user settings, so an `env` entry that sets the variable to `1` in any of them wins. See [Settings precedence](/docs/en/settings#settings-precedence).
+* **Managed settings**: [managed settings](/docs/en/server-managed-settings) apply after every other source. If your organization enables agent teams there, ask your administrator to change the managed value.
+
+After the change, Claude may still name subagents, and the name keeps working as a [`SendMessage` address](/docs/en/sub-agents#resume-subagents). Claude receives each subagent&#39;s result when it completes.
+
+### Too many permission prompts
+
+Teammate permission requests bubble up to the lead, which can create friction. Pre-approve common operations in your [permission settings](/docs/en/permissions) before spawning teammates to reduce interruptions.
+
+### Agents stopping early
+
+Teammates may stop after encountering errors instead of recovering. Check their output by selecting the teammate in the agent panel and pressing Enter in in-process mode, or by clicking the pane in split mode, then either:
+
+* Give them additional instructions directly
+* Spawn a replacement teammate to continue the work
+
+A message from the lead or another teammate wakes an in-process teammate that is waiting to retry a failed API request, so it retries immediately instead of waiting for the full retry delay.
+
+The lead can stop early too, deciding the team is finished before all tasks are actually complete. If that happens, tell it to keep going.
+
+### Orphaned tmux sessions
+
+If a tmux session persists after the Claude Code session ends, it may not have been fully cleaned up. List sessions and end the one created by the team:
+
+```bash theme={null}
 tmux ls
-tmux kill-session -t &lt;session-name&gt;</code></p>
+tmux kill-session -t &lt;session-name&gt;
+</code></pre></div></p>
 <h2 id="limitations">Limitations</h2>
 <p>Agent teams are experimental. Current limitations to be aware of:</p>
 <ul>
