@@ -7349,6 +7349,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#the-200k-limit-isnt-enforced">Configuration warnings</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>[claude-code:unrecognized_model]</code></td>
+<td style="text-align: left;"><a href="#unrecognized-model-id-on-a-request">Configuration warnings</a></td>
+</tr>
+<tr>
 <td style="text-align: left;">Responses seem lower quality than usual</td>
 <td style="text-align: left;"><a href="#responses-seem-lower-quality-than-usual">Response quality</a></td>
 </tr>
@@ -8288,7 +8292,7 @@ Model &quot;claud-sonnet-5&quot; is not a recognized model id. Did you mean &#39
 <li>Run <code>/model</code> with no argument to open the picker and choose from the models available to your account, then pass the alias or ID shown there</li>
 <li>If you used an alias that a newer Claude Code version supports, run <code>claude update</code>. A full ID that starts with <code>claude-</code> passes this check even when the model is newer than your Claude Code version, so upgrading isn't needed for those.</li>
 <li>A model saved before v2.1.200 isn't repaired by this check. If a stale value keeps coming back, remove it from the locations listed under <a href="#theres-an-issue-with-the-selected-model">There's an issue with the selected model</a>.</li>
-<li>The check runs only on the Anthropic API. On any other provider or gateway, including a custom <code>ANTHROPIC_BASE_URL</code>, the provider defines the model names, so Claude Code accepts any string and passes it through.</li>
+<li>The check runs only on the Anthropic API. On any other provider or gateway, including a custom <code>ANTHROPIC_BASE_URL</code>, the provider defines the model names, so Claude Code accepts any string and passes it through. Claude Code can still write the <a href="#unrecognized-model-id-on-a-request">unrecognized-model diagnostic line</a> at request time, on every provider.</li>
 </ul>
 <h3 id="claude-opus-is-not-available-with-the-claude-pro-plan">Claude Opus is not available with the Claude Pro plan</h3>
 <p>Your active subscription plan does not include the model you selected.</p>
@@ -8726,7 +8730,7 @@ Agent 'code-reviewer' would be spawned with zero tools — refusing. Its tools l
 
 * Correct each entry the error names against the [tools available to subagents](/docs/en/sub-agents#available-tools)
 * Remove entries for tools the session doesn&#39;t have, such as MCP tools from a server that isn&#39;t connected
-* For a tool that [background subagents drop](/docs/en/sub-agents#available-tools), such as `LSP` or `TaskCreate`, remove the entry. To keep the tool, [turn fork mode off](/docs/en/sub-agents#turn-fork-mode-on-or-off) and ask Claude to run the subagent in the foreground
+* For a tool that [background subagents drop](/docs/en/sub-agents#available-tools), such as `LSP`, remove the entry. To keep the tool, [turn fork mode off](/docs/en/sub-agents#turn-fork-mode-on-or-off) and ask Claude to run the subagent in the foreground
 * Delete the `tools` field instead of listing tools to give the subagent every [tool available to subagents](/docs/en/sub-agents#available-tools)
 * For a `tools` list that contains only `Agent`, raise the [depth limit](/docs/en/sub-agents#let-subagents-spawn-their-own-subagents) or give the agent at least one other tool: Claude Code withholds `Agent` at that limit, so a list with nothing else in it resolves to no tools
 
@@ -8996,7 +9000,7 @@ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · resta
 <li>To fix future launches from the same terminal or launcher, remove <code>CLAUDE_CODE_CHILD_SESSION</code> from its environment</li>
 </ul>
 <h2 id="configuration-warnings">Configuration warnings</h2>
-<p>Claude Code writes these messages to stderr at startup rather than showing an error in the conversation, except where an entry notes that it writes the message to the debug log instead. They report configuration it read but didn't apply.</p>
+<p>Claude Code writes these messages to stderr rather than showing an error in the conversation, except where an entry notes that it writes the message to the debug log instead. It writes most of them at startup, reporting configuration it read but didn't apply, and writes the <a href="#unrecognized-model-id-on-a-request">unrecognized-model diagnostic line</a> at request time.</p>
 <h3 id="workspace-has-not-been-trusted">Workspace has not been trusted</h3>
 <p>Claude Code found <code>permissions.allow</code> rules or <code>permissions.additionalDirectories</code> entries in the project's <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code> and didn't apply them, because <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">allow rules from project settings require workspace trust</a>. The count, the setting name, and the file named in the message vary with your configuration. <code>deny</code> and <code>ask</code> rules aren't affected.</p>
 <p>```text theme={null}
@@ -9028,20 +9032,62 @@ Permission deny rule (.claude/settings.json): Write(docs/**) is not matched by f
 </h3>
 
 <p>You set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_1M_CONTEXT=1</code></a>, which normally makes <a href="/docs/en/model-config#default-auto-compact-thresholds">auto-compaction</a> hold sessions on 1M-context models to a 200K window, but no compaction threshold caps this session at or below 200K, so the conversation can grow past it.</p>
-<p><code>text theme={null}
-CLAUDE_CODE_DISABLE_1M_CONTEXT is set, but the 200K limit isn't enforced for &lt;model&gt;, so this session can grow past it. To enforce it, set CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 (or the autoCompactWindow setting).</code></p>
-<p>Claude Code enforces the 200K limit on its own for every model it recognizes as having a native 1M window, and for model IDs it doesn't recognize it compacts at the window it assumes. The warning appears when other configuration defeats that enforcement:</p>
+<p>```text theme={null}
+CLAUDE_CODE_DISABLE_1M_CONTEXT is set, but the 200K limit isn't enforced for <model>, so this session can grow past it. To enforce it, set CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 (or the autoCompactWindow setting).
+<div class="highlight"><pre><span></span><code>Claude Code enforces the 200K limit on its own for every model it recognizes as having a native 1M window, and for model IDs it doesn&#39;t recognize it compacts at the window it assumes. The warning appears when other configuration defeats that enforcement:
+
+* The model ID isn&#39;t one Claude Code recognizes, such as an [LLM gateway](/docs/en/llm-gateway) alias, and you set [`CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1`](/docs/en/env-vars) or raised the assumed window past 200K with [`CLAUDE_CODE_MAX_CONTEXT_TOKENS`](/docs/en/env-vars). In this case the message also offers `or update to a Claude Code version that recognizes &lt;model&gt;` as a remedy.
+* A `context-1m` beta requested through [`ANTHROPIC_BETAS`](/docs/en/env-vars) or the [`--betas`](/docs/en/cli-reference#cli-flags) flag still asks the API for the 1M window on a model that accepts that beta, while nothing compacts the session at 200K
+
+**What to do:**
+
+* Set [`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`](/docs/en/env-vars), or the [`autoCompactWindow`](/docs/en/settings#available-settings) setting to `200000`, so auto-compaction compacts at the 200K boundary
+* If the message names a model ID this version doesn&#39;t recognize, run `claude update`. A version that recognizes the ID as a 1M-context model enforces the limit without further configuration.
+* If you want the session to use the model&#39;s full window instead, unset `CLAUDE_CODE_DISABLE_1M_CONTEXT`; the warning reports only that the 200K limit isn&#39;t enforced
+
+In a [background session](/docs/en/agent-view) or with `--output-format json` or `stream-json`, Claude Code writes the warning to the debug log instead of stderr.
+
+&lt;h3 id=&quot;unrecognized-model-id-on-a-request&quot;&gt;
+  Unrecognized model ID on a request
+&lt;/h3&gt;
+
+Claude Code sent a request for a model ID that your Claude Code version doesn&#39;t recognize, and found no [`modelOverrides`](/docs/en/model-config#override-model-ids-per-version) entry that maps that ID to a model it does recognize. Claude Code still sends the request with the ID as you configured it, and doesn&#39;t exit or switch models.
+
+```text theme={null}
+[claude-code:unrecognized_model] {&quot;model&quot;:&quot;my-proxy-model&quot;,&quot;query_source&quot;:&quot;sdk&quot;}
+</code></pre></div></p>
+<p>In a script or harness that reads stderr, match on the <code>[claude-code:unrecognized_model]</code> prefix. After the prefix and one space, Claude Code writes a one-line JSON object. Claude Code can add fields to it in a later version, so ignore any field you don't expect. It writes at least these two:</p>
 <ul>
-<li>The model ID isn't one Claude Code recognizes, such as an <a href="/docs/en/llm-gateway">LLM gateway</a> alias, and you set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1</code></a> or raised the assumed window past 200K with <a href="/docs/en/env-vars"><code>CLAUDE_CODE_MAX_CONTEXT_TOKENS</code></a>. In this case the message also offers <code>or update to a Claude Code version that recognizes &lt;model&gt;</code> as a remedy.</li>
-<li>A <code>context-1m</code> beta requested through <a href="/docs/en/env-vars"><code>ANTHROPIC_BETAS</code></a> or the <a href="/docs/en/cli-reference#cli-flags"><code>--betas</code></a> flag still asks the API for the 1M window on a model that accepts that beta, while nothing compacts the session at 200K</li>
+<li><code>model</code>: the model string as you configured it</li>
+<li><code>query_source</code>: the request path that used the model. Claude Code reports <code>sdk</code> for a <code>-p</code> run and a value that starts with <code>agent:</code> for a subagent.</li>
 </ul>
+<p>Claude Code writes the line to one of two places, depending on how you run it:</p>
+<ul>
+<li>In <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code>, Claude Code writes it to stderr under every <code>--output-format</code>, so you can parse stdout without filtering the line out</li>
+<li>In an interactive session or a <a href="/docs/en/agent-view">background session</a>, Claude Code writes it to the debug log instead; run with <code>--debug</code> to capture it at <code>~/.claude/debug/&lt;session-id&gt;.txt</code></li>
+</ul>
+<p>Claude Code writes the line once per model string per process. It writes a separate line for each further unrecognized ID, such as one that a <a href="/docs/en/sub-agents#choose-a-model">subagent</a> or <a href="/docs/en/costs#background-token-usage">background functionality</a> uses.</p>
+<p>Claude Code doesn't write the line for provider IDs it resolves to a model it recognizes, such as Amazon Bedrock <code>us.anthropic.claude-...</code> IDs, Google Cloud's Agent Platform IDs with an <code>@</code> version suffix, and Microsoft Foundry deployment names that contain a Claude model ID. Claude Code checks the model behind an Amazon Bedrock <a href="/docs/en/amazon-bedrock#map-each-model-version-to-an-inference-profile">application inference profile ARN</a> rather than the ARN itself. It writes no line for an ARN it can't resolve, such as a mistyped one.</p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000</code></a>, or the <a href="/docs/en/settings#available-settings"><code>autoCompactWindow</code></a> setting to <code>200000</code>, so auto-compaction compacts at the 200K boundary</li>
-<li>If the message names a model ID this version doesn't recognize, run <code>claude update</code>. A version that recognizes the ID as a 1M-context model enforces the limit without further configuration.</li>
-<li>If you want the session to use the model's full window instead, unset <code>CLAUDE_CODE_DISABLE_1M_CONTEXT</code>; the warning reports only that the 200K limit isn't enforced</li>
+<li>If you set the ID on purpose, such as an <a href="/docs/en/llm-gateway">LLM gateway</a> alias, add a <a href="/docs/en/model-config#override-model-ids-per-version"><code>modelOverrides</code></a> entry to your <a href="/docs/en/settings#settings-files">settings file</a> with the ID as its value. Use an Anthropic model ID as the key, not a family alias such as <code>opus</code>. For <code>my-proxy-model</code> from the example line, add this entry:</li>
 </ul>
-<p>In a <a href="/docs/en/agent-view">background session</a> or with <code>--output-format json</code> or <code>stream-json</code>, Claude Code writes the warning to the debug log instead of stderr.</p>
+<p><code>json theme={null}
+  {
+    "modelOverrides": {
+      "claude-opus-4-6": "my-proxy-model"
+    }
+  }</code></p>
+<p>Claude Code then treats <code>my-proxy-model</code> as <code>claude-opus-4-6</code> and stops writing the line.</p>
+<ul>
+<li>
+<p>If the ID names a model newer than your Claude Code version, run <code>claude update</code></p>
+</li>
+<li>
+<p>If the ID is a typo, fix it where you set it: the <code>--model</code> flag, the <code>ANTHROPIC_MODEL</code> or <code>ANTHROPIC_DEFAULT_*_MODEL</code> environment variables, or the <code>model</code> setting. If <code>query_source</code> starts with <code>agent:</code>, fix it where you set the <a href="/docs/en/sub-agents#choose-a-model">subagent's model</a> instead.</p>
+</li>
+</ul>
+<p>Before v2.1.233, Claude Code wrote no line when it sent a request for a model ID it didn't recognize.</p>
 <h2 id="responses-seem-lower-quality-than-usual">Responses seem lower quality than usual</h2>
 <p>If Claude's answers seem less capable than you expect but no error is shown, the cause is usually conversation state rather than the model itself. Claude Code doesn't silently change model versions. It can switch to a fallback model in three specific cases:</p>
 <ul>
