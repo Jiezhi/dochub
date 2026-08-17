@@ -1611,6 +1611,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sdkcontextusage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SDKContextUsage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sdkmessageorigin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7160,6 +7171,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sdkcontextusage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SDKContextUsage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sdkmessageorigin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8915,7 +8937,9 @@ The receipt is a snapshot taken at the moment the interrupt is processed, and on
 
 ### `SDKControlGetContextUsageResponse`
 
-Return type of [`getContextUsage()`](#query-object). This is the same payload the `/context` command renders in an interactive session, so alongside the token counts it carries display fields such as `color`, `gridRows`, and `percentage` that `/context` uses to draw its usage grid.
+Return type of [`getContextUsage()`](#query-object). This is the same payload Claude Code renders for the `/context` command in an interactive session, so alongside the token counts it carries display fields such as `color` and `gridRows` that Claude Code uses to draw the `/context` usage grid.
+
+When you send `/context` as a prompt instead of calling the method, Claude Code attaches an [`SDKContextUsage`](#sdkcontextusage) payload to the `context_usage` field of the assistant message that delivers the result. That field requires Agent SDK v0.3.232 or later.
 
 ```typescript theme={null}
 type SDKControlGetContextUsageResponse = {
@@ -9017,7 +9041,8 @@ type SDKControlGetContextUsageResponse = {
 <li><code>memoryFiles</code> lists each loaded memory file with its cost.</li>
 <li><code>skills.skillFrontmatter</code> attributes the skill listing's tokens to each included skill. The per-skill counts measure each skill's listing entry as Claude Code actually sends it, which can be shorter than the skill's full frontmatter. Compare <code>skills.totalSkills</code> with <code>skills.includedSkills</code> to see whether every discovered skill made it into the listing.</li>
 </ul>
-<p><code>totalTokens</code> is the session's current context usage, and <code>maxTokens</code> is the window that usage is measured against. That window is the model's context window, or the lower auto-compaction window when one applies. Claude Code leaves the optional <code>deferredBuiltinTools</code>, <code>systemTools</code>, and <code>systemPromptSections</code> diagnostics unset, so expect them to be absent even though the type declares them.</p>
+<p><code>totalTokens</code> is the session's current context usage, and <code>maxTokens</code> is the window that usage is measured against. That window is the model's context window, or the lower auto-compaction window when one applies. <code>rawMaxTokens</code> carries the same value as <code>maxTokens</code>, and <code>percentage</code> is <code>totalTokens</code> as a rounded percentage of that window.</p>
+<p>Claude Code leaves the optional <code>deferredBuiltinTools</code>, <code>systemTools</code>, and <code>systemPromptSections</code> diagnostics unset, so expect them to be absent even though the type declares them.</p>
 <h3 id="sdkcontrolreadfileresponse"><code>SDKControlReadFileResponse</code></h3>
 <p>Return type of <a href="#query-object"><code>readFile()</code></a>.</p>
 <p>```typescript theme={null}
@@ -9447,6 +9472,7 @@ type SDKAssistantMessage = {
   error?: SDKAssistantMessageError;
   aborted?: true;
   timestamp?: string;
+  context_usage?: SDKContextUsage;
 };
 <div class="highlight"><pre><span></span><code>The `message` field is a [`BetaMessage`](https://platform.claude.com/docs/en/api/messages/create) from the Anthropic SDK. It includes fields like `id`, `content`, `model`, `stop_reason`, and `usage`.
 
@@ -9455,6 +9481,8 @@ type SDKAssistantMessage = {
 `aborted` is `true` when an interrupt or abort truncated the assistant message before the stream completed: the message has no `stop_reason` and the content may end mid-word. The field is absent on normally completed messages. It requires Agent SDK v0.3.214 or later.
 
 `timestamp` is the ISO 8601 time when the message&#39;s content finished generating on the process that produced it. The value comes from that machine&#39;s clock, so use it for display only and don&#39;t order messages by it. One API turn can produce several assistant messages that share a `message.id`, each with its own `timestamp`. When the field is absent, fall back to the time you received the message.
+
+`context_usage` is a structured copy of the `/context` report, typed as [`SDKContextUsage`](#sdkcontextusage), and requires Agent SDK v0.3.232 or later. When you send `/context` as a prompt, Claude Code delivers the report as an assistant message whose `message.content` holds the markdown table, and attaches `context_usage` to that same message. Claude Code doesn&#39;t set the field on any other assistant message, and earlier versions deliver the `/context` table without it, so read the breakdown from the field when it&#39;s present and fall back to the markdown text when it isn&#39;t.
 
 ### `SDKUserMessage`
 
@@ -9768,6 +9796,108 @@ type SDKPermissionDenial = {
   tool_input: Record&lt;string, unknown&gt;;
 };
 </code></pre></div></p>
+<h3 id="sdkcontextusage"><code>SDKContextUsage</code></h3>
+<p>Structured form of the <code>/context</code> report, carried as <code>context_usage</code> on the <a href="#sdkassistantmessage"><code>SDKAssistantMessage</code></a> that delivers a <code>/context</code> result. Agent SDK v0.3.232 and later export the type. Unlike <a href="#sdkcontrolgetcontextusageresponse"><code>SDKControlGetContextUsageResponse</code></a>, it carries only the data needed to render the usage breakdown, without display fields such as <code>color</code> and <code>gridRows</code>.</p>
+<p>```typescript theme={null}
+type SDKContextUsage = {
+  model: string;
+  total_tokens: number;
+  raw_max_tokens: number;
+  percentage: number;
+  over_limit?: {
+    tokens_over: number;
+    kind: "hard_limit" | "compaction_window";
+  };
+  categories: SDKContextUsageCategory[];
+  mcp_tools: {
+    name: string;
+    server_name: string;
+    tokens: number;
+  }[];
+  memory_files: {
+    path: string;
+    type: string;
+    tokens: number;
+  }[];
+  agents: {
+    agent_type: string;
+    source: string;
+    tokens: number;
+  }[];
+  skills?: {
+    name: string;
+    source: string;
+    plugin_name?: string;
+    tokens: number;
+  }[];
+};
+<div class="highlight"><pre><span></span><code>The table lists what Claude Code puts in each field. The fields from `model` through `over_limit` describe the session as a whole, and the collection fields attribute tokens to individual items.
+
+| Field            | Type                                                      | Description                                                                                                                                                                                                                                                                                       |
+| ---------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`          | `string`                                                  | The main loop&#39;s model Claude Code computed the usage for, not a subagent&#39;s                                                                                                                                                                                                                        |
+| `total_tokens`   | `number`                                                  | Claude Code&#39;s estimate of the tokens in use. Not clamped to the window, so it can exceed `raw_max_tokens` when the session is over the limit                                                                                                                                                      |
+| `raw_max_tokens` | `number`                                                  | The model&#39;s context window, or the lower [auto-compact window](/docs/en/model-config#context-window-and-auto-compaction) when one applies, such as one you set or the 200K boundary Claude Code applies to some models with a 1M-token window. Claude Code measures `total_tokens` against this window |
+| `percentage`     | `number`                                                  | `total_tokens` as a rounded percentage of `raw_max_tokens`, so it can exceed 100 when the session is over the limit                                                                                                                                                                               |
+| `over_limit`     | `object`                                                  | Present only when `total_tokens` exceeds `raw_max_tokens`. `tokens_over` is the amount over, and `kind` says how Claude Code resolved the window                                                                                                                                                  |
+| `categories`     | [`SDKContextUsageCategory`](#sdkcontextusagecategory)`[]` | One entry per row of the usage-by-category breakdown                                                                                                                                                                                                                                              |
+| `mcp_tools`      | `object[]`                                                | Tokens attributed to each MCP tool, with its wire name, such as `mcp__linear__create_issue`, and its `server_name`                                                                                                                                                                                |
+| `memory_files`   | `object[]`                                                | Tokens attributed to each loaded memory file, with its `path` and a source label such as `Project` or `User` in `type`                                                                                                                                                                            |
+| `agents`         | `object[]`                                                | Tokens attributed to each custom subagent definition, with a source identifier such as `projectSettings`, `userSettings`, or `plugin`. Built-in subagents aren&#39;t listed                                                                                                                           |
+| `skills`         | `object[]`                                                | Tokens attributed to each skill in the skill listing, with a source identifier and, for plugin skills, the plugin&#39;s name in `plugin_name`. Absent when no skills contribute tokens                                                                                                                |
+
+`over_limit.kind` records how Claude Code resolved the window, not whether the API accepts the next request:
+
+* `hard_limit`: the window is what Claude Code believes to be the model&#39;s own limit, past which the API refuses requests
+* `compaction_window`: the window is a compaction-policy window, which may or may not coincide with the model&#39;s limit
+
+Claude Code evolves the type additively, adding new data as optional fields rather than reshaping existing ones. Read the fields you know and ignore any you don&#39;t recognize.
+
+### `SDKContextUsageCategory`
+
+One row of the `/context` usage-by-category breakdown.
+
+```typescript theme={null}
+type SDKContextUsageCategory = {
+  name: string;
+  tokens: number;
+  kind: &quot;used&quot; | &quot;free&quot; | &quot;buffer&quot; | &quot;deferred&quot;;
+};
+</code></pre></div></p>
+<p>The table lists what Claude Code puts in each field of a row.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>The row's display name as <code>/context</code> prints it, such as <code>Messages</code>. Classify rows by <code>kind</code>, not by name</td>
+</tr>
+<tr>
+<td><code>tokens</code></td>
+<td><code>number</code></td>
+<td>The row's token count. Rows can carry zero tokens</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td><code>string</code></td>
+<td>What the row represents: <code>used</code>, <code>free</code>, <code>buffer</code>, or <code>deferred</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each <code>kind</code> value says what the row's tokens are:</p>
+<ul>
+<li><code>used</code>: content that occupies the context window</li>
+<li><code>free</code>: the remaining window</li>
+<li><code>buffer</code>: the compaction reserve</li>
+<li><code>deferred</code>: tool schemas Claude Code holds out of the window and excludes from the usage calculation, listed for awareness</li>
+</ul>
 <h3 id="sdkmessageorigin"><code>SDKMessageOrigin</code></h3>
 <p>Provenance of a user-role message. This appears as <code>origin</code> on <a href="#sdkusermessage"><code>SDKUserMessage</code></a> and is forwarded onto the corresponding <a href="#sdkresultmessage"><code>SDKResultMessage</code></a> so you can tell what triggered a given turn.</p>
 <p>```typescript theme={null}

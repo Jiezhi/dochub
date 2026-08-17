@@ -5892,7 +5892,6 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Microsoft Entra ID</strong>: <code>issuer</code> = <code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code>. Entra emits group Object IDs rather than names, so use the GUIDs in <code>managed.policies.match.groups</code>, or use App Roles for human-readable names. If your tenant emits roles under <code>roles</code> instead of <code>groups</code>, set <code>oidc.groups_claim: roles</code>.</li>
 <li><strong>Google Workspace</strong>: <code>issuer</code> = <code>https://accounts.google.com</code>. Google's id_token doesn't carry groups. To use group-based <code>allowed_groups</code> or <code>managed.policies</code> with Google as the IdP, configure <a href="/docs/en/claude-apps-gateway-config#oidc"><code>oidc.google_groups</code></a>, which looks up each user's groups through the Admin SDK Directory API using a service account with domain-wide delegation. Without it, use <code>oidc.allowed_email_domains</code> for membership gating and <code>managed.policies.match.email_domain</code> for policy assignment. Google also ignores the standard <code>offline_access</code> scope. For refresh tokens, set <code>oidc.scopes: [openid, profile, email]</code> and <code>oidc.extra_auth_params: { access_type: offline, prompt: consent }</code>.</li>
 </ul>
-<p>For support with an identity provider not covered above, see <a href="#troubleshooting">Troubleshooting</a>.</p>
 <p><Warning>
   Refresh tokens let the gateway renew a developer's session silently, without sending the developer back to the browser. They also drive deprovisioning, because when the IdP disables a user, the next refresh fails and the session ends within <code>ttl_hours</code>. The gateway requests <code>offline_access</code> by default to get a refresh token. If your IdP requires explicit consent for offline access, configure the OAuth client to allow it.</p>
 <p>If your IdP can't issue refresh tokens at all, the gateway still works, but there is no silent renewal, so developers re-run the browser login when their session expires. To keep that from happening every hour, raise <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a> to <code>8</code> or <code>12</code>. The tradeoff is deprovisioning latency, because without refresh tokens a disabled user keeps access until the longer TTL elapses.
@@ -5935,10 +5934,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Point the readiness probe at <code>GET /readyz</code> and the liveness probe at <code>GET /healthz</code></li>
 </ul>
 <p>For a complete worked example on AWS, covering ECS Fargate or EKS, Amazon RDS, and AWS Secrets Manager, see <a href="/docs/en/claude-apps-gateway-on-aws">Deploy on AWS</a>.</p>
-<p><Note>
-  <strong>Workload identity</strong></p>
-<p>Prefer the platform's workload identity over static keys: IRSA on EKS for Amazon Bedrock and for Claude Platform on AWS, Workload Identity on GKE for Google Cloud's Agent Platform, and workload identity on AKS for Microsoft Foundry. Set <code>auth: {}</code> in the upstream block, or <code>use_azure_ad: true</code> for Microsoft Foundry, and the gateway picks up the pod's identity through that provider's default credential chain. For a cross-cloud pairing, such as an Amazon Bedrock upstream on GKE, set explicit credentials in the upstream's <code>auth</code> block instead. The <a href="/docs/en/claude-apps-gateway-config#upstreams"><code>upstreams</code> reference</a> has per-platform setup details.
-</Note></p>
+<p>Prefer the platform's workload identity over static keys; the <a href="/docs/en/claude-apps-gateway-config#upstreams"><code>upstreams</code> reference</a> has per-platform setup details. For a cross-cloud pairing, such as an Amazon Bedrock upstream on GKE, set explicit credentials in the upstream's <code>auth</code> block instead.</p>
 <h3 id="cloud-run">Cloud Run</h3>
 <p>Configure the service as follows:</p>
 <ul>
@@ -5947,9 +5943,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Mount the config as a secret volume</li>
 <li>Set <code>min-instances: 1</code> to avoid a cold OIDC discovery on first request</li>
 </ul>
-<p><Note>
-  For a complete worked example on Google Cloud, covering Cloud Run or GKE, Cloud SQL, and Secret Manager, see <a href="/docs/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.
-</Note></p>
+<p>For a complete worked example on Google Cloud, covering Cloud Run or GKE, Cloud SQL, and Secret Manager, see <a href="/docs/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.</p>
 <h3 id="push-the-gateway-url-to-developer-machines">Push the gateway URL to developer machines</h3>
 <p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option. See <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths and the Claude Desktop <code>bootstrapUrl</code> equivalent.</p>
 <h2 id="operations">Operations</h2>
@@ -5968,7 +5962,6 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="health">Health</h3>
 <p>The gateway serves <code>GET /healthz</code> as a liveness probe and <code>GET /readyz</code> as a readiness probe; <code>/readyz</code> verifies the store is reachable. Both are exempt from <code>access_control.allow_cidrs</code>, so probes keep working on a locked-down listener.</p>
 <p>The OAuth discovery document at <code>/.well-known/oauth-authorization-server</code> also returns <code>200</code> only after config load, OIDC discovery, upstream client construction, and Postgres migration all succeed, so it doubles as an end-to-end boot check.</p>
-<p>A running gateway also serves a description of the paths and request shapes it accepts at <code>&lt;public_url&gt;/protocol</code>, matched to the version you're running. The contents aren't stable across releases.</p>
 <h3 id="outage-behavior">Outage behavior</h3>
 <p>If Postgres goes down, the gateway itself keeps serving signed-in developers and new sign-ins fail. Whether developers actually keep working depends on how your orchestrator handles readiness:</p>
 <ul>

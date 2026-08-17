@@ -4627,6 +4627,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#memory-limit-on-linux-and-wsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory limit on Linux and WSL
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5720,6 +5731,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#memory-limit-on-linux-and-wsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory limit on Linux and WSL
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6271,6 +6293,15 @@ Use this file to discover all available pages before exploring further.</p>
 <li>When the timeout triggers the move, the result reports it explicitly: <code>Command did not complete within its 120s timeout and was moved to the background</code>, with the seconds matching the timeout that applied, followed by the task ID and the path of the file the output is being written to.</li>
 <li>A <code>cd</code>, <code>pushd</code>, <code>popd</code>, or <code>chdir</code> inside a command that is moved to the background never carries over: the result states <code>Session cwd remains &lt;dir&gt;; directory changes made by the backgrounded command do not apply to subsequent commands.</code>, so Claude doesn't act on a directory change that didn't happen.</li>
 </ul>
+<h3 id="memory-limit-on-linux-and-wsl">Memory limit on Linux and WSL</h3>
+<p>On Linux and WSL, set <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_TOOL_MEMORY_LIMIT</code></a> to a size such as <code>4G</code> to cap the memory that Bash and PowerShell tool commands can use, so one runaway build can't take the memory the rest of the session needs. Requires Claude Code v2.1.233 or later.</p>
+<ul>
+<li>Write the size as a number of bytes or with a <code>K</code>, <code>M</code>, <code>G</code>, or <code>T</code> suffix. Set <code>0</code>, <code>off</code>, <code>false</code>, <code>no</code>, or <code>none</code> to turn the cap off. Claude Code ignores any other value it can't read as a size, such as <code>4e9</code>.</li>
+<li>Claude Code counts all of a session's Bash and PowerShell commands against the one cap, not each command on its own.</li>
+<li>Claude Code applies the cap with a memory cgroup. When it can't set the cgroup up, commands run without a cap, and the debug log from <code>claude --debug</code> says why.</li>
+<li>After a Bash or PowerShell tool command has turned the cap on, or has turned it off because of an off value or a failed cgroup setup, Claude Code holds that result until you relaunch. To apply a changed or removed value, or a fixed setup, launch <code>claude</code> again.</li>
+<li>When commands can't stay under the cap, the kernel kills a command, and nothing in its result names the cap.</li>
+</ul>
 <h2 id="edit-tool-behavior">Edit tool behavior</h2>
 <p>The Edit tool performs exact string replacement. It takes an <code>old_string</code> and a <code>new_string</code> and replaces the first with the second. It doesn't use regex or fuzzy matching.</p>
 <p>Three checks must pass for an edit to apply. Before any of them, a path matched by a <a href="/docs/en/permissions#tool-specific-permission-rules"><code>Read</code> deny rule</a> is refused, including creating a new file there. The refusal requires Claude Code v2.1.208 or later.</p>
@@ -6496,7 +6527,7 @@ A few behaviors shape the response Claude receives:
 
 * HTTP URLs are automatically upgraded to HTTPS.
 * Large pages are truncated to a fixed character limit before processing.
-* Responses are cached for 15 minutes, so repeated fetches of the same URL return quickly.
+* WebFetch caches each response for 15 minutes by default, so repeated fetches of the same URL return quickly. On Claude Code v2.1.233 or later, set [`CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS`](/docs/en/env-vars#variables) to change how long WebFetch keeps each response.
 * When a URL redirects to a different host, WebFetch returns a text result that names the original URL and the redirect target instead of following it. Claude then fetches the new URL with a second WebFetch call.
 * When the extraction step hits an overloaded API, Claude Code retries it with backoff; a fetch that still fails returns an error result. Before v2.1.212, the API error text could reach Claude as if it were the extracted page content.
 
