@@ -6001,48 +6001,48 @@ Use the first failing check to locate the problem:
 }
 <div class="highlight"><pre><span></span><code>The developer presses Enter to connect. The [first-connect TLS fingerprint prompt](#connect-developers) still appears.
 
-A developer can&#39;t set this up manually. The login picker has no gateway option, and `forceLoginGatewayUrl` is ignored in a developer&#39;s own settings files. `forceLoginMethod` alone, without a URL, leaves the developer at a &quot;Contact your IT administrator&quot; message. The login keys belong in the file you push to machines, not in the gateway&#39;s `managed.policies[].cli` block, which only reaches clients that are already connected.
+A developer can't set this up manually. The login picker has no gateway option, and `forceLoginGatewayUrl` is ignored in a developer's own settings files. `forceLoginMethod` alone, without a URL, leaves the developer at a "Contact your IT administrator" message. The login keys belong in the file you push to machines, not in the gateway's `managed.policies[].cli` block, which only reaches clients that are already connected.
 
 ### Deliver policy to Claude Desktop sessions
 
-Claude Desktop runs embedded Claude Code sessions and passes policy to each one it launches. It builds that policy from the configuration the gateway serves it at `/user/bootstrap`: the model allowlist, disabled tools, and egress allowlist derived from the matched policy&#39;s `cli` block, plus the [`desktop` overlay](/docs/en/claude-apps-gateway-config#claude-desktop-overlay). Other `cli` keys, such as hooks, `env`, and scoped permission rules like `Bash(npm *)`, reach only clients that sign in through `/login`. Claude Desktop is pointed at the gateway through its own managed configuration and signs in with its own flow, separate from the `forceLoginMethod` and `forceLoginGatewayUrl` keys in [Set the gateway URL](#set-the-gateway-url).
+Claude Desktop runs embedded Claude Code sessions and passes policy to each one it launches. It builds that policy from the configuration the gateway serves it at `/user/bootstrap`: the model allowlist, disabled tools, and egress allowlist derived from the matched policy's `cli` block, plus the [`desktop` overlay](/docs/en/claude-apps-gateway-config#claude-desktop-overlay). Other `cli` keys, such as hooks, `env`, and scoped permission rules like `Bash(npm *)`, reach only clients that sign in through `/login`. Claude Desktop is pointed at the gateway through its own managed configuration and signs in with its own flow, separate from the `forceLoginMethod` and `forceLoginGatewayUrl` keys in [Set the gateway URL](#set-the-gateway-url).
 
-Settings passed by a launching process are parent settings. Claude Code ignores parent settings on any machine that has an admin-deployed managed source, unless the highest-priority source sets `parentSettingsBehavior: &quot;merge&quot;`.
+Settings passed by a launching process are parent settings. Claude Code ignores parent settings on any machine that has an admin-deployed managed source, unless the highest-priority source sets `parentSettingsBehavior: "merge"`.
 
 #### Which machines need the opt-in
 
-Machines that only run Claude Desktop need it. Claude Desktop applies the model list and the disabled-tools list to embedded sessions itself, but the egress allowlist reaches them only as parent settings, in the form of `WebFetch` domain rules and sandbox network rules. Without the opt-in, those sessions run without the egress restriction, and nothing warns you. The gateway still rejects inference requests for models the policy doesn&#39;t grant.
+Machines that only run Claude Desktop need it. Claude Desktop applies the model list and the disabled-tools list to embedded sessions itself, but the egress allowlist reaches them only as parent settings, in the form of `WebFetch` domain rules and sandbox network rules. Without the opt-in, those sessions run without the egress restriction, and nothing warns you. The gateway still rejects inference requests for models the policy doesn't grant.
 
-Machines where developers sign in through `/login` don&#39;t need it; every Claude Code invocation fetches its policy from the gateway directly. Fleets that configure a [`policyHelper`](/docs/en/settings#compute-managed-settings-with-a-policy-helper) can&#39;t use it, because the helper&#39;s output replaces every other managed source and parent settings are never merged while a helper is configured.
+Machines where developers sign in through `/login` don't need it; every Claude Code invocation fetches its policy from the gateway directly. Fleets that configure a [`policyHelper`](/docs/en/settings#compute-managed-settings-with-a-policy-helper) can't use it, because the helper's output replaces every other managed source and parent settings are never merged while a helper is configured.
 
 #### Set the opt-in
 
 Deploy the key, mirror it to the source that wins on each machine, then verify.
 
 &lt;Steps&gt;
-  &lt;Step title=&quot;Deploy the opt-in in the managed settings file&quot;&gt;
-    The [snippet above](#set-the-gateway-url) already includes `parentSettingsBehavior: &quot;merge&quot;`, so the file you push to machines carries it.
+  &lt;Step title="Deploy the opt-in in the managed settings file"&gt;
+    The [snippet above](#set-the-gateway-url) already includes `parentSettingsBehavior: "merge"`, so the file you push to machines carries it.
   &lt;/Step&gt;
 
-  &lt;Step title=&quot;Set the same key in any source that outranks the file&quot;&gt;
-    Only the highest-priority admin source&#39;s value counts. A managed-preferences plist on macOS or an HKLM policy on Windows outranks the `managed-settings.json` file, and the gateway&#39;s own remote managed settings outrank both, so on machines that sign in to the gateway, also set the key in the gateway policy&#39;s [`cli` block](/docs/en/claude-apps-gateway-config#managed).
+  &lt;Step title="Set the same key in any source that outranks the file"&gt;
+    Only the highest-priority admin source's value counts. A managed-preferences plist on macOS or an HKLM policy on Windows outranks the `managed-settings.json` file, and the gateway's own remote managed settings outrank both, so on machines that sign in to the gateway, also set the key in the gateway policy's [`cli` block](/docs/en/claude-apps-gateway-config#managed).
   &lt;/Step&gt;
 
-  &lt;Step title=&quot;Check which source won&quot;&gt;
-    Call the Agent SDK&#39;s [`resolveSettings()`](/docs/en/agent-sdk/typescript#resolvesettings). Its result includes a `sources` list; the managed policy entry there carries a `policyOrigin` field naming the active source. `resolveSettings()` doesn&#39;t execute a configured `policyHelper`, so on helper fleets its answer doesn&#39;t reflect the live session.
+  &lt;Step title="Check which source won"&gt;
+    Call the Agent SDK's [`resolveSettings()`](/docs/en/agent-sdk/typescript#resolvesettings). Its result includes a `sources` list; the managed policy entry there carries a `policyOrigin` field naming the active source. `resolveSettings()` doesn't execute a configured `policyHelper`, so on helper fleets its answer doesn't reflect the live session.
   &lt;/Step&gt;
 &lt;/Steps&gt;
 
 ### Restrict parent settings
 
-Once you deploy `parentSettingsBehavior: &quot;merge&quot;`, any host process that launches Claude Code can supply parent settings, not only Claude Desktop but also an Agent SDK application or an IDE extension.
+Once you deploy `parentSettingsBehavior: "merge"`, any host process that launches Claude Code can supply parent settings, not only Claude Desktop but also an Agent SDK application or an IDE extension.
 
-Claude Code filters parent settings against an allowlist of restrictive keys, but some allowed keys can grant access rather than restrict it. Unless you set the `allowManaged*Only` locks, permission allow rules and sandbox allowlists supplied by the host still apply. Your policy&#39;s deny and ask rules stay in force either way; [they&#39;re evaluated before any allow rule](/docs/en/permissions#manage-permissions).
+Claude Code filters parent settings against an allowlist of restrictive keys, but some allowed keys can grant access rather than restrict it. Unless you set the `allowManaged*Only` locks, permission allow rules and sandbox allowlists supplied by the host still apply. Your policy's deny and ask rules stay in force either way; [they're evaluated before any allow rule](/docs/en/permissions#manage-permissions).
 
 Claude Code forwards parent-supplied [`sandbox.credentials`](/docs/en/settings#sandbox-settings) entries in stripped form:
 
 * **`deny` entries**: forwarded with only their `path` or `name` and the mode.
-* **File entries with [`mode: mask`](/docs/en/sandboxing#mask-credential-files)**: forwarded sentinel-only, as a whole-file mask whose `injectHosts` is the empty list, so the proxy never substitutes the real value for a parent-supplied entry on any platform. All structured-masking fields are dropped too, so a parent-supplied extract pattern can&#39;t displace a stricter mask another source sets for the same path.
+* **File entries with [`mode: mask`](/docs/en/sandboxing#mask-credential-files)**: forwarded sentinel-only, as a whole-file mask whose `injectHosts` is the empty list, so the proxy never substitutes the real value for a parent-supplied entry on any platform. All structured-masking fields are dropped too, so a parent-supplied extract pattern can't displace a stricter mask another source sets for the same path.
 * **`envVars` entries with `mode: mask`**: not forwarded. `deny` is the only restriction the parent channel can express through `envVars` entries.
 * **[`awsPairs` and `sigv4`](/docs/en/sandboxing#re-sign-aws-requests)**: forwarded restriction-only. From `sigv4`, only `deny` values are kept, and a parent that defines a `sigv4` block at all pins all three request forms, `streaming`, `presigned`, and `sigv4a`, to `deny`. An `awsPairs` pair is never forwarded in a form that can re-sign; a pair that names one of the conventional AWS variables is replaced by an inert entry that keeps the automatic pairing of `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` suppressed.
 
@@ -6052,22 +6052,22 @@ To keep parent settings as close to restriction-only as the filter supports, add
 
 ```json theme={null}
 {
-  &quot;forceLoginMethod&quot;: &quot;gateway&quot;,
-  &quot;forceLoginGatewayUrl&quot;: &quot;https://claude-gateway.internal.example.com&quot;,
-  &quot;parentSettingsBehavior&quot;: &quot;merge&quot;,
-  &quot;allowManagedPermissionRulesOnly&quot;: true,
-  &quot;allowManagedMcpServersOnly&quot;: true,
-  &quot;allowManagedHooksOnly&quot;: true,
-  &quot;allowedMcpServers&quot;: [{ &quot;serverUrl&quot;: &quot;https://mcp.internal.example.com/*&quot; }],
-  &quot;sandbox&quot;: {
-    &quot;network&quot;: {
-      &quot;allowManagedDomainsOnly&quot;: true,
-      &quot;allowedDomains&quot;: [&quot;github.com&quot;, &quot;*.npmjs.org&quot;]
+  "forceLoginMethod": "gateway",
+  "forceLoginGatewayUrl": "https://claude-gateway.internal.example.com",
+  "parentSettingsBehavior": "merge",
+  "allowManagedPermissionRulesOnly": true,
+  "allowManagedMcpServersOnly": true,
+  "allowManagedHooksOnly": true,
+  "allowedMcpServers": [{ "serverUrl": "https://mcp.internal.example.com/*" }],
+  "sandbox": {
+    "network": {
+      "allowManagedDomainsOnly": true,
+      "allowedDomains": ["github.com", "*.npmjs.org"]
     },
-    &quot;filesystem&quot;: {
-      &quot;allowManagedReadPathsOnly&quot;: true,
-      &quot;denyRead&quot;: [&quot;~/&quot;],
-      &quot;allowRead&quot;: [&quot;~/projects&quot;]
+    "filesystem": {
+      "allowManagedReadPathsOnly": true,
+      "denyRead": ["~/"],
+      "allowRead": ["~/projects"]
     }
   }
 }

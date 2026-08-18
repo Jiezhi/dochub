@@ -6047,7 +6047,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td>Identity (email, groups, sub)</td>
-<td>IdP → gateway → JWT → CLI; the CLI stamps it on OTLP exports</td>
+<td>IdP → gateway → JWT → CLI; the CLI stamps it on OTLP exports. If you turn on <a href="/docs/en/claude-apps-gateway-config#per-user-identity-headers-for-a-proxy-you-run"><code>forward_user_identity</code></a>, the gateway also sends the developer's email and IdP subject as headers to your proxy</td>
 <td>Never</td>
 </tr>
 <tr>
@@ -6217,8 +6217,15 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Gateway's TLS chain is signed by a private CA not in the CLI host's trust store</td>
 <td>Claude Code reads the OS trust store by default on the native binary and on Node 22.15 or later; <a href="/docs/en/network-config#ca-certificate-store"><code>CLAUDE_CODE_CERT_STORE</code></a> controls this behavior. If the CA is installed in the OS trust store, ensure developers are on a current runtime. Otherwise set <code>NODE_EXTRA_CA_CERTS</code> to the CA certificate PEM before launching. The first-connect fingerprint prompt still applies.</td>
 </tr>
+<tr>
+<td>CLI <code>/login</code> completes the browser sign-in, then the session ends with <code>Cloud gateway sign-in was not completed</code> and a TLS certificate mismatch</td>
+<td>On the first request after sign-in, the gateway presented a certificate that doesn't match the fingerprint Claude Code pinned, so Claude Code kept no gateway credential. The usual causes are replicas behind one address that serve different certificates, or something on the network path that intercepts TLS.</td>
+<td>Serve one certificate for the hostname, for example by terminating TLS once at the ingress, then have the developer run <code>/login</code> again. If that certificate differs from the pinned one, Claude Code shows the <a href="/docs/en/claude-apps-gateway#connect-developers">trust prompt</a> again with a warning that the certificate changed.</td>
+</tr>
 </tbody>
 </table>
+<p>The mismatch message includes the gateway hostname and the first 16 characters of each fingerprint, the pinned one and the presented one.</p>
+<p>If Claude Code reports <code>couldn't load your organization's managed settings</code> after a gateway sign-in, Claude Code names the reason, restarts in place, and resumes the conversation. If Claude Code can't restart, for example in a background session, Claude Code ends the session and keeps the sign-in.</p>
 <h2 id="related">Related</h2>
 <ul>
 <li><a href="/docs/en/claude-apps-gateway">Claude apps gateway overview</a>: quickstart and developer connection</li>

@@ -6103,20 +6103,20 @@ Use this file to discover all available pages before exploring further.</p>
 <h4 id="manage-context-with-skills-and-subagents">Manage context with skills and subagents</h4>
 <p>Beyond compaction, you can use other features to control what loads into context.</p>
 <p><a href="/docs/en/skills">Skills</a> load on demand. Claude sees skill descriptions at session start, but the full content only loads when a skill is used. For skills you invoke manually, set <code>disable-model-invocation: true</code> to keep descriptions out of context until you need them. For skills you didn't write, use <a href="/docs/en/skills#override-skill-visibility-from-settings"><code>skillOverrides</code></a> to do the same from settings.</p>
-<p><a href="/docs/en/sub-agents">Subagents</a> get their own fresh context, completely separate from your main conversation. Their work doesn't bloat your context. When done, they return a summary. This isolation is why subagents help with long sessions.</p>
+<p><a href="/docs/en/sub-agents">Subagents</a> work in their own context window. A subagent starts fresh unless it's a <a href="/docs/en/sub-agents#fork-the-current-conversation">fork</a>, which starts with a copy of your conversation so far. Either way, the subagent's tool calls stay out of your context, and Claude gets back a summary when the subagent finishes.</p>
 <p>See <a href="/docs/en/features-overview#understand-context-costs">context costs</a> for what each feature costs, and <a href="/docs/en/costs#reduce-token-usage">reduce token usage</a> for tips on managing context.</p>
 <h2 id="stay-safe-with-checkpoints-and-permissions">Stay safe with checkpoints and permissions</h2>
 <p>Claude has two safety mechanisms: checkpoints let you undo file changes, and permissions control what Claude can do without asking.</p>
 <h3 id="undo-changes-with-checkpoints">Undo changes with checkpoints</h3>
 <p><strong>File edits are reversible.</strong> Before Claude edits a file, it snapshots the current contents. If something goes wrong, press <code>Esc</code> twice to rewind to a previous state, or ask Claude to undo.</p>
-<p>Checkpoints are separate from git and remain available when you resume a conversation. They only cover file changes, and a restore <a href="/docs/en/checkpointing#symlinked-and-hard-linked-paths-not-restored">skips symlinked and hard-linked files</a>. Actions that affect remote systems (databases, APIs, deployments) can't be checkpointed, which is why Claude asks before running commands with external side effects.</p>
+<p>Checkpoints are separate from git and remain available when you resume a conversation. They only cover file changes, and a restore <a href="/docs/en/checkpointing#symlinked-and-hard-linked-paths-not-restored">skips symlinked and hard-linked files</a>. Actions that affect remote systems (databases, APIs, deployments) can't be checkpointed. You control those with your permission mode and permission rules.</p>
 <h3 id="control-what-claude-can-do">Control what Claude can do</h3>
-<p>Press <code>Shift+Tab</code> to cycle through permission modes:</p>
+<p>Choose a permission mode to set what Claude can do without asking you. Press <code>Shift+Tab</code> to cycle through the permission modes:</p>
 <ul>
+<li><strong>Auto</strong>: a classifier reviews most actions in the background and blocks the risky ones instead of asking you. On Pro, Max, and Team plans, it's the <a href="/docs/en/permission-modes#which-mode-a-session-starts-in">built-in starting permission mode</a> for interactive terminal and VS Code sessions</li>
 <li><strong>Manual</strong>: Claude asks before file edits and shell commands</li>
 <li><strong>Accept edits</strong>: Claude edits files and runs common filesystem commands like <code>mkdir</code> and <code>mv</code> without asking, still asks for other commands</li>
 <li><strong>Plan</strong>: Claude explores and proposes a plan without editing your source files</li>
-<li><strong>Auto</strong>: Claude evaluates all actions with background safety checks</li>
 </ul>
 <p>You can also allow specific commands in <code>.claude/settings.json</code> so Claude doesn't ask each time. This is useful for trusted commands like <code>npm test</code> or <code>git status</code>. Settings can be scoped from organization-wide policies down to personal preferences. See <a href="/docs/en/permissions">Permissions</a> for details.</p>
 <hr />
@@ -6136,14 +6136,14 @@ Fix the login bug
 <div class="highlight"><pre><span></span><code>\[Claude investigates, tries something]
 
 ```text theme={null}
-That&#39;s not quite right. The issue is in the session handling.
+That's not quite right. The issue is in the session handling.
 </code></pre></div></p>
 <p>[Claude adjusts approach]</p>
 <p>When the first attempt isn't right, you don't start over. You iterate.</p>
 <h4 id="interrupt-and-steer">Interrupt and steer</h4>
 <p>You can redirect Claude at any point without waiting for the turn to finish or starting over:</p>
 <ul>
-<li><strong>Press <code>Esc</code></strong> to stop Claude immediately. The running tool call is canceled and Claude waits for your next instruction.</li>
+<li><strong>Press <code>Esc</code></strong> to stop Claude immediately. The running tool call is canceled and Claude waits for your next instruction. If you have messages queued, Claude Code <a href="/docs/en/interactive-mode#queue-messages-while-claude-works">sends them next</a>.</li>
 <li><strong>Type a correction and press <code>Enter</code></strong> to send it without stopping the running tool. Claude reads it as soon as the current action completes and adjusts before deciding its next step.</li>
 </ul>
 <h3 id="be-specific-upfront">Be specific upfront</h3>
@@ -6152,25 +6152,25 @@ That&#39;s not quite right. The issue is in the session handling.
 The checkout flow is broken for users with expired cards.
 Check src/payments/ for the issue, especially token refresh.
 Write a failing test first, then fix it.
-<div class="highlight"><pre><span></span><code>Vague prompts work, but you&#39;ll spend more time steering. Specific prompts like the one above often succeed on the first attempt.
+<div class="highlight"><pre><span></span><code>Vague prompts work, but you'll spend more time steering. Specific prompts like the one above often succeed on the first attempt.
 
 ### Give Claude something to verify against
 
 Claude performs better when it can check its own work. Include test cases, paste screenshots of expected UI, or define the output you want.
 
 ```text theme={null}
-Implement validateEmail. Test cases: &#39;user@example.com&#39; → true,
-&#39;invalid&#39; → false, &#39;user@.com&#39; → false. Run the tests after.
+Implement validateEmail. Test cases: 'user@example.com' → true,
+'invalid' → false, 'user@.com' → false. Run the tests after.
 </code></pre></div></p>
 <p>For visual work, paste a screenshot of the design and ask Claude to compare its implementation against it.</p>
 <h3 id="explore-before-implementing">Explore before implementing</h3>
-<p>For complex problems, separate research from coding. Use plan mode (<code>Shift+Tab</code> twice) to analyze the codebase first:</p>
+<p>For complex problems, separate research from coding. Press <code>Shift+Tab</code> until the status bar shows <code>⏸ plan mode on</code>, then ask Claude to analyze the codebase first:</p>
 <p>```text theme={null}
 Read src/auth/ and understand how we handle sessions.
 Then create a plan for adding OAuth support.
 <div class="highlight"><pre><span></span><code>Review the plan, refine it through conversation, then let Claude implement. This two-phase approach produces better results than jumping straight to code.
 
-### Delegate, don&#39;t dictate
+### Delegate, don't dictate
 
 Think of delegating to a capable colleague. Give context and direction, then trust Claude to figure out the details:
 

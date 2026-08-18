@@ -15752,11 +15752,11 @@
 <p>The core idea: instead of telling the SDK what your tools look like and then separately implementing them, you write ordinary Python functions and let FastMCP derive the protocol layer from your code. Type hints become JSON Schema. Docstrings become descriptions. Return values are serialized automatically. The plumbing you wrote to satisfy the protocol just disappears.</p>
 <h2 id="the-sdk-v2-transition">The SDK v2 Transition</h2>
 <p>MCP SDK v2 is a substantial, deliberate modernization of the protocol layer. Protocol types moved into a standalone <code>mcp_types</code> package, wire fields moved from camelCase to snake_case, and the low-level <code>Server</code> was rebuilt so handlers are passed to the constructor as <code>on_*</code> callables taking <code>(ctx, params)</code> rather than registered with decorators. A v1 server meets that change the moment its environment resolves <code>mcp</code> to v2:</p>
-<div class="highlight"><pre><span></span><code>AttributeError: &#39;Server&#39; object has no attribute &#39;list_tools&#39;
+<div class="highlight"><pre><span></span><code>AttributeError: 'Server' object has no attribute 'list_tools'
 </code></pre></div>
 <p>Often nobody chose that moment. An unpinned <code>mcp</code> dependency, a fresh lockfile, or a rebuilt container picks up the new major version. Nothing is wrong with your code, and nothing is wrong with the SDK — major versions are exactly where a change like this belongs. Your build just crossed it earlier than you planned to.</p>
 <p>Pinning the SDK back restores the decorator API immediately, with no code changes, and buys you time to choose deliberately:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;mcp&lt;2&quot;</span>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mcp&lt;2"</span>
 </code></pre></div>
 <h2 id="two-upgrade-paths">Two Upgrade Paths</h2>
 <p>Both directions are reasonable, and the choice is about which code you'd rather maintain.</p>
@@ -15799,7 +15799,7 @@ You are rewriting an MCP server built on v1 of the <code>mcp</code> package's lo
 </Prompt></p>
 <h2 id="install">Install</h2>
 <p>FastMCP 4 is in prerelease, so pin the exact version rather than installing unqualified — a bare <code>pip install fastmcp</code> resolves to the latest <em>stable</em> release, which today is FastMCP 3:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;fastmcp==4.0.0b3&quot;</span>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"fastmcp==4.0.0b3"</span>
 </code></pre></div>
 <p>An exact pip pin installs even though it's a prerelease; it does not need <code>--pre</code>. uv also needs an explicit constraint for the transitive <code>fastmcp-slim</code> prerelease, so follow <a href="/getting-started/upgrading/from-fastmcp-3#install-the-v4-prerelease">Install the v4 Prerelease</a> for a reproducible uv setup.</p>
 <p>FastMCP depends on the <code>mcp</code> package, so the SDK stays installed. FastMCP 4 builds on SDK v2, where the protocol types live in a standalone <code>mcp_types</code> package that stays importable as <code>mcp.types</code>. Most of your <code>mcp.types</code> imports disappear entirely in the rewrite below, since FastMCP derives the protocol types from your function signatures.</p>
@@ -15823,21 +15823,21 @@ from mcp.server.stdio import stdio_server</p>
 <div class="highlight"><pre><span></span><code>```python After
 from fastmcp import FastMCP
 
-mcp = FastMCP(&quot;my-server&quot;)
+mcp = FastMCP("my-server")
 
 # ... register tools, resources, prompts ...
 
-if __name__ == &quot;__main__&quot;:
+if __name__ == "__main__":
     mcp.run()
 </code></pre></div></p>
 <p></CodeGroup></p>
 <p>Need HTTP instead of stdio? With the <code>Server</code> class, you'd wire up Starlette routes and <code>SseServerTransport</code> or <code>StreamableHTTPSessionManager</code>. With FastMCP:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 
-<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;my-server&quot;</span><span class="p">)</span>
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"my-server"</span><span class="p">)</span>
 
-<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">mcp</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">&quot;0.0.0.0&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">mcp</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s2">"http"</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">"0.0.0.0"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="tools">Tools</h2>
 <p>This is where the difference is most dramatic. The <code>Server</code> class requires two handlers — one to describe your tools (with hand-written JSON Schema) and another to dispatch calls by name. FastMCP eliminates both by deriving everything from your function signature.</p>
@@ -15888,16 +15888,16 @@ async def call_tool(
 <div class="highlight"><pre><span></span><code>```python After
 from fastmcp import FastMCP
 
-mcp = FastMCP(&quot;math&quot;)
+mcp = FastMCP("math")
 
 @mcp.tool
 def add(a: float, b: float) -&gt; float:
-    &quot;&quot;&quot;Add two numbers&quot;&quot;&quot;
+    """Add two numbers"""
     return a + b
 
 @mcp.tool
 def multiply(a: float, b: float) -&gt; float:
-    &quot;&quot;&quot;Multiply two numbers&quot;&quot;&quot;
+    """Multiply two numbers"""
     return a * b
 </code></pre></div></p>
 <p></CodeGroup></p>
@@ -15948,13 +15948,13 @@ def multiply(a: float, b: float) -&gt; float:
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.utilities.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
 
-<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;media&quot;</span><span class="p">)</span>
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"media"</span><span class="p">)</span>
 
 <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">create_chart</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Image</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a chart from data.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Generate a chart from data."""</span>
     <span class="n">png_bytes</span> <span class="o">=</span> <span class="n">generate_chart</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># your logic</span>
-    <span class="k">return</span> <span class="n">Image</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">png_bytes</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;png&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Image</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">png_bytes</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"png"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="resources">Resources</h2>
 <p>The <code>Server</code> class uses three handlers for resources: <code>list_resources()</code> to enumerate them, <code>list_resource_templates()</code> for URI templates, and <code>read_resource()</code> to serve content — all with manual routing by URI. FastMCP replaces all three with per-resource decorators.</p>
@@ -16013,27 +16013,27 @@ async def read_resource(uri: AnyUrl) -&gt; str:
 import json
 from fastmcp import FastMCP
 
-mcp = FastMCP(&quot;data&quot;)
+mcp = FastMCP("data")
 
-@mcp.resource(&quot;config://app&quot;, mime_type=&quot;application/json&quot;)
+@mcp.resource("config://app", mime_type="application/json")
 def app_config() -&gt; str:
-    &quot;&quot;&quot;Application configuration&quot;&quot;&quot;
-    return json.dumps({&quot;debug&quot;: False, &quot;version&quot;: &quot;1.0&quot;})
+    """Application configuration"""
+    return json.dumps({"debug": False, "version": "1.0"})
 
-@mcp.resource(&quot;config://features&quot;, mime_type=&quot;application/json&quot;)
+@mcp.resource("config://features", mime_type="application/json")
 def feature_flags() -&gt; str:
-    &quot;&quot;&quot;Active feature flags&quot;&quot;&quot;
-    return json.dumps({&quot;dark_mode&quot;: True, &quot;beta&quot;: False})
+    """Active feature flags"""
+    return json.dumps({"dark_mode": True, "beta": False})
 
-@mcp.resource(&quot;users://{user_id}/profile&quot;)
+@mcp.resource("users://{user_id}/profile")
 def user_profile(user_id: str) -&gt; str:
-    &quot;&quot;&quot;User profile by ID&quot;&quot;&quot;
-    return json.dumps({&quot;id&quot;: user_id, &quot;name&quot;: f&quot;User {user_id}&quot;})
+    """User profile by ID"""
+    return json.dumps({"id": user_id, "name": f"User {user_id}"})
 
-@mcp.resource(&quot;projects://{project_id}/status&quot;)
+@mcp.resource("projects://{project_id}/status")
 def project_status(project_id: str) -&gt; str:
-    &quot;&quot;&quot;Project status by ID&quot;&quot;&quot;
-    return json.dumps({&quot;id&quot;: project_id, &quot;status&quot;: &quot;active&quot;})
+    """Project status by ID"""
+    return json.dumps({"id": project_id, "status": "active"})
 </code></pre></div></p>
 <p></CodeGroup></p>
 <p>Static resources and URI templates use the same <code>@mcp.resource</code> decorator — FastMCP detects <code>{placeholders}</code> in the URI and automatically registers a template. The function parameter <code>user_id</code> maps directly to the <code>{user_id}</code> placeholder.</p>
@@ -16088,27 +16088,27 @@ async def get_prompt(
 <div class="highlight"><pre><span></span><code>```python After
 from fastmcp import FastMCP
 
-mcp = FastMCP(&quot;prompts&quot;)
+mcp = FastMCP("prompts")
 
 @mcp.prompt
 def review_code(code: str, language: str | None = None) -&gt; str:
-    &quot;&quot;&quot;Review code for issues&quot;&quot;&quot;
-    lang_note = f&quot; (written in {language})&quot; if language else &quot;&quot;
-    return f&quot;Please review this code{lang_note}:\n\n{code}&quot;
+    """Review code for issues"""
+    lang_note = f" (written in {language})" if language else ""
+    return f"Please review this code{lang_note}:\n\n{code}"
 </code></pre></div></p>
 <p></CodeGroup></p>
 <p>Returning a <code>str</code> from a prompt function automatically wraps it as a user message. For multi-turn prompts, return a <code>list[Message]</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">Message</span>
 
-<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;prompts&quot;</span><span class="p">)</span>
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"prompts"</span><span class="p">)</span>
 
 <span class="nd">@mcp</span><span class="o">.</span><span class="n">prompt</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">debug_session</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Message</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start a debugging conversation&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Start a debugging conversation"""</span>
     <span class="k">return</span> <span class="p">[</span>
-        <span class="n">Message</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;I&#39;m seeing this error:</span><span class="se">\n\n</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>
-        <span class="n">Message</span><span class="p">(</span><span class="s2">&quot;I&#39;ll help you debug that. Can you share the relevant code?&quot;</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="s2">&quot;assistant&quot;</span><span class="p">),</span>
+        <span class="n">Message</span><span class="p">(</span><span class="sa">f</span><span class="s2">"I'm seeing this error:</span><span class="se">\n\n</span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+        <span class="n">Message</span><span class="p">(</span><span class="s2">"I'll help you debug that. Can you share the relevant code?"</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">),</span>
     <span class="p">]</span>
 </code></pre></div>
 <h2 id="request-context">Request Context</h2>
@@ -16133,15 +16133,15 @@ async def call_tool(name: str, arguments: dict):
 <div class="highlight"><pre><span></span><code>```python After
 from fastmcp import FastMCP, Context
 
-mcp = FastMCP(&quot;worker&quot;)
+mcp = FastMCP("worker")
 
 @mcp.tool
 async def process_data(ctx: Context) -&gt; str:
-    &quot;&quot;&quot;Process data with progress logging&quot;&quot;&quot;
-    await ctx.info(&quot;Starting processing...&quot;)
+    """Process data with progress logging"""
+    await ctx.info("Starting processing...")
     # ... do work ...
-    await ctx.info(&quot;Done!&quot;)
-    return &quot;Processed&quot;
+    await ctx.info("Done!")
+    return "Processed"
 </code></pre></div></p>
 <p></CodeGroup></p>
 <p>The <code>Context</code> object provides logging (<code>ctx.debug()</code>, <code>ctx.info()</code>, <code>ctx.warning()</code>, <code>ctx.error()</code>), progress reporting (<code>ctx.report_progress()</code>), resource subscriptions, session state, and more. See <a href="/servers/context">Context</a> for the full API.</p>
@@ -16162,7 +16162,7 @@ A full server upgrade, showing how all the pieces fit together:
 
 &lt;CodeGroup&gt;
 
-```python Before expandable test=&quot;skip&quot;
+```python Before expandable test="skip"
 import asyncio
 import json
 import mcp.types as types
@@ -16170,54 +16170,54 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from pydantic import AnyUrl
 
-server = Server(&quot;demo&quot;)
+server = Server("demo")
 
 @server.list_tools()
 async def list_tools() -&gt; list[types.Tool]:
     return [
         types.Tool(
-            name=&quot;greet&quot;,
-            description=&quot;Greet someone by name&quot;,
+            name="greet",
+            description="Greet someone by name",
             inputSchema={
-                &quot;type&quot;: &quot;object&quot;,
-                &quot;properties&quot;: {
-                    &quot;name&quot;: {&quot;type&quot;: &quot;string&quot;},
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
                 },
-                &quot;required&quot;: [&quot;name&quot;],
+                "required": ["name"],
             },
         )
     ]
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -&gt; list[types.TextContent]:
-    if name == &quot;greet&quot;:
-        return [types.TextContent(type=&quot;text&quot;, text=f&quot;Hello, {arguments[&#39;name&#39;]}!&quot;)]
-    raise ValueError(f&quot;Unknown tool: {name}&quot;)
+    if name == "greet":
+        return [types.TextContent(type="text", text=f"Hello, {arguments['name']}!")]
+    raise ValueError(f"Unknown tool: {name}")
 
 @server.list_resources()
 async def list_resources() -&gt; list[types.Resource]:
     return [
         types.Resource(
-            uri=AnyUrl(&quot;info://version&quot;),
-            name=&quot;version&quot;,
-            description=&quot;Server version&quot;,
+            uri=AnyUrl("info://version"),
+            name="version",
+            description="Server version",
         )
     ]
 
 @server.read_resource()
 async def read_resource(uri: AnyUrl) -&gt; str:
-    if str(uri) == &quot;info://version&quot;:
-        return json.dumps({&quot;version&quot;: &quot;1.0.0&quot;})
-    raise ValueError(f&quot;Unknown resource: {uri}&quot;)
+    if str(uri) == "info://version":
+        return json.dumps({"version": "1.0.0"})
+    raise ValueError(f"Unknown resource: {uri}")
 
 @server.list_prompts()
 async def list_prompts() -&gt; list[types.Prompt]:
     return [
         types.Prompt(
-            name=&quot;summarize&quot;,
-            description=&quot;Summarize text&quot;,
+            name="summarize",
+            description="Summarize text",
             arguments=[
-                types.PromptArgument(name=&quot;text&quot;, required=True)
+                types.PromptArgument(name="text", required=True)
             ],
         )
     ]
@@ -16226,20 +16226,20 @@ async def list_prompts() -&gt; list[types.Prompt]:
 async def get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -&gt; types.GetPromptResult:
-    if name == &quot;summarize&quot;:
+    if name == "summarize":
         return types.GetPromptResult(
-            description=&quot;Summarize text&quot;,
+            description="Summarize text",
             messages=[
                 types.PromptMessage(
-                    role=&quot;user&quot;,
+                    role="user",
                     content=types.TextContent(
-                        type=&quot;text&quot;,
-                        text=f&quot;Summarize:\n\n{(arguments or {}).get(&#39;text&#39;, &#39;&#39;)}&quot;,
+                        type="text",
+                        text=f"Summarize:\n\n{(arguments or {}).get('text', '')}",
                     ),
                 )
             ],
         )
-    raise ValueError(f&quot;Unknown prompt: {name}&quot;)
+    raise ValueError(f"Unknown prompt: {name}")
 
 async def main():
     async with stdio_server() as (read_stream, write_stream):

@@ -16076,7 +16076,7 @@ mcp.run(transport="http", host="0.0.0.0", port=8080)
 
 The default OAuth client storage has moved from `DiskStore` to `FileTreeStore` to address a pickle deserialization vulnerability in diskcache ([CVE-2025-69872](https://github.com/PrefectHQ/fastmcp/issues/3166)).
 
-If you were using the default storage (i.e., not passing an explicit `client_storage`), clients will need to re-register on their first connection after upgrading. This happens automatically — no user action required, and it&#39;s the same flow that already occurs whenever a server restarts with in-memory storage.
+If you were using the default storage (i.e., not passing an explicit `client_storage`), clients will need to re-register on their first connection after upgrading. This happens automatically — no user action required, and it's the same flow that already occurs whenever a server restarts with in-memory storage.
 
 If you were passing a `DiskStore` explicitly, you can either [switch to `FileTreeStore`](/servers/storage-backends) (recommended) or keep using `DiskStore` by adding the dependency yourself.
 
@@ -16085,20 +16085,20 @@ When switching to `FileTreeStore`, you **must** configure key and collection san
 &lt;/Warning&gt;
 
 &lt;Warning&gt;
-Keeping `DiskStore` requires `pip install &#39;py-key-value-aio[disk]&#39;`, which re-introduces the vulnerable `diskcache` package into your dependency tree.
+Keeping `DiskStore` requires `pip install 'py-key-value-aio[disk]'`, which re-introduces the vulnerable `diskcache` package into your dependency tree.
 &lt;/Warning&gt;
 
 **Component enable()/disable() moved to server**
 
 In v2, you could enable or disable individual components by calling methods on the component object itself. In v3, visibility is controlled through the server (or provider), which lets you target components by name, tag, or type without needing a reference to the object:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Before
-tool = await server.get_tool(&quot;my_tool&quot;)
+tool = await server.get_tool("my_tool")
 tool.disable()
 
 # After
-server.disable(names={&quot;my_tool&quot;}, components={&quot;tool&quot;})
+server.disable(names={"my_tool"}, components={"tool"})
 </code></pre></div></p>
 <p>Calling <code>.enable()</code> or <code>.disable()</code> on a component object now raises <code>NotImplementedError</code>. See <a href="/servers/visibility">Visibility</a> for the full API, including tag-based filtering and per-session visibility.</p>
 <p><strong>Listing methods renamed and return lists</strong></p>
@@ -16112,22 +16112,22 @@ tool = tools["my_tool"]</p>
 tool = next((t for t in tools if t.name == "my_tool"), None)
 <div class="highlight"><pre><span></span><code>**Prompts use Message class**
 
-Prompt functions now use FastMCP&#39;s `Message` class instead of `mcp.types.PromptMessage`. The new class is simpler — it accepts a plain string and defaults to `role=&quot;user&quot;`, so most prompts become one-liners:
+Prompt functions now use FastMCP's `Message` class instead of `mcp.types.PromptMessage`. The new class is simpler — it accepts a plain string and defaults to `role="user"`, so most prompts become one-liners:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Before
 from mcp.types import PromptMessage, TextContent
 
 @mcp.prompt
 def my_prompt() -&gt; PromptMessage:
-    return PromptMessage(role=&quot;user&quot;, content=TextContent(type=&quot;text&quot;, text=&quot;Hello&quot;))
+    return PromptMessage(role="user", content=TextContent(type="text", text="Hello"))
 
 # After
 from fastmcp.prompts import Message
 
 @mcp.prompt
 def my_prompt() -&gt; Message:
-    return Message(&quot;Hello&quot;)
+    return Message("Hello")
 </code></pre></div></p>
 <p>If your prompt functions return raw dicts with <code>role</code> and <code>content</code> keys, those also need to change. v2 silently coerced dicts into prompt messages, but v3 requires typed <code>Message</code> objects (or plain strings for single user messages):</p>
 <p>```python test="skip"</p>
@@ -16150,30 +16150,30 @@ def my_prompt() -&gt; list[Message]:
 
 `ctx.set_state()` and `ctx.get_state()` are now async because state in v3 is session-scoped and backed by a pluggable storage backend (rather than a simple dict). This means state persists across multiple tool calls within the same session:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Before
-ctx.set_state(&quot;key&quot;, &quot;value&quot;)
-value = ctx.get_state(&quot;key&quot;)
+ctx.set_state("key", "value")
+value = ctx.get_state("key")
 
 # After
-await ctx.set_state(&quot;key&quot;, &quot;value&quot;)
-value = await ctx.get_state(&quot;key&quot;)
+await ctx.set_state("key", "value")
+value = await ctx.get_state("key")
 </code></pre></div></p>
 <p>State values must also be JSON-serializable by default (dicts, lists, strings, numbers, etc.). If you need to store non-serializable values like an HTTP client, pass <code>serializable=False</code> — these values are request-scoped and only available during the current tool call:</p>
 <p>```python test="skip"
 await ctx.set_state("client", my_http_client, serializable=False)
 <div class="highlight"><pre><span></span><code>**Mounted servers have isolated state stores**
 
-Each `FastMCP` instance has its own state store. In v2 this wasn&#39;t noticeable because mounted tools ran in the parent&#39;s context, but in v3&#39;s provider architecture each server is isolated. Non-serializable state (`serializable=False`) is request-scoped and automatically shared across mount boundaries. For serializable state, pass the same `session_state_store` to both servers:
+Each `FastMCP` instance has its own state store. In v2 this wasn't noticeable because mounted tools ran in the parent's context, but in v3's provider architecture each server is isolated. Non-serializable state (`serializable=False`) is request-scoped and automatically shared across mount boundaries. For serializable state, pass the same `session_state_store` to both servers:
 
 ```python
 from fastmcp import FastMCP
 from key_value.aio.stores.memory import MemoryStore
 
 store = MemoryStore()
-parent = FastMCP(&quot;Parent&quot;, session_state_store=store)
-child = FastMCP(&quot;Child&quot;, session_state_store=store)
-parent.mount(child, namespace=&quot;child&quot;)
+parent = FastMCP("Parent", session_state_store=store)
+child = FastMCP("Child", session_state_store=store)
+parent.mount(child, namespace="child")
 </code></pre></div></p>
 <p><strong>Auth provider environment variables removed</strong></p>
 <p>In v2, auth providers like <code>GitHubProvider</code> could auto-load configuration from environment variables with a <code>FASTMCP_SERVER_AUTH_*</code> prefix. This magic has been removed — pass values explicitly:</p>
@@ -16192,14 +16192,14 @@ from fastmcp.server.auth.providers.github import GitHubProvider</p>
 
 The deprecated WebSocket client transport has been removed. Use `StreamableHttpTransport` instead:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Before
 from fastmcp.client.transports import WSTransport
-transport = WSTransport(&quot;ws://localhost:8000/ws&quot;)
+transport = WSTransport("ws://localhost:8000/ws")
 
 # After
 from fastmcp.client.transports import StreamableHttpTransport
-transport = StreamableHttpTransport(&quot;http://localhost:8000/mcp&quot;)
+transport = StreamableHttpTransport("http://localhost:8000/mcp")
 </code></pre></div></p>
 <p><strong>OpenAPI <code>timeout</code> parameter removed</strong></p>
 <p><code>OpenAPIProvider</code> no longer accepts a <code>timeout</code> parameter. Configure timeout on the httpx2 client directly. The <code>client</code> parameter is also now optional — when omitted, a default client is created from the spec's <code>servers</code> URL with a 30-second timeout:</p>
@@ -16213,12 +16213,12 @@ provider = OpenAPIProvider(spec, client)
 
 The FastMCP metadata key in component `meta` dicts changed from `_fastmcp` to `fastmcp`. If you read metadata from tool or resource objects, update the key:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Before
-tags = tool.meta.get(&quot;_fastmcp&quot;, {}).get(&quot;tags&quot;, [])
+tags = tool.meta.get("_fastmcp", {}).get("tags", [])
 
 # After
-tags = tool.meta.get(&quot;fastmcp&quot;, {}).get(&quot;tags&quot;, [])
+tags = tool.meta.get("fastmcp", {}).get("tags", [])
 </code></pre></div></p>
 <p>Metadata is now always included — the <code>include_fastmcp_meta</code> parameter has been removed from <code>FastMCP()</code> and <code>to_mcp_tool()</code>, so there is no way to suppress it.</p>
 <p><strong>Server banner environment variable renamed</strong></p>
@@ -16234,10 +16234,10 @@ def greet(name: str) -&gt; str:
 
 **Background tasks require optional dependency**
 
-FastMCP&#39;s background task system is now behind an optional extra. If your server uses background tasks, install with:
+FastMCP's background task system is now behind an optional extra. If your server uses background tasks, install with:
 
 ```bash
-pip install &quot;fastmcp[tasks]&quot;
+pip install "fastmcp[tasks]"
 </code></pre></div></p>
 <p>Without the extra, configuring a tool with <code>task=True</code> or <code>TaskConfig</code> will raise an import error at runtime. See <a href="/servers/tasks">Background Tasks</a> for details.</p>
 <h3 id="deprecated-features">Deprecated Features</h3>
@@ -16250,7 +16250,7 @@ pip install &quot;fastmcp[tasks]&quot;
 <p>main.mount(subserver, namespace="api")
 <div class="highlight"><pre><span></span><code>**import_server() → mount()** (Removed in v4)
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Removed in v4
 main.import_server(subserver)
 
@@ -16268,7 +16268,7 @@ from fastmcp.server.openapi import FastMCPOpenAPI</p>
 from fastmcp.server.providers.openapi import OpenAPIProvider
 <div class="highlight"><pre><span></span><code>`FastMCPOpenAPI` was **removed in 4.0** — use `FastMCP` with an `OpenAPIProvider` instead:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Removed in 4.0
 from fastmcp.server.openapi import FastMCPOpenAPI
 server = FastMCPOpenAPI(spec, client)
@@ -16276,7 +16276,7 @@ server = FastMCPOpenAPI(spec, client)
 # New
 from fastmcp import FastMCP
 from fastmcp.server.providers.openapi import OpenAPIProvider
-server = FastMCP(&quot;my_api&quot;, providers=[OpenAPIProvider(spec, client)])
+server = FastMCP("my_api", providers=[OpenAPIProvider(spec, client)])
 </code></pre></div></p>
 <p><strong>add_tool_transformation() → add_transform()</strong> (Removed in v4)</p>
 <p>```python test="skip"</p>
@@ -16289,15 +16289,15 @@ mcp.add_transform(ToolTransform({"name": config}))
 
 The proxy target is passed positionally in both APIs, so most calls migrate unchanged. If you passed the target by keyword, note that the parameter was renamed from `backend=` to `target=`.
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Removed in v4
-proxy = FastMCP.as_proxy(&quot;http://example.com/mcp&quot;)
-proxy = FastMCP.as_proxy(backend=&quot;http://example.com/mcp&quot;)  # keyword form
+proxy = FastMCP.as_proxy("http://example.com/mcp")
+proxy = FastMCP.as_proxy(backend="http://example.com/mcp")  # keyword form
 
 # New
 from fastmcp.server import create_proxy
-proxy = create_proxy(&quot;http://example.com/mcp&quot;)
-proxy = create_proxy(target=&quot;http://example.com/mcp&quot;)  # as_proxy(backend=X) → create_proxy(target=X)
+proxy = create_proxy("http://example.com/mcp")
+proxy = create_proxy(target="http://example.com/mcp")  # as_proxy(backend=X) → create_proxy(target=X)
 </code></pre></div></p>
 <h2 id="v2140">v2.14.0</h2>
 <h3 id="openapi-parser-promotion">OpenAPI Parser Promotion</h3>
@@ -16322,7 +16322,7 @@ A batch of long-deprecated surfaces came out in 2.14. Each fails loudly at impor
 | `FastMCPProxy(client=...)` | `client_factory=lambda: ...` |
 | `output_schema=False` | `output_schema=None` |
 
-Two of these are worth understanding rather than just swapping. `FastMCPProxy` takes a factory instead of a client because a single shared client cannot serve concurrent proxied sessions safely — the factory gives each session its own backend connection. And `output_schema=False` became `output_schema=None` because `False` read as &quot;this tool has a schema, and it is false&quot;; `None` says plainly that there is no schema.
+Two of these are worth understanding rather than just swapping. `FastMCPProxy` takes a factory instead of a client because a single shared client cannot serve concurrent proxied sessions safely — the factory gives each session its own backend connection. And `output_schema=False` became `output_schema=None` because `False` read as "this tool has a schema, and it is false"; `None` says plainly that there is no schema.
 
 ## v2.13.0
 
@@ -16330,13 +16330,13 @@ Two of these are worth understanding rather than just swapping. `FastMCPProxy` t
 
 The OAuth proxy now issues its own JWT tokens. For production, provide explicit keys:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 auth = GitHubProvider(
-    client_id=os.environ[&quot;GITHUB_CLIENT_ID&quot;],
-    client_secret=os.environ[&quot;GITHUB_CLIENT_SECRET&quot;],
-    base_url=&quot;https://your-server.com&quot;,
-    jwt_signing_key=os.environ[&quot;JWT_SIGNING_KEY&quot;],
-    client_storage=RedisStore(host=&quot;redis.example.com&quot;),
+    client_id=os.environ["GITHUB_CLIENT_ID"],
+    client_secret=os.environ["GITHUB_CLIENT_SECRET"],
+    base_url="https://your-server.com",
+    jwt_signing_key=os.environ["JWT_SIGNING_KEY"],
+    client_storage=RedisStore(host="redis.example.com"),
 )
 </code></pre></div></p>
 <p>See <a href="/deployment/http#oauth-token-security">OAuth Token Security</a> for details.</p>

@@ -5986,37 +5986,37 @@ If the event doesn't arrive, the diagnosis depends on what `curl` returned:
 <p>claude --dangerously-load-development-channels plugin:yourplugin@yourmarketplace</p>
 <h1 id="testing-a-bare-mcpjson-server-no-plugin-wrapper-yet">Testing a bare .mcp.json server (no plugin wrapper yet)</h1>
 <p>claude --dangerously-load-development-channels server:webhook
-<div class="highlight"><pre><span></span><code>The bypass is per-entry. Combining this flag with `--channels` doesn&#39;t extend the bypass to the `--channels` entries. During the research preview, the approved allowlist is Anthropic-curated, so your channel stays on the development flag while you build and test.
+<div class="highlight"><pre><span></span><code>The bypass is per-entry. Combining this flag with `--channels` doesn't extend the bypass to the `--channels` entries. During the research preview, the approved allowlist is Anthropic-curated, so your channel stays on the development flag while you build and test.
 
 &lt;Note&gt;
-  This flag skips the allowlist only. The `channelsEnabled` organization policy still applies. Don&#39;t use it to run channels from untrusted sources.
+  This flag skips the allowlist only. The `channelsEnabled` organization policy still applies. Don't use it to run channels from untrusted sources.
 &lt;/Note&gt;
 
 ## Server options
 
-A channel sets these options in the [`Server`](https://modelcontextprotocol.io/docs/learn/server-concepts) constructor. The `instructions` and `capabilities.tools` fields are [standard MCP](https://modelcontextprotocol.io/docs/learn/server-concepts); `capabilities.experimental[&#39;claude/channel&#39;]` and `capabilities.experimental[&#39;claude/channel/permission&#39;]` are the channel-specific additions:
+A channel sets these options in the [`Server`](https://modelcontextprotocol.io/docs/learn/server-concepts) constructor. The `instructions` and `capabilities.tools` fields are [standard MCP](https://modelcontextprotocol.io/docs/learn/server-concepts); `capabilities.experimental['claude/channel']` and `capabilities.experimental['claude/channel/permission']` are the channel-specific additions:
 
-| Field                                                    | Type     | Description                                                                                                                                                                                                                                                             |
-| :------------------------------------------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `capabilities.experimental[&#39;claude/channel&#39;]`            | `object` | Required. Always `{}`. Presence registers the notification listener.                                                                                                                                                                                                    |
-| `capabilities.experimental[&#39;claude/channel/permission&#39;]` | `object` | Optional. Always `{}`. Declares that this channel can receive permission relay requests. When declared, Claude Code forwards tool approval prompts to your channel so you can approve or deny them remotely. See [Relay permission prompts](#relay-permission-prompts). |
-| `capabilities.tools`                                     | `object` | Two-way only. Always `{}`. Standard MCP tool capability. See [Expose a reply tool](#expose-a-reply-tool).                                                                                                                                                               |
-| `instructions`                                           | `string` | Recommended. Added to Claude&#39;s system prompt. Tell Claude what events to expect, what the `&lt;channel&gt;` tag attributes mean, whether to reply, and if so which tool to use and which attribute to pass back (like `chat_id`).                                             |
+| Field                                                    | Type                | Description                                                                                                                                                                                                                                                                                                                                                                          |
+| :------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `capabilities.experimental['claude/channel']`            | `object`            | Required. Always `{}`. Presence registers the notification listener.                                                                                                                                                                                                                                                                                                                 |
+| `capabilities.experimental['claude/channel/permission']` | `object` or `false` | Optional. Set it to `{}` to declare that this channel can receive permission relay requests. When declared, Claude Code forwards tool approval prompts to your channel so you can approve or deny them remotely. To opt out, omit the key or set it to `false`. Before v2.1.234, Claude Code treated `false` as declared. See [Relay permission prompts](#relay-permission-prompts). |
+| `capabilities.tools`                                     | `object`            | Two-way only. Always `{}`. Standard MCP tool capability. See [Expose a reply tool](#expose-a-reply-tool).                                                                                                                                                                                                                                                                            |
+| `instructions`                                           | `string`            | Recommended. Added to Claude's system prompt. Tell Claude what events to expect, what the `&lt;channel&gt;` tag attributes mean, whether to reply, and if so which tool to use and which attribute to pass back (like `chat_id`).                                                                                                                                                          |
 
 To create a one-way channel, omit `capabilities.tools`. This example shows a two-way setup with the channel capability, tools, and instructions set:
 
 ```ts theme={null}
-import { Server } from &#39;@modelcontextprotocol/sdk/server/index.js&#39;
+import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 
 const mcp = new Server(
-  { name: &#39;your-channel&#39;, version: &#39;0.0.1&#39; },
+  { name: 'your-channel', version: '0.0.1' },
   {
     capabilities: {
-      experimental: { &#39;claude/channel&#39;: {} },  // registers the channel listener
+      experimental: { 'claude/channel': {} },  // registers the channel listener
       tools: {},  // omit for one-way channels
     },
-    // added to Claude&#39;s system prompt so it knows how to handle your events
-    instructions: &#39;Messages arrive as &lt;channel source=&quot;your-channel&quot; ...&gt;. Reply with the reply tool.&#39;,
+    // added to Claude's system prompt so it knows how to handle your events
+    instructions: 'Messages arrive as &lt;channel source="your-channel" ...&gt;. Reply with the reply tool.',
   },
 )
 </code></pre></div></p>
@@ -6052,10 +6052,10 @@ await mcp.notification({
     meta: { severity: 'high', run_id: '1234' },
   },
 })
-<div class="highlight"><pre><span></span><code>The event arrives in Claude&#39;s context wrapped in a `&lt;channel&gt;` tag. The `source` attribute is set automatically from your server&#39;s configured name:
+<div class="highlight"><pre><span></span><code>The event arrives in Claude's context wrapped in a `&lt;channel&gt;` tag. The `source` attribute is set automatically from your server's configured name:
 
 ```text theme={null}
-&lt;channel source=&quot;your-channel&quot; severity=&quot;high&quot; run_id=&quot;1234&quot;&gt;
+&lt;channel source="your-channel" severity="high" run_id="1234"&gt;
 build failed on main: https://ci.example.com/run/1234
 &lt;/channel&gt;
 </code></pre></div></p>
@@ -6230,6 +6230,7 @@ await mcp.notification({ ... })</code></p>
 <h2 id="relay-permission-prompts">Relay permission prompts</h2>
 <p>When Claude calls a tool that needs approval, the local terminal dialog opens and the session waits. A two-way channel can opt in to receive the same prompt in parallel and relay it to you on another device. Both stay live: you can answer in the terminal or on your phone, and Claude Code applies whichever answer arrives first and closes the other.</p>
 <p>Relay covers tool-use approvals like <code>Bash</code>, <code>Write</code>, and <code>Edit</code>. Project trust and MCP server consent dialogs don't relay; those only appear in the local terminal.</p>
+<p>Claude Code v2.1.234 and later sends permission requests only to servers it registered as channels for the session, so relay sits behind the same <a href="/docs/en/channels#security">session opt-in and organization controls</a> as message delivery. Relay also requires you to opt the server in with <code>--channels</code> or the development flag, and requires the server to declare the permission capability.</p>
 <h3 id="how-relay-works">How relay works</h3>
 <p>When a permission prompt opens, the relay loop has four steps:</p>
 <ol>
@@ -6269,7 +6270,20 @@ await mcp.notification({ ... })</code></p>
 </tr>
 </tbody>
 </table>
-<p>Clients on Claude Code v2.1.211 or later sanitize both fields before relaying them: they neutralize direction-override and invisible characters and quote and angle-bracket lookalikes, fold whitespace runs to a single space, and relay text whole up to 3,500 code points, applied per top-level field for <code>input_preview</code>, which also keeps the JSON's own structural quotes. A longer value keeps its start and end visible around a counted <code>⋯ N code points elided ⋯</code> marker, so the end of a long command still reaches the approver. Earlier clients relay <code>description</code> raw and cut <code>input_preview</code> to 200 UTF-16 units with a trailing ellipsis. Treat both fields as untrusted unless you control the client fleet.</p>
+<p>Clients on Claude Code v2.1.211 or later sanitize <code>description</code> and <code>input_preview</code> before relaying them. Expect three changes in the text you receive:</p>
+<ul>
+<li>Claude Code neutralizes direction-override characters, invisible characters, and quote and angle-bracket lookalikes.</li>
+<li>Claude Code folds each run of whitespace to a single space.</li>
+<li>Claude Code relays text whole up to 3,500 code points. For a longer value, you receive its start and its end around a counted <code>⋯ N code points elided ⋯</code> marker. The end of a long command still reaches the approver.</li>
+</ul>
+<p>For <code>input_preview</code>, Claude Code applies the 3,500 limit to each top-level field of the arguments separately and keeps the JSON's own structural quotes. Clients before v2.1.211 relay <code>description</code> raw and cut <code>input_preview</code> to 200 UTF-16 units with a trailing ellipsis.</p>
+<p>Clients on Claude Code v2.1.234 or later also mask credentials in <code>description</code> and <code>input_preview</code>. You receive <code>[REDACTED]</code> in place of a recognizable provider credential token, such as an API key or a personal access token. Expect three effects of the masking when you render the fields:</p>
+<ul>
+<li>Claude Code masks key names inside <code>input_preview</code> as well as their values. A key name you display may not match the key name in the input.</li>
+<li>Claude Code never masks a span that contains shell syntax, path characters, or URL characters. A mask can't hide the command, file path, or destination being approved.</li>
+<li>Claude Code doesn't mask a secret that lacks a recognizable prefix, or a secret that spans whitespace, such as a private-key block. Both reach your server unmasked.</li>
+</ul>
+<p>Masking doesn't change who receives the fields. Whatever stays unmasked goes only to servers you opted in with <code>--channels</code> or the development flag. Treat both fields as untrusted unless you control the client fleet.</p>
 <p>The verdict your server sends back is <code>notifications/claude/channel/permission</code> with two fields: <code>request_id</code> echoing the ID above, and <code>behavior</code> set to <code>'allow'</code> or <code>'deny'</code>. Allow lets the tool call proceed; deny rejects it, the same as answering No in the local dialog. Neither verdict affects future calls.</p>
 <h3 id="add-relay-to-a-chat-bridge">Add relay to a chat bridge</h3>
 <p>Adding permission relay to a two-way channel takes three components:</p>
@@ -6510,7 +6524,7 @@ curl -N localhost:8788/events
 <div class="highlight"><pre><span></span><code>In the third, send a message that will make Claude try to run a command:
 
 ```bash theme={null}
-curl -d &quot;list the files in this directory&quot; -H &quot;X-Sender: dev&quot; localhost:8788
+curl -d "list the files in this directory" -H "X-Sender: dev" localhost:8788
 </code></pre></div></p>
 <p>Listing files is read-only, so Claude runs it without approval. The permission dialog opens when Claude calls the <code>reply</code> tool to send its answer back. The local dialog opens in your Claude Code terminal, and a moment later the prompt for <code>mcp__webhook__reply</code> appears in the <code>/events</code> stream, including the five-letter ID. Approve it from the remote side:</p>
 <p><code>bash theme={null}

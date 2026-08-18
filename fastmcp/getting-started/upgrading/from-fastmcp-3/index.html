@@ -15863,14 +15863,14 @@
 <p>The sections below cover what FastMCP handles for you, the changes you must make in your own code, the surfaces removed outright in 4.0, the behavior shifts that compile fine but act differently, and the deprecation timeline for the compatibility shims.</p>
 <h2 id="install-the-v4-prerelease">Install the v4 Prerelease</h2>
 <p>While FastMCP 4 is in prerelease, pin the beta explicitly. The <code>fastmcp</code> package is a thin wrapper that depends on <code>fastmcp-slim</code> at the same version, so asking for a prerelease of one means asking for a prerelease of the other. pip infers that on its own:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;fastmcp==4.0.0b3&quot;</span>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"fastmcp==4.0.0b3"</span>
 </code></pre></div>
 <p>uv is stricter: it allows prereleases only for packages you name, and <code>fastmcp-slim</code> arrives transitively. Constrain it alongside the requirement in <code>pyproject.toml</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[project]</span>
-<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;fastmcp==4.0.0b3&quot;</span><span class="p">]</span>
+<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"fastmcp==4.0.0b3"</span><span class="p">]</span>
 
 <span class="k">[tool.uv]</span>
-<span class="n">constraint-dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;fastmcp-slim==4.0.0b3&quot;</span><span class="p">]</span>
+<span class="n">constraint-dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"fastmcp-slim==4.0.0b3"</span><span class="p">]</span>
 </code></pre></div>
 <p>Then run <code>uv lock</code> or <code>uv sync</code> normally. Naming the one package keeps the rest of your graph on stable releases, where <code>--prerelease allow</code> would opt every dependency into prereleases. The MCP SDK needs no constraint at all now that it ships stable releases — pinning <code>mcp==2.0.0b2</code> here would in fact break the resolution, since a prerelease does not satisfy FastMCP's own <code>mcp&gt;=2.0.0</code> requirement.</p>
 <p><Prompt description="Copy this prompt into any LLM along with your server code to get automated upgrade guidance.">
@@ -15936,7 +15936,7 @@ You are upgrading an MCP server or client from FastMCP 3.x to FastMCP 4, which i
 
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_schema</span><span class="p">():</span>
-    <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;my_mcp_server.py&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"my_mcp_server.py"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
         <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">tools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">inputSchema</span>  <span class="c1"># still works, warns once</span>
 </code></pre></div>
@@ -15972,7 +15972,7 @@ You are upgrading an MCP server or client from FastMCP 3.x to FastMCP 4, which i
 <h2 id="what-you-must-change">What You Must Change</h2>
 <p>Everything above, FastMCP handled for you. What remains lives in your own code, where FastMCP can't reach it — how you construct errors, the custom HTTP clients you hand to a transport, and any place you reach past FastMCP's surfaces into the raw SDK objects. Each surfaces as a clear failure at import or call time, and each is a mechanical fix.</p>
 <p><strong><code>McpError</code> construction.</strong> The v1 pattern of wrapping an <code>ErrorData</code> and passing it positionally fails under SDK v2 with:</p>
-<div class="highlight"><pre><span></span><code>TypeError: MCPError.__init__() missing 1 required positional argument: &#39;message&#39;
+<div class="highlight"><pre><span></span><code>TypeError: MCPError.__init__() missing 1 required positional argument: 'message'
 </code></pre></div>
 <p>Note the message prints the class as <code>MCPError</code> (uppercase) even though your code wrote <code>McpError</code> — the old name is an alias for the SDK's renamed class. Construct the error with keyword arguments instead:</p>
 <p>```python test="skip"
@@ -15983,16 +15983,16 @@ from fastmcp.exceptions import McpError</p>
 <p>raise McpError(code=-32000, message="Client not supported")
 <div class="highlight"><pre><span></span><code>Catching and `err.error.code` are unchanged — only construction moved.
 
-**Raw session access sees v2 objects.** If you reach past FastMCP&#39;s client and server surfaces into `client.session`, `ctx.session`, or the internals of `ctx.request_context`, you&#39;re now holding raw SDK v2 objects with snake_case fields and the v2 method signatures. FastMCP does not wrap these; code that depends on their v1 shape needs updating.
+**Raw session access sees v2 objects.** If you reach past FastMCP's client and server surfaces into `client.session`, `ctx.session`, or the internals of `ctx.request_context`, you're now holding raw SDK v2 objects with snake_case fields and the v2 method signatures. FastMCP does not wrap these; code that depends on their v1 shape needs updating.
 
 **FastMCP now uses httpx2 exclusively.** FastMCP has replaced `httpx` with [httpx2](https://pypi.org/project/httpx2/), a next-generation httpx fork, across its entire HTTP stack — client transports and every server-side path (auth providers, the OpenAPI integration, the version check). `httpx` is no longer a FastMCP dependency. If you pass a custom client or factory into a FastMCP client transport — `StreamableHttpTransport(httpx_client_factory=...)`, `SSETransport(httpx_client_factory=...)`, `OAuth(httpx_client_factory=...)`, or a custom `httpx.Auth` as `Client(auth=...)` — those objects must now be httpx2. httpx2 is a drop-in fork with the same public API, so the change is an import swap:
 
-```python test=&quot;skip&quot;
+```python test="skip"
 # Before
 import httpx
 
 transport = StreamableHttpTransport(
-    &quot;https://example.com/mcp&quot;,
+    "https://example.com/mcp",
     httpx_client_factory=lambda **kwargs: httpx.AsyncClient(verify=False, **kwargs),
 )
 
@@ -16000,7 +16000,7 @@ transport = StreamableHttpTransport(
 import httpx2
 
 transport = StreamableHttpTransport(
-    &quot;https://example.com/mcp&quot;,
+    "https://example.com/mcp",
     httpx_client_factory=lambda **kwargs: httpx2.AsyncClient(verify=False, **kwargs),
 )
 </code></pre></div></p>
@@ -16011,7 +16011,7 @@ transport = StreamableHttpTransport(
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="k">return</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;fetch&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">url</span><span class="p">})</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"fetch"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"url"</span><span class="p">:</span> <span class="n">url</span><span class="p">})</span>
     <span class="k">except</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ConnectError</span><span class="p">:</span>  <span class="c1"># dead code: FastMCP now raises httpx2.ConnectError</span>
         <span class="k">return</span> <span class="n">fallback</span><span class="p">()</span>
 </code></pre></div>
@@ -16167,29 +16167,29 @@ transport = StreamableHttpTransport(
 <p>Background tasks left the core MCP spec during the SDK v2 rebuild and came back as the <code>io.modelcontextprotocol/tasks</code> extension (SEP-2663). FastMCP follows the protocol: what was a built-in server feature in 3.x is now a registered extension, and the authoring surface changed on both sides of the connection.</p>
 <p>The extension ships in a separate package, so the pin from <a href="#install-the-v4-prerelease">Install the v4 Prerelease</a> needs one more entry before any of this imports:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[project]</span>
-<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;fastmcp[tasks]==4.0.0b3&quot;</span><span class="p">]</span>
+<span class="n">dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"fastmcp[tasks]==4.0.0b3"</span><span class="p">]</span>
 
 <span class="k">[tool.uv]</span>
 <span class="n">constraint-dependencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="s2">&quot;fastmcp-slim==4.0.0b3&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="s2">&quot;fastmcp-tasks==4.0.0b3&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">"fastmcp-slim==4.0.0b3"</span><span class="p">,</span>
+<span class="w">    </span><span class="s2">"fastmcp-tasks==4.0.0b3"</span><span class="p">,</span>
 <span class="p">]</span>
 </code></pre></div>
 <p>On the server, <code>task=True</code> still marks a tool as capable of running in the background, but it no longer runs anything by itself — the extension does. Register it, or the server refuses to start:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp_tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">TasksExtension</span>
 
-<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">&quot;MyServer&quot;</span><span class="p">)</span>
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"MyServer"</span><span class="p">)</span>
 <span class="n">mcp</span><span class="o">.</span><span class="n">add_extension</span><span class="p">(</span><span class="n">TasksExtension</span><span class="p">())</span>
 
 <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">slow_computation</span><span class="p">(</span><span class="n">duration</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A long-running operation.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="s2">&quot;done&quot;</span>
+<span class="w">    </span><span class="sd">"""A long-running operation."""</span>
+    <span class="k">return</span> <span class="s2">"done"</span>
 </code></pre></div>
 <p>Without the registration, a <code>task=True</code> tool raises at startup rather than the first time a client calls the tool:</p>
 <div class="highlight"><pre><span></span><code>RuntimeError: Task-enabled tools (slow_computation) require the tasks extension,
-but no extension with identifier &#39;io.modelcontextprotocol/tasks&#39; is registered.
+but no extension with identifier 'io.modelcontextprotocol/tasks' is registered.
 </code></pre></div>
 <p><code>TaskConfig</code> moved from <code>fastmcp.server.tasks</code> to <code>fastmcp.utilities.tasks</code>, and the <code>CurrentDocket</code> and <code>CurrentWorker</code> dependencies moved to <code>fastmcp_tasks.dependencies</code>.</p>
 <p><code>task=</code> is now a tool-only keyword. FastMCP 3 accepted it on resource, resource-template, and prompt decorators as well; passing it to <code>@mcp.resource</code> or <code>@mcp.prompt</code> now raises <code>TypeError</code>, and there is no replacement — the extension tasks tool calls only.</p>
@@ -16200,7 +16200,7 @@ but no extension with identifier &#39;io.modelcontextprotocol/tasks&#39; is regi
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">server</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="n">server</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-        <span class="k">return</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;slow_computation&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">})</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"slow_computation"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"duration"</span><span class="p">:</span> <span class="mi">10</span><span class="p">})</span>
 </code></pre></div>
 <p>When you want the handle — to do other work while the task runs, check on it, or cancel it — <code>call_tool_task</code> returns one immediately:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
@@ -16209,7 +16209,7 @@ but no extension with identifier &#39;io.modelcontextprotocol/tasks&#39; is regi
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">server</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="n">server</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-        <span class="n">task</span> <span class="o">=</span> <span class="k">await</span> <span class="n">call_tool_task</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">&quot;slow_computation&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">})</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="k">await</span> <span class="n">call_tool_task</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"slow_computation"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"duration"</span><span class="p">:</span> <span class="mi">10</span><span class="p">})</span>
         <span class="k">return</span> <span class="k">await</span> <span class="n">task</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
 </code></pre></div>
 <p>Three things follow from this. <code>client.call_tool(name, args, task=True)</code> raises <code>TypeError</code>, as do <code>read_resource(task=True)</code> and <code>get_prompt(task=True)</code> — and those last two have no replacement. Client task support requires <code>fastmcp_tasks</code> to be imported somewhere in the process, since that import is what makes a <code>Client</code> advertise the capability. And tasks are negotiated only on modern connections, so a <code>mode="legacy"</code> client never gets them. See <a href="/servers/tasks">Background Tasks</a> for the full picture.</p>

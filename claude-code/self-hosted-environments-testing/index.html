@@ -6075,23 +6075,23 @@ Use this file to discover all available pages before exploring further.</p>
 <div class="highlight"><pre><span></span><code>```sh theme={null}
 #!/bin/sh
 # Stop hook for testing a self-hosted environment end to end: writes each
-# turn&#39;s final assistant reply to $E2E_REPLY_DIR/&lt;session_id&gt;.txt so a
+# turn's final assistant reply to $E2E_REPLY_DIR/&lt;session_id&gt;.txt so a
 # co-located test driver can read it without calling the Anthropic API.
 # Install on the TEST runner only. Requires jq.
 
 # No-op unless the driver is listening. Never fail the turn.
-[ -n &quot;${E2E_REPLY_DIR:-}&quot; ] &amp;&amp; [ -d &quot;$E2E_REPLY_DIR&quot; ] || exit 0
+[ -n "${E2E_REPLY_DIR:-}" ] &amp;&amp; [ -d "$E2E_REPLY_DIR" ] || exit 0
 
 # CLAUDE_CODE_REMOTE_SESSION_ID is exported in cse_... form; the session
 # id the dispatch CLI prints is in session_... form. Same id, different
 # prefix.
-sid=$(printf &#39;%s&#39; &quot;${CLAUDE_CODE_REMOTE_SESSION_ID:-}&quot; | sed &#39;s/^cse_/session_/&#39;)
-[ -n &quot;$sid&quot; ] || exit 0
+sid=$(printf '%s' "${CLAUDE_CODE_REMOTE_SESSION_ID:-}" | sed 's/^cse_/session_/')
+[ -n "$sid" ] || exit 0
 
 # last_assistant_message is absent when the final assistant turn had no
 # text, such as a tool-use-only turn. The `// empty` filter makes that a
-# zero-byte write rather than the literal string &quot;null&quot;.
-jq -r &#39;.last_assistant_message // empty&#39; &gt;&gt; &quot;$E2E_REPLY_DIR/$sid.txt&quot; 2&gt;/dev/null
+# zero-byte write rather than the literal string "null".
+jq -r '.last_assistant_message // empty' &gt;&gt; "$E2E_REPLY_DIR/$sid.txt" 2&gt;/dev/null
 exit 0
 </code></pre></div></p>
 <h3 id="before-you-start-the-runner">Before you start the runner</h3>
@@ -6175,17 +6175,17 @@ echo "turn-2 reply ok"</p>
 
 ## Remote test runners
 
-If your test runners are on separate infrastructure, such as a persistent Kubernetes fleet your CI job can&#39;t share a filesystem with, swap the file write in the Stop hook for a POST to an endpoint your driver listens on:
+If your test runners are on separate infrastructure, such as a persistent Kubernetes fleet your CI job can't share a filesystem with, swap the file write in the Stop hook for a POST to an endpoint your driver listens on:
 
 ```sh theme={null}
 #!/bin/sh
 # Variant of the capture hook for runners on separate infrastructure.
 # Set E2E_REPLY_URL on the runner to an endpoint the driver controls.
-[ -n &quot;${E2E_REPLY_URL:-}&quot; ] || exit 0
-sid=$(printf &#39;%s&#39; &quot;${CLAUDE_CODE_REMOTE_SESSION_ID:-}&quot; | sed &#39;s/^cse_/session_/&#39;)
-[ -n &quot;$sid&quot; ] || exit 0
-jq -r &#39;.last_assistant_message // empty&#39; | \
-  curl -fsS -X POST --data-binary @- &quot;$E2E_REPLY_URL/$sid&quot; &gt;/dev/null 2&gt;&amp;1
+[ -n "${E2E_REPLY_URL:-}" ] || exit 0
+sid=$(printf '%s' "${CLAUDE_CODE_REMOTE_SESSION_ID:-}" | sed 's/^cse_/session_/')
+[ -n "$sid" ] || exit 0
+jq -r '.last_assistant_message // empty' | \
+  curl -fsS -X POST --data-binary @- "$E2E_REPLY_URL/$sid" &gt;/dev/null 2&gt;&amp;1
 exit 0
 </code></pre></div></p>
 <p>On the driver side, run anything that accepts the POST and holds the reply until the test asks for it, such as a small HTTP listener inside the CI job or a webhook receiver you already run. The hook runs on your infrastructure, so the endpoint only needs to be reachable from your runners.</p>
@@ -6216,7 +6216,7 @@ create=$(curl -fsS -X POST -H @- \
   &lt;&lt;&lt;"Authorization: Bearer $ADMIN_TOKEN")
 ENVIRONMENT_ID=$(jq -er .pool.pool_id &lt;&lt;&lt;"$create")
 ENVIRONMENT_SECRET=$(jq -er .pool_secret &lt;&lt;&lt;"$create")
-<div class="highlight"><pre><span></span><code>Until an [Owner or admin turns on **Allow self-hosted environments**](/docs/en/self-hosted-environments#availability-and-limitations) for the organization, the call fails with a `403` `permission_error` reading `self-hosted runners are disabled by your organization&#39;s policy`.
+<div class="highlight"><pre><span></span><code>Until an [Owner or admin turns on **Allow self-hosted environments**](/docs/en/self-hosted-environments#availability-and-limitations) for the organization, the call fails with a `403` `permission_error` reading `self-hosted runners are disabled by your organization's policy`.
 
 Start a runner on this host with `SELF_HOSTED_RUNNER_ENVIRONMENT_SECRET=$ENVIRONMENT_SECRET`, plus the capture hook and `E2E_REPLY_DIR` per [Install the capture hook](#install-the-capture-hook-on-your-test-runner), then run the test script.
 
@@ -6226,9 +6226,9 @@ Delete the environment when the run finishes, so each CI run starts clean:
 
 ```bash theme={null}
 curl -fsS -X DELETE -H @- \
-  -H &quot;anthropic-beta: ccr-byoc-2025-07-29&quot; -H &quot;anthropic-version: 2023-06-01&quot; \
-  &quot;https://api.anthropic.com/v1/code/runners/self-hosted/pools/$ENVIRONMENT_ID&quot; \
-  &lt;&lt;&lt;&quot;Authorization: Bearer $ADMIN_TOKEN&quot;
+  -H "anthropic-beta: ccr-byoc-2025-07-29" -H "anthropic-version: 2023-06-01" \
+  "https://api.anthropic.com/v1/code/runners/self-hosted/pools/$ENVIRONMENT_ID" \
+  &lt;&lt;&lt;"Authorization: Bearer $ADMIN_TOKEN"
 </code></pre></div></p>
 
 

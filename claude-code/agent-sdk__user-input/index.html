@@ -5730,8 +5730,8 @@ const options = { canUseTool: handleToolRequest };
 <li><strong>Claude asks a question</strong>: Claude calls the <code>AskUserQuestion</code> tool. Check if <code>tool_name == "AskUserQuestion"</code> to handle it differently. If you specify a <code>tools</code> array, include <code>AskUserQuestion</code> for this to work. See <a href="#handle-clarifying-questions">Handle clarifying questions</a> for details.</li>
 </ol>
 <p><Warning>
-  <strong>The callback never fires for auto-approved tools.</strong> Any approval earlier in the <a href="/docs/en/agent-sdk/permissions#how-permissions-are-evaluated">permission evaluation flow</a>, an allow rule or a mode like <code>acceptEdits</code> or <code>bypassPermissions</code>, resolves the call before <code>canUseTool</code> is consulted. If you list a tool bare in <code>allowed_tools</code>, a <code>canUseTool</code> check for that tool never runs unless an ask rule or <code>plan</code> mode routes the call back to a prompt. For logic that must apply to every tool call, use a <a href="/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>, which executes before the rest of the flow and can allow, deny, or modify requests.</p>
-<p><code>AskUserQuestion</code>, MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>, and connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> reach the callback even when an allow rule matches. In <code>dontAsk</code> mode these calls are denied instead, without invoking the callback.
+  <strong>The callback never fires for auto-approved tools.</strong> Any approval earlier in the <a href="/docs/en/agent-sdk/permissions#how-permissions-are-evaluated">permission evaluation flow</a>, an allow rule or a mode like <code>acceptEdits</code> or <code>bypassPermissions</code>, resolves the call before <code>canUseTool</code> is consulted. If you list a tool bare in <code>allowed_tools</code>, a <code>canUseTool</code> check for that tool runs only when the <a href="/docs/en/agent-sdk/permissions#how-permissions-are-evaluated">evaluation flow</a> routes the call back to a prompt, such as an ask rule or <code>plan</code> mode. For logic that must apply to every tool call, use a <a href="/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>, which executes before the rest of the flow and can allow, deny, or modify requests.</p>
+<p>An allow rule doesn't pre-approve the <a href="/docs/en/permission-modes#actions-no-mode-auto-approves">actions no mode auto-approves</a>; see <a href="/docs/en/agent-sdk/permissions#how-permissions-are-evaluated">How permissions are evaluated</a> for which of them reach the callback and what happens in <code>dontAsk</code> and <code>auto</code> mode.
 </Warning></p>
 <p>You can also use the <a href="/docs/en/agent-sdk/hooks#available-hooks"><code>PermissionRequest</code> hook</a> to send external notifications (Slack, email, push) when Claude is waiting for approval.</p>
 <h2 id="handle-tool-approval-requests">Handle tool approval requests</h2>
@@ -5843,8 +5843,8 @@ const options = { canUseTool: handleToolRequest };
               print(message.result)</p>
 <p>asyncio.run(main())
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
-import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
-import * as readline from &quot;readline&quot;;
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import * as readline from "readline";
 
 // Helper to prompt user for input in the terminal
 function prompt(question: string): Promise&lt;string&gt; {
@@ -5861,12 +5861,12 @@ function prompt(question: string): Promise&lt;string&gt; {
 }
 
 for await (const message of query({
-  prompt: &quot;Create a test file in /tmp and then delete it&quot;,
+  prompt: "Create a test file in /tmp and then delete it",
   options: {
     canUseTool: async (toolName, input) =&gt; {
       // Display the tool request
       console.log(`\nTool: ${toolName}`);
-      if (toolName === &quot;Bash&quot;) {
+      if (toolName === "Bash") {
         console.log(`Command: ${input.command}`);
         if (input.description) console.log(`Description: ${input.description}`);
       } else {
@@ -5874,20 +5874,20 @@ for await (const message of query({
       }
 
       // Get user approval
-      const response = await prompt(&quot;Allow this action? (y/n): &quot;);
+      const response = await prompt("Allow this action? (y/n): ");
 
-      // Return allow or deny based on user&#39;s response
-      if (response.toLowerCase() === &quot;y&quot;) {
+      // Return allow or deny based on user's response
+      if (response.toLowerCase() === "y") {
         // Allow: tool executes with the original (or modified) input
-        return { behavior: &quot;allow&quot;, updatedInput: input };
+        return { behavior: "allow", updatedInput: input };
       } else {
-        // Deny: tool doesn&#39;t execute, Claude sees the message
-        return { behavior: &quot;deny&quot;, message: &quot;User denied this action&quot; };
+        // Deny: tool doesn't execute, Claude sees the message
+        return { behavior: "deny", message: "User denied this action" };
       }
     }
   }
 })) {
-  if (&quot;result&quot; in message) console.log(message.result);
+  if ("result" in message) console.log(message.result);
 }
 </code></pre></div>
 </CodeGroup></p>
@@ -5929,10 +5929,10 @@ for await (const message of query({
   return PermissionResultDeny(message="User rejected this action")
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 // Allow the tool to execute
-return { behavior: &quot;allow&quot;, updatedInput: input };
+return { behavior: "allow", updatedInput: input };
 
 // Block the tool
-return { behavior: &quot;deny&quot;, message: &quot;User rejected this action&quot; };
+return { behavior: "deny", message: "User rejected this action" };
 </code></pre></div>
 </CodeGroup></p>
 <p>Beyond allowing or denying, you can modify the tool's input or provide context that helps Claude adjust its approach:</p>
@@ -6294,23 +6294,23 @@ For multi-select questions, pass an array of labels or join them with `", "`. If
 | `previewFormat` | `preview` contains                                                                                            |
 | :-------------- | :------------------------------------------------------------------------------------------------------------ |
 | unset (default) | Field is absent. Claude does not generate previews.                                                           |
-| `&quot;markdown&quot;`    | ASCII art and fenced code blocks                                                                              |
-| `&quot;html&quot;`        | A styled `&lt;div&gt;` fragment (the SDK rejects `&lt;script&gt;`, `&lt;style&gt;`, and `&lt;!DOCTYPE&gt;` before your callback runs) |
+| `"markdown"`    | ASCII art and fenced code blocks                                                                              |
+| `"html"`        | A styled `&lt;div&gt;` fragment (the SDK rejects `&lt;script&gt;`, `&lt;style&gt;`, and `&lt;!DOCTYPE&gt;` before your callback runs) |
 
-The format applies to all questions in the session. Claude includes `preview` on options where a visual comparison helps (layout choices, color schemes) and omits it where one wouldn&#39;t (yes/no confirmations, text-only choices). Check for `undefined` before rendering.
+The format applies to all questions in the session. Claude includes `preview` on options where a visual comparison helps (layout choices, color schemes) and omits it where one wouldn't (yes/no confirmations, text-only choices). Check for `undefined` before rendering.
 
 ```typescript theme={null}
-import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
+import { query } from "@anthropic-ai/claude-agent-sdk";
 
 for await (const message of query({
-  prompt: &quot;Help me choose a card layout&quot;,
+  prompt: "Help me choose a card layout",
   options: {
     toolConfig: {
-      askUserQuestion: { previewFormat: &quot;html&quot; }
+      askUserQuestion: { previewFormat: "html" }
     },
     canUseTool: async (toolName, input) =&gt; {
       // input.questions[].options[].preview is an HTML string or undefined
-      return { behavior: &quot;allow&quot;, updatedInput: input };
+      return { behavior: "allow", updatedInput: input };
     }
   }
 })) {
@@ -6326,7 +6326,7 @@ for await (const message of query({
 }
 <div class="highlight"><pre><span></span><code>### Response format
 
-Return an `answers` object mapping each question&#39;s `question` field to the selected option&#39;s `label`:
+Return an `answers` object mapping each question's `question` field to the selected option's `label`:
 
 | Field       | Description                                                                          |
 | ----------- | ------------------------------------------------------------------------------------ |
@@ -6334,16 +6334,16 @@ Return an `answers` object mapping each question&#39;s `question` field to the s
 | `answers`   | Object where keys are question text and values are selected labels                   |
 | `response`  | Optional freeform reply the user typed instead of answering the structured questions |
 
-For multi-select questions, pass an array of labels or join them with `&quot;, &quot;`. For per-question free text such as an &quot;Other&quot; option, put the user&#39;s text in `answers[question]` as shown in [Support free-text input](#support-free-text-input). Set `response` only when your UI lets the user dismiss the question card and type a general reply that isn&#39;t an answer to any specific question. When `response` is set, Claude receives &quot;The user responded: …&quot; instead of the per-question answer list.
+For multi-select questions, pass an array of labels or join them with `", "`. For per-question free text such as an "Other" option, put the user's text in `answers[question]` as shown in [Support free-text input](#support-free-text-input). Set `response` only when your UI lets the user dismiss the question card and type a general reply that isn't an answer to any specific question. When `response` is set, Claude receives "The user responded: …" instead of the per-question answer list.
 
 ```json theme={null}
 {
-  &quot;questions&quot;: [
+  "questions": [
     // ...
   ],
-  &quot;answers&quot;: {
-    &quot;How should I format the output?&quot;: &quot;Summary&quot;,
-    &quot;Which sections should I include?&quot;: [&quot;Introduction&quot;, &quot;Conclusion&quot;]
+  "answers": {
+    "How should I format the output?": "Summary",
+    "Which sections should I include?": ["Introduction", "Conclusion"]
   }
 }
 </code></pre></div></p>
@@ -6433,8 +6433,8 @@ For multi-select questions, pass an array of labels or join them with `&quot;, &
               print(message.result)</p>
 <p>asyncio.run(main())
   <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
-import { query } from &quot;@anthropic-ai/claude-agent-sdk&quot;;
-import * as readline from &quot;readline/promises&quot;;
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import * as readline from "readline/promises";
 
 // Helper to prompt user for input in the terminal
 async function prompt(question: string): Promise&lt;string&gt; {
@@ -6446,14 +6446,14 @@ async function prompt(question: string): Promise&lt;string&gt; {
 
 // Parse user input as option number(s) or free text
 function parseResponse(response: string, options: any[]): string {
-  const indices = response.split(&quot;,&quot;).map((s) =&gt; parseInt(s.trim()) - 1);
+  const indices = response.split(",").map((s) =&gt; parseInt(s.trim()) - 1);
   const labels = indices
     .filter((i) =&gt; !isNaN(i) &amp;&amp; i &gt;= 0 &amp;&amp; i &lt; options.length)
     .map((i) =&gt; options[i].label);
-  return labels.length &gt; 0 ? labels.join(&quot;, &quot;) : response;
+  return labels.length &gt; 0 ? labels.join(", ") : response;
 }
 
-// Display Claude&#39;s questions and collect user answers
+// Display Claude's questions and collect user answers
 async function handleAskUserQuestion(input: any) {
   const answers: Record&lt;string, string&gt; = {};
 
@@ -6465,37 +6465,37 @@ async function handleAskUserQuestion(input: any) {
       console.log(`  ${i + 1}. ${opt.label} - ${opt.description}`);
     });
     if (q.multiSelect) {
-      console.log(&quot;  (Enter numbers separated by commas, or type your own answer)&quot;);
+      console.log("  (Enter numbers separated by commas, or type your own answer)");
     } else {
-      console.log(&quot;  (Enter a number, or type your own answer)&quot;);
+      console.log("  (Enter a number, or type your own answer)");
     }
 
-    const response = (await prompt(&quot;Your choice: &quot;)).trim();
+    const response = (await prompt("Your choice: ")).trim();
     answers[q.question] = parseResponse(response, options);
   }
 
   // Return the answers to Claude (must include original questions)
   return {
-    behavior: &quot;allow&quot;,
+    behavior: "allow",
     updatedInput: { questions: input.questions, answers }
   };
 }
 
 async function main() {
   for await (const message of query({
-    prompt: &quot;Help me decide on the tech stack for a new mobile app&quot;,
+    prompt: "Help me decide on the tech stack for a new mobile app",
     options: {
       canUseTool: async (toolName, input) =&gt; {
         // Route AskUserQuestion to our question handler
-        if (toolName === &quot;AskUserQuestion&quot;) {
+        if (toolName === "AskUserQuestion") {
           return handleAskUserQuestion(input);
         }
         // Auto-approve other tools for this example
-        return { behavior: &quot;allow&quot;, updatedInput: input };
+        return { behavior: "allow", updatedInput: input };
       }
     }
   })) {
-    if (&quot;result&quot; in message) console.log(message.result);
+    if ("result" in message) console.log(message.result);
   }
 }
 

@@ -7245,7 +7245,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td><strong>Bypass permissions</strong></td>
 <td><code>bypassPermissions</code></td>
-<td>Claude runs without permission prompts, except those forced by explicit <a href="/docs/en/permissions#manage-permissions">ask rules</a>, connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>, removals targeting <code>/</code> or your home directory, safety classifiers when Claude <a href="#browse-external-sites">acts on external sites</a>, or desktop actions where Claude always asks first, such as <a href="#work-across-sessions">archiving a session</a>; the CLI's <a href="/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode">cross-session messaging safeguards</a> also still apply. Equivalent to <code>--dangerously-skip-permissions</code> in the CLI. On Pro and Max plans, enable it in your Settings → Claude Code under "Allow bypass permissions mode"; on Team and Enterprise plans there is no Settings toggle, and organization policy controls it instead. Only use this in sandboxed containers or VMs.</td>
+<td>Claude runs without permission prompts, except for the <a href="/docs/en/permission-modes#actions-no-mode-auto-approves">actions no mode auto-approves</a>, safety classifiers when Claude <a href="#browse-external-sites">acts on external sites</a>, or desktop actions where Claude always asks first, such as <a href="#work-across-sessions">archiving a session</a>. Equivalent to <code>--dangerously-skip-permissions</code> in the CLI. On Pro and Max plans, enable it in your Settings → Claude Code under "Allow bypass permissions mode"; on Team and Enterprise plans there is no Settings toggle, and organization policy controls it instead. Only use this in sandboxed containers or VMs.</td>
 </tr>
 </tbody>
 </table>
@@ -7533,10 +7533,11 @@ The Settings page shows the current status of each permission. If either is deni
 <p>Claude can list your other Code tab sessions, read what each has been doing, and send messages between them. Ask in plain language: "which session touched the auth refactor?", "what did the API session conclude?", or "tell the payments session the schema changed". You can also ask Claude to rename or archive a session. Claude archives a session the same way the sidebar's archive icon does, so ask it to clean up sessions whose PRs have merged.</p>
 <p>Through this surface, Claude sees only the sessions the desktop app runs itself: local, <a href="#ssh-sessions">SSH</a>, and <a href="/docs/en/desktop-wsl">WSL</a> sessions in the Code tab. Claude doesn't see cloud sessions, or sessions you started from the terminal CLI or the VS Code extension, even in worktrees of the same project, so with nine terminal worktrees open and two desktop sessions, Claude answering in one of them reports the one other desktop session. Claude never lists the session you're asking from. By default it sees the 20 most recently active sessions and skips archived sessions unless you ask for them. <a href="/docs/en/cross-session-messaging">Cross-session messaging</a> separately lets Claude message <a href="/docs/en/cross-session-messaging#see-which-sessions-claude-can-reach">your other Claude Code sessions</a>, including terminal sessions.</p>
 <p>When Claude messages another session through this surface, Claude Code shows it there as a card labeled with the sending session's title and a link back, so you can always tell where a message came from. If the receiving session is mid-task, Claude Code holds the message and Claude reads it once the current work finishes. Claude can't deliver to an archived session, and tells you when a message doesn't go through.</p>
-<p>Claude Code applies three safety behaviors across sessions:</p>
+<p>Claude Code applies four safety behaviors across sessions:</p>
 <ul>
 <li>Before archiving any session, Claude asks you first. You see the approval card in every permission mode, including Auto and Bypass permissions.</li>
 <li>Through this surface, Claude can't send cross-session messages from a session nobody is watching, such as a scheduled-task run, and can't deliver messages into one.</li>
+<li>Claude Code checks each message from this surface against the receiving session's <a href="/docs/en/cross-session-messaging#control-inbound-messages">inbound controls</a>. If you set <a href="/docs/en/settings#available-settings"><code>crossSessionInbound</code></a> to <code>refuse</code> in the receiving session, Claude Code drops messages from this surface. The check runs even when the receiving session doesn't have <a href="/docs/en/cross-session-messaging#availability">cross-session messaging</a> itself. Before v2.1.234, Claude Code dropped every message from this surface to a receiving session without cross-session messaging.</li>
 <li>Claude Code quotes each incoming message and attributes it to the session that sent it, and Claude still follows the receiving session's own permission settings when acting on one.</li>
 </ul>
 <p>Claude can also suggest new sessions. When it notices something worth fixing that's out of scope for the current task, it offers the work as a task chip in the chat. Click the chip to start that work in a new session with its own worktree; Claude continues your current session uninterrupted.</p>
@@ -7593,18 +7594,18 @@ The Settings page shows the current status of each permission. If either is deni
 
 When `autoVerify` is enabled, Claude automatically verifies code changes after editing files. It takes screenshots, checks for errors, and confirms changes work before completing its response.
 
-Auto-verify is on by default. Disable it per-project by adding `&quot;autoVerify&quot;: false` to `.claude/launch.json`, or toggle it from the server dropdown menu.
+Auto-verify is on by default. Disable it per-project by adding `"autoVerify": false` to `.claude/launch.json`, or toggle it from the server dropdown menu.
 
 ```json theme={null}
 {
-  &quot;version&quot;: &quot;0.0.1&quot;,
-  &quot;autoVerify&quot;: false,
-  &quot;configurations&quot;: [
+  "version": "0.0.1",
+  "autoVerify": false,
+  "configurations": [
     {
-      &quot;name&quot;: &quot;my-app&quot;,
-      &quot;runtimeExecutable&quot;: &quot;npm&quot;,
-      &quot;runtimeArgs&quot;: [&quot;run&quot;, &quot;dev&quot;],
-      &quot;port&quot;: 3000
+      "name": "my-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
     }
   ]
 }
@@ -7693,7 +7694,7 @@ Auto-verify is on by default. Disable it per-project by adding `&quot;autoVerify
     }
   ]
 }
-<div class="highlight"><pre><span></span><code>Localhost addresses open directly, exactly like the default port address. This includes `localhost`, any `*.localhost` subdomain, `127.0.0.1`, and `::1`. For security, a localhost `url` must be just your server&#39;s origin — no path or query, and the port must match the entry&#39;s port. To show a specific page, ask Claude to navigate there after the preview opens. A localhost `url` with a path, query, or mismatched port is reported as a configuration error that names the url and shows the fix.
+<div class="highlight"><pre><span></span><code>Localhost addresses open directly, exactly like the default port address. This includes `localhost`, any `*.localhost` subdomain, `127.0.0.1`, and `::1`. For security, a localhost `url` must be just your server's origin — no path or query, and the port must match the entry's port. To show a specific page, ask Claude to navigate there after the preview opens. A localhost `url` with a path, query, or mismatched port is reported as a configuration error that names the url and shows the fix.
 
 For any other address, Desktop asks for your permission the first time the preview opens it, the same as when you browse to a new site in the preview. External addresses may include paths. Choose **Always allow** to skip the prompt for that site in the future. Organization policies that restrict external sites in the preview still apply.
 
@@ -7701,11 +7702,11 @@ To preview a server you already run yourself, set `url` without a command. Claud
 
 ```json theme={null}
 {
-  &quot;version&quot;: &quot;0.0.1&quot;,
-  &quot;configurations&quot;: [
+  "version": "0.0.1",
+  "configurations": [
     {
-      &quot;name&quot;: &quot;my-app&quot;,
-      &quot;url&quot;: &quot;https://app.localhost:3000&quot;
+      "name": "my-app",
+      "url": "https://app.localhost:3000"
     }
   ]
 }
@@ -7831,13 +7832,13 @@ To preview a server you already run yourself, set `url` without a command. Claud
 
 #### Restrict which SSH hosts users can connect to
 
-Administrators can limit Desktop&#39;s SSH sessions to an approved set of hosts by adding `sshHostAllowlist` to a [managed settings](/docs/en/settings#settings-precedence) file. When set, users can only connect to hosts whose resolved hostname matches one of the patterns. Set it to an empty array to disable SSH sessions entirely.
+Administrators can limit Desktop's SSH sessions to an approved set of hosts by adding `sshHostAllowlist` to a [managed settings](/docs/en/settings#settings-precedence) file. When set, users can only connect to hosts whose resolved hostname matches one of the patterns. Set it to an empty array to disable SSH sessions entirely.
 
 The following example allows connections to any host under `devboxes.example.com` and to a single named bastion host:
 
 ```json theme={null}
 {
-  &quot;sshHostAllowlist&quot;: [&quot;*.devboxes.example.com&quot;, &quot;bastion.example.com&quot;]
+  "sshHostAllowlist": ["*.devboxes.example.com", "bastion.example.com"]
 }
 </code></pre></div></p>
 <p>Patterns are case-insensitive. <code>*</code> matches any host, and <code>*.example.com</code> matches <code>example.com</code> and any subdomain. Anything else is an exact match. The check runs against the hostname after <code>~/.ssh/config</code> resolution via <code>ssh -G</code>, so <code>Host</code> aliases and <code>ProxyCommand</code>/<code>ProxyJump</code> entries are permitted as long as the resolved <code>HostName</code> matches.</p>
@@ -7907,7 +7908,6 @@ The following example allows connections to any host under `devboxes.example.com
 <li><strong><a href="#ssh-sessions">SSH sessions</a></strong>: the session reads the managed settings file from the remote host. Desktop itself reads <code>sshConfigs</code> and <code>sshHostAllowlist</code> from the local machine's managed settings when creating the connection.</li>
 </ul>
 <p><code>permissions.disableBypassPermissionsMode</code> and <code>disableAutoMode</code> also work in user and project settings, but placing them in managed settings prevents users from overriding them.</p>
-<p>Claude Code reads <code>autoMode</code> from user settings, the <code>--settings</code> flag, and managed settings, but not from <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code>: both files live in the repo directory, so a cloned repo or build step can't inject its own classifier rules. Before v2.1.207, Claude Code also read <code>.claude/settings.local.json</code>.</p>
 <p>For the complete list of managed-only settings including <code>allowManagedPermissionRulesOnly</code> and <code>allowManagedHooksOnly</code>, see <a href="/docs/en/permissions#managed-only-settings">managed-only settings</a>.</p>
 <h3 id="device-management-policies">Device management policies</h3>
 <p>IT teams can manage the desktop app through MDM on macOS or group policy on Windows. Available policies include enabling or disabling the Claude Code feature, controlling auto-updates, and setting a custom deployment URL.</p>
@@ -8057,11 +8057,6 @@ platform.claude.com
 <td>Manual, Accept edits, Plan, and Auto. Bypass permissions appears in the mode selector once enabled: through the Settings toggle on Pro and Max plans, or through organization policy on Team and Enterprise plans</td>
 </tr>
 <tr>
-<td><code>--dangerously-skip-permissions</code></td>
-<td>CLI flag</td>
-<td>Bypass permissions mode. On Pro and Max plans, enable it in Settings → Claude Code → "Allow bypass permissions mode"; on Team and Enterprise plans, organization policy controls it</td>
-</tr>
-<tr>
 <td><a href="/docs/en/third-party-integrations">Third-party providers</a></td>
 <td>Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry</td>
 <td>Anthropic's API by default. For gateway routing, see <a href="/docs/en/llm-gateway-connect#desktop-app">connect the desktop app to a gateway</a>. To run the Code tab on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or a self-hosted LLM gateway, see <a href="https://claude.com/docs/third-party/claude-desktop/overview">Claude Desktop on 3P</a>.</td>
@@ -8126,7 +8121,7 @@ platform.claude.com
 <h3 id="whats-not-available-in-desktop">What's not available in Desktop</h3>
 <p>The following features are only available in the CLI or VS Code extension, except where noted:</p>
 <ul>
-<li><strong>Third-party providers</strong>: Desktop connects to Anthropic's API by default. To route Desktop through a gateway, see <a href="/docs/en/llm-gateway-connect#desktop-app">connect the desktop app to a gateway</a>. Enterprise deployments can configure Google Cloud's Agent Platform and gateway providers via <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed settings</a>. For Amazon Bedrock or Microsoft Foundry in the CLI, see the <a href="/docs/en/quickstart">quickstart</a>. As an exception to the section above, <a href="https://claude.com/docs/third-party/claude-desktop/overview">Claude Desktop on 3P</a> runs the Code tab on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or a self-hosted LLM gateway.</li>
+<li><strong>Third-party providers</strong>: Desktop connects to Anthropic's API by default. To route Desktop through a gateway, or to run the Code tab on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or a self-hosted LLM gateway, follow the links in the <a href="#feature-comparison">Third-party providers row</a>.</li>
 <li><strong>Linux (beta)</strong>: Computer Use isn't yet available in the Linux desktop app. See <a href="/docs/en/desktop-linux">Claude Desktop on Linux</a>.</li>
 <li><strong>Inline code suggestions</strong>: Desktop does not provide autocomplete-style suggestions. It works through conversational prompts and explicit code changes.</li>
 <li><strong>Agent teams</strong>: coordinated teams, where Claude as the team lead assigns tasks to teammates from a shared task list, are available in the <a href="/docs/en/agent-teams">CLI</a>, not in Desktop. For multi-agent work inside one session, use <a href="/docs/en/workflows">dynamic workflows</a>, which run in Desktop; Claude can also <a href="#work-across-sessions">message and manage your other sessions</a> directly.</li>
