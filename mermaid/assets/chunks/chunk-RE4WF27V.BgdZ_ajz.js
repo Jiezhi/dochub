@@ -1,0 +1,1 @@
+import{_ as s}from"./render-EV5K7ZYE.DYtpIH0N.js";import{bv as e}from"./theme.B1i6uMKH.js";var t,m=(t=class{constructor(i){this.init=i,this.records=this.init()}reset(){this.records=this.init()}},e(t,"ImperativeState"),s(t,"ImperativeState"),t);export{m as I};

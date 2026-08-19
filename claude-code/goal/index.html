@@ -873,33 +873,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../agent-sdk__slash-commands/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Agent sdk  slash commands
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../agent-sdk__streaming-output/" class="md-nav__link">
         
   
@@ -2926,6 +2899,45 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="How evaluation works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#errors-you-have-to-fix-clear-the-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors you have to fix clear the goal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-work-defers-evaluation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background work defers evaluation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-model-and-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation model and cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5500,6 +5512,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How evaluation works">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#errors-you-have-to-fix-clear-the-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors you have to fix clear the goal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-work-defers-evaluation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background work defers evaluation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluation-model-and-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evaluation model and cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5553,9 +5604,9 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <h1 id="keep-claude-working-toward-a-goal">Keep Claude working toward a goal</h1>
 <blockquote>
-<p>Set a completion condition with /goal and Claude keeps working across turns until the condition is met or judged impossible.</p>
+<p>Set a completion condition with /goal and Claude keeps working until it's met, a model judges it impossible, or an error you have to fix clears the goal.</p>
 </blockquote>
-<p>The <code>/goal</code> command sets a completion condition and Claude keeps working toward it without you prompting each step. After each turn, a small fast model checks whether the condition holds. If the model judges it not yet met, Claude starts another turn instead of returning control to you. The goal clears automatically once the condition is met, or if the model judges the condition impossible to satisfy.</p>
+<p>The <code>/goal</code> command sets a completion condition and Claude keeps working toward it without you prompting each step. After each turn, a small fast model checks whether the condition holds. If the model judges it not yet met, Claude starts another turn instead of returning control to you. The goal clears automatically once the condition is met, if the model judges the condition impossible to satisfy, or if a turn fails on <a href="#errors-you-have-to-fix-clear-the-goal">an error you have to fix</a>.</p>
 <p>Use a goal for substantial work with a verifiable end state:</p>
 <ul>
 <li>Migrating a module to a new API until every call site compiles and tests pass</li>
@@ -5577,7 +5628,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>/goal</code></td>
 <td style="text-align: left;">The previous turn finishes</td>
-<td style="text-align: left;">A model confirms the condition is met or judges it impossible</td>
+<td style="text-align: left;">A model confirms the condition is met or judges it impossible, or a turn fails on <a href="#errors-you-have-to-fix-clear-the-goal">an error you have to fix</a>, or you run <a href="#clear-a-goal"><code>/goal clear</code></a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop"><code>/loop</code></a></td>
@@ -5668,7 +5719,19 @@ claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
 <li><strong>Impossible</strong>: the evaluator judged that the condition can never be satisfied. Claude Code clears the goal and records a failed entry in the transcript along with the reason. You don't need to clear it yourself.</li>
 </ul>
 <p>If Claude keeps answering the evaluator without making progress (no tool use for several turns in a row), Claude Code stops the loop, prints a warning, and returns control to you with the goal still set. Evaluation resumes after your next prompt. The <a href="/docs/en/hooks-guide#stop-hook-hits-the-block-cap">hooks guide</a> explains the underlying mechanism.</p>
-<p>If a subagent or a background shell command is still running when a turn ends, Claude Code skips the evaluation for that turn and evaluates when the next turn ends.</p>
+<h3 id="errors-you-have-to-fix-clear-the-goal">Errors you have to fix clear the goal</h3>
+<p>If a turn fails on an error that won't clear until you fix it, Claude Code clears the goal and prints a warning naming the cause. The warning starts with <code>Goal cleared after an unrecoverable error</code> and ends with <code>Run /goal again to continue</code>. Fix the cause, then <a href="#set-a-goal">set the goal again</a> with <code>/goal &lt;condition&gt;</code>. Four kinds of failure clear the goal:</p>
+<ul>
+<li>An authentication failure, when Claude Code manages its own credentials. When a host manages them for you, such as the desktop app, the VS Code extension, or a <a href="/docs/en/claude-code-on-the-web">cloud session</a>, Claude Code leaves the goal active because the host restores access on its own.</li>
+<li>An exhausted credit balance</li>
+<li>A context overflow that <a href="/docs/en/model-config#set-the-auto-compact-window">auto-compaction</a> couldn't clear</li>
+<li>A model that isn't available</li>
+</ul>
+<p>After any other failure, including transient errors such as rate limits and overloaded servers, Claude Code leaves the goal active.</p>
+<h3 id="background-work-defers-evaluation">Background work defers evaluation</h3>
+<p>If a subagent or a background shell command is still running when a turn ends, Claude Code skips the evaluation for that turn. It evaluates at the end of the next turn that finishes with no background work running. When the background work finishes, Claude Code delivers the result to Claude as a new turn, so you don't have to prompt.</p>
+<p>When a turn ends and background work has kept the goal waiting for 30 minutes or more, Claude Code asks Claude to check on that work. Claude Code lists the running tasks and asks Claude to read their output, keep waiting if they're progressing, and fix or stop any that are stuck. After each further 30 minutes of waiting, Claude Code asks again at the next turn end. To change the interval, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_GOAL_CHECKIN_MINUTES</code></a>; set it to <code>0</code> to turn check-ins off. Check-ins require Claude Code v2.1.234 or later.</p>
+<h3 id="evaluation-model-and-cost">Evaluation model and cost</h3>
 <p>To evaluate on a different model, set <a href="/docs/en/model-config#environment-variables"><code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code></a>.</p>
 <p><Warning>
   Claude Code reads <code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code> everywhere it uses the small fast model, not only for <code>/goal</code> evaluation. When you set it, Claude Code also resolves the <a href="/docs/en/model-config#model-aliases"><code>haiku</code> alias</a> to that model and runs <a href="/docs/en/costs#background-token-usage">background functionality</a>, such as conversation summarization, on it.
