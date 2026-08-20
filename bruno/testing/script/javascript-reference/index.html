@@ -28335,20 +28335,25 @@ The <code>onFail</code> function is only available in Developer mode and should 
 </code></pre></div>
 <p>See <a href="/get-started/configure/javascript-sandbox#detecting-sandbox-mode-in-scripts">JavaScript Sandbox</a>.</p>
 <h3 id="brurunrequestrequestpathname"><code>bru.runRequest(requestPathName)</code></h3>
-<p>Executes another request in the collection by its name and returns its response. Useful for chaining dependent requests inside a single script without relying on collection runner order.</p>
+<p>Executes another request in the collection by its path and returns its response. Useful for chaining dependent requests inside a single script without relying on collection runner order.</p>
+<p>The argument is the request's path relative to the collection root, without the <code>.bru</code> or <code>.yml</code> extension. For a request at the top of the collection, pass just the request name (for example, <code>"Login"</code>). For a request inside a folder, include the folder path using forward slashes (for example, <code>"Auth/Login"</code>).</p>
+<p>If Bruno cannot find a request at that path, the promise rejects with <code>bru.runRequest: invalid request path - &lt;resolved path&gt;</code>. Wrap the call in <code>try/catch</code> to handle a mistyped name.</p>
 <p><Warning>
   Do not call <code>bru.runRequest()</code> from a collection-level pre-request script — it can cause an infinite recursive loop. Always use double quotes for the request name.
 </Warning></p>
+<p><Info>
+  <code>bru.runRequest()</code> only runs HTTP and GraphQL requests. WebSocket and gRPC requests resolve with <code>{ status: 'skipped' }</code> and are recorded in the Timeline as skipped rather than executed.
+</Info></p>
 <p><Tip>
   You can see the executed request in the <a href="/debugging/timeline">Timeline</a> tab with a <code>runRequest</code> context badge.
 </Tip></p>
-<div class="highlight"><pre><span></span><code><span class="c1">// Run an auth request and use the token it returns</span>
+<div class="highlight"><pre><span></span><code><span class="c1">// Run an auth request at the top of the collection</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">authResponse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">bru</span><span class="p">.</span><span class="nx">runRequest</span><span class="p">(</span><span class="s2">"Login"</span><span class="p">);</span>
 <span class="kd">const</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">authResponse</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">token</span><span class="p">;</span>
 <span class="nx">req</span><span class="p">.</span><span class="nx">setHeader</span><span class="p">(</span><span class="s2">"Authorization"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Bearer "</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nx">token</span><span class="p">);</span>
 
-<span class="c1">// Run a cleanup step after the main request</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">cleanupResponse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">bru</span><span class="p">.</span><span class="nx">runRequest</span><span class="p">(</span><span class="s2">"Delete Test User"</span><span class="p">);</span>
+<span class="c1">// Run a request that lives inside a folder</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">cleanupResponse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">bru</span><span class="p">.</span><span class="nx">runRequest</span><span class="p">(</span><span class="s2">"Admin/Delete Test User"</span><span class="p">);</span>
 <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s2">"Cleanup status:"</span><span class="p">,</span><span class="w"> </span><span class="nx">cleanupResponse</span><span class="p">.</span><span class="nx">status</span><span class="p">);</span>
 </code></pre></div>
 <h3 id="brugettestresults"><code>bru.getTestResults()</code></h3>

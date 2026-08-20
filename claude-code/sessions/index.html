@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -4362,17 +4362,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#where-transcripts-are-stored" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Where transcripts are stored
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -5592,17 +5581,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#where-transcripts-are-stored" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Where transcripts are stored
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -5903,43 +5881,41 @@ claude --continue --fork-session
 <li><strong>Embed Claude in a TypeScript or Python app</strong>: use the <a href="/docs/en/agent-sdk/overview">Agent SDK</a> to receive each message programmatically.</li>
 </ul>
 <p>The example below uses the second interface. It sends a follow-up prompt to an existing session and reads the answer with <code>jq</code>:</p>
-<p><code>bash theme={null}
-claude -p --resume &lt;session-id&gt; --output-format json "summarize what we changed" | jq -r '.result'</code></p>
-<h3 id="where-transcripts-are-stored">Where transcripts are stored</h3>
-<p>By default, Claude Code stores transcripts as JSONL at <code>~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</code>, where <code>&lt;project&gt;</code> is your working directory path with non-alphanumeric characters replaced by <code>-</code>. For a working directory whose converted name exceeds 200 characters, Claude Code truncates the name to 200 characters and appends a hash of the full path, so the directory name stays within filesystem limits.</p>
-<p>Each line is a JSON object for a message, tool use, or metadata entry. The entry format is internal to Claude Code and changes between versions, so scripts that parse these files directly can break on any release. To build on session data, use <code>/export</code> or the <a href="#access-conversations-from-scripts">script interfaces</a> instead.</p>
-<p>The location, retention, and write behavior are configurable:</p>
-<table>
-<thead>
-<tr>
-<th>To</th>
-<th>Set</th>
-<th>Where</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Move storage off <code>~/.claude</code></td>
-<td><a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a></td>
-<td>Environment variable</td>
-</tr>
-<tr>
-<td>Change the 30-day retention</td>
-<td><a href="/docs/en/settings#available-settings"><code>cleanupPeriodDays</code></a></td>
-<td><code>settings.json</code></td>
-</tr>
-<tr>
-<td>Suppress transcript writes in all modes</td>
-<td><a href="/docs/en/env-vars"><code>CLAUDE_CODE_SKIP_PROMPT_HISTORY</code></a></td>
-<td>Environment variable</td>
-</tr>
-<tr>
-<td>Suppress writes for one non-interactive run</td>
-<td><a href="/docs/en/cli-reference"><code>--no-session-persistence</code></a></td>
-<td>CLI flag with <code>claude -p</code></td>
-</tr>
-</tbody>
-</table>
+<p>```bash theme={null}
+claude -p --resume <session-id> --output-format json "summarize what we changed" | jq -r '.result'
+<div class="highlight"><pre><span></span><code>### Where transcripts are stored
+
+By default, Claude Code stores transcripts as JSONL at `~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl`, where `&lt;project&gt;` is your working directory path with non-alphanumeric characters replaced by `-`. For a working directory whose converted name exceeds 200 characters, Claude Code truncates the name to 200 characters and appends a hash of the full path, so the directory name stays within filesystem limits.
+
+Each line is a JSON object for a message, tool use, or metadata entry. The entry format is internal to Claude Code and changes between versions, so scripts that parse these files directly can break on any release. To build on session data, use `/export` or the [script interfaces](#access-conversations-from-scripts) instead.
+
+The location, retention, and write behavior are configurable:
+
+| To                                                                              | Set                                                    | Where                     |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------- |
+| Move storage off `~/.claude`                                                    | [`CLAUDE_CONFIG_DIR`](/docs/en/env-vars)                    | Environment variable      |
+| [Name the `&lt;project&gt;` directory yourself](#name-the-project-directory-yourself) | [`CLAUDE_CODE_PROJECT_DIR_NAME`](/docs/en/env-vars)         | Environment variable      |
+| Change the 30-day retention                                                     | [`cleanupPeriodDays`](/docs/en/settings#available-settings) | `settings.json`           |
+| Suppress transcript writes in all modes                                         | [`CLAUDE_CODE_SKIP_PROMPT_HISTORY`](/docs/en/env-vars)      | Environment variable      |
+| Suppress writes for one non-interactive run                                     | [`--no-session-persistence`](/docs/en/cli-reference)        | CLI flag with `claude -p` |
+
+### Name the project directory yourself
+
+By default, Claude Code derives the `&lt;project&gt;` name from the whole working directory path. To choose the name yourself, set `CLAUDE_CODE_PROJECT_DIR_NAME` alongside `CLAUDE_CONFIG_DIR`. Claude Code then stores that session's transcripts and [auto memory](/docs/en/memory#auto-memory) under your name. This suits a host that embeds Claude Code and gives each session its own config directory. Requires Claude Code v2.1.234 or later.
+
+For example, this launch keeps tenant A's data under `/srv/tenant-a` and names its project directory `work`:
+
+```bash theme={null}
+CLAUDE_CONFIG_DIR=/srv/tenant-a CLAUDE_CODE_PROJECT_DIR_NAME=work claude
+</code></pre></div></p>
+<p>Claude Code writes the session's transcripts to <code>/srv/tenant-a/projects/work/</code> and its auto memory to <code>/srv/tenant-a/projects/work/memory/</code>, whatever the working directory is.</p>
+<p>Three rules apply when you set it:</p>
+<ul>
+<li><strong>Set <code>CLAUDE_CONFIG_DIR</code> too</strong>: the name doesn't vary with the working directory, so under the default <code>~/.claude</code> it would merge every project's transcripts and auto memory into one directory. Claude Code ignores <code>CLAUDE_CODE_PROJECT_DIR_NAME</code> when <code>CLAUDE_CONFIG_DIR</code> is unset.</li>
+<li><strong>Use 1-64 letters, digits, hyphens, or underscores</strong>: don't use a Windows device name such as <code>con</code>. Claude Code ignores any other value and uses the derived name.</li>
+<li><strong>Set it in the shell environment that starts <code>claude</code></strong>: Claude Code reads it once at startup from that environment, so an <code>env</code> block in a settings file can't set it.</li>
+</ul>
+<p>Once you've named a config directory's project directory, keep launching with that name. If you start Claude Code with the same <code>CLAUDE_CONFIG_DIR</code> but without <code>CLAUDE_CODE_PROJECT_DIR_NAME</code>, it reads and writes the derived directory again. The sessions stored under your name stay on disk: press <code>Ctrl+A</code> in the <a href="#use-the-session-picker">session picker</a> to list sessions from every project directory under that config directory, the pinned one included, and whichever way you launch, <a href="#resume-a-session"><code>claude --resume &lt;session-id&gt;</code></a> finds a session stored under either name.</p>
 <h2 id="see-also">See also</h2>
 <ul>
 <li><a href="/docs/en/worktrees">Worktrees</a>: run isolated parallel sessions on separate branches</li>

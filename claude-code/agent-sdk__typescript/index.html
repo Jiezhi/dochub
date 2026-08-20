@@ -2887,7 +2887,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -9647,11 +9647,14 @@ type SDKSystemMessage = {
   plugins: { name: string; path: string }[];
   fast_mode_state?: FastModeState;
   fast_mode_disabled_reason?: FastModeDisabledReason;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max" | null;
   capabilities?: string[];
 };
 <div class="highlight"><pre><span></span><code>`fast_mode_state` reports the session's [fast mode](/docs/en/fast-mode) state. When something blocks fast mode, `fast_mode_disabled_reason` names the check that blocked it; the field requires Claude Code v2.1.219 or later. For the reason codes and their meanings, see [`fast_mode_disabled_reason`](#sdkresultmessage) on the result message.
 
 `terminal_slash_commands` names the entries in `slash_commands` whose interface is bound to the local terminal, such as `exit`. You can send them like any other entry in `slash_commands`; the field exists so a remote or mobile client can hide them from its command menus. The field is present only when non-empty, and requires Agent SDK v0.3.229 or later.
+
+* `effort`: the [effort level](/docs/en/model-config#adjust-effort-level) Claude Code sends on the session's next request, or `null` when it sends none. Claude Code sets the field only on the init message it sends to [Remote Control](/docs/en/remote-control) clients, and omits it from the init message your application reads. Requires Agent SDK v0.3.234 or later.
 
 The `capabilities` array names the protocol behaviors this CLI implements, so you can feature-detect instead of comparing `claude_code_version` strings. It is an open set: ignore values you don't recognize, and check for the specific capability whose behavior you rely on. The field requires Claude Code v2.1.205 or later and is absent on earlier CLIs.
 
@@ -9880,6 +9883,7 @@ type SDKMessageOrigin =
   | {
       kind: "peer";
       from: string;
+      fromMode?: "bypass" | "prompting";
       name?: string;
       fromSession?: string;
       senderTaskId?: string;
@@ -9917,6 +9921,7 @@ Every other task notification has no `subkind`. That includes [scheduled tasks](
 A `peer` origin identifies which agent sent the message: an in-process [teammate](/docs/en/agent-teams) sending to `main` with `SendMessage`, or a [cross-session peer](/docs/en/cross-session-messaging), another of your Claude Code sessions. A cross-session peer can run on the same machine, or on [another of your machines](/docs/en/cross-session-messaging#message-sessions-on-other-machines) or [Claude Code on the web](/docs/en/claude-code-on-the-web) when its message arrives through Remote Control. The two kinds of sender fill the fields differently:
 
 * `from`: the teammate's name, or the sender address for a cross-session peer. For a [one-way cross-machine message](/docs/en/cross-session-messaging#message-sessions-on-other-machines), the sender has no reply address and `from` is `"unknown"`. The value is sender-authored; `verifiedPeerPid` is the verified identity.
+* `fromMode`: the sending session's permission class, `bypass` or `prompting`, declared by a host that relays a peer message between your sessions, such as the [desktop app](/docs/en/desktop#work-across-sessions). Claude Code reads it in the receiving session when it applies the [inbound controls](/docs/en/cross-session-messaging#control-inbound-messages). Requires Agent SDK v0.3.234 or later.
 * `senderTaskId`: the teammate's task ID. Absent for a cross-session peer.
 * `name`: the sender's display name, normalized by Claude Code: it strips Unicode control, format, surrogate, and line or paragraph separator code points, then trims the result and caps it at 64 code points with an ellipsis. Requires Claude Code v2.1.205 or later.
 * `body`: the decoded message body with the peer envelope stripped, byte-exact with what the model sees. Always present for a teammate message; for a cross-session peer, present only when the turn is exactly one peer envelope formed by Claude Code. Render `name` and `body` instead of re-parsing the message text. Requires Claude Code v2.1.205 or later.
@@ -11075,10 +11080,16 @@ type ArtifactInput = {
   label?: string;
   url?: string;
   force?: boolean;
+  capabilities?: Record&lt;string, unknown&gt;;
+  contract?: "latest" | string;
 };
 </code></pre></div></p>
 <p>Publishes a local <code>.html</code> or <code>.md</code> file as a hosted artifact page, or lists the user's published artifacts. Omit <code>action</code> or pass <code>"publish"</code> to publish <code>file_path</code>, which is required for the publish action along with <code>favicon</code>, one or two emoji for the browser tab. <code>title</code> names the published page in the browser tab and gallery when the HTML file has no <code>&lt;title&gt;</code> tag. <code>url</code> targets an existing artifact to update in place instead of minting a new one, and <code>force</code> is a last-resort overwrite that discards another session's published version; on a 409 conflict the normal fix is to re-read, merge, and publish again rather than pass <code>force</code>.</p>
 <p>Pass <code>"list"</code> to enumerate the user's published artifacts; only <code>limit</code> and <code>scope</code> may accompany it. <code>scope</code> defaults to <code>"mine"</code>, which lists artifacts the user owns; <code>"shared"</code> lists artifacts other people shared with the user, and <code>"all"</code> lists both.</p>
+<ul>
+<li><code>capabilities</code>: the runtime capabilities the published page uses, keyed by capability name, such as the <a href="/docs/en/artifacts#pull-live-data-with-mcp-connectors">connectors the page may call</a>. The artifact service validates the declaration and rejects a publish that names a capability the account can't use or gives one an invalid config. Pass <code>{}</code> to clear a stored declaration, and omit the field on a redeploy to keep it. Requires Agent SDK v0.3.235 or later.</li>
+<li><code>contract</code>: the runtime version the published page runs against. Omit it to keep the artifact's current version, pass <code>"latest"</code> to upgrade, or pass a specific version to pin or roll back. Requires Agent SDK v0.3.235 or later.</li>
+</ul>
 <p>The types are exported, but the tool is off by default in Agent SDK sessions. Publishing also requires every condition in the <a href="/docs/en/artifacts#availability">artifacts availability table</a>, which sessions authenticated with an API key don't meet.</p>
 <h3 id="projects">Projects</h3>
 <p><strong>Tool name:</strong> <code>Projects</code></p>
@@ -11311,13 +11322,13 @@ type BashOutput = {
   staleReadFileStateHint?: string;
   ghRateLimitHint?: string;
   gitOperation?: {
-    commit?: { sha: string; kind: "committed" | "amended" | "cherry-picked" };
+    commit?: { sha: string; kind: "committed" | "amended" | "cherry-picked"; branch?: string };
     push?: { branch: string };
     branch?: { ref: string; action: "merged" | "rebased" };
     pr?: {
       number: number;
       url?: string;
-      action: "created" | "edited" | "merged" | "commented" | "closed" | "ready" | "draft" | "auto-merge-enabled" | "auto-merge-disabled";
+      action: "created" | "edited" | "merged" | "commented" | "closed" | "reopened" | "ready" | "draft" | "auto-merge-enabled" | "auto-merge-disabled";
     };
   };
 };
@@ -11332,6 +11343,8 @@ type BashOutput = {
 `timedOutAfterMs` is the timeout in milliseconds, set when the command reached its timeout and moved to the background rather than starting there explicitly. `backgroundCwdHint` is set when the backgrounded command contained a directory-change builtin such as `cd`, `pushd`, `popd`, or `chdir`, and notes that the session working directory didn't change. Both fields require Claude Code v2.1.210 or later.
 
 When a subagent running in the foreground owns a backgrounded command, Claude Code terminates the command when that subagent gives its final response. Claude Code sets `backgroundEndsWithFinalResponse` to `true` on such commands, and omits the field when the command survives the turn, as commands started by the main conversation or by background subagents do. The field requires Claude Code v2.1.227 or later.
+
+Claude Code sets `gitOperation.commit.branch` to the branch named in git's commit summary line, and omits it for a commit made on a detached HEAD. The field requires Agent SDK v0.3.227 or later. Claude Code reports a `gh pr reopen` command as the `reopened` PR action, which requires Agent SDK v0.3.234 or later.
 
 ### Monitor
 
@@ -12152,12 +12165,48 @@ type PermissionRuleValue = {
 
 ### `ApiKeySource`
 
+Where the API key for the session's requests came from, reported as `apiKeySource` on the [`SDKSystemMessage`](#sdksystemmessage) init message.
+
 ```typescript theme={null}
-type ApiKeySource = "user" | "project" | "org" | "temporary" | "oauth";
+type ApiKeySource =
+  | "ANTHROPIC_API_KEY"
+  | "apiKeyHelper"
+  | "/login managed key"
+  | "none"
+  | "user"
+  | "project"
+  | "org"
+  | "temporary"
+  | "oauth";
 </code></pre></div></p>
-<p><Note>
-  At runtime, the <code>apiKeySource</code> field on the <a href="#sdksystemmessage"><code>SDKSystemMessage</code></a> init message can also be the string <code>"none"</code> when no API key is in use, for example when the session authenticates with an OAuth token. Handle values outside this union defensively.
-</Note></p>
+<p>Claude Code reports one of four values:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Key in use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>The key in the <code>ANTHROPIC_API_KEY</code> environment variable</td>
+</tr>
+<tr>
+<td><code>apiKeyHelper</code></td>
+<td>The key returned by your <a href="/docs/en/settings#available-settings"><code>apiKeyHelper</code></a> command</td>
+</tr>
+<tr>
+<td><code>/login managed key</code></td>
+<td>The key Claude Code stored when you logged in with a <a href="/docs/en/authentication#claude-console-authentication">Claude Console account</a></td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>No API key. The session authenticates another way, such as a claude.ai login, a bearer token, or a cloud provider</td>
+</tr>
+</tbody>
+</table>
+<p>Agent SDK v0.3.234 and later list these four values in the type. The type also keeps <code>user</code>, <code>project</code>, <code>org</code>, <code>temporary</code>, and <code>oauth</code> so older code still compiles, and Claude Code doesn't report them.</p>
 <h3 id="sdkbeta"><code>SdkBeta</code></h3>
 <p>Available beta features that can be enabled via the <code>betas</code> option. See <a href="https://platform.claude.com/docs/en/api/beta-headers">Beta headers</a> for more information.</p>
 <p>```typescript theme={null}

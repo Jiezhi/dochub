@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5650,7 +5650,7 @@ Use this file to discover all available pages before exploring further.</p>
 </table>
 <p>See <a href="/docs/en/settings#settings-files">Settings files</a> for where each file lives and <a href="/docs/en/settings#settings-precedence">Settings precedence</a> for how they combine when more than one sets the same variable.</p>
 <h2 id="precedence">Precedence</h2>
-<p>Some behaviors have both an environment variable and a dedicated settings key. If you set both, the environment variable takes precedence. For example, <code>ANTHROPIC_MODEL</code> overrides the <code>model</code> setting, and <code>CLAUDE_CODE_AUTO_CONNECT_IDE</code> overrides <code>autoConnectIde</code>. Claude Code uses the settings key only when the environment variable is unset.</p>
+<p>Some behaviors have both an environment variable and a dedicated settings key. If you set both, the environment variable takes precedence, except for <a href="/docs/en/model-config#set-a-default-model-for-new-sessions"><code>ANTHROPIC_DEFAULT_MODEL</code></a>. For example, <code>ANTHROPIC_MODEL</code> overrides the <code>model</code> setting, and <code>CLAUDE_CODE_AUTO_CONNECT_IDE</code> overrides <code>autoConnectIde</code>.</p>
 <p>When the same variable is set in both your shell and a settings file <code>env</code> block, the settings file value applies. Claude Code writes each <code>env</code> entry into the process environment at startup and again when the file changes, replacing the value inherited from the shell. A few variables are special-cased; the <a href="/docs/en/settings#available-settings"><code>env</code> setting</a> lists the exceptions.</p>
 <p>In a settings file you can set a variable but you can't remove one. To override a variable you can't unset, such as a stale <code>CLAUDE_CODE_USE_VERTEX</code> exported by a shell profile you don't control, set it to an empty string in the <code>env</code> block: <code>"CLAUDE_CODE_USE_VERTEX": ""</code>. Claude Code treats the empty value as unset for provider selection. Subprocesses still inherit the empty value.</p>
 <p>Between settings files, <code>env</code> values follow <a href="/docs/en/settings#settings-precedence">settings precedence</a>, so a managed settings entry overrides the same variable in user or project settings.</p>
@@ -5774,6 +5774,10 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES</code></td>
 <td style="text-align: left;">Comma-separated list of <a href="/docs/en/model-config#customize-pinned-model-display-and-capabilities">capabilities</a> the pinned Haiku model supports, for example <code>effort,thinking</code>. See <a href="/docs/en/model-config#customize-pinned-model-display-and-capabilities">Model configuration</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ANTHROPIC_DEFAULT_MODEL</code></td>
+<td style="text-align: left;">Model that new sessions start on by default. Requires Claude Code v2.1.236 or later. See <a href="/docs/en/model-config#set-a-default-model-for-new-sessions">Set a default model for new sessions</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>ANTHROPIC_DEFAULT_OPUS_MODEL</code></td>
@@ -6436,6 +6440,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Launch the processes Claude Code starts from its own binary, such as the background service that hosts <a href="/docs/en/agent-view">agent view</a> sessions, through a corporate launcher given as an argv prefix like <code>/opt/corp/launcher</code>. Set it in the <code>env</code> block of user or <a href="/docs/en/permissions#managed-settings">managed settings</a>, not as a shell export, so the detached background service inherits it; project and local settings can't set it. Equivalent to the <a href="/docs/en/settings#available-settings"><code>processWrapper</code> setting</a>, which requires Claude Code v2.1.210 or later; this variable takes precedence when both are set. The VS Code extension configures its own launcher separately through its <code>claudeProcessWrapper</code> setting. Ignored on Windows. See <a href="/docs/en/corporate-launcher">Run Claude Code behind a corporate launcher</a> for the value format, what the launcher covers, and the contract the launcher must satisfy. Requires Claude Code v2.1.208 or later</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>CLAUDE_CODE_PROJECT_DIR_NAME</code></td>
+<td style="text-align: left;">Set together with <code>CLAUDE_CONFIG_DIR</code> to choose the <code>projects/</code> directory name Claude Code stores that session's transcripts and auto memory under, in place of one derived from the working directory path. For example, starting Claude Code with <code>CLAUDE_CONFIG_DIR=/srv/tenant-a CLAUDE_CODE_PROJECT_DIR_NAME=work claude</code> stores them under <code>/srv/tenant-a/projects/work/</code>. Claude Code ignores this variable when <code>CLAUDE_CONFIG_DIR</code> is unset, and reads it only from the environment you start <code>claude</code> from, never from a <a href="#in-settings-files">settings file <code>env</code> block</a>. See <a href="/docs/en/sessions#name-the-project-directory-yourself">Name the project directory yourself</a>. Requires Claude Code v2.1.234 or later</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_PROPAGATE_TRACEPARENT</code></td>
 <td style="text-align: left;">Set to <code>1</code> to propagate W3C trace context when <code>ANTHROPIC_BASE_URL</code> points at a custom proxy. Propagation covers the <code>traceparent</code> header on model and HTTP MCP requests and the <code>TRACEPARENT</code> environment variable for Bash, PowerShell, and hook subprocesses. By default, propagation is enabled only when connected directly to the Anthropic API. Added in v2.1.152. See <a href="/docs/en/monitoring-usage#traces-beta">Traces (beta)</a></td>
 </tr>
@@ -7018,7 +7026,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>With fetching off, you can still type <code>/code-review</code> yourself, but <a href="/docs/en/code-review#let-claude-start-the-review">Claude can't start the review on its own, and a scheduled <code>/code-review</code> reaches Claude as plain text</a> instead of running the review.</p>
 <h3 id="first-session-after-an-install-or-upgrade">First session after an install or upgrade</h3>
-<p>You can also miss a feature in this list in your first session after you install Claude Code, or after you upgrade to a version that adds the feature, even with none of these variables set. Claude Code fetches the flags during that session, so a feature that's otherwise available to you is there in your next session. Two features behave differently in that first session:</p>
+<p>You can also miss a <a href="#features-that-need-feature-flag-fetching">flag-gated feature</a> in your first session after you install Claude Code, or after you upgrade to a version that adds the feature, even when none of the variables that disable flag fetching are set. Claude Code fetches the flags during that session, so a feature that's otherwise available to you is there in your next session. Two features behave differently in that first session:</p>
 <ul>
 <li>Claude Code <a href="/docs/en/cross-session-messaging#the-sessions-inbox-socket">binds the session's inbox socket</a> and exports the messaging variables partway through the session, as soon as the fetch completes, so other sessions can message it before you restart.</li>
 <li>Claude Code checks the <code>claude import</code> flag before it starts a session, so if <code>claude import</code> is the first thing you run after installing, it prints <a href="/docs/en/errors#claude-import-is-not-yet-available-in-this-build"><code>claude import is not yet available in this build</code></a>. Start a session, then run it again.</li>
