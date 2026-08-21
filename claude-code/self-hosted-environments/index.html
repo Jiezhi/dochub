@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5675,14 +5675,15 @@ Use this file to discover all available pages before exploring further.</p>
 <li>The child streams events back over HTTPS while the runner keeps polling; each poll refreshes the lease and doubles as the heartbeat.</li>
 <li>If the runner stops polling for about 60 seconds, the server requeues the session for another runner.</li>
 </ol>
+<p>The runner gives each poll request 10 seconds. When a request times out or is lost, the runner retries after a second or two instead of waiting for the next scheduled poll. Each further request that times out or is lost doubles the gap before the next retry, up to 20 seconds, and the runner shortens the gap whenever the lease is close to expiring.</p>
 <h3 id="runner-lifecycle">Runner lifecycle</h3>
-<p>The first session a runner picks up locks the runner to the account of the user who started that session, and the runner runs up to <code>--capacity</code> concurrent sessions for that account. While the runner has active sessions, the runner keeps claiming the locked account's queued work. What happens once they finish depends on <a href="/docs/en/self-hosted-environments-reference#runner-cli-flags"><code>--drain-grace-sec</code></a>:</p>
+<p>The first session a runner picks up locks the runner to the account of the user who started that session, and the runner runs up to <code>--capacity</code> concurrent sessions for that account. While the runner has active sessions and hasn't received a shutdown signal or reached its retire time, the runner keeps claiming the locked account's queued work. What happens once they finish depends on <a href="/docs/en/self-hosted-environments-reference#runner-cli-flags"><code>--drain-grace-sec</code></a>:</p>
 <ul>
 <li><strong>At the default of <code>0</code></strong>: the runner exits as soon as its active sessions finish, without polling for more, so the orchestrator you deploy it under, such as Kubernetes, can restart it with a fresh disk, ready to serve any account.</li>
 <li><strong>At a positive value</strong>: the runner keeps polling the locked account's queue for that many seconds before exiting.</li>
 </ul>
 <p>This lifecycle isolates each user's checked-out code without requiring the runner to delete disk state between users.</p>
-<p>A kill that delivers <code>SIGTERM</code> needs no flag: the runner drains as <a href="/docs/en/self-hosted-environments-deploy#shutdown-timing">Shutdown timing</a> describes. If your infrastructure instead destroys hosts at a known wall-clock time without a signal, or with a grace period too short to drain, such as a sandbox lifetime cap or spot-instance reclamation, pass <code>--retire-at &lt;epoch-seconds&gt;</code> set to a few minutes before that time. At the retire time:</p>
+<p>How your infrastructure stops a runner decides whether you need <code>--retire-at</code>. A kill that delivers <code>SIGTERM</code> needs no flag: the runner drains as <a href="/docs/en/self-hosted-environments-deploy#shutdown-timing">Shutdown timing</a> describes, or keeps serving the sessions it already holds when you set <a href="/docs/en/self-hosted-environments-deploy#defer-the-drain-past-the-first-signal"><code>--defer-shutdown-max-min</code></a>. If your infrastructure instead destroys hosts at a known wall-clock time without a signal, or with a grace period too short to drain, such as a sandbox lifetime cap or spot-instance reclamation, pass <code>--retire-at &lt;epoch-seconds&gt;</code> set to a few minutes before that time. At the retire time:</p>
 <ol>
 <li>The runner stops taking new work.</li>
 <li>The runner releases each active session through the same release path the <a href="/docs/en/self-hosted-environments-reference#runner-cli-flags"><code>--release-idle-session-min</code></a> flag uses, so the session resumes on a fresh runner when the user sends their next message. When the runner releases each session depends on its state:</li>
@@ -5701,6 +5702,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>Model inference uses the Anthropic API. The control plane delivers the API endpoint to each session, and the session authenticates with an Anthropic-issued, session-scoped OAuth token, so inference can't be routed through <a href="/docs/en/third-party-integrations">Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry</a>, or an <a href="/docs/en/llm-gateway">LLM gateway</a> in self-hosted environments.</p>
 <p>Corporate egress proxies are supported. The runner and the optional <a href="/docs/en/self-hosted-environments-configuration#on-demand-runners">autoscaling orchestrator</a> honor the proxy and mTLS environment variables described in <a href="/docs/en/network-config">Network configuration</a>, such as <code>HTTPS_PROXY</code> and <code>NO_PROXY</code>; set them in each process's environment. The variables cover control-plane calls, the orchestrator's <a href="/docs/en/self-hosted-environments-reference#scm-connector-flags">SCM connector</a> WebSocket, and the built-in clone for HTTPS remotes, and sessions inherit them from the runner. Session streaming uses server-sent events over HTTPS, so a proxy in the path must not buffer responses.</p>
+<p>If your proxy also requires a <code>Proxy-Authorization</code> header, the runner can add it to each connection it opens to the proxy; see <a href="/docs/en/self-hosted-environments-deploy#authenticate-to-an-egress-proxy">Authenticate to an egress proxy</a>.</p>
 <h2 id="what-stays-on-your-infrastructure">What stays on your infrastructure</h2>
 <p>Repository checkouts, build artifacts, secrets, and any files a session creates or modifies stay on the machines you provision. The conversation itself, including prompts, responses, and tool results, goes to <code>api.anthropic.com</code> for model inference, and Anthropic stores the session transcript so you can resume the session from another <a href="#availability-and-limitations">supported surface</a>.</p>
 <p>A self-hosted environment moves session execution into your network. The control plane remains Anthropic-hosted: session orchestration, queueing, and the claude.ai interface continue to run on Anthropic's infrastructure.</p>

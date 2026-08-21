@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -2733,6 +2733,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Stale or misplaced text on screen">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-claude-code-counts-failed-starts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Claude Code counts failed starts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5513,6 +5530,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Stale or misplaced text on screen">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-claude-code-counts-failed-starts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Claude Code counts failed starts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -5580,7 +5614,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>If you rewound to before your first message, Claude Code relaunches with an empty conversation</li>
 <li>Your <a href="/docs/en/permission-modes">permission mode</a> and <a href="/docs/en/model-config#adjust-effort-level">effort level</a></li>
 <li>The model you last picked with <a href="/docs/en/model-config#setting-your-model"><code>/model</code></a></li>
-<li>Rules you passed with <a href="/docs/en/cli-reference#cli-flags"><code>--allowed-tools</code> or <code>--disallowed-tools</code></a></li>
+<li>Rules you passed with <a href="/docs/en/cli-reference#cli-flags"><code>--allowed-tools</code> or <code>--disallowed-tools</code></a>, and your <code>--agent</code>, <code>--agents</code>, and <code>--append-system-prompt</code> flags</li>
 </ul>
 <p>Claude Code declines to relaunch if the session has a restriction it can't pass to the restarted process. Restrictions it can't pass include:</p>
 <ul>
@@ -5589,12 +5623,12 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>In that case Claude Code prints <a href="/docs/en/errors#cannot-switch-renderers-in-this-session"><code>Cannot switch renderers in this session</code></a> with the reasons. It doesn't switch or save anything.</p>
 <p><Note>
-  If you first used Claude Code before May 6, 2026 and haven't saved a <code>tui</code> setting, Claude Code may open a dialog at startup offering the switch. If you accept, Claude Code saves the setting and relaunches the same way <code>/tui fullscreen</code> does, carrying the same session state.
+  If you first used Claude Code before May 6, 2026 and haven't saved a <code>tui</code> setting, Claude Code may open a dialog at startup offering the switch. If you accept, Claude Code relaunches the same way <code>/tui fullscreen</code> does, carrying the same session state, and saves the setting once the relaunched session has <a href="#fullscreen-renderer-didnt-finish-starting">started successfully</a>.
 </Note></p>
 <p>You can also set the <code>CLAUDE_CODE_NO_FLICKER</code> environment variable before starting Claude Code:</p>
 <p>```bash theme={null}
 CLAUDE_CODE_NO_FLICKER=1 claude
-<div class="highlight"><pre><span></span><code>The `tui` setting and the environment variable are equivalent. The `/tui` command clears `CLAUDE_CODE_NO_FLICKER` from the relaunched process so the setting it writes takes effect.
+<div class="highlight"><pre><span></span><code>Either one turns fullscreen rendering on. After a [failed fullscreen start](#fullscreen-renderer-didnt-finish-starting), Claude Code still honors the variable but not the setting. The `/tui` command clears `CLAUDE_CODE_NO_FLICKER` from the relaunched process so the setting it writes takes effect.
 
 ## What changes
 
@@ -5744,7 +5778,8 @@ export CLAUDE_CODE_SCROLL_SPEED=3
 <li><strong><code>v</code></strong>: writes the conversation to a temporary file and opens it in <code>$VISUAL</code> or <code>$EDITOR</code>.</li>
 </ul>
 <h2 id="clear-the-conversation">Clear the conversation</h2>
-<p>Press <code>Ctrl+L</code> twice within two seconds to run <code>/clear</code> and start a new conversation. The first press redraws the screen and shows a hint; the second press clears the conversation. On macOS, double-pressing <code>Cmd+K</code> also runs <code>/clear</code>.</p>
+<p>Run <code>/clear</code> to start a new conversation. Pressing <code>Ctrl+L</code> or <code>Cmd+K</code> doesn't clear the conversation; Claude Code redraws the screen and keeps it. Before v2.1.238, Claude Code ran <code>/clear</code> when you pressed <code>Ctrl+L</code> or <code>Cmd+K</code> twice within two seconds.</p>
+<p>On iTerm2 and Terminal.app, your terminal handles <code>Cmd+K</code> itself and clears its own screen without telling Claude Code. Claude Code detects the cleared screen and repaints the conversation.</p>
 <h2 id="use-with-tmux">Use with tmux</h2>
 <p>Fullscreen rendering works inside tmux, with three caveats.</p>
 <p>Mouse wheel scrolling requires tmux's mouse mode. If your <code>~/.tmux.conf</code> doesn't already enable it, add this line and reload your config:</p>
@@ -5803,6 +5838,25 @@ claude
 CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT=1 claude
 </code></pre></div></p>
 <p>On Windows, Claude Code already enables full repaint automatically for background sessions and <a href="/docs/en/agent-view">agent view</a>, so you only need to set the variable for an interactive fullscreen session you launched directly.</p>
+<h3 id="fullscreen-renderer-didnt-finish-starting">
+  `Claude Code's fullscreen renderer didn't finish starting last time` appears at startup
+</h3>
+
+<p>If a fullscreen session on this machine crashes before it has started successfully, Claude Code starts your next session in the classic renderer and prints one of two lines. A session has started successfully once it has drawn its first frame and then either stayed up for 10 seconds or you ended it with <code>/exit</code>, Ctrl+C, or Ctrl+D. The line you see tells you what Claude Code does after this session:</p>
+<ul>
+<li>After one failed start, you see <code>Claude Code's fullscreen renderer didn't finish starting last time on this machine</code>. Claude Code tries fullscreen rendering again in the next session you start</li>
+<li>After two failed starts, you see <code>Claude Code's fullscreen renderer has repeatedly failed to start on this machine</code>. Claude Code keeps using the classic renderer until you update Claude Code or run <code>/tui fullscreen</code>, and prints nothing in those later sessions</li>
+</ul>
+<p>To confirm that a failed start is why you're in the classic renderer, run <code>/tui</code> with no argument. While a failed start is the reason, the <code>Current renderer</code> line says so.</p>
+<p>To keep the classic renderer, run <code>/tui default</code>, which saves the <code>tui</code> setting without relaunching. To try fullscreen rendering again, run <code>/tui fullscreen</code>. If that session doesn't finish starting either, <a href="#research-preview">report the problem</a>.</p>
+<p>Before v2.1.236, Claude Code kept starting sessions in fullscreen rendering after a failed start.</p>
+<h4 id="how-claude-code-counts-failed-starts">How Claude Code counts failed starts</h4>
+<ul>
+<li>Sessions that count: only sessions that started in fullscreen rendering because your <code>tui</code> setting says so, because you accepted the <a href="#enable-fullscreen-rendering">startup dialog</a>, or because your account renders fullscreen by default</li>
+<li><code>CLAUDE_CODE_NO_FLICKER=1</code>: if you set it, Claude Code renders that session fullscreen even after a failed start, and doesn't count it</li>
+<li>Count reset: Claude Code counts failed starts per Claude Code version, and a successful fullscreen start resets the count</li>
+<li>Startup dialog: if you accepted the dialog and the relaunched session crashed, Claude Code prints neither line and doesn't show the dialog again on this Claude Code version</li>
+</ul>
 <h2 id="research-preview">Research preview</h2>
 <p>Fullscreen rendering is a research preview feature. It has been tested on common terminal emulators, but you may encounter rendering issues on less common terminals or unusual configurations.</p>
 <p>If you encounter a problem, run <code>/feedback</code> inside Claude Code to report it, or open an issue on the <a href="https://github.com/anthropics/claude-code/issues">claude-code GitHub repo</a>. Include your terminal emulator name and version.</p>

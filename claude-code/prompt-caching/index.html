@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6187,7 +6187,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Two settings aren't part of the prompt text at all, so they don't appear in the layer table, but both are part of the cache key:</p>
 <ul>
 <li><strong>Model</strong>: each model has its own cache. Switching models recomputes the entire request even when the content is identical. See <a href="#switching-models">Switching models</a> below.</li>
-<li><strong>Effort level</strong>: each effort level has its own cache for the same model. Changing it mid-session recomputes the entire request, and Claude Code asks you to confirm before applying the change. See <a href="#changing-effort-level">Changing effort level</a> below.</li>
+<li><strong>Effort level</strong>: each effort level has its own cache for the same model. Changing effort mid-session recomputes the entire request. See <a href="#changing-effort-level">Changing effort level</a> below.</li>
 </ul>
 <p><Tip>
   Pick your model and effort level at the top of a session, then save <code>/compact</code> for natural breaks between tasks. The fewer changes you make mid-task, the higher your cache hit rate.
@@ -6217,10 +6217,16 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <h3 id="switching-models">Switching models</h3>
 <p>Each model has its own cache. Switching with <a href="/docs/en/model-config#setting-your-model"><code>/model</code></a> means the next request reads the entire conversation history with no cache hits, even though the content is identical.</p>
+<p>When you run <code>/model</code> at the terminal, Claude Code asks you to confirm the switch only while the current cache hasn't expired. Whether the cache has expired depends on how long it has been since Claude Code last sent a request in this conversation or Claude last responded:</p>
+<ul>
+<li><strong>Less than one <a href="#cache-lifetime">cache TTL</a> ago</strong>: the cache is still warm.</li>
+<li><strong>One cache TTL or longer ago</strong>: the cache has already expired, so Claude Code switches without asking.</li>
+</ul>
+<p>Before v2.1.238, Claude Code didn't check the cache TTL and asked even after the cache had expired.</p>
 <p>The <a href="/docs/en/model-config#opusplan-model-setting"><code>opusplan</code> model setting</a> resolves to Opus during plan mode and Sonnet during execution, so each plan-mode toggle is a model switch and starts a fresh cache.</p>
 <p><a href="/docs/en/model-config#automatic-model-fallback">Automatic model fallback</a> on Fable 5 and Opus 5 is also a model switch. When a safety classifier flags a request and the flagged category has a fallback model, Claude Code re-runs the request on that model and the session continues there.</p>
 <h3 id="changing-effort-level">Changing effort level</h3>
-<p>The cache is keyed by <a href="/docs/en/model-config#adjust-effort-level">effort level</a> as well as model, so switching with <code>/effort</code> means the next request reads the entire conversation history with no cache hits. Once a conversation has started, Claude Code shows a confirmation dialog before applying an effort change that would invalidate the cache. A change that resolves to the same level already in effect, such as setting the model's default explicitly, skips the dialog and keeps the cache.</p>
+<p>The cache is keyed by <a href="/docs/en/model-config#adjust-effort-level">effort level</a> as well as model, so switching with <code>/effort</code> means the next request reads the entire conversation history with no cache hits. Changing effort follows the same confirmation as <a href="#switching-models">switching models</a>. When a change resolves to the same level already in effect, such as setting the model's default explicitly, Claude Code keeps the cache and applies the change without asking.</p>
 <h3 id="turning-on-fast-mode">Turning on fast mode</h3>
 <p>Enabling <a href="/docs/en/fast-mode">fast mode</a> adds a request header that is part of the cache key, so the next request reads the entire conversation history with no cache hits. Those uncached input tokens are billed at <a href="/docs/en/fast-mode#understand-the-cost-tradeoff">fast mode rates</a>, which is why turning it on at the start of a session costs less than turning it on deep into a long one. Enabling fast mode from a non-Opus model also <a href="#switching-models">switches your model</a>, which starts a fresh cache on its own.</p>
 <p>The cost applies once per conversation. After the first fast mode turn, Claude Code keeps sending the header and varies only the request's speed setting, which is not part of the cache key. Turning fast mode off, the <a href="/docs/en/fast-mode#handle-rate-limits">automatic fallback to standard speed</a> after a rate limit, and turning it back on later all keep the cache. If you <a href="/docs/en/fast-mode#handle-rate-limits">run out of usage credits</a> mid-session, Claude Code retries each rejected fast mode request at standard speed the same way, so this fallback also keeps the cache. <code>/clear</code> and <code>/compact</code> reset this, since they rebuild the cache at those points anyway.</p>

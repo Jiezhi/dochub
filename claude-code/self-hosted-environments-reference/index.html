@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5682,16 +5682,22 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Write live tokens to disk for inspection. Debug only; don't use in production.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>--defer-shutdown-max-min &lt;n&gt;</code></td>
+<td style="text-align: left;"><code>SELF_HOSTED_RUNNER_DEFER_SHUTDOWN_MAX_MS</code></td>
+<td style="text-align: left;"><code>0</code></td>
+<td style="text-align: left;">On the first <code>SIGTERM</code> or <code>SIGINT</code>, keep serving the sessions already attached instead of draining them, then release whatever is still attached N minutes later and exit. Raise your host's stop timeout before you set this. See <a href="/docs/en/self-hosted-environments-deploy#defer-the-drain-past-the-first-signal">Defer the drain past the first signal</a>. <code>0</code> disables. Requires Claude Code v2.1.238 or later.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>--drain-grace-sec &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_DRAIN_GRACE_MS</code></td>
 <td style="text-align: left;"><code>0</code></td>
-<td style="text-align: left;">Controls when the runner exits after its active sessions finish: <code>0</code> exits immediately without polling for more, and a positive value keeps the runner alive and re-polling the locked account's queue for that many seconds first, at the cost of the per-session container isolation described in the <a href="/docs/en/self-hosted-environments-deploy#harden-your-deployment">hardening section</a></td>
+<td style="text-align: left;">Until the runner receives a shutdown signal or reaches its retire time, controls when the runner exits after its active sessions finish: <code>0</code> exits immediately without polling for more, and a positive value keeps the runner alive and re-polling the locked account's queue for that many seconds first, at the cost of the per-session container isolation described in the <a href="/docs/en/self-hosted-environments-deploy#harden-your-deployment">hardening section</a>. After a first signal you deferred with <a href="/docs/en/self-hosted-environments-deploy#defer-the-drain-past-the-first-signal"><code>--defer-shutdown-max-min</code></a>, the runner exits as soon as it holds no sessions, whatever you set here.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--drain-wait-sec &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_DRAIN_WAIT_MS</code></td>
 <td style="text-align: left;"><code>0</code></td>
-<td style="text-align: left;">On <code>SIGTERM</code>, wait up to N seconds for each session's in-flight turn and background tasks to finish before terminating the child. During this wait, the runner counts a background task that has just finished as still running until the follow-up turn that reads its result starts, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></a> window.</td>
+<td style="text-align: left;">Once the drain starts, which is on <code>SIGTERM</code> unless you set <a href="/docs/en/self-hosted-environments-deploy#defer-the-drain-past-the-first-signal"><code>--defer-shutdown-max-min</code></a>, wait up to N seconds for each session's in-flight turn and background tasks to finish before terminating the child. During this wait, the runner counts a background task that has just finished as still running until the follow-up turn that reads its result starts, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></a> window.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--environment-secret-file &lt;path&gt;</code></td>
@@ -5766,6 +5772,18 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Budget for the <a href="/docs/en/self-hosted-environments-configuration#post-session"><code>post-session</code> hook</a> on every session end, including runner shutdown</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>--proxy-authorization-command &lt;command&gt;</code></td>
+<td style="text-align: left;"><code>SELF_HOSTED_RUNNER_PROXY_AUTHORIZATION_COMMAND</code></td>
+<td style="text-align: left;">unset</td>
+<td style="text-align: left;">Shell command the runner runs for every connection to your egress proxy, using its trimmed stdout as the <code>Proxy-Authorization</code> header value. Requires <code>HTTPS_PROXY</code> or <code>HTTP_PROXY</code>, and can't be combined with <code>--proxy-authorization-file</code>. See <a href="/docs/en/self-hosted-environments-deploy#authenticate-to-an-egress-proxy">Authenticate to an egress proxy</a>. Requires Claude Code v2.1.238 or later.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--proxy-authorization-file &lt;path&gt;</code></td>
+<td style="text-align: left;"><code>SELF_HOSTED_RUNNER_PROXY_AUTHORIZATION_FILE</code></td>
+<td style="text-align: left;">unset</td>
+<td style="text-align: left;">File the runner reads for every connection to your egress proxy, using its trimmed contents as the <code>Proxy-Authorization</code> header value. Use this flag for a token another process rotates in place. Carries the same requirements as <code>--proxy-authorization-command</code>, and can't be combined with it. See <a href="/docs/en/self-hosted-environments-deploy#authenticate-to-an-egress-proxy">Authenticate to an egress proxy</a>. Requires Claude Code v2.1.238 or later.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>--push-outcome-on-release</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_PUSH_OUTCOME_ON_RELEASE</code></td>
 <td style="text-align: left;">off</td>
@@ -5775,7 +5793,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--release-idle-session-min &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_SESSION_IDLE_MS</code></td>
 <td style="text-align: left;"><code>0</code></td>
-<td style="text-align: left;">Release a session slot after N minutes of inactivity once a turn finishes or the session waits for the user's action. A session that's still mid-turn, including one holding a never-finishing background task or an approval requested from inside a running tool call, doesn't count as idle; pair with <code>--kill-session-after-min</code> as the hard backstop. After a session's background task finishes, the runner considers the session busy until the follow-up turn that reads the result starts, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></a> window. A release that leaves the runner with no active sessions starts the same exit path as a normal drain, governed by <code>--drain-grace-sec</code>. <code>0</code> disables.</td>
+<td style="text-align: left;">Release a session slot after N minutes of inactivity once a turn finishes or the session waits for the user's action. A session that's still mid-turn, including one holding a never-finishing background task or an approval requested from inside a running tool call, doesn't count as idle; pair with <code>--kill-session-after-min</code> as the hard backstop. After a session's background task finishes, the runner considers the session busy until the follow-up turn that reads the result starts, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_BG_RESULT_GRACE_MS</code></a> window. Until the runner receives a shutdown signal or reaches its retire time, a release that leaves the runner with no active sessions starts the same exit path as a normal drain, governed by <code>--drain-grace-sec</code>. After a first signal you deferred with <a href="/docs/en/self-hosted-environments-deploy#defer-the-drain-past-the-first-signal"><code>--defer-shutdown-max-min</code></a>, the runner exits as soon as a release leaves it holding no sessions. <code>0</code> disables.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--retire-at &lt;epoch-seconds&gt;</code></td>
@@ -6126,7 +6144,7 @@ spec:
 <ul>
 <li><code>completed</code>: the session ended cleanly. This covers the child exiting on its own with code <code>0</code>, the session being archived or deleted while the child was still connected, and the runner releasing the slot as a clean handoff: an idle release, a startup timeout, or a server-side deassign the poll loop noticed before the child exited. Increments <code>sessions_completed_total</code>.</li>
 <li><code>failed</code>: the child exited on its own with a non-zero code, either a crash or a setup failure after spawn. Increments <code>sessions_failed_total</code>.</li>
-<li><code>interrupted</code>: the runner terminated the child for an operational reason that's neither a session success nor a runner fault, such as a drain, for example a Kubernetes rolling restart sending <code>SIGTERM</code>, the max-lifetime watchdog <code>--kill-session-after-min</code>, or the <code>released=false</code> backstop: the runner terminates the child after the control plane declines three consecutive idle-release requests, each because a user message was still waiting to be processed. Increments <code>sessions_interrupted_total</code>.</li>
+<li><code>interrupted</code>: the runner terminated the child for an operational reason that's neither a session success nor a runner fault, such as a drain or the max-lifetime watchdog <code>--kill-session-after-min</code>. A Kubernetes rolling restart sending <code>SIGTERM</code> is one example of a drain. Increments <code>sessions_interrupted_total</code>.</li>
 </ul>
 <p>The <a href="/docs/en/self-hosted-environments-configuration#post-session"><code>post-session</code> hook</a>'s <code>CLAUDE_RUNNER_EXIT_REASON</code> doesn't use this classification for clean handoffs. The hook reports an idle release, a startup timeout, and a server deassign as <code>interrupted</code>, since from the hook's perspective the runner killed the child, while the counters above record those same events as <code>completed</code>, since nothing went wrong and the slot was handed back cleanly. If you reconcile hook receipts against <code>sessions_completed_total</code> directly, you undercount completions. Use the hook for per-session guarantees and the counters for aggregate rates.</p>
 <p>On a one-shot environment, <code>--capacity 1</code> with the default <code>--drain-grace-sec 0</code>, each runner process exits moments after its one session ends. <code>sessions_completed_total</code>, <code>sessions_failed_total</code>, and <code>sessions_interrupted_total</code> increment only at session end, right before that exit, so a Prometheus scrape every 15 to 60 seconds rarely catches the increment before the runner's series disappears; these three end-of-session counters are the terminal counters the rest of this section refers to. <code>sessions_started_total</code> increments at spawn and stays visible for the life of the session, so it reliably shows up, but on a one-shot environment it reads closer to "sessions currently running" than a cumulative count.</p>
