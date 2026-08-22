@@ -3449,6 +3449,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../managed-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managed settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp-quickstart/" class="md-nav__link">
         
   
@@ -4429,6 +4456,60 @@
     
   
     Sessions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings reference
   
 
     
@@ -5817,34 +5898,23 @@ Claude Code loads every [CLAUDE.md](/docs/en/memory) file from your working dire
 
 A common split is two levels:
 
-* **Root `CLAUDE.md`**: instructions that apply everywhere, such as coding standards, commit conventions, and repository layout
+* **Root `CLAUDE.md`**: instructions that apply everywhere, such as coding standards and commit conventions
 * **Per-subdirectory `CLAUDE.md`**: conventions specific to that area's stack. In a monorepo that's one per package. In a large single tree it's one per subsystem such as `src/db/` or `src/api/`
 
 Commit these files to the repository so teammates inherit them. Each directory's owner typically maintains its file.
 
-The root `CLAUDE.md` orients Claude to the repository structure:
+To trim a file that is already checked in, run the [`/doctor` checkup](/docs/en/memory#my-claude-md-is-too-large). The root `CLAUDE.md` holds the rules that apply in every package:
 
 ```markdown CLAUDE.md theme={null}
-This is a monorepo with three packages under packages/:
-
-- packages/api: Node.js REST API with Express, TypeScript, and PostgreSQL
-- packages/web: React frontend with Vite, TypeScript, and TailwindCSS
-- packages/shared: shared TypeScript utilities used by both api and web
-
-Run commands from the package directory, not the monorepo root.
-Each package has its own tsconfig.json, package.json, and test suite.
+Run package scripts from the package directory, not the monorepo root.
+Prefix commit subjects with the package name, for example `api: add rate limiting`.
+Never edit files under packages/*/generated/. Run `npm run codegen` in the package instead.
 </code></pre></div></p>
-<p>Each subdirectory's <code>CLAUDE.md</code>, here <code>packages/api/CLAUDE.md</code>, adds context specific to that area's stack:</p>
-<p>```markdown packages/api/CLAUDE.md theme={null}
-This package is the REST API server.</p>
-<ul>
-<li>Run tests: <code>npm test</code> (uses Vitest)</li>
-<li>Run dev server: <code>npm run dev</code> (port 3001)</li>
-<li>Database migrations: <code>npm run migrate</code></li>
-<li>Environment variables: copy <code>.env.example</code> to <code>.env</code></li>
-</ul>
-<p>API routes are in src/routes/. Each route file exports an Express router.
-Database queries use Knex in src/db/. Never write raw SQL strings in route handlers.
+<p>Each subdirectory's <code>CLAUDE.md</code>, here <code>packages/api/CLAUDE.md</code>, adds the conventions specific to that area:</p>
+<p><code>``markdown packages/api/CLAUDE.md theme={null}
+Copy</code>.env.example<code>to</code>.env` before running anything. Tests and the dev server fail without it.
+Write database queries with the Knex query builder. Never put raw SQL strings in route handlers.
+Never edit a migration after it has merged. Add a new migration instead.
 <div class="highlight"><pre><span></span><code>When you start Claude from `packages/api/`, it loads both `packages/api/CLAUDE.md` and the root `CLAUDE.md`. Claude sees the local instructions alongside the repository-wide rules, with no instructions from `packages/web/` in context. The same holds for any subdirectory in a non-monorepo tree. To confirm which files loaded, run `/context` and check the list under **Memory files**.
 
 A few ways to keep the files current as the codebase and models change:
@@ -5888,18 +5958,18 @@ If you only want these exclusions for yourself, put the setting in `.claude/sett
 <li><code>"**/packages/legacy-*/**"</code>: excludes every package whose name matches the glob, including rules</li>
 <li><code>"/home/user/monorepo/legacy/CLAUDE.md"</code>: excludes one specific file by absolute path</li>
 </ul>
-<p>Managed policy CLAUDE.md files cannot be excluded, so organization-wide instructions always apply. You can set <code>claudeMdExcludes</code> at any <a href="/docs/en/settings#configuration-scopes">settings scope</a>: user, project, local, or managed. Arrays merge across scopes, so a team can set project-level defaults while individuals add local overrides.</p>
+<p>Managed policy CLAUDE.md files cannot be excluded, so organization-wide instructions always apply. You can set <code>claudeMdExcludes</code> at any <a href="/docs/en/settings#where-settings-live">settings scope</a>: user, project, local, or managed. Arrays merge across scopes, so a team can set project-level defaults while individuals add local overrides.</p>
 <p>For the full exclusion documentation, see <a href="/docs/en/memory#exclude-specific-claude-md-files">Exclude specific CLAUDE.md files</a>.</p>
 <h2 id="reduce-what-claude-reads">Reduce what Claude reads</h2>
 <p>Instructions are only part of what ends up in Claude's context. File reads are another cost that grows with the codebase. The settings below block reads of irrelevant paths and replace exhaustive file scans with language-server lookups.</p>
 <h3 id="block-reads-of-generated-and-vendored-code">Block reads of generated and vendored code</h3>
 <p>Claude's content searches respect <code>.gitignore</code> by default, so paths already listed there, such as <code>node_modules/</code>, <code>dist/</code>, and <code>build/</code>, stay out of search results without additional configuration.</p>
-<p>For paths that are checked in, such as a vendored SDK or committed generated code, add <code>Read</code> deny rules in <code>permissions.deny</code> to block Claude from opening those files even when a search lists them.</p>
+<p>For paths that are checked in, such as a vendored SDK or committed generated code, add <code>Read</code> deny rules in <code>permissions.deny</code> to block Claude from opening those files.</p>
 <p>The deny rules can cover everyone working in the repository, only you, or every session on the machine, depending on which settings file you put them in:</p>
 <ul>
 <li><strong>Everyone working in the repository</strong>: commit the rules to <code>.claude/settings.json</code>. Like other project settings on this page, that file loads only from your starting directory, so place it at the repository root if you start Claude there, or in each package's <code>.claude/</code> if you start from subdirectories.</li>
-<li><strong>Yourself only</strong>: use <code>.claude/settings.local.json</code> at the repository root, which loads in every CLI session inside the repository regardless of starting directory. Relative patterns like the example's <code>Read(./vendor/**)</code> still <a href="/docs/en/permissions#read-and-edit">anchor at the directory you start Claude Code from</a>, so if you start sessions from subdirectories, write the rules in this file as <code>//</code>-absolute paths, such as <code>Read(//absolute/path/to/repo/vendor/**)</code>. Before v2.1.211, <code>.claude/settings.local.json</code> also loaded only from the starting directory.</li>
-<li><strong>Everyone, enforced in every session</strong>: set the rules in <a href="/docs/en/settings#settings-files">managed settings</a>, which user and project settings cannot override.</li>
+<li><strong>Yourself only</strong>: use <code>.claude/settings.local.json</code> at the repository root, which loads in every CLI session inside the repository regardless of starting directory, except in the cases where Claude Code <a href="/docs/en/settings#where-claude-code-looks-for-each-file">keeps the local file in the starting directory</a>, such as on Windows. Relative patterns like the example's <code>Read(./vendor/**)</code> still <a href="/docs/en/permissions#read-and-edit">anchor at the directory you start Claude Code from</a>, so if you start sessions from subdirectories, write the rules in this file as <code>//</code>-absolute paths, such as <code>Read(//absolute/path/to/repo/vendor/**)</code>. Before v2.1.211, <code>.claude/settings.local.json</code> also loaded only from the starting directory.</li>
+<li><strong>Everyone, enforced in every session</strong>: set the rules in <a href="/docs/en/managed-settings">managed settings</a>, which user and project settings cannot override.</li>
 </ul>
 <p>The example below blocks build artifacts and a vendored SDK:</p>
 <p>```json .claude/settings.json theme={null}
@@ -5913,7 +5983,9 @@ If you only want these exclusions for yourself, put the setting in `.claude/sett
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>Deny rules cover Claude's built-in file tools and recognized Bash file commands, including `cat`, `head`, `grep`, and `find`, when a denied path is passed as an argument. They do not filter denied paths out of a recursive search's output, and they do not cover arbitrary subprocesses that open files themselves. For the full pattern syntax, see [Read and Edit permission rules](/docs/en/permissions#read-and-edit).
+<div class="highlight"><pre><span></span><code>Deny rules cover Claude's built-in file tools and recognized Bash file commands, including `cat`, `head`, `grep`, and `find`, when a denied path is passed as an argument. Claude Code also makes a best-effort attempt to leave denied paths out of the results of the built-in Grep and Glob tools. Claude still sees denied paths in the output of a Bash search such as `grep -r` or `find`.
+
+Deny rules don't cover subprocesses that open files themselves. For the full pattern syntax, see [Read and Edit permission rules](/docs/en/permissions#read-and-edit).
 
 ### Reduce file reads with code intelligence
 
@@ -5929,7 +6001,7 @@ The official marketplace has plugins for TypeScript, Python, Go, Rust, and other
 <li><code>Marketplace "claude-plugins-official" not found</code>: add the marketplace with <code>/plugin marketplace add anthropics/claude-plugins-official</code>, then retry the install.</li>
 <li>The plugin is <a href="/docs/en/discover-plugins#install-plugins">not found in the marketplace</a>: check the plugin name.</li>
 </ul>
-<p>To enable a plugin for everyone in the repository rather than installing it yourself, add it to the <a href="/docs/en/settings#plugin-settings"><code>enabledPlugins</code> project setting</a>.</p>
+<p>To enable a plugin for everyone in the repository rather than installing it yourself, add it to the <a href="/docs/en/settings-reference#plugin-settings"><code>enabledPlugins</code> project setting</a>.</p>
 <p>Code intelligence plugins require the language's language server binary on each developer's machine. See <a href="/docs/en/discover-plugins#code-intelligence">which binary each language requires</a>. Installing from the official marketplace requires network access to GitHub, where the marketplace is hosted. On a restricted network, <a href="/docs/en/discover-plugins#add-from-other-git-hosts">add the marketplace from an internal Git host or local path</a> instead.</p>
 <p>This pairs well with <code>claudeMdExcludes</code> and the <code>Read</code> deny rules above. Those keep irrelevant content out of context, and code intelligence keeps Claude from reading through what remains to locate a definition.</p>
 <h2 id="scope-worktrees-and-file-access">Scope worktrees and file access</h2>
@@ -5977,7 +6049,7 @@ To avoid duplicating large directories like `node_modules` across worktrees, pai
 <p><Note>
   The <code>sparsePaths</code> and <code>symlinkDirectories</code> settings are read from your starting directory before the worktree is created. After creation, the session's working directory is the worktree root, not the subdirectory you launched from. Project settings inside the worktree therefore load from the worktree root's <code>.claude/settings.json</code>, the checked-out copy of the repository root's file. Put any other settings you need inside worktrees, such as permission rules or hooks, in the repository root's <code>.claude/settings.json</code>.
 </Note></p>
-<p>For the full worktree settings reference, see <a href="/docs/en/settings#worktree-settings">Worktree settings</a>.</p>
+<p>For the full worktree settings reference, see <a href="/docs/en/settings-reference#worktree">Worktree settings</a>.</p>
 <h3 id="grant-access-across-packages-or-repositories">Grant access across packages or repositories</h3>
 <p>This section applies when you start Claude from a subdirectory, or when a task spans multiple checkouts. If you start from the repository root in a single large tree, Claude already has access to every file and you can skip this.</p>
 <p>When you start Claude from <code>packages/api/</code>, it can read and write files within that directory. If a task requires changes across packages, such as updating a shared type that both <code>api</code> and <code>web</code> import, you need to grant access to the sibling directory. The same mechanism grants access to a separately-checked-out repository.</p>
@@ -6173,7 +6245,7 @@ monorepo/
 <p>Two techniques help keep a cross-package change consistent:</p>
 <ul>
 <li><strong>Give Claude the whole change in one session</strong>: handing over the shared edit and its call sites together keeps the decisions behind each edit consistent, rather than re-deriving them per package</li>
-<li><strong>Save the plan to a file before editing</strong>: <a href="/docs/en/best-practices#explore-first-then-plan-then-code">plan first</a> and ask Claude to write the plan to a markdown file in the repository. A long cross-package session <a href="/docs/en/context-window#what-survives-compaction">compacts its context</a> along the way, and the saved plan survives where conversation history may not</li>
+<li><strong>Plan before editing</strong>: <a href="/docs/en/best-practices#explore-first-then-plan-then-code">plan first</a> in <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a>, and Claude writes the plan to a file. A long cross-package session <a href="/docs/en/context-window#what-survives-compaction">compacts its context</a> along the way. Claude Code re-injects the plan file after each compaction, so the plan survives where conversation history may not</li>
 </ul>
 <h2 id="next-steps">Next steps</h2>
 <p>Once this configuration is in place, you can refine it:</p>

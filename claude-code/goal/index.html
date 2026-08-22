@@ -3388,6 +3388,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../managed-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managed settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp-quickstart/" class="md-nav__link">
         
   
@@ -4368,6 +4395,60 @@
     
   
     Sessions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings reference
   
 
     
@@ -5700,7 +5781,9 @@ Run `/goal` with no arguments to see the current state.
 
 ### Resume with an active goal
 
-A goal that was still active when a session ended is restored when you resume that session with `--resume` or `--continue`. The condition carries over, but the turn count, timer, and token-spend baseline all reset on resume. A goal that was already achieved or cleared is not restored.
+When you resume a session, Claude Code restores a goal that was still active when the session ended. Claude Code restores it on every resume route: `--continue`, `--resume` with a session ID or name, and the [session picker](/docs/en/sessions#use-the-session-picker). Before v2.1.239, Claude Code restored the goal on every route except the `claude --resume` picker.
+
+Claude Code carries the condition over but resets the turn count, timer, and token-spend baseline. It doesn't restore a goal that was already achieved or cleared.
 
 ### Run non-interactively
 
@@ -5730,12 +5813,13 @@ claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
 <p>After any other failure, including transient errors such as rate limits and overloaded servers, Claude Code leaves the goal active.</p>
 <h3 id="background-work-defers-evaluation">Background work defers evaluation</h3>
 <p>If a subagent or a background shell command is still running when a turn ends, Claude Code skips the evaluation for that turn. It evaluates at the end of the next turn that finishes with no background work running. When the background work finishes, Claude Code delivers the result to Claude as a new turn, so you don't have to prompt.</p>
-<p>Once background work has kept the goal waiting for 30 minutes, a check-in is due. In the check-in, Claude Code lists the running tasks and asks Claude to read their output, keep waiting if they're progressing, and fix or stop any that are stuck. After each check-in, the 30 minutes start again. Claude Code delivers a due check-in, the first one included, in one of two ways:</p>
+<p>Once background work has kept the goal waiting for 30 minutes, a check-in is due. In the check-in, Claude Code lists the running tasks and asks Claude to read their output, keep waiting if they're progressing, and fix or stop any that are stuck. After the first check-in, Claude Code waits twice as long before each later check-in, up to four times the first interval: with the default, 1 hour after the first check-in, then every 2 hours. Claude Code delivers a due check-in, the first one included, in one of two ways:</p>
 <ul>
 <li><strong>When a turn ends</strong>: Claude Code delivers the check-in at the end of the next turn that finishes with the work still running. In a non-interactive session, such as one started with <code>-p</code>, this is the only way Claude Code delivers check-ins.</li>
-<li><strong>While the session is idle</strong>: in an interactive session, Claude Code also starts a turn on its own to deliver the check-in instead of waiting for your next prompt. After the first check-in, Claude Code waits twice as long before each later idle check-in, up to four times the interval: with the default, 1 hour after the first check-in, then every 2 hours. If the background work has stopped without reporting a result, Claude Code asks Claude to continue toward the goal. Idle check-ins require Claude Code v2.1.236 or later.</li>
+<li><strong>While the session is idle</strong>: in an interactive session, Claude Code also starts a turn on its own to deliver the check-in instead of waiting for your next prompt. If the background work has stopped without reporting a result, Claude Code asks Claude to continue toward the goal. Idle check-ins require Claude Code v2.1.236 or later.</li>
 </ul>
-<p>To change the intervals, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_GOAL_CHECKIN_MINUTES</code></a>. Claude Code uses your value in place of the 30-minute interval and scales the idle intervals with it. Set it to <code>0</code> to turn check-ins off. Check-ins require Claude Code v2.1.234 or later.</p>
+<p>Before v2.1.239, only idle check-ins backed off this way; a check-in delivered at a turn end recurred at the first interval.</p>
+<p>To change the first interval, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_GOAL_CHECKIN_MINUTES</code></a>. Claude Code uses your value in place of the 30-minute interval and scales the later intervals with it. Set it to <code>0</code> to turn check-ins off. Check-ins require Claude Code v2.1.234 or later.</p>
 <h3 id="evaluation-model-and-cost">Evaluation model and cost</h3>
 <p>To evaluate on a different model, set <a href="/docs/en/model-config#environment-variables"><code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code></a>.</p>
 <p><Warning>
@@ -5746,7 +5830,7 @@ claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
   Evaluation tokens are billed on the small fast model configured for your provider and are typically negligible compared to main-turn spend.
 </Note></p>
 <h2 id="requirements">Requirements</h2>
-<p>Claude Code makes <code>/goal</code> available under the same <a href="/docs/en/permissions#what-runs-before-you-trust-a-folder">workspace trust rule as hooks in settings files</a>, because the evaluator is part of the hooks system. <code>/goal</code> is also unavailable when <a href="/docs/en/hooks#disable-or-remove-hooks"><code>disableAllHooks</code></a> is <code>true</code> after settings precedence applies, or when <a href="/docs/en/settings#hook-configuration"><code>allowManagedHooksOnly</code></a> is set in managed settings. In each case, the command tells you why instead of silently doing nothing.</p>
+<p>Claude Code makes <code>/goal</code> available under the same <a href="/docs/en/permissions#what-runs-before-you-trust-a-folder">workspace trust rule as hooks in settings files</a>, because the evaluator is part of the hooks system. <code>/goal</code> is also unavailable when <a href="/docs/en/hooks#disable-or-remove-hooks"><code>disableAllHooks</code></a> is <code>true</code> after settings precedence applies, or when <a href="/docs/en/settings-reference#allowmanagedhooksonly"><code>allowManagedHooksOnly</code></a> is set in managed settings. In each case, the command tells you why instead of silently doing nothing.</p>
 <h2 id="see-also">See also</h2>
 <ul>
 <li><a href="/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-%2Floop">Run a prompt repeatedly with <code>/loop</code></a>: re-run on a time interval instead of toward a condition</li>

@@ -3360,6 +3360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../managed-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managed settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp-quickstart/" class="md-nav__link">
         
   
@@ -4340,6 +4367,60 @@
     
   
     Sessions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings reference
   
 
     
@@ -5572,7 +5653,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><a href="#decide-how-settings-reach-devices">Decide how settings reach devices</a></td>
 <td style="text-align: left;">How managed policy reaches developer machines</td>
-<td style="text-align: left;"><a href="/docs/en/server-managed-settings">Server-managed settings</a>, <a href="/docs/en/settings#settings-files">Settings files</a></td>
+<td style="text-align: left;"><a href="/docs/en/server-managed-settings">Server-managed settings</a>, <a href="/docs/en/managed-settings#delivery-mechanisms">Delivery mechanisms</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><a href="#decide-what-to-enforce">Decide what to enforce</a></td>
@@ -5627,12 +5708,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>For the full provider comparison covering authentication, regions, and feature parity, see the <a href="/docs/en/third-party-integrations">enterprise deployment overview</a>. Each provider's auth setup is in <a href="/docs/en/authentication">Authentication</a>.</p>
 <p>Proxy and firewall requirements in <a href="/docs/en/network-config">Network configuration</a> apply regardless of provider. If you want a single endpoint in front of multiple providers or centralized request logging, see <a href="/docs/en/llm-gateway">LLM gateway</a>.</p>
 <h2 id="decide-how-settings-reach-devices">Decide how settings reach devices</h2>
-<p>Managed settings define organization policy. Claude Code checks the four sources in the table below in priority order and applies the first one that returns a non-empty configuration, with two exceptions:</p>
-<ul>
-<li>Claude Code honors a small set of <a href="/docs/en/settings#precedence-within-the-managed-tier">cross-source lock keys</a>, such as the sandbox allowlist locks, when any admin-controlled source sets them.</li>
-<li>Claude Code <a href="/docs/en/server-managed-settings#per-key-exceptions-across-managed-sources">merges the <code>env</code> block per key across the admin-controlled sources</a>, apart from the telemetry-unit and credential-paired routing exceptions covered there. Only admin-controlled sources contribute to the merge, developer-writable settings can't, and <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_ADMIN_ENV_UNION=1</code></a> restores the winner-only composition. Requires Claude Code v2.1.223 or later.</li>
-</ul>
-<p>When an MDM or file-based source wins and configures a <a href="/docs/en/settings#compute-managed-settings-with-a-policy-helper"><code>policyHelper</code></a>, the helper's output is the only managed configuration Claude Code reads: the lock-key checks read it alone, and no per-key <code>env</code> merge happens.</p>
+<p>Managed settings define organization policy. Claude Code checks the four sources in the table below in priority order and applies the first one that delivers at least one policy key. <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">Which managed source Claude Code uses</a> covers what still applies from the other sources and what a policy helper changes; the table is the decision map.</p>
 <table>
 <thead>
 <tr>
@@ -5670,9 +5746,9 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <p>Server-managed settings reach devices at authentication time and refresh hourly during active sessions, with no endpoint infrastructure. Delivery through the claude.ai admin console requires a Claude for Teams or Enterprise plan. Deployments on Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry can get the same remote delivery by running a <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a>, or use one of the file-based or OS-level mechanisms instead.</p>
-<p>If your organization mixes providers, configure <a href="/docs/en/server-managed-settings">server-managed settings</a> for claude.ai users plus a <a href="/docs/en/settings#settings-files">file-based or plist/registry fallback</a> so other users still receive managed policy.</p>
+<p>If your organization mixes providers, configure <a href="/docs/en/server-managed-settings">server-managed settings</a> for claude.ai users plus a <a href="/docs/en/managed-settings#delivery-mechanisms">file-based or plist/registry fallback</a> so other users still receive managed policy.</p>
 <p>The plist and HKLM registry locations work with any provider and resist tampering because they require admin privileges to write. The Windows user registry at HKCU is writable without elevation, so treat it as a convenience default rather than an enforcement channel.</p>
-<p>By default, WSL reads only the Linux file path at <code>/etc/claude-code</code>. To extend your Windows registry and <code>C:\Program Files\ClaudeCode</code> policy to WSL on the same machine, set <a href="/docs/en/settings#available-settings"><code>wslInheritsWindowsSettings: true</code></a> in either of those admin-only Windows sources.</p>
+<p>By default, WSL reads only the Linux file path at <code>/etc/claude-code</code>. To extend your Windows registry and <code>C:\Program Files\ClaudeCode</code> policy to WSL on the same machine, set <a href="/docs/en/settings-reference#wslinheritswindowssettings"><code>wslInheritsWindowsSettings: true</code></a> in either of those admin-only Windows sources.</p>
 <p>Whichever mechanism you choose, managed values take precedence over user and project settings, apart from a few security-sensitive <a href="/docs/en/settings#exceptions-to-managed-settings-precedence">exceptions</a>. Array settings such as <code>permissions.allow</code> and <code>permissions.deny</code> merge entries from all sources, so developers can extend managed lists but not remove from them. For <code>fallbackModel</code> and <code>availableModels</code>, the managed value replaces lower layers rather than merging.</p>
 <h3 id="wsl-sessions-in-claude-code-desktop">WSL sessions in Claude Code Desktop</h3>
 <p>On Windows, <a href="/docs/en/desktop-wsl">Claude Code Desktop can run Code sessions inside a WSL 2 distribution</a>. The session's Claude Code process runs inside the distribution, so it resolves managed settings through the WSL discovery path above: Windows-only sources don't reach it unless <code>wslInheritsWindowsSettings: true</code> is deployed.</p>
@@ -5729,18 +5805,18 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>strictKnownMarketplaces</code>, <code>blockedMarketplaces</code>, <code>disableSideloadFlags</code>, <code>disableCommandPluginSources</code>, <code>pluginSuggestionMarketplaces</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/settings#strictpluginonlycustomization">Customization lockdown</a></td>
+<td style="text-align: left;"><a href="/docs/en/settings-reference#strictpluginonlycustomization">Customization lockdown</a></td>
 <td style="text-align: left;">Block skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings</td>
 <td style="text-align: left;"><code>strictPluginOnlyCustomization</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/settings#hook-configuration">Hook restrictions</a></td>
-<td style="text-align: left;">Restrict which hooks run and restrict HTTP hook URLs; see <a href="/docs/en/settings#hook-configuration">Hook configuration</a> for the full effect list</td>
+<td style="text-align: left;"><a href="/docs/en/settings-reference#allowmanagedhooksonly">Hook restrictions</a></td>
+<td style="text-align: left;">Restrict which hooks run and restrict HTTP hook URLs; see <a href="/docs/en/settings-reference#what-runs-under-allowmanagedhooksonly">what runs under <code>allowManagedHooksOnly</code></a> for the full effect list</td>
 <td style="text-align: left;"><code>allowManagedHooksOnly</code>, <code>allowedHttpHookUrls</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/settings#available-settings">Login enforcement</a></td>
-<td style="text-align: left;">Restrict login to a specific method or Anthropic organization. The method restriction applies across the terminal, VS Code extension, Agent SDK, <code>claude setup-token</code>, and <code>/install-github-app</code>; Claude Code verifies the organization for claude.ai account logins in the terminal, VS Code extension, and Agent SDK, and doesn't check it for Claude Console logins or for <a href="/docs/en/claude-apps-gateway">gateway</a> sign-in. Before v2.1.212, only terminal logins applied either key. When set, sessions authenticated by <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code> are blocked at startup; cloud provider sessions aren't affected</td>
+<td style="text-align: left;"><a href="/docs/en/settings-reference#forceloginmethod">Login enforcement</a></td>
+<td style="text-align: left;">Restrict login to a specific method or Anthropic organization. The method restriction applies across the VS Code extension, Agent SDK, <code>claude setup-token</code>, and <code>/install-github-app</code>, and the terminal's interactive login screen, reached by <code>/login</code> or first-run onboarding, pre-selects the method without enforcing it; Claude Code verifies the organization for claude.ai account logins in the terminal, VS Code extension, and Agent SDK, and doesn't check it for Claude Console logins or for <a href="/docs/en/claude-apps-gateway">gateway</a> sign-in. Before v2.1.212, only terminal logins applied either key. When set, sessions authenticated by <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code> are blocked at startup; cloud provider sessions aren't affected</td>
 <td style="text-align: left;"><code>forceLoginMethod</code>, <code>forceLoginOrgUUID</code></td>
 </tr>
 <tr>
@@ -5759,14 +5835,19 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>availableModels</code>, <code>enforceAvailableModels</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/settings">Version floor</a></td>
+<td style="text-align: left;"><a href="/docs/en/settings-reference#minimumversion">Version floor</a></td>
 <td style="text-align: left;">Prevent auto-update from installing below an org-wide minimum</td>
 <td style="text-align: left;"><code>minimumVersion</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="/docs/en/settings">Required version range</a></td>
+<td style="text-align: left;"><a href="/docs/en/settings-reference#requiredminimumversion">Required version range</a></td>
 <td style="text-align: left;">Refuse to start at all when the running version is outside an org-approved range. Stronger than <code>minimumVersion</code>, which only blocks downgrades</td>
 <td style="text-align: left;"><code>requiredMinimumVersion</code>, <code>requiredMaximumVersion</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/data-usage#telemetry-services">Telemetry opt-out</a></td>
+<td style="text-align: left;">Turn off Anthropic-bound usage metrics, error reports, and surveys on every device</td>
+<td style="text-align: left;"><code>env</code> with <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code> set to <code>1</code>; the linked section lists the per-category variables</td>
 </tr>
 </tbody>
 </table>
@@ -5843,7 +5924,7 @@ Use this file to discover all available pages before exploring further.</p>
 </table>
 <p>If you need request-level audit logging or to route traffic by data sensitivity, place a gateway between developers and your provider: a self-hosted <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a> records a per-request audit log with IdP identity, or use another <a href="/docs/en/llm-gateway">LLM gateway</a>. For regulatory requirements and certifications, see <a href="/docs/en/legal-and-compliance">Legal and compliance</a>.</p>
 <h2 id="verify-and-onboard">Verify and onboard</h2>
-<p>After configuring managed settings, have a developer run <code>/status</code> inside Claude Code. On the <strong>Status</strong> tab, the <code>Setting sources</code> line shows <code>Enterprise managed settings</code> followed by the source in parentheses, one of <code>(remote)</code>, <code>(plist)</code>, <code>(HKLM)</code>, <code>(HKCU)</code>, or <code>(file)</code>. See <a href="/docs/en/settings#verify-active-settings">Verify active settings</a>.</p>
+<p>After configuring managed settings, have a developer run <code>/status</code> inside Claude Code. On the <strong>Status</strong> tab, the <code>Setting sources</code> line shows <code>Enterprise managed settings</code> followed by the source that won in parentheses; <a href="/docs/en/managed-settings#verify-enforcement">Verify enforcement</a> lists the labels.</p>
 <p>Share these resources to help developers get started:</p>
 <ul>
 <li><a href="/docs/en/quickstart">Quickstart</a>: first-session walkthrough from install to working with a project</li>
@@ -5861,7 +5942,8 @@ Use this file to discover all available pages before exploring further.</p>
 <p>With provider and delivery mechanism chosen, move on to detailed configuration:</p>
 <ul>
 <li><a href="/docs/en/server-managed-settings">Server-managed settings</a>: deliver managed policy from the Claude admin console</li>
-<li><a href="/docs/en/settings">Settings reference</a>: every setting key, file location, and precedence rule</li>
+<li><a href="/docs/en/settings-reference">Settings reference</a>: every setting key, with where it goes and an example</li>
+<li><a href="/docs/en/settings#which-value-claude-code-uses">Which value Claude Code uses</a>: the precedence rules across managed, project, local, and user settings</li>
 <li><a href="/docs/en/large-codebases">Monorepos and large repos</a>: per-directory configuration patterns for organizations deploying into a monorepo</li>
 <li><a href="/docs/en/amazon-bedrock">Amazon Bedrock</a>, <a href="/docs/en/google-vertex-ai">Google Cloud's Agent Platform</a>, <a href="/docs/en/microsoft-foundry">Microsoft Foundry</a>: provider-specific deployment</li>
 <li><a href="https://claude.com/resources/tutorials/claude-enterprise-administrator-guide">Claude Enterprise Administrator Guide</a>: SSO, SCIM, seat management, and rollout playbook</li>

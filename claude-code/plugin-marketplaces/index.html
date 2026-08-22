@@ -3195,6 +3195,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../managed-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managed settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../mcp-quickstart/" class="md-nav__link">
         
   
@@ -4517,6 +4544,60 @@
     
   
     Sessions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings example
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Settings reference
   
 
     
@@ -6060,7 +6141,7 @@ Be concise and actionable.
 | `$schema`                             | string | JSON Schema URL for editor autocomplete and validation. Claude Code ignores this field at load time.                                                                                                                                                                                         |
 | `description`                         | string | Brief marketplace description                                                                                                                                                                                                                                                                |
 | `version`                             | string | Marketplace manifest version                                                                                                                                                                                                                                                                 |
-| `metadata.pluginRoot`                 | string | Base directory prepended to relative plugin source paths (for example, `"./plugins"` lets you write `"source": "formatter"` instead of `"source": "./plugins/formatter"`)                                                                                                                    |
+| `metadata.pluginRoot`                 | string | Directory that Claude Code resolves bare plugin source names under. See [Relative paths](#relative-paths). Requires Claude Code v2.1.239 or later.                                                                                                                                           |
 | `allowCrossMarketplaceDependenciesOn` | array  | Other marketplaces that plugins in this marketplace may depend on. Dependencies from a marketplace not listed here are blocked at install. See [Depend on a plugin from another marketplace](/docs/en/plugin-dependencies#depend-on-a-plugin-from-another-marketplace).                           |
 | `renames`                             | object | Map from a former plugin `name` to its current name, or to `null` if the plugin was removed. Lets existing users migrate automatically when you rename or remove an entry in `plugins`. See [Rename or remove a plugin](#rename-or-remove-a-plugin). Requires Claude Code v2.1.193 or later. |
 
@@ -6115,15 +6196,15 @@ Plugin sources tell Claude Code where to get each individual plugin listed in yo
 
 Claude Code copies each installed plugin into the local versioned plugin cache at `~/.claude/plugins/cache`, except for a [`command` source in link mode](#copy-mode-and-link-mode), which Claude Code uses in place. Claude Code also [installs the plugin's eligible Node.js package dependencies](/docs/en/plugins-reference#node-js-package-dependencies) into the cached copy.
 
-| Source        | Type                            | Fields                             | Notes                                                                                                                                             |
-| ------------- | ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Relative path | `string` (e.g. `"./my-plugin"`) | none                               | Local directory within the marketplace repo. Must start with `./`. Resolved relative to the marketplace root, not the `.claude-plugin/` directory |
-| `github`      | object                          | `repo`, `ref?`, `sha?`             |                                                                                                                                                   |
-| `url`         | object                          | `url`, `ref?`, `sha?`              | Git URL source                                                                                                                                    |
-| `git-subdir`  | object                          | `url`, `path`, `ref?`, `sha?`      | Subdirectory within a git repo. Clones sparsely to minimize bandwidth for monorepos                                                               |
-| `npm`         | object                          | `package`, `version?`, `registry?` | Installed via `npm install`                                                                                                                       |
-| `archive`     | object                          | `url`, `sha256?`                   | Zip archive downloaded over HTTPS. Works without git or npm on the user's machine. Requires Claude Code v2.1.224 or later                         |
-| `command`     | object                          | `command`, `timeout?`, `mode?`     | Plugin directory produced by running a local command, re-run once per session to pick up changes. Requires Claude Code v2.1.229 or later          |
+| Source        | Type                            | Fields                             | Notes                                                                                                                                                                                                                                               |
+| ------------- | ------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Relative path | `string` (e.g. `"./my-plugin"`) | none                               | Local directory within the marketplace repo. Must start with `./`, unless you write a [bare name under `metadata.pluginRoot`](#relative-paths). Claude Code resolves the path relative to the marketplace root, not the `.claude-plugin/` directory |
+| `github`      | object                          | `repo`, `ref?`, `sha?`             |                                                                                                                                                                                                                                                     |
+| `url`         | object                          | `url`, `ref?`, `sha?`              | Git URL source                                                                                                                                                                                                                                      |
+| `git-subdir`  | object                          | `url`, `path`, `ref?`, `sha?`      | Subdirectory within a git repo. Clones sparsely to minimize bandwidth for monorepos                                                                                                                                                                 |
+| `npm`         | object                          | `package`, `version?`, `registry?` | Installed via `npm install`                                                                                                                                                                                                                         |
+| `archive`     | object                          | `url`, `sha256?`                   | Zip archive downloaded over HTTPS. Works without git or npm on the user's machine. Requires Claude Code v2.1.224 or later                                                                                                                           |
+| `command`     | object                          | `command`, `timeout?`, `mode?`     | Plugin directory produced by running a local command, re-run once per session to pick up changes. Requires Claude Code v2.1.229 or later                                                                                                            |
 
 &lt;Note&gt;
   **Marketplace sources vs plugin sources**: These are different concepts that control different things.
@@ -6159,6 +6240,8 @@ For plugins in the same repository, use a path starting with `./`:
 }
 </code></pre></div></p>
 <p>Paths resolve relative to the marketplace root, which is the directory containing <code>.claude-plugin/</code>. In the example above, <code>./plugins/my-plugin</code> points to <code>&lt;repo&gt;/plugins/my-plugin</code>, even though <code>marketplace.json</code> lives at <code>&lt;repo&gt;/.claude-plugin/marketplace.json</code>. Don't use <code>../</code> to reference paths outside the marketplace root.</p>
+<p>A bare name is a single directory name with no <code>/</code>, such as <code>"formatter"</code>. To write bare names instead of <code>./</code> paths, set <a href="#optional-fields"><code>metadata.pluginRoot</code></a> to the directory they resolve under. With <code>"pluginRoot": "./plugins"</code>, Claude Code resolves <code>"source": "formatter"</code> to <code>./plugins/formatter</code>. Requires Claude Code v2.1.239 or later.</p>
+<p><code>metadata.pluginRoot</code> must itself be a relative path inside the marketplace. Claude Code ignores it for a source that already starts with <code>./</code>. A source that contains a <code>/</code>, such as <code>team-a/formatter</code>, isn't a bare name and still needs the <code>./</code> prefix, even when <code>metadata.pluginRoot</code> is set.</p>
 <p><Note>
   Claude Code resolves relative paths against a local copy of the marketplace, so they work when users add your marketplace from a git source or a local directory. If users add your marketplace via a direct URL to the <code>marketplace.json</code> file, relative paths won't resolve, because Claude Code downloads only that file. For URL-based distribution, use any other <a href="#plugin-sources">plugin source</a> instead. See <a href="#plugins-with-relative-paths-fail-in-url-based-marketplaces">Troubleshooting</a> for details.
 </Note></p>
@@ -6414,7 +6497,7 @@ To pin the exact file, add a `sha256` field with the archive's digest:
 </tbody>
 </table>
 <p>The <code>sha256</code> digest also serves as the plugin's version when neither <code>plugin.json</code> nor the marketplace entry declares one. See <a href="/docs/en/plugins-reference#version-management">Version management</a>. If you declare a <code>version</code>, that version string is the update signal, so after changing the zip and its digest, bump the version too, or users keep the cached copy.</p>
-<p>If you register the marketplace from a URL source with <code>headers</code>, such as an <a href="/docs/en/settings#extraknownmarketplaces"><code>extraKnownMarketplaces</code> entry</a>, Claude Code sends those headers with archive downloads whose URL shares the marketplace URL's origin: the same scheme, host, and port. Claude Code downloads an archive on a different origin without the headers, and drops them when a redirect leaves the origin, so it never sends a marketplace credential to a third-party host.</p>
+<p>If you register the marketplace from a URL source with <code>headers</code>, such as an <a href="/docs/en/settings-reference#extraknownmarketplaces"><code>extraKnownMarketplaces</code> entry</a>, Claude Code sends those headers with archive downloads whose URL shares the marketplace URL's origin: the same scheme, host, and port. Claude Code downloads an archive on a different origin without the headers, and drops them when a redirect leaves the origin, so it never sends a marketplace credential to a third-party host.</p>
 <h3 id="command-sources">Command sources</h3>
 <p>Use <code>command</code> when a locally installed tool produces the plugin directory, such as an IDE that renders its plugin for the currently selected toolchain. Claude Code runs the command when the user installs the plugin and re-runs it in the background once per session, so your users pick up the tool's changed output without reinstalling. Requires Claude Code v2.1.229 or later. On v2.1.120 through v2.1.228, installing the plugin fails with <code>This plugin uses a source type your Claude Code version does not support. Update Claude Code and try again.</code>, and on older versions the whole marketplace fails to load.</p>
 <p>This entry installs the plugin from whatever directory the tool prints:</p>
@@ -6460,7 +6543,7 @@ Claude Code runs your command on the user's machine, so it binds every run to th
 * Every other path runs only the command the user already accepted. This includes updates started from `/plugin` and the background runs described in [When Claude Code re-runs the command](#when-claude-code-re-runs-the-command). When none was accepted, Claude Code refuses to run the command and tells the user how to review it. Claude Code never installs a command-sourced plugin as a dependency of another plugin, so users install it themselves first.
 * If you change the entry's `command`, or switch its `mode`, users keep the version they already have and Claude Code stops re-running the command. In interactive sessions, the `/plugin` Errors tab shows the new command until the user reviews and accepts it by running `claude plugin update &lt;plugin&gt;@&lt;marketplace&gt;`.
 
-Administrators can block command sources across an organization with the managed setting [`disableCommandPluginSources`](/docs/en/settings#available-settings). If an organization sets [`allowManagedHooksOnly`](/docs/en/settings#hook-configuration), Claude Code blocks command sources by default.
+Administrators can block command sources across an organization with the managed setting [`disableCommandPluginSources`](/docs/en/settings-reference#disablecommandpluginsources). If an organization sets [`allowManagedHooksOnly`](/docs/en/settings-reference#allowmanagedhooksonly), Claude Code blocks command sources by default.
 
 #### When Claude Code re-runs the command
 
@@ -6655,7 +6738,7 @@ git config --global url."https://x-access-token:YOUR_TOKEN@github.com/acme-corp/
   }
 }
 </code></pre></div></p>
-<p>For full configuration options, see <a href="/docs/en/settings#plugin-settings">Plugin settings</a>.</p>
+<p>For full configuration options, see <a href="/docs/en/settings-reference#plugin-settings">Plugin settings</a>.</p>
 <p><Note>
   If you use a local <code>directory</code> or <code>file</code> source with a relative path, the path resolves against your repository's main checkout. When you run Claude Code from a git worktree, the path still points at the main checkout, so all worktrees share the same marketplace location. Marketplace state is stored once per user in <code>~/.claude/plugins/known_marketplaces.json</code>, not per project.
 </Note></p>
@@ -6687,9 +6770,9 @@ Behavior details:
 
 ### Managed marketplace restrictions
 
-For organizations requiring strict control over plugin sources, administrators can restrict which plugin marketplaces users are allowed to add using the [`strictKnownMarketplaces`](/docs/en/settings#strictknownmarketplaces) setting in managed settings. To also reject the CLI flags that sideload plugins, agents, and MCP servers for a single run, pair it with [`disableSideloadFlags`](/docs/en/settings#available-settings). To allowlist which marketplaces' plugins can appear as contextual install suggestions, set [`pluginSuggestionMarketplaces`](/docs/en/settings#available-settings).
+For organizations requiring strict control over plugin sources, administrators can restrict which plugin marketplaces users are allowed to add using the [`strictKnownMarketplaces`](/docs/en/settings-reference#strictknownmarketplaces) setting in managed settings. To also reject the CLI flags that sideload plugins, agents, and MCP servers for a single run, pair it with [`disableSideloadFlags`](/docs/en/settings-reference#disablesideloadflags). To allowlist which marketplaces' plugins can appear as contextual install suggestions, set [`pluginSuggestionMarketplaces`](/docs/en/settings-reference#pluginsuggestionmarketplaces).
 
-`strictKnownMarketplaces` matches the marketplace a plugin comes from, not the entries inside it, so users can still install a plugin with a [`command` source](#command-sources) from an allowed marketplace. To block command sources as well, set [`disableCommandPluginSources`](/docs/en/settings#available-settings).
+`strictKnownMarketplaces` matches the marketplace a plugin comes from, not the entries inside it, so users can still install a plugin with a [`command` source](#command-sources) from an allowed marketplace. To block command sources as well, set [`disableCommandPluginSources`](/docs/en/settings-reference#disablecommandpluginsources).
 
 When `strictKnownMarketplaces` is configured in managed settings, the restriction behavior depends on the value:
 
@@ -6725,7 +6808,7 @@ Automatic registration doesn't cover every machine. It most commonly misses:
 * Non-interactive environments that run before the machine's first interactive launch.
 * Machines where Claude Code already ran interactively under a policy that blocked the marketplace, such as the empty-array lockdown. Claude Code records the blocked attempt and doesn't retry after the policy changes.
 
-On these machines, add the marketplace to [`extraKnownMarketplaces`](/docs/en/settings#extraknownmarketplaces) in the same `managed-settings.json` so Claude Code registers it automatically, or run `claude plugin marketplace add anthropics/claude-plugins-official`.
+On these machines, add the marketplace to [`extraKnownMarketplaces`](/docs/en/settings-reference#extraknownmarketplaces) in the same `managed-settings.json` so Claude Code registers it automatically, or run `claude plugin marketplace add anthropics/claude-plugins-official`.
 
 Allow specific marketplaces only:
 
@@ -6748,7 +6831,7 @@ Allow specific marketplaces only:
   ]
 }
 </code></pre></div></p>
-<p>Allow every marketplace repository under a GitHub organization with an <a href="/docs/en/settings#owner-wildcards">owner-wildcard</a> entry. Owner wildcards require Claude Code v2.1.223 or later.</p>
+<p>Allow every marketplace repository under a GitHub organization with an <a href="/docs/en/settings-reference#owner-wildcards">owner-wildcard</a> entry. Owner wildcards require Claude Code v2.1.223 or later.</p>
 <p>```json theme={null}
 {
   "strictKnownMarketplaces": [
@@ -6783,31 +6866,31 @@ Allow specific marketplaces only:
 <div class="highlight"><pre><span></span><code>Use `".*"` as the `pathPattern` to allow any filesystem path while still controlling network sources with `hostPattern`.
 
 &lt;Note&gt;
-  `strictKnownMarketplaces` restricts what users can add, but doesn't register marketplaces on its own. To register an allowed marketplace for users automatically, add it to [`extraKnownMarketplaces`](/docs/en/settings#extraknownmarketplaces) in the same `managed-settings.json`.
+  `strictKnownMarketplaces` restricts what users can add, but doesn't register marketplaces on its own. To register an allowed marketplace for users automatically, add it to [`extraKnownMarketplaces`](/docs/en/settings-reference#extraknownmarketplaces) in the same `managed-settings.json`.
 
-  The official Anthropic marketplace is the only one Claude Code registers on its own, and only when the allowlist allows it. Automatic registration also misses some machines, such as non-interactive environments and machines where an earlier policy blocked it. To cover those machines, add the official marketplace to `extraKnownMarketplaces` as well. For the two settings side by side, see the [`strictKnownMarketplaces` reference](/docs/en/settings#strictknownmarketplaces).
+  The official Anthropic marketplace is the only one Claude Code registers on its own, and only when the allowlist allows it. Automatic registration also misses some machines, such as non-interactive environments and machines where an earlier policy blocked it. To cover those machines, add the official marketplace to `extraKnownMarketplaces` as well. For the two settings side by side, see the [`strictKnownMarketplaces` reference](/docs/en/settings-reference#strictknownmarketplaces).
 &lt;/Note&gt;
 
 #### How restrictions work
 
 Restrictions are checked before any network or filesystem operation. The check runs on marketplace add and on plugin install, update, refresh, and auto-update. If a marketplace was added before the policy was configured and its source no longer matches the allowlist, Claude Code refuses to install or update plugins from it. The same enforcement applies to `blockedMarketplaces`.
 
-To block every marketplace repository under a GitHub owner, use the owner-wildcard form in a `blockedMarketplaces` entry: `{ "source": "github", "repo": "untrusted-org/*" }`. Requires Claude Code v2.1.223 or later. For the matching rules, which differ between the blocklist and the allowlist, see [Owner wildcards](/docs/en/settings#owner-wildcards).
+To block every marketplace repository under a GitHub owner, use the owner-wildcard form in a `blockedMarketplaces` entry: `{ "source": "github", "repo": "untrusted-org/*" }`. Requires Claude Code v2.1.223 or later. For the matching rules, which differ between the blocklist and the allowlist, see [Owner wildcards](/docs/en/settings-reference#owner-wildcards).
 
 When a user adds an `https://` repository URL that Claude Code [clones rather than fetches](/docs/en/discover-plugins#add-from-other-git-hosts), such as a bare `github.com` or `gitlab.com` repository URL, Claude Code also checks it against the `url` entries in `blockedMarketplaces`. Claude Code blocks the addition if an entry names the same URL. In that comparison, Claude Code ignores the `.git` suffix and any ref the user appends after `#`. Requires Claude Code v2.1.232 or later. Before v2.1.232, Claude Code matched a `url` entry only against a URL it fetched as a hosted `marketplace.json` file.
 
 The allowlist uses exact matching for most source types, apart from owner-wildcard `github` entries. For a marketplace to be allowed, all specified fields must match:
 
-* For GitHub sources: `repo` is required, either naming one repository or using the owner-wildcard form `owner/*` to cover every repository under that owner. For how wildcard entries match, including the case rules, see [Owner wildcards](/docs/en/settings#owner-wildcards). For single-repository entries, `ref` must match exactly or be absent from both the marketplace source and the allowlist entry, and the same rule applies to `path`
+* For GitHub sources: `repo` is required, either naming one repository or using the owner-wildcard form `owner/*` to cover every repository under that owner. For how wildcard entries match, including the case rules, see [Owner wildcards](/docs/en/settings-reference#owner-wildcards). For single-repository entries, `ref` must match exactly or be absent from both the marketplace source and the allowlist entry, and the same rule applies to `path`
 * For URL sources: the full URL must match exactly
 * For `hostPattern` sources: the marketplace host is matched against the regex pattern
 * For `pathPattern` sources: the marketplace's filesystem path is matched against the regex pattern
 
 The allowlist's exact matching doesn't normalize URLs: a trailing slash, `.git` suffix, or `ssh://` versus `https://` form are treated as different values. If your organization's marketplace can be cloned by more than one URL form, prefer a `hostPattern` entry over a literal URL so all forms match.
 
-Because `strictKnownMarketplaces` is set in [managed settings](/docs/en/settings#settings-files), individual users and project configurations can't override these restrictions.
+Because `strictKnownMarketplaces` is set in [managed settings](/docs/en/managed-settings), individual users and project configurations can't override these restrictions.
 
-For complete configuration details including all supported source types and comparison with `extraKnownMarketplaces`, see the [strictKnownMarketplaces reference](/docs/en/settings#strictknownmarketplaces).
+For complete configuration details including all supported source types and comparison with `extraKnownMarketplaces`, see the [strictKnownMarketplaces reference](/docs/en/settings-reference#strictknownmarketplaces).
 
 ### Version resolution and release channels
 
@@ -6821,7 +6904,7 @@ Plugin versions determine cache paths and update detection: if the resolved vers
 
 #### Set up release channels
 
-To support "stable" and "latest" release channels for your plugins, you can set up two marketplaces that point to different refs or SHAs of the same repo. You can then assign the two marketplaces to different user groups through [managed settings](/docs/en/settings#settings-files).
+To support "stable" and "latest" release channels for your plugins, you can set up two marketplaces that point to different refs or SHAs of the same repo. You can then assign the two marketplaces to different user groups through [managed settings](/docs/en/managed-settings).
 
 &lt;Warning&gt;
   Each channel must resolve to a different version. If you use explicit versions, `plugin.json` must declare a different `version` at each pinned ref. If you omit `version`, the distinct commit SHAs already distinguish the channels. If two refs resolve to the same version string, Claude Code treats them as identical and skips the update.
@@ -7205,8 +7288,8 @@ export CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS=300000  # 5 minutes</code></p>
 <li><a href="/docs/en/discover-plugins">Discover and install prebuilt plugins</a> - Installing plugins from existing marketplaces</li>
 <li><a href="/docs/en/plugins">Plugins</a> - Creating your own plugins</li>
 <li><a href="/docs/en/plugins-reference">Plugins reference</a> - Complete technical specifications and schemas</li>
-<li><a href="/docs/en/settings#plugin-settings">Plugin settings</a> - Plugin configuration options</li>
-<li><a href="/docs/en/settings#strictknownmarketplaces">strictKnownMarketplaces reference</a> - Managed marketplace restrictions</li>
+<li><a href="/docs/en/settings-reference#plugin-settings">Plugin settings</a> - Plugin configuration options</li>
+<li><a href="/docs/en/settings-reference#strictknownmarketplaces">strictKnownMarketplaces reference</a> - Managed marketplace restrictions</li>
 </ul>
 
 
