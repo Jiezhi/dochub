@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5452,6 +5452,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../whats-new__2026-w33/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w33
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../whats-new__2026-w34/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Whats new  2026 w34
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../workflows/" class="md-nav__link">
         
   
@@ -5766,7 +5820,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Customize self-hosted environment sessions with wrapper scripts for per-session credentials, lifecycle hooks, and on-demand runner spawning.</p>
 </blockquote>
 <p><Note>
-  Self-hosted environments are in public beta on Team and Enterprise plans; an <a href="/docs/en/cloud-environments#organization-shared-environments">Owner or admin</a> enables them by turning on <strong>Allow self-hosted environments</strong> on the <a href="https://claude.ai/admin-settings/cloud-environments"><strong>Cloud environments</strong> admin page</a>. This page assumes a working runner; see the <a href="/docs/en/self-hosted-environments-quickstart">quickstart</a> for setup and <a href="/docs/en/self-hosted-environments-deploy">Deploy to production</a> for the fleet recipes.
+  Self-hosted environments are in public beta on Team and Enterprise plans; an <a href="/docs/en/cloud-environments#organization-shared-environments">Owner</a> enables them by turning on <strong>Allow self-hosted environments</strong> on the <a href="https://claude.ai/admin-settings/cloud-environments"><strong>Cloud environments</strong> admin page</a>. This page assumes a working runner; see the <a href="/docs/en/self-hosted-environments-quickstart">quickstart</a> for setup and <a href="/docs/en/self-hosted-environments-deploy">Deploy to production</a> for the fleet recipes.
 </Note></p>
 <p>A <a href="/docs/en/self-hosted-environments">self-hosted environment</a> runs Claude Code <a href="/docs/en/claude-code-on-the-web">cloud sessions</a> on your own infrastructure, executed by a runner process you deploy. With no configuration, that runner clones the session's repository, spawns Claude Code, and cleans up. This page is for the platform engineer operating the runners: it covers the extension points for when those defaults don't fit, from per-session credential provisioning to replacing checkout entirely. Wrappers and hooks run as executable files on the runner host, which is Linux or macOS, and the examples on this page assume a POSIX shell.</p>
 <p>A few hook environment variables on this page still use <code>pool</code>, such as <code>CLAUDE_RUNNER_POOL_ID</code>; the CLI flag and env var names use <code>environment</code>, such as <code>--environment-secret-file</code>.</p>
@@ -5955,7 +6009,7 @@ The contract has four provisioner-agnostic rules:
 
 1. **Be idempotent on `CLAUDE_RUNNER_ORDER_ID`.** Redelivery of the same request must spawn at most one runner. Derive a deterministic resource name from the ID and let your platform reject the duplicate.
 2. **Don't retry the workload.** One order ID means at most one created workload. If the runner never registers, Anthropic re-requests with a fresh order ID after `--expected-spawn-seconds`.
-3. **Use the exit-code contract.** Exit 0 means submitted. Exit 1 means retryable failure; the session backs off and is re-offered. Exit 2 or higher means non-retryable; the session is blocked from spawning again until an [Owner or admin](/docs/en/cloud-environments#organization-shared-environments) selects **Retry** on it in the environment's **Activity** tab. On non-zero exit, the tail of the hook's stderr appears there as the failure reason, so write the actionable error to stderr and never secrets. For a pre-warming request there is no session to fail: the orchestrator logs a non-zero exit locally only, and the server re-requests the spawn after the lease.
+3. **Use the exit-code contract.** Exit 0 means submitted. Exit 1 means retryable failure; the session backs off and is re-offered. Exit 2 or higher means non-retryable; the session is blocked from spawning again until an [Owner](/docs/en/cloud-environments#organization-shared-environments) selects **Retry** on it in the environment's **Activity** tab. On non-zero exit, the tail of the hook's stderr appears there as the failure reason, so write the actionable error to stderr and never secrets. For a pre-warming request there is no session to fail: the orchestrator logs a non-zero exit locally only, and the server re-requests the spawn after the lease.
 4. **Set `--expected-spawn-seconds` to at least your p99 boot time.** This is the server-side lease. All orchestrator replicas must use the same value.
 
 Everything the hook writes to stdout or stderr appears in the orchestrator's log with credentials automatically redacted. If sessions stay queued, check the orchestrator's `/healthz` body for queue counts, then open your environment's **Activity** tab on the [**Cloud environments** admin page](https://claude.ai/admin-settings/cloud-environments): expand a failed session there for its spawn error, and select **Retry** to re-request it.
@@ -6088,7 +6142,7 @@ exit 0
 <p>To pre-approve specific tools instead, append <code>--allowed-tools</code> with your rules, for example <code>--allowed-tools "Bash(bazel *) Bash(yarn *) mcp__internal__*"</code>. List flags such as <code>--allowed-tools</code> and <code>--disallowed-tools</code> accumulate across occurrences rather than overriding, so your rules apply on top of any rules the control plane sends. To narrow, append <code>--disallowed-tools</code>, which denies tools even if another rule allows them.</p>
 <h3 id="how-each-sessions-config-is-assembled">How each session's config is assembled</h3>
 <p>The runner gives each session its own config directory, seeded from an in-memory snapshot of the host's <code>~/.claude/</code> that the runner captures once at startup: <code>settings.json</code>, <code>CLAUDE.md</code>, hooks, agents, commands, and skills in your runner image apply to every session as the user-level baseline. Because the snapshot is taken at startup, config changes on a running host take effect only after a runner restart. Set <code>SELF_HOSTED_RUNNER_HOST_CONFIG_DIR</code> to seed from a different path, or point it at an empty directory to disable seeding.</p>
-<p>Repository-committed <code>.claude/settings.json</code> layers on top as project settings. Sessions also read <a href="/docs/en/settings#where-settings-live"><code>managed-settings.json</code></a> from the standard system path in your runner image, but the managed tier uses one source at a time, and <a href="/docs/en/server-managed-settings">server-managed settings</a> are checked first: if your organization delivers any server-managed keys, sessions ignore the runner image's managed file, except that <code>env</code> blocks merge per key across managed sources. See <a href="/docs/en/settings#settings-precedence">settings precedence</a>.</p>
+<p>Repository-committed <code>.claude/settings.json</code> layers on top as project settings. Sessions also read <a href="/docs/en/settings#where-settings-live"><code>managed-settings.json</code></a> from the standard system path in your runner image, but the managed tier uses one source at a time, and <a href="/docs/en/server-managed-settings">server-managed settings</a> are checked first: if your organization delivers any server-managed keys, sessions ignore the runner image's managed file except for its cross-source keys. Claude Code still reads the <code>env</code> block and the other <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">keys it reads from every admin source</a> from that file, such as the sandbox locks, the sandbox binary paths, and <code>forceRemoteSettingsRefresh</code>. See <a href="/docs/en/settings#settings-precedence">settings precedence</a>.</p>
 <p>When Anthropic's control plane supplies a session with <a href="/docs/en/hooks">Claude Code hooks</a>, the runner installs them alongside, not over, your own configuration. Requires Claude Code v2.1.229 or later.</p>
 <ul>
 <li><strong>Where they land</strong>: the runner writes each supplied hook script to a reserved <code>hooks/.ccr-launcher/</code> subdirectory of the session's config directory and registers the scripts in a separate settings file it passes to the session with <code>--settings</code>, leaving the seeded <code>settings.json</code> and your own scripts at <code>hooks/&lt;name&gt;</code> untouched. The runner recreates the reserved subdirectory for each session and doesn't seed host content at <code>~/.claude/hooks/.ccr-launcher/</code> into sessions.</li>
