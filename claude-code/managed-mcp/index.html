@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5973,7 +5973,7 @@ Deploy a `managed-mcp.json` containing an empty server map to block every MCP se
 <p>Claude Code reads this setting only from admin-controlled policy tiers: server-managed settings, an MDM-deployed plist or HKLM registry key, or a system <code>managed-settings.json</code> file. Placing it in user or project settings has no effect, so users cannot re-enable connectors that exclusive control suppressed.</p>
 <h2 id="policy-based-control-with-allowlists-and-denylists">Policy-based control with allowlists and denylists</h2>
 <p>Allowlists and denylists filter which configured servers are allowed to load. They aren't a registry: a server still has to be added by a user, a plugin, or <code>managed-mcp.json</code> before the allowlist or denylist applies to it. To deploy servers to users, use <a href="#exclusive-control-with-managed-mcp-json"><code>managed-mcp.json</code></a>. Both lists also filter servers passed with the <a href="/docs/en/cli-reference#cli-flags"><code>--mcp-config</code> CLI flag</a>; <code>--strict-mcp-config</code> limits which configuration files load and doesn't bypass either list.</p>
-<p>To make the allowlist authoritative, set <code>allowedMcpServers</code> and <code>allowManagedMcpServersOnly: true</code> together in a <a href="/docs/en/admin-setup#decide-how-settings-reach-devices">managed settings source</a>, such as server-managed settings or a deployed <code>managed-settings.json</code> file. <a href="#restrict-the-allowlist-to-managed-settings-only">Restrict the allowlist to managed settings only</a> shows the configuration. Without <code>allowManagedMcpServersOnly</code>, allowlists from every settings source merge, including a user's own <code>~/.claude/settings.json</code>, so a user can broaden what your allowlist permits. Denylists merge from every source regardless.</p>
+<p>To make the allowlist authoritative, set <code>allowedMcpServers</code> and <code>allowManagedMcpServersOnly: true</code> together in a <a href="/docs/en/admin-setup#decide-how-settings-reach-devices">managed settings source</a>, such as server-managed settings or a deployed <code>managed-settings.json</code> file. <a href="#restrict-the-allowlist-to-managed-settings-only">Restrict the allowlist to managed settings only</a> shows the configuration. Without <code>allowManagedMcpServersOnly</code>, allowlists from every settings scope merge, including a user's own <code>~/.claude/settings.json</code>, so a user can broaden what your allowlist permits. Denylists merge from every scope regardless.</p>
 <p><Note>
   <code>allowManagedMcpServersOnly</code> is separate from <code>allowManagedPermissionRulesOnly</code>, which locks down <a href="/docs/en/permissions#managed-settings">permission rules</a> only. Setting that flag does not enforce the MCP allowlist.
 </Note></p>
@@ -6043,7 +6043,7 @@ Deploy a `managed-mcp.json` containing an empty server map to block every MCP se
 <h3 id="how-a-server-is-evaluated">How a server is evaluated</h3>
 <p>Before loading a server, including one from <code>managed-mcp.json</code>, Claude Code runs three checks in order:</p>
 <ol>
-<li><strong>Merge the lists.</strong> Allowlist and denylist entries from every settings source combine into one allowlist and one denylist. When <code>allowManagedMcpServersOnly</code> is <code>true</code>, only the managed allowlist is kept; the denylist always merges from every source.</li>
+<li><strong>Merge the lists.</strong> Allowlist and denylist entries from every settings scope combine into one allowlist and one denylist, with the managed scope's lists read from the one <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">managed source Claude Code selects</a>. When <code>allowManagedMcpServersOnly</code> is <code>true</code>, only the managed allowlist is kept; the denylist always merges from every scope.</li>
 <li><strong>Check the denylist.</strong> A server that matches any denylist entry, by URL, command, or name, is blocked. Nothing overrides a denylist match.</li>
 <li><strong>Check the allowlist.</strong> If <code>allowedMcpServers</code> isn't set anywhere, every server that passed the denylist loads. If it is set, what the server must match depends on its type, shown in the table below.</li>
 </ol>
@@ -6347,7 +6347,7 @@ Deploy a `managed-mcp.json` containing an empty server map to block every MCP se
     { "serverUrl": "https://*.internal.example.com/*" }
   ]
 }</code></p>
-<p>When <code>allowManagedMcpServersOnly</code> is <code>true</code>, allowlists from user, project, and local settings are ignored. The denylist still merges from all sources, so users can always block servers for themselves.</p>
+<p>When <code>allowManagedMcpServersOnly</code> is <code>true</code>, allowlists from user, project, and local settings are ignored. The denylist still merges from every settings scope, so users can always block servers for themselves.</p>
 <h2 id="how-restrictions-appear-to-users">How restrictions appear to users</h2>
 <p>For what users see at startup when <code>managed-mcp.json</code> is deployed and the session also has <code>--mcp-config</code> servers, see <a href="#exclusive-control-with-managed-mcp-json">Exclusive control with managed-mcp.json</a>. Use this table to recognize the other reports and to tell users what to expect before you roll out a change:</p>
 <table>
@@ -6400,13 +6400,13 @@ Deploy a `managed-mcp.json` containing an empty server map to block every MCP se
 <tr>
 <td style="text-align: left;"><code>allowedMcpServers</code></td>
 <td style="text-align: left;">Allowlist of permitted servers</td>
-<td style="text-align: left;">Any <a href="/docs/en/settings#where-settings-live">settings file</a>; entries from every source merge unless <code>allowManagedMcpServersOnly</code> is set</td>
+<td style="text-align: left;">Any <a href="/docs/en/settings#where-settings-live">settings scope</a>; Claude Code merges the lists from every scope unless <code>allowManagedMcpServersOnly</code> is set, and takes the managed scope's list from the one <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">managed source it selects</a></td>
 <td style="text-align: left;">For enforcement, a <a href="/docs/en/admin-setup#decide-how-settings-reach-devices">managed settings source</a>: server-managed settings, <code>managed-settings.json</code>, MDM profile, or registry</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>deniedMcpServers</code></td>
 <td style="text-align: left;">Denylist of blocked servers</td>
-<td style="text-align: left;">Any settings file; entries from every source merge</td>
+<td style="text-align: left;">Any settings scope; Claude Code merges the lists from every scope and takes the managed scope's list from the one managed source it selects</td>
 <td style="text-align: left;">Same as <code>allowedMcpServers</code></td>
 </tr>
 <tr>

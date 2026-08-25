@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -3763,27 +3763,22 @@
     </span>
   </a>
   
-</li>
+    <nav class="md-nav" aria-label="WebFetch">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#mcp" class="md-nav__link">
+  <a href="#allow-or-deny-every-fetch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MCP
+        Allow or deny every fetch
       
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#agent-subagents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Agent (subagents)
-      
-    </span>
-  </a>
+      </ul>
+    </nav>
   
 </li>
         
@@ -6025,27 +6020,22 @@
     </span>
   </a>
   
-</li>
+    <nav class="md-nav" aria-label="WebFetch">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#mcp" class="md-nav__link">
+  <a href="#allow-or-deny-every-fetch" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MCP
+        Allow or deny every fetch
       
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#agent-subagents" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Agent (subagents)
-      
-    </span>
-  </a>
+      </ul>
+    </nav>
   
 </li>
         
@@ -6675,31 +6665,70 @@ The following example shows each pattern shape against a project with a top-leve
 <ul>
 <li><code>WebFetch(domain:example.com)</code> matches requests to <code>example.com</code></li>
 <li><code>WebFetch(domain:*.example.com)</code> matches any subdomain at any depth, such as <code>api.example.com</code> or <code>a.b.example.com</code>, but not <code>example.com</code> itself</li>
-<li><code>WebFetch(domain:*)</code> matches every domain and is equivalent to a bare <code>WebFetch</code> rule</li>
+<li><code>WebFetch(domain:*)</code> matches every domain. It isn't the same as a bare <code>WebFetch</code> rule; see <a href="#allow-or-deny-every-fetch">Allow or deny every fetch</a></li>
 </ul>
 <p>In any position other than a leading <code>*.</code> or a bare <code>*</code>, the wildcard matches only the text between two dots. <code>WebFetch(domain:example.*)</code> matches <code>example.org</code>, where <code>*</code> becomes <code>org</code>, but not <code>example.evil.com</code>, where <code>*</code> would have to become <code>evil.com</code> and cross a dot. This keeps a trailing wildcard from matching domains an attacker could register.</p>
-<h3 id="mcp">MCP</h3>
-<p>MCP rules use the server name as configured in Claude Code, optionally followed by the name of a tool from that server.</p>
-<ul>
-<li><code>mcp__puppeteer</code> matches any tool provided by the <code>puppeteer</code> server</li>
-<li><code>mcp__puppeteer__*</code> uses wildcard syntax and also matches all tools from the <code>puppeteer</code> server</li>
-<li><code>mcp__puppeteer__puppeteer_navigate</code> matches the <code>puppeteer_navigate</code> tool provided by the <code>puppeteer</code> server</li>
-</ul>
-<p>If your organization has set a <a href="/docs/en/mcp#organization-controls-on-connector-tools">claude.ai connector</a> tool to <code>ask</code>, allow rules for that tool don't take effect: Claude Code prompts on every call, even in <code>auto</code> and <code>bypassPermissions</code> modes. In <code>dontAsk</code> mode, which never prompts, Claude Code denies the call instead. Connector tools appear as <code>mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;</code>.</p>
-<h3 id="agent-subagents">Agent (subagents)</h3>
-<p>Use <code>Agent(AgentName)</code> rules to control which <a href="/docs/en/sub-agents">subagents</a> Claude can use:</p>
-<ul>
-<li><code>Agent(Explore)</code> matches the Explore subagent</li>
-<li><code>Agent(Plan)</code> matches the Plan subagent</li>
-<li><code>Agent(my-custom-agent)</code> matches a custom subagent named <code>my-custom-agent</code></li>
-</ul>
-<p>Add these rules to the <code>deny</code> array in your settings or use the <code>--disallowedTools</code> CLI flag to disable specific agents. To disable the Explore agent:</p>
-<p><code>json theme={null}
+<p>Wildcards in <code>WebFetch</code> rules require Claude Code v2.1.172 or later to match fetches.</p>
+<h4 id="allow-or-deny-every-fetch">Allow or deny every fetch</h4>
+<p>A bare <code>WebFetch</code> rule is the tool name with no <code>domain:</code> part, such as <code>"deny": ["WebFetch"]</code>. Both it and <code>WebFetch(domain:*)</code> cover every URL, but Claude Code applies them differently, and only the <code>domain:</code> form also adds its domain to the sandbox's <a href="/docs/en/sandboxing#network-isolation">allowed or denied domain list</a>. That section lists the wildcard forms the sandbox honors and the version that added bare <code>*</code>.</p>
+<p>Each row shows what a rule does in the <code>allow</code> list and in the <code>deny</code> list:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Rule</th>
+<th style="text-align: left;">In <code>allow</code></th>
+<th style="text-align: left;">In <code>deny</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>WebFetch</code></td>
+<td style="text-align: left;">Claude fetches without prompting you. Doesn't change which hosts sandboxed commands can reach.</td>
+<td style="text-align: left;">Claude Code removes the <code>WebFetch</code> tool, so Claude can't fetch at all. Doesn't change which hosts sandboxed commands can reach.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>WebFetch(domain:*)</code></td>
+<td style="text-align: left;">Claude fetches without prompting you, and sandboxed commands can reach any host.</td>
+<td style="text-align: left;">Claude Code keeps the tool and refuses each fetch, and sandboxed commands can't reach any host.</td>
+</tr>
+</tbody>
+</table>
+<p>To let Claude fetch freely while keeping the sandbox allowlist as it is, use the bare form. This <code>settings.json</code> does that:</p>
+<p>```json theme={null}
+{
+  "permissions": {
+    "allow": ["WebFetch"]
+  }
+}
+<div class="highlight"><pre><span></span><code>When you ask Claude to fetch a page, it fetches without a prompt. When you ask it to run a [sandboxed](/docs/en/sandboxing) `curl` against a host outside the sandbox allowlist, Claude Code still prompts you for that host, or in [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode) sends the request to the classifier, because the bare rule didn't add the host to the allowlist.
+
+### MCP
+
+MCP rules use the server name as configured in Claude Code, optionally followed by the name of a tool from that server.
+
+* `mcp__puppeteer` matches any tool provided by the `puppeteer` server
+* `mcp__puppeteer__*` uses wildcard syntax and also matches all tools from the `puppeteer` server
+* `mcp__puppeteer__puppeteer_navigate` matches the `puppeteer_navigate` tool provided by the `puppeteer` server
+
+If your organization has set a [claude.ai connector](/docs/en/mcp#organization-controls-on-connector-tools) tool to `ask`, allow rules for that tool don't take effect: Claude Code prompts on every call, even in `auto` and `bypassPermissions` modes. In `dontAsk` mode, which never prompts, Claude Code denies the call instead. Connector tools appear as `mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;`.
+
+### Agent (subagents)
+
+Use `Agent(AgentName)` rules to control which [subagents](/docs/en/sub-agents) Claude can use:
+
+* `Agent(Explore)` matches the Explore subagent
+* `Agent(Plan)` matches the Plan subagent
+* `Agent(my-custom-agent)` matches a custom subagent named `my-custom-agent`
+
+Add these rules to the `deny` array in your settings or use the `--disallowedTools` CLI flag to disable specific agents. To disable the Explore agent:
+
+```json theme={null}
 {
   "permissions": {
     "deny": ["Agent(Explore)"]
   }
-}</code></p>
+}
+</code></pre></div></p>
 <h3 id="cd">Cd</h3>
 <p><code>Cd</code> rules control which directories the <a href="/docs/en/commands"><code>/cd</code> command</a> can move the session to. <code>Cd</code> is not a model-invocable tool: Claude can't call it, and the rules apply only when you run <code>/cd</code> yourself.</p>
 <p>A bare <code>Cd</code> deny rule disables <code>/cd</code> entirely. A <code>Cd(&lt;path-pattern&gt;)</code> deny rule blocks matching targets. Deny rules check every spelling of the target, including each symlink hop it resolves through, so a rule written for one path also blocks targets that resolve to it.</p>
@@ -6799,7 +6828,7 @@ The following example shows each pattern shape against a project with a top-leve
 <li>Permission deny rules block Claude from even attempting to access restricted resources</li>
 <li>Sandbox restrictions prevent Bash commands from reaching resources outside defined boundaries, even if a prompt injection bypasses Claude's decision-making</li>
 <li>Filesystem restrictions in the sandbox combine the <a href="/docs/en/sandboxing"><code>sandbox.filesystem</code></a> settings with Read and Edit deny rules; both are merged into the final sandbox boundary</li>
-<li>Network restrictions combine WebFetch permission rules with the sandbox's <code>allowedDomains</code> and <code>deniedDomains</code> lists</li>
+<li>Network restrictions combine <code>WebFetch(domain:...)</code> permission rules with the sandbox's <code>allowedDomains</code> and <code>deniedDomains</code> lists</li>
 </ul>
 <p>When you enable sandboxing and leave <code>autoAllowBashIfSandboxed</code> at its default of <code>true</code>, sandboxed Bash commands run without prompting even if your permissions include a bare <code>Bash</code> ask rule, or the <a href="#match-all-uses-of-a-tool">equivalent <code>Bash(*)</code> form</a>: the sandbox boundary substitutes for that whole-tool prompt.</p>
 <p>In <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a>, Claude Code skips this substitution. Without an ask rule, the built-in read-only commands still run without prompting, and any other shell command goes through the regular permission flow while you are still planning; see <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a> for how Claude Code gates commands there. With a bare <code>Bash</code> ask rule, every Bash command prompts, including sandboxed read-only commands, the same as outside sandboxing. Before v2.1.212, the substitution applied in plan mode as well.</p>

@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6582,7 +6582,7 @@ Claude Code handles any other blocked selection according to where the model was
 * **`advisorModel` setting**: the advisor is disabled for the session
 * **`--advisor` flag**: Claude Code exits with an error at launch. In a [background session](/docs/en/agent-view), it starts the session without the advisor instead of exiting
 
-Claude Code hides excluded models from the `/model` picker. A full model ID in the list that has no built-in picker row, such as an older version that the list pins, appears in the `/model` picker as its own labeled row. Before v2.1.199, such an ID was selectable only by typing `/model &lt;id&gt;`.
+Claude Code hides excluded models from the `/model` picker. A full model ID in the list that has no built-in picker row, such as an older version that the list pins, appears in the `/model` picker as its own labeled row, unless Claude Code replaces the built-in options with a [`modelPicker`](/docs/en/settings-reference#modelpicker) lineup. Before v2.1.199, such an ID was selectable only by typing `/model &lt;id&gt;`.
 
 Model changes that Claude Code makes on your behalf are checked the same way:
 
@@ -6746,7 +6746,7 @@ This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, 
 <p>The substitution of an older permitted version applies on the Anthropic API and <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>. On Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and Mantle, whose deployments use provider-specific model IDs, plan mode stays on the session's model whenever the upgrade model is excluded.</p>
 <p>For a hybrid approach where Claude decides mid-task when to consult a second model rather than switching at the plan boundary, see the <a href="/docs/en/advisor">advisor tool</a>.</p>
 <h3 id="fallback-model-chains">Fallback model chains</h3>
-<p>When the primary model is overloaded, unavailable, or returns another non-retryable server error, Claude Code can switch to a fallback model instead of failing the request. Authentication, billing, rate-limit, request-size, and transport errors never trigger a switch; those follow their normal retry and error handling.</p>
+<p>When the primary model is overloaded, unavailable, or returns another non-retryable server error, Claude Code can switch to a fallback model instead of failing the request. Authentication, billing, rate-limit, request-size, and transport errors, and a <a href="/docs/en/errors#automatic-retries">denial by your organization's policy check</a>, never trigger a switch; those follow their normal retry and error handling.</p>
 <p>Configure one or more fallback models and Claude Code tries them in order, showing a notice when it switches. The switch lasts for the current turn only, so your next message tries the primary model first again. Claude Code caps chains at three models after duplicate removal and ignores extra entries.</p>
 <p>Set a chain for one session with the <code>--fallback-model</code> flag, which accepts a comma-separated list:</p>
 <p>```bash theme={null}
@@ -7031,6 +7031,8 @@ You can see which model you're currently using in two places:
 
 Use `ANTHROPIC_CUSTOM_MODEL_OPTION` to add a single custom entry to the `/model` picker without replacing the built-in aliases. This is useful for testing model IDs that Claude Code does not list by default. For LLM gateway deployments, Claude Code can populate the picker from the gateway's `/v1/models` endpoint when `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` is set, so this variable is needed only when discovery is disabled or does not return the model you want. See [gateway model discovery](/docs/en/llm-gateway-protocol#model-discovery).
 
+To list several models instead, in your own order and under labels you choose, set [`modelPicker`](/docs/en/settings-reference#modelpicker). Its entry says which rows the picker keeps when that lineup replaces the built-in one.
+
 This example sets all three variables to make a gateway-routed Opus deployment selectable. Claude Code reads environment variables at startup, so run the exports before launching `claude`, or restart an existing session to pick them up:
 
 ```bash theme={null}
@@ -7038,7 +7040,7 @@ export ANTHROPIC_CUSTOM_MODEL_OPTION="my-gateway/claude-opus-5"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="Opus via Gateway"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="Custom deployment routed through the internal LLM gateway"
 </code></pre></div></p>
-<p>The custom entry appears at the bottom of the <code>/model</code> picker. <code>ANTHROPIC_CUSTOM_MODEL_OPTION_NAME</code> and <code>ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION</code> are optional. If you omit the name, Claude Code uses the model ID; if you omit the description, Claude Code uses <code>Custom model (&lt;model-id&gt;)</code>.</p>
+<p><code>ANTHROPIC_CUSTOM_MODEL_OPTION_NAME</code> and <code>ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION</code> are optional. If you omit the name, Claude Code uses the model ID; if you omit the description, Claude Code uses <code>Custom model (&lt;model-id&gt;)</code>. Claude Code lists the custom entry after the built-in entries, and any <a href="/docs/en/settings-reference#modelpicker"><code>modelPicker</code></a> rows you append come after it.</p>
 <p>Claude Code skips validation for the model ID set in <code>ANTHROPIC_CUSTOM_MODEL_OPTION</code>, so you can use any string your API endpoint accepts.</p>
 <p>When <a href="#restrict-model-selection"><code>availableModels</code></a> is set, include the custom model ID in the allowlist as well. Otherwise Claude Code filters the custom entry from the picker and rejects a <code>--model</code> selection of it like any other excluded model.</p>
 <p>A custom ID that embeds a family name, such as <code>my-gateway/claude-opus-5</code>, counts as a specific entry for that family and disables its wildcard, so also list the versions you intend to keep selectable. See <a href="#merge-behavior">Merge behavior</a>.</p>
@@ -7207,7 +7209,7 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES='effort,xhigh_effort,
 </tr>
 </tbody>
 </table>
-<p>To change the cache TTL or learn what triggers a cache miss, see <a href="/docs/en/prompt-caching">How Claude Code uses prompt caching</a>.</p>
+<p>To choose the cache TTL for the main conversation and for subagents separately, see <a href="/docs/en/prompt-caching#choose-the-ttl-yourself">choose the TTL yourself</a>. For what triggers a cache miss, see <a href="/docs/en/prompt-caching">How Claude Code uses prompt caching</a>.</p>
 
 
 

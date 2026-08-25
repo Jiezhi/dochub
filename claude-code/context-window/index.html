@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5692,6 +5692,7 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 2400,
     color: '#8A8880',
     vis: 'brief',
+    restoredAfterCompact: true,
     desc: 'Main auth file. You see "Read auth.ts" in your terminal, but the 2,400 tokens of file content only Claude sees.',
     tip: 'File reads dominate context usage. Be specific in prompts ("fix the bug in auth.ts") so Claude reads fewer files. For research-heavy tasks, use a subagent.',
     link: null
@@ -5702,6 +5703,7 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 1100,
     color: '#8A8880',
     vis: 'brief',
+    restoredAfterCompact: true,
     desc: 'Following imports to the token module. Shown as a one-liner in your terminal.',
     link: null
   }, {
@@ -5711,6 +5713,7 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 380,
     color: '#4A9B8E',
     vis: 'brief',
+    restoredAfterCompact: true,
     desc: 'This rule in <code>.claude/rules/</code> has a <code>paths:</code> pattern matching <code>src/api/**</code>. It loaded automatically when Claude read a file in that directory. You see "Loaded .claude/rules/api-conventions.md" in your terminal, but not the rule content.',
     link: '/en/memory#path-specific-rules'
   }, {
@@ -5720,6 +5723,7 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 1800,
     color: '#8A8880',
     vis: 'brief',
+    restoredAfterCompact: true,
     desc: 'Tracing the auth flow deeper.',
     link: null
   }, {
@@ -5729,6 +5733,7 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 1600,
     color: '#8A8880',
     vis: 'brief',
+    restoredAfterCompact: true,
     desc: 'Checking existing tests for expected behavior.',
     link: null
   }, {
@@ -5738,6 +5743,7 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 290,
     color: '#4A9B8E',
     vis: 'brief',
+    restoredAfterCompact: true,
     desc: 'Another path-scoped rule, this one matching <code>*.test.ts</code> files. Triggered when Claude read auth.test.ts. Shown as a one-line "Loaded" notice.',
     link: '/en/memory#path-specific-rules'
   }, {
@@ -5936,7 +5942,8 @@ Use this file to discover all available pages before exploring further.</p>
     tokens: 620,
     color: '#558A42',
     vis: 'brief',
-    desc: 'You invoked a skill that has <code>disable-model-invocation: true</code>. Its description was not in the skill index at startup, so it cost zero context until this moment. Now the full skill content loads and Claude follows its instructions to stage, commit, and push your changes.',
+    restoredAfterCompact: true,
+    desc: 'You invoked a skill that has <code>disable-model-invocation: true</code>. Its description was not in the skill index at startup, so it cost zero context until this moment. Now the full skill content loads and Claude follows its instructions to stage, commit, and push your changes. After <code>/compact</code>, Claude Code re-injects the body of each skill you invoked, capped at 5,000 tokens per skill.',
     tip: 'Set <code>disable-model-invocation: true</code> on skills with side effects like committing, deploying, or sending messages. They stay out of context entirely until you need them.',
     link: '/en/skills#control-who-invokes-a-skill'
   }, {}, {
@@ -6132,6 +6139,7 @@ Use this file to discover all available pages before exploring further.</p>
     }
     {}
     const autoLoads = nonCompact.filter(e =&gt; e.kind === 'auto' &amp;&amp; e.t &lt; STARTUP_END &amp;&amp; !e.noSurviveCompact);
+    const restored = nonCompact.filter(e =&gt; e.restoredAfterCompact);
     const summarized = nonCompact.filter(e =&gt; e.t &gt;= STARTUP_END &amp;&amp; e.kind !== 'sub');
     const sumTokens = summarized.reduce((s, e) =&gt; s + e.tokens, 0);
     const summaryBlock = {
@@ -6141,11 +6149,11 @@ Use this file to discover all available pages before exploring further.</p>
       tokens: Math.round(sumTokens * 0.12),
       color: '#A09E96',
       vis: 'hidden',
-      desc: <code>All ${summarized.length} conversation events condensed into one structured summary. The summary keeps: your requests and intent, key technical concepts, files examined or modified with important code snippets, errors and how they were fixed, pending tasks, and current work. It replaces the verbatim conversation: full tool outputs and intermediate reasoning are gone. Claude can still reference the work but won't have the exact code it read earlier.</code>,
+      desc: <code>All ${summarized.length} conversation events condensed into one structured summary. The summary keeps: your requests and intent, key technical concepts, files examined or modified with important code snippets, errors and how they were fixed, pending tasks, and current work. It replaces the verbatim conversation: full tool outputs and intermediate reasoning are gone. Claude Code re-reads the files modified most recently and re-injects the skills you invoked, listed below. Claude can still reference the rest of the work but won't have the exact content.</code>,
       link: '/en/how-claude-code-works#the-context-window'
     };
     return {
-      visible: [...autoLoads, summaryBlock],
+      visible: [...autoLoads, summaryBlock, ...restored],
       preCompactTotal: nonCompact.reduce((s, e) =&gt; s + e.tokens, 0)
     };
   }, [preCompactVisible, isCompacted]);
@@ -6218,8 +6226,8 @@ Use this file to discover all available pages before exploring further.</p>
     if (detailRef.current) detailRef.current.scrollTop = 0;
   }, [hovEvent]);
   const focusT = hovEvent ? hovEvent.t : time;
-  const takeaway = isCompacted ? 'Compaction replaces the conversation with a structured summary. System prompt, CLAUDE.md, memory, and MCP tools reload automatically. The skill listing is the one exception. Only skills you actually invoked are preserved.' : focusT &lt; STARTUP_END ? 'A lot loads before you type anything. CLAUDE.md, memory, skills, and MCP tools are all in context before your first prompt.' : focusT &lt; 0.28 ? "Your prompt is tiny compared to what's already loaded. Most of Claude's context is project knowledge, not your words." : focusT &lt; 0.50 ? 'Each file Claude reads grows the context. Path-scoped rules load automatically alongside matching files.' : focusT &lt; 0.71 ? 'Hooks fire automatically on tool events. Output reaches Claude via additionalContext JSON. Exit code 2 surfaces stderr to Claude. Plain stdout on exit 0 goes to the debug log, not the transcript.' : focusT &lt; 0.79 ? 'Follow-up questions keep building on the same context. Everything from earlier is still there.' : focusT &lt; 0.87 ? "The subagent works in its own separate context window. None of its file reads touch yours. Only the final summary comes back." : focusT &lt; 0.88 ? 'Bang commands run in your shell and prefix the output to your next message. Useful for grounding Claude in command results without it running them.' : focusT &lt; 0.90 ? 'User-only skills stay out of context entirely until you invoke them. The skill index at startup only lists skills Claude can call on its own.' : '/compact summarizes the conversation to free space while keeping key information. In a real session, run it when context starts affecting performance or before a long new task.';
-  const terminalView = isCompacted ? 'A "Conversation compacted" message. The summarization happens silently.' : focusT &lt; STARTUP_END ? 'The input box, waiting for your first message. Everything above loads silently before you type anything.' : focusT &lt; 0.28 ? 'Your prompt. Claude hasn\'t started working yet.' : focusT &lt; 0.52 ? 'Your prompt and "Reading files...". Rules show as one-line "Loaded" notices, not their content.' : focusT &lt; 0.72 ? "Claude's response and file diffs. Hooks fire silently. Tool output like npm test shows as a brief summary, not the full content." : focusT &lt; 0.79 ? 'Your follow-up prompt.' : focusT &lt; 0.86 ? "A brief notice that a subagent is working, then its result. You don't see the subagent's individual file reads." : focusT &lt; 0.90 ? "Claude's response, your git status output, and the commit-push skill running." : 'Your full conversation. /compact is available to run.';
+  const takeaway = isCompacted ? 'Compaction replaces the conversation with a structured summary. System prompt, CLAUDE.md, memory, and MCP tools reload automatically. Claude Code also re-reads up to five of the files modified most recently, reloads the rules that match them, and re-injects the skills you invoked. The skill listing does not reload.' : focusT &lt; STARTUP_END ? 'A lot loads before you type anything. CLAUDE.md, memory, skills, and MCP tools are all in context before your first prompt.' : focusT &lt; 0.28 ? "Your prompt is tiny compared to what's already loaded. Most of Claude's context is project knowledge, not your words." : focusT &lt; 0.50 ? 'Each file Claude reads grows the context. Path-scoped rules load automatically alongside matching files.' : focusT &lt; 0.71 ? 'Hooks fire automatically on tool events. Output reaches Claude via additionalContext JSON. Exit code 2 surfaces stderr to Claude. Plain stdout on exit 0 goes to the debug log, not the transcript.' : focusT &lt; 0.79 ? 'Follow-up questions keep building on the same context. Everything from earlier is still there.' : focusT &lt; 0.87 ? "The subagent works in its own separate context window. None of its file reads touch yours. Only the final summary comes back." : focusT &lt; 0.88 ? 'Bang commands run in your shell and prefix the output to your next message. Useful for grounding Claude in command results without it running them.' : focusT &lt; 0.90 ? 'User-only skills stay out of context entirely until you invoke them. The skill index at startup only lists skills Claude can call on its own.' : '/compact summarizes the conversation to free space while keeping key information. In a real session, run it when context starts affecting performance or before a long new task.';
+  const terminalView = isCompacted ? 'A "Conversation compacted" message, then a one-line "Read auth.ts" for each re-read file and "Skills restored (commit-push)". The rules show as "Loaded" lines on Claude\'s next turn. None of the content itself appears.' : focusT &lt; STARTUP_END ? 'The input box, waiting for your first message. Everything above loads silently before you type anything.' : focusT &lt; 0.28 ? 'Your prompt. Claude hasn\'t started working yet.' : focusT &lt; 0.52 ? 'Your prompt and "Reading files...". Rules show as one-line "Loaded" notices, not their content.' : focusT &lt; 0.72 ? "Claude's response and file diffs. Hooks fire silently. Tool output like npm test shows as a brief summary, not the full content." : focusT &lt; 0.79 ? 'Your follow-up prompt.' : focusT &lt; 0.86 ? "A brief notice that a subagent is working, then its result. You don't see the subagent's individual file reads." : focusT &lt; 0.90 ? "Claude's response, your git status output, and the commit-push skill running." : 'Your full conversation. /compact is available to run.';
   const mono = 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)';
   const renderWithCode = s =&gt; s.split('<code>').map((part, i) =&gt; i % 2 === 1 ? &lt;code key={i} style={{
     fontFamily: mono,
@@ -6545,7 +6553,7 @@ scrollBehavior: 'smooth'
     lineHeight: 1.5,
     marginTop: 4
   }}>
-                This is what's left in context: startup content, which lives outside the message history and reloads after compaction, plus a structured summary of the entire conversation. Skill descriptions don't reload.
+                This is what's left in context: startup content, which lives outside the message history and reloads after compaction, a structured summary of the entire conversation, the files modified most recently, which Claude Code re-reads along with the rules that match them, and the body of each skill you invoked. Skill descriptions don't reload.
               </div>
             </div>}
           {time &gt; 0 &amp;&amp; visible.length &gt; 0 &amp;&amp; <div style={{
@@ -6567,7 +6575,9 @@ const isSub = evt.kind === 'sub';
 const enteringSubagent = isSub &amp;&amp; prevKind !== 'sub';
 const leavingSubagent = prevKind === 'sub' &amp;&amp; !isSub;
 let showPhase = null;
-if (evt.kind === 'user' &amp;&amp; prevKind !== 'user') showPhase = 'You'; else if (evt.kind === 'claude' &amp;&amp; prevKind === 'user') showPhase = 'Claude works'; else if (evt.label === 'Conversation summary') showPhase = 'Summarized by /compact';
+if (isCompacted &amp;&amp; evt.restoredAfterCompact) {
+  if (prevKind === 'compact') showPhase = 'Restored after /compact';
+} else if (evt.kind === 'user' &amp;&amp; prevKind !== 'user') showPhase = 'You'; else if (evt.kind === 'claude' &amp;&amp; prevKind === 'user') showPhase = 'Claude works'; else if (evt.label === 'Conversation summary') showPhase = 'Summarized by /compact';
 const isNewRow = isCompacted &amp;&amp; !(evt.kind === 'auto' &amp;&amp; evt.t &lt; STARTUP_END);
 return &lt;div key={evt.label + evt.t} className={isNewRow ? 'cw-compacted-row' : ''} style={isNewRow ? {
   animationDelay: `${i * 60}ms`
@@ -7179,7 +7189,7 @@ gap: 10
 <li><strong>At the end</strong>: <code>/compact</code> replaces the conversation with a structured summary. Most startup content reloads automatically; the table below shows what happens to each mechanism.</li>
 </ul>
 <h2 id="what-survives-compaction">What survives compaction</h2>
-<p>When a long session compacts, Claude Code summarizes the conversation history to fit the context window. As of v2.1.198, the summarization request inherits your session's <a href="/docs/en/model-config#extended-thinking">extended thinking</a> configuration, so it reasons with thinking enabled when your session has it enabled and stays off otherwise. Thinking affects only how the summary is produced; your session settings are unchanged afterward. What happens to your instructions depends on how they were loaded:</p>
+<p>When a long session compacts, Claude Code summarizes the conversation history to fit the context window. As of v2.1.198, the summarization request inherits your session's <a href="/docs/en/model-config#extended-thinking">extended thinking</a> configuration, so it reasons with thinking enabled when your session has it enabled and stays off otherwise. Thinking affects only how the summary is produced; your session settings are unchanged afterward. What happens to each kind of content depends on how it was loaded:</p>
 <table>
 <thead>
 <tr>
@@ -7201,30 +7211,43 @@ gap: 10
 <td style="text-align: left;">Re-injected from disk</td>
 </tr>
 <tr>
+<td style="text-align: left;">The plan Claude wrote in <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a></td>
+<td style="text-align: left;">Re-injected from disk</td>
+</tr>
+<tr>
 <td style="text-align: left;">Rules with <code>paths:</code> frontmatter</td>
-<td style="text-align: left;">Lost until a matching file is read again</td>
+<td style="text-align: left;">Claude Code reloads them as Claude reads files they match</td>
 </tr>
 <tr>
 <td style="text-align: left;">Nested CLAUDE.md in subdirectories</td>
-<td style="text-align: left;">Lost until a file in that subdirectory is read again</td>
+<td style="text-align: left;">Claude Code reloads them as Claude reads files in that subdirectory</td>
+</tr>
+<tr>
+<td style="text-align: left;">Files Claude read or edited</td>
+<td style="text-align: left;">Claude Code re-reads up to five, most recently modified first</td>
 </tr>
 <tr>
 <td style="text-align: left;">Invoked skill bodies</td>
 <td style="text-align: left;">Re-injected, capped at 5,000 tokens per skill and 25,000 tokens total; oldest dropped first</td>
 </tr>
 <tr>
-<td style="text-align: left;">Hooks</td>
-<td style="text-align: left;">Not applicable; hooks run as code, not context</td>
+<td style="text-align: left;">Context that hooks added earlier</td>
+<td style="text-align: left;">Summarized with the rest of the conversation</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/hooks-guide#re-inject-context-after-compaction">SessionStart hooks</a> that match the <code>compact</code> source</td>
+<td style="text-align: left;">Claude Code runs them and adds their output to the compacted context</td>
 </tr>
 </tbody>
 </table>
-<p>Path-scoped rules and nested CLAUDE.md files load into message history when their trigger file is read, so compaction summarizes them away with everything else. They reload the next time Claude reads a matching file. If a rule must persist across compaction, drop the <code>paths:</code> frontmatter or move it to the project-root CLAUDE.md.</p>
+<p>Path-scoped rules and nested CLAUDE.md files load into message history when their trigger file is read, so compaction summarizes them away with everything else. Right after compaction, Claude Code re-reads up to five of the files Claude has read or edited in the session, choosing the ones modified most recently, and reloads the rules and nested CLAUDE.md files that apply to those files. A file over 5,000 tokens comes back as a path reference without its content, shown as <code>Referenced file</code> instead of <code>Read</code>. Its rules still reload. If a rule must persist across compaction, drop the <code>paths:</code> frontmatter or move it to the project-root CLAUDE.md.</p>
 <p>Skill bodies are re-injected after compaction, but large skills are truncated to fit the per-skill cap, and the oldest invoked skills are dropped once the total budget is exceeded. Truncation keeps the start of the file, so put the most important instructions near the top of <code>SKILL.md</code>.</p>
 <h2 id="when-your-context-fills-up">When your context fills up</h2>
 <p>Claude Code compacts automatically as you approach the limit, so a full context window doesn't end your session. The automatic pass works the same way as the <code>/compact</code> step in the timeline. See <a href="/docs/en/how-claude-code-works#when-context-fills-up">When context fills up</a> for what it preserves.</p>
 <p>You can also act before the automatic pass runs:</p>
 <ul>
 <li><strong>Compact with a focus</strong>: run <code>/compact</code> with instructions, like <code>/compact focus on the auth bug fix</code>, before starting a long new task. The summary keeps what you choose instead of what the automatic pass guesses is important.</li>
+<li><strong>Compact part of the conversation</strong>: run <code>/rewind</code>, select a message, and choose <strong>Summarize from here</strong> or <strong>Summarize up to here</strong>. See <a href="/docs/en/checkpointing#rewind-and-summarize">Rewind and summarize</a> for what each option keeps and how to guide the summary.</li>
 <li><strong>Compact earlier</strong>: run <a href="/docs/en/commands#all-commands"><code>/autocompact</code></a> with a token count, like <code>/autocompact 500k</code>, to set how full the context window gets before the automatic pass runs. See <a href="/docs/en/model-config#set-the-auto-compact-window">Set the auto-compact window</a> for accepted values and overrides.</li>
 <li><strong>Clear between tasks</strong>: run <code>/clear</code> when switching to unrelated work. Old conversation crowds out the files you need next and costs tokens on every message.</li>
 <li><strong>Delegate large reads</strong>: send research to a <a href="/docs/en/sub-agents">subagent</a> so the file contents stay in its context window, not yours.</li>
