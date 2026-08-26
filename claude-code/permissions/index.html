@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6302,6 +6302,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Note>
   Permission rules are enforced by Claude Code, not by the model. Instructions in your prompt or <code>CLAUDE.md</code> shape what Claude tries to do, but they don't change what Claude Code allows. To grant or revoke access, use <code>/permissions</code>, the rules described here, a <a href="/docs/en/permission-modes">permission mode</a>, or a <a href="#extend-permissions-with-hooks">PreToolUse hook</a>.
 </Note></p>
+<p>When <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a> is available to your session, the dialog also includes the <a href="/docs/en/auto-mode-config#edit-rules-from-permissions">auto mode classifier rules</a>. Select the <strong>Auto mode</strong> tab to view them.</p>
 <h2 id="permission-modes">Permission modes</h2>
 <p>Claude Code supports several permission modes that control how it approves tool calls. See <a href="/docs/en/permission-modes">Permission modes</a> for when to use each one. To change the mode sessions start in, set <code>defaultMode</code> in your <a href="/docs/en/settings#where-settings-live">settings files</a>. <a href="/docs/en/permission-modes#which-mode-a-session-starts-in">Which mode a session starts in</a> covers the built-in default for each plan and what the VS Code extension reads.</p>
 <table>
@@ -6428,23 +6429,43 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>You can't match a tool's primary content field this way: <code>command</code> for Bash and PowerShell, <code>file_path</code> for Read, Edit, and Write, <code>path</code> for Grep and Glob, <code>notebook_path</code> for NotebookEdit, and <code>url</code> for WebFetch. A rule like <code>Bash(command:rm *)</code> would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use <code>Bash(rm *)</code>, <code>Read(./path)</code>, or <code>WebFetch(domain:host)</code> instead.</p>
 <h3 id="wildcard-patterns">Wildcard patterns</h3>
-<p>Bash rules support glob patterns with <code>*</code>. This configuration allows npm and git commit commands while blocking git push:</p>
+<p>A <code>*</code> in a Bash rule matches any text, including spaces, so one rule covers a family of commands. A rule with no <code>*</code> matches one exact command.</p>
+<p><Warning>
+  Put the <code>*</code> after the subcommand. In <code>git log --oneline main</code>, <code>git</code> is the program and <code>log</code> is the subcommand, the word that determines what the program does. Claude Code matches everything before the first <code>*</code> as written, so those words are what limit the rule: <code>Bash(git log *)</code> allows only <code>git log</code> commands, and <code>Bash(git *)</code> allows every git command. Claude Code <a href="/docs/en/errors#has-a-wildcard-before-the-rest-of-the-command">warns at startup</a> about an allow rule with a <code>*</code> before the subcommand, such as <code>Bash(git * main)</code>.
+</Warning></p>
+<p>Write the command you want Claude to run without asking, and replace the parts that vary with <code>*</code>. With this configuration, Claude Code runs npm scripts and git commits without asking and refuses git push:</p>
 <p>```json theme={null}
 {
   "permissions": {
     "allow": [
       "Bash(npm run <em>)",
-      "Bash(git commit </em>)",
-      "Bash(git * main)",
-      "Bash(<em> --version)",
-      "Bash(</em> --help <em>)"
+      "Bash(git commit </em>)"
     ],
     "deny": [
-      "Bash(git push </em>)"
+      "Bash(git push *)"
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>The `:*` suffix is an equivalent way to write a trailing wildcard, so `Bash(ls:*)` matches the same commands as `Bash(ls *)`.
+<div class="highlight"><pre><span></span><code>A `*` can go anywhere in the rule: at the start, in the middle, or at the end. Each row shows a rule, commands it matches, and nearby commands it doesn't match:
+
+| You write              | Matches                                                                              | Doesn't match                          |
+| :--------------------- | :----------------------------------------------------------------------------------- | :------------------------------------- |
+| `Bash(npm run build)`  | `npm run build`                                                                      | `npm run build --watch`                |
+| `Bash(npm run *)`      | `npm run build`, `npm run test --watch`, `npm run`                                   | `npm install`                          |
+| `Bash(git log * main)` | `git log --oneline main`, `git log -5 main`, `git log --output=&lt;file&gt; main`          | `git log main`, `git push origin main` |
+| `Bash(git * main)`     | `git merge main`, `git push origin main`, `git -c core.fsmonitor=&lt;script&gt; diff main` | `git log`                              |
+| `Bash(* --version)`    | `node --version`, `bash -c 'echo hi' --version`                                      | `node -v`                              |
+| `Bash(ls *)`           | `ls -la`, `ls`                                                                       | `lsof`                                 |
+| `Bash(ls*)`            | `ls -la`, `lsof`                                                                     |                                        |
+| `Bash(* --help *)`     | `npm --help x`                                                                       | `npm --help`                           |
+
+Three matching rules produce those rows:
+
+* **The `*` stands in for whatever text is in its place.** In `Bash(git * main)`, it stands in for the subcommand, so Claude Code matches every git subcommand and every option before it. That includes `-c`, which makes git run a program you name. In `Bash(* --version)`, the `*` stands in for the program, so any program matches.
+* **A `*` at the end, with a space before it, also matches the bare command.** `Bash(ls *)` matches `ls`, and `Bash(git log *)` matches `git log`. That holds only when the trailing `*` is the rule's only wildcard: `Bash(* --help *)` matches `npm --help x` but not `npm --help`.
+* **The space before a trailing `*` is part of the rule.** `Bash(ls *)` requires a space after `ls`, so `lsof` doesn't match. `Bash(ls*)` has no space, so it matches `lsof` too.
+
+The `:*` suffix is an equivalent way to write a trailing wildcard, so `Bash(ls:*)` matches the same commands as `Bash(ls *)`.
 
 The permission dialog writes the space-separated form when you select "Yes, and don't ask again" for a command prefix. The `:*` form is only recognized at the end of a pattern. In a pattern like `Bash(git:* push)`, the colon is treated as a literal character and won't match git commands.
 
@@ -6466,16 +6487,7 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <p>The label shown for a tool in the transcript and permission dialog can differ from its canonical name. For example, the tool labeled <code>Stop Task</code> in the transcript has the canonical name <code>TaskStop</code>. Permission rules and <a href="/docs/en/hooks">hook matchers</a> match the canonical name only, so a rule written as <code>Stop Task</code> doesn't match. For deny and ask rules, the startup warning above catches the mismatch. Use the canonical names listed in the <a href="/docs/en/tools-reference">tools reference</a>.</p>
 <h2 id="tool-specific-permission-rules">Tool-specific permission rules</h2>
 <h3 id="bash">Bash</h3>
-<p>Bash permission rules support wildcard matching with <code>*</code>. Wildcards can appear at any position in the command, including at the beginning, middle, or end:</p>
-<ul>
-<li><code>Bash(npm run build)</code> matches the exact Bash command <code>npm run build</code></li>
-<li><code>Bash(npm run test *)</code> matches Bash commands starting with <code>npm run test</code></li>
-<li><code>Bash(npm *)</code> matches any command starting with <code>npm</code></li>
-<li><code>Bash(* install)</code> matches any command ending with <code>install</code></li>
-<li><code>Bash(git * main)</code> matches commands like <code>git checkout main</code> and <code>git log --oneline main</code></li>
-</ul>
-<p>A single <code>*</code> matches any sequence of characters including spaces, so one wildcard can span multiple arguments. <code>Bash(git *)</code> matches <code>git log --oneline --all</code>, and <code>Bash(git * main)</code> matches <code>git push origin main</code> as well as <code>git merge main</code>.</p>
-<p>When <code>*</code> appears at the end with a space before it (like <code>Bash(ls *)</code>), it enforces a word boundary, requiring the prefix to be followed by a space or end-of-string. For example, <code>Bash(ls *)</code> matches <code>ls -la</code> but not <code>lsof</code>. In contrast, <code>Bash(ls*)</code> without a space matches both <code>ls -la</code> and <code>lsof</code> because there's no word boundary constraint.</p>
+<p>Bash rules match the whole command text, with <code>*</code> standing in for any text. <a href="#wildcard-patterns">Wildcard patterns</a> shows which commands each rule shape matches and where to put the <code>*</code>. The rest of this section covers how Claude Code matches compound commands, wrappers, read-only commands, and redirections.</p>
 <h4 id="compound-commands">Compound commands</h4>
 <p><Tip>
   Claude Code is aware of shell operators, so a rule like <code>Bash(safe-cmd *)</code> won't give it permission to run the command <code>safe-cmd &amp;&amp; other-cmd</code>. The recognized command separators are <code>&amp;&amp;</code>, <code>||</code>, <code>;</code>, <code>|</code>, <code>|&amp;</code>, <code>&amp;</code>, and newlines. A rule must match each subcommand independently.
