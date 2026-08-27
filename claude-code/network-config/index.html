@@ -3674,6 +3674,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#organization-ip-allowlists-and-proxy-egress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organization IP allowlists and proxy egress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#github-allow-lists-and-firewalls" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5873,6 +5884,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#organization-ip-allowlists-and-proxy-egress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organization IP allowlists and proxy egress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#github-allow-lists-and-firewalls" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6103,7 +6125,7 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
 <li><code>CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS</code> sets the byte-level watchdog's timeout alone, clamped to between 10 seconds and 30 minutes, and takes precedence over <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> for that watchdog.</li>
 <li><code>API_FORCE_IDLE_TIMEOUT</code> set to <code>0</code> turns the body idle timeout off, and set to <code>1</code> turns it on for every provider. The watchdogs run independently of it, so to let a stream pause longer than their thresholds, also raise or disable them.</li>
 </ul>
-<p>When a timer aborts a stalled stream, Claude Code handles it like any other mid-stream failure: it retries, keeps completed output with an <a href="/docs/en/errors#the-response-above-may-be-incomplete">incomplete-response notice</a>, or ends the turn, depending on where the response stood.</p>
+<p>When a watchdog aborts a stalled stream, Claude Code treats it as a mid-stream failure: depending on how far the response had got, it retries the request or ends the turn with an error, keeps the completed output and shows an <a href="/docs/en/errors#the-response-above-may-be-incomplete">incomplete-response notice</a>, or ends the turn normally. <a href="/docs/en/errors#automatic-retries">Automatic retries</a> says where each outcome applies. In a <a href="/docs/en/headless">non-interactive session</a>, Claude Code may first prompt Claude to continue the cut-off response; <a href="/docs/en/errors#the-response-above-may-be-incomplete">that notice's entry</a> says when it does and when you still see the notice.</p>
 <h2 id="network-access-requirements">Network access requirements</h2>
 <p>Claude Code requires access to the following URLs. Allowlist these in your proxy configuration and firewall rules, especially in containerized or restricted network environments. The first-run setup connectivity check points here when it can't reach <code>api.anthropic.com</code> or <code>platform.claude.com</code>; see <a href="/docs/en/errors#unable-to-connect-to-anthropic-services">Unable to connect to Anthropic services</a> for the check's messages and recovery steps.</p>
 <table>
@@ -6184,6 +6206,9 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
 <p>The two Datadog intake hosts carry only optional operational telemetry, and setting <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code></a> disables both. Sessions on third-party providers never send to these hosts, even when a platform sets <a href="/docs/en/env-vars"><code>CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST</code></a> and telemetry metrics default on. See <a href="/docs/en/data-usage#telemetry-services">Telemetry services</a> for everything Claude Code sends and how to disable it before finalizing your allowlist.</p>
 <p>When using <a href="/docs/en/amazon-bedrock">Amazon Bedrock</a>, <a href="/docs/en/google-vertex-ai">Google Cloud's Agent Platform</a>, <a href="/docs/en/microsoft-foundry">Microsoft Foundry</a>, or a signed-in <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a> session, model traffic and authentication go to your provider or gateway instead of <code>api.anthropic.com</code>, <code>claude.ai</code>, or <code>platform.claude.com</code>. The WebFetch tool still calls <code>api.anthropic.com</code> for its <a href="/docs/en/data-usage#webfetch-domain-safety-check">domain safety check</a> unless you set <code>skipWebFetchPreflight: true</code> in <a href="/docs/en/settings">settings</a>.</p>
 <p>When routing through an <a href="/docs/en/llm-gateway">LLM gateway</a> with <a href="/docs/en/llm-gateway-connect#set-the-base-url-and-credential"><code>ANTHROPIC_BASE_URL</code></a>, the <a href="/docs/en/fast-mode">fast mode</a> availability check still calls <code>api.anthropic.com</code> rather than the gateway base URL. The check does honor a configured HTTP proxy, so where a network block is the cause, an allowlist entry for <code>api.anthropic.com</code> in the proxy is the fix. A network block fails the check only where the host is unreachable even through the proxy, and fast mode then reports a connectivity error. The same connectivity error appears when the check presents a gateway-issued credential that Anthropic rejects; allowlisting doesn't help there, since nothing is blocked. See <a href="/docs/en/fast-mode#use-fast-mode-behind-proxies-and-llm-gateways">use fast mode behind proxies and LLM gateways</a> for the variables that restore it.</p>
+<h3 id="organization-ip-allowlists-and-proxy-egress">Organization IP allowlists and proxy egress</h3>
+<p>If your organization has <a href="https://support.claude.com/en/articles/13200993-restrict-access-to-claude-with-ip-allowlisting">IP allowlisting</a> enabled for Claude, route <code>bridge.claudeusercontent.com</code> through the same proxy egress as <code>claude.ai</code> and <code>api.anthropic.com</code>, for example by placing it in the same Zscaler app segment or Netskope steering policy. If you can't route it that way, add the egress address your proxy uses for that host to your organization's IP allowlist, but only when that address is dedicated to your organization: a shared proxy egress range also admits the proxy vendor's other customers.</p>
+<p>Anthropic checks connections to <code>bridge.claudeusercontent.com</code> against your organization's IP allowlist using the address they arrive from. If your proxy sends traffic for that host out through an address that isn't on that allowlist, Claude Code can't connect to the <a href="/docs/en/chrome">Claude in Chrome</a> extension even though the rest of Claude Code works.</p>
 <h3 id="github-allow-lists-and-firewalls">GitHub allow lists and firewalls</h3>
 <p><a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> in Anthropic-hosted environments and <a href="/docs/en/code-review">Code Review</a> connect to your repositories from Anthropic-managed infrastructure; sessions in a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> connect from inside your network, unless the runner opts into the <a href="/docs/en/self-hosted-environments-deploy#use-the-anthropic-git-proxy">Anthropic git proxy</a>, which fetches from Anthropic's side.</p>
 <p>If your GitHub Enterprise Cloud organization restricts access by IP address, enable <a href="https://docs.github.com/en/enterprise-cloud@latest/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/managing-allowed-ip-addresses-for-your-organization#allowing-access-by-github-apps">IP allow list inheritance for installed GitHub Apps</a> and also <a href="https://docs.github.com/en/enterprise-cloud@latest/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/managing-allowed-ip-addresses-for-your-organization#adding-an-allowed-ip-address">add an allow list entry</a> for Anthropic's <a href="https://platform.claude.com/docs/en/api/ip-addresses#outbound-ip-addresses">outbound IP addresses</a>. Inheritance covers only the requests the Claude GitHub App makes as an installation, not the requests it makes on your users' behalf. For other firewalls, see the <a href="https://platform.claude.com/docs/en/api/ip-addresses">Anthropic API IP addresses</a>.</p>
