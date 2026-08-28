@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5722,20 +5722,20 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Note>
   Self-hosted environments are in public beta on Team and Enterprise plans; an <a href="/docs/en/cloud-environments#organization-shared-environments">Owner</a> enables them by turning on <strong>Allow self-hosted environments</strong> on the <a href="https://claude.ai/admin-settings/cloud-environments"><strong>Cloud environments</strong> admin page</a>. This page covers session identity verification; see the <a href="/docs/en/self-hosted-environments-quickstart">quickstart</a> for setup and <a href="/docs/en/self-hosted-environments-deploy">Deploy to production</a> for the fleet recipes.
 </Note></p>
-<p>A <a href="/docs/en/self-hosted-environments">self-hosted environment</a> lets <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> sessions run on infrastructure you operate instead of on Anthropic's. Because the session runs inside your network, Claude can call your internal services directly. Those services need a way to confirm that a request really came from a Claude Code session in your environment, and to identify which user created that session.</p>
+<p>A <a href="/docs/en/self-hosted-environments">self-hosted environment</a> lets <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> sessions run on infrastructure you operate instead of on Anthropic's. Because the session runs inside your network, Claude can call your internal services directly. Those services need a way to confirm that a request really came from a Claude Code session in your environment, and to identify the user or service identity that created that session.</p>
 <p>Every session in a self-hosted environment receives a signed JSON Web Token (JWT) in the <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code> environment variable. A session presents the token like any bearer credential; for example, a script Claude runs can call your service with <code>curl -H "Authorization: Bearer $CLAUDE_CODE_SESSION_ACCESS_TOKEN"</code>. Anthropic signs the token and publishes the verification keys at a public JWKS endpoint. Your services fetch those keys, verify the signature, and read the claims to decide what access to grant.</p>
 <h2 id="the-session-token">The session token</h2>
 <p>Before you write verification code, know what the token establishes and the shape your JWT library will see.</p>
 <h3 id="what-the-token-proves">What the token proves</h3>
 <p>A valid token establishes some facts and deliberately not others:</p>
 <ul>
-<li><strong>Proves</strong>: Anthropic issued the token for a specific session in a specific environment, and how the session was created: by a user in your organization, or with an organization service key</li>
+<li><strong>Proves</strong>: Anthropic issued the token for a specific session in a specific environment, and how the session was created: by a user in your organization, or by your organization's service identity, which is how <a href="https://claude.com/docs/claude-tag/concepts/agent-identity">Claude Tag channel sessions</a> start</li>
 <li><strong>Doesn't prove</strong>: which process on the runner host presents it. The token sits in an environment variable inside the session, so any code Claude runs, and any tool or MCP server the session starts, can read and present it.</li>
 </ul>
 <p>Two consequences for your services:</p>
 <ul>
 <li>Verify the <code>aud</code> claim against your environment ID, the <code>ccpool_...</code> value shown with your environment on the <a href="https://claude.ai/admin-settings/cloud-environments"><strong>Cloud environments</strong> admin page</a>, to reject tokens issued to any other organization's environment.</li>
-<li>Scope credentials you derive from the token to what a single coding session should be able to do, not to everything the creating user can do. See <a href="#scope-derived-credentials">Scope derived credentials</a>.</li>
+<li>Scope credentials you derive from the token to what a single coding session should be able to do, not to everything the session's creator can do. See <a href="#scope-derived-credentials">Scope derived credentials</a>.</li>
 </ul>
 <h3 id="token-format">Token format</h3>
 <p>The value of <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code> has an <code>sk-ant-cc-</code> prefix followed by a standard three-part JWT:</p>
@@ -5778,7 +5778,7 @@ https://api.anthropic.com/v1/code/.well-known/jwks.json
     Reject the token if <code>exp</code> is in the past. Anthropic issues session tokens with a four-hour lifetime by default and a maximum of eight hours. The runner refreshes the token before expiry and pushes the new value to the session, so subprocesses that Claude starts after a refresh inherit it. One session can therefore present several distinct valid tokens to your service over its lifetime.
   </Step></p>
 <p><Step title="Read the identity">
-    The creating user's identity is in the <code>act</code> claim: <code>act.sub</code> is their Anthropic user ID in the prefixed form <code>user:&lt;id&gt;</code>, and <code>act.email</code>, when the creating surface recorded one, is their email address. Sessions created with an organization service key carry no user identity, so treat a session as user-created only when <code>act.sub</code> carries the <code>user:</code> prefix, rather than testing whether identity claims are absent. See the <a href="#claims-reference">claims reference</a> for the full structure and the flat duplicate claims.
+    The creating user's identity is in the <code>act</code> claim: <code>act.sub</code> is their Anthropic user ID in the prefixed form <code>user:&lt;id&gt;</code>, and <code>act.email</code>, when the creating surface recorded one, is their email address. Sessions your organization's service identity creates, including Claude Tag channel sessions, carry an <code>agent:</code> subject instead, so treat a session as user-created only when <code>act.sub</code> carries the <code>user:</code> prefix, rather than testing whether identity claims are absent. See the <a href="#claims-reference">claims reference</a> for the full structure and the flat duplicate claims.
   </Step>
 </Steps></p>
 <p>The checks map directly onto standard JWT libraries. The examples below implement the full sequence in Node.js with <a href="https://www.npmjs.com/package/jose"><code>jose</code></a>, which handles JWKS fetching, caching, and <code>kid</code> selection, and in Python with <a href="https://pyjwt.readthedocs.io/"><code>PyJWT</code></a> and its built-in JWKS client.</p>
@@ -5863,13 +5863,13 @@ def verify_session_token(raw: str) -&gt; dict:
 </Tabs></p>
 <h3 id="verify-the-token-inside-the-session">Verify the token inside the session</h3>
 <p><a href="/docs/en/self-hosted-environments-configuration#wrapper-scripts">Wrapper scripts</a> run inside the session, before Claude starts. Instead of calling a JWT library, they can run the runner binary's <code>self-hosted-runner decode-token</code> subcommand. The subcommand reads the token from a positional argument, from <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code>, or from piped stdin, in that order, then strips the prefix, verifies the signature against the JWKS endpoint, checks expiry, and prints the claims as JSON. The subcommand performs the signature and expiry checks only; it doesn't check <code>iss</code>, <code>aud</code>, or <code>ccr:role</code>. When your wrapper's auth decision depends on those claims, read them from the printed JSON and compare them explicitly.</p>
-<p>This command extracts the creator identity, preferring the SSO provider's subject, then the email address, then the always-present Anthropic user ID:</p>
+<p>This command extracts the creator identity, preferring the SSO provider's subject, then the email address, then the creator's <code>act.sub</code> subject, <code>user:&lt;id&gt;</code> or <code>agent:&lt;id&gt;</code>:</p>
 <p><code>bash theme={null}
 "$CLAUDE_RUNNER_CLAUDE_BIN" self-hosted-runner decode-token | jq -re '.act.attested_by.sub // .act.email // .act.sub'</code></p>
 <p>Wrappers receive the absolute path to the runner's own binary in <code>CLAUDE_RUNNER_CLAUDE_BIN</code>; use that path rather than a PATH-resolved <code>claude</code> so the decode runs on the same binary the runner itself uses.</p>
 <p>Use <code>jq -re</code> rather than <code>jq -r</code> so a missing claim causes a non-zero exit. With <code>-r</code> alone, a missing claim prints the literal string <code>null</code> and exits zero, which silently passes a bad value downstream. Pass <code>--no-verify</code> to <code>decode-token</code> only for offline inspection where the JWKS endpoint is unreachable.</p>
 <h2 id="claims-reference">Claims reference</h2>
-<p>The table below lists the session token claims relevant to verification. Read identity from the <code>ccr:*</code> namespace and the <code>act</code> chain; the flat <code>account_email</code>, <code>organization_uuid</code>, and <code>account_uuid</code> claims are backward-compatibility duplicates that may be removed. Sessions created with an organization service key omit <code>act.email</code>, <code>ccr:account_id</code>, <code>account_email</code>, and <code>account_uuid</code>. The two email claims are optional for user-created sessions too: Anthropic records them at session creation only when the creating request's credentials carry an email, and a session dispatched from the CLI can lack both, so key identity on <code>act.sub</code> or <code>ccr:account_id</code> rather than on email. Tokens can also carry additional claims beyond this table; ignore claims you don't recognize.</p>
+<p>The table below lists the session token claims relevant to verification. Read identity from the <code>ccr:*</code> namespace and the <code>act</code> chain; the flat <code>account_email</code>, <code>organization_uuid</code>, and <code>account_uuid</code> claims are backward-compatibility duplicates that may be removed. Sessions your organization's service identity creates, including Claude Tag channel sessions, carry an <code>agent:</code> subject in <code>act.sub</code> and omit <code>act.email</code>, <code>ccr:account_id</code>, <code>account_email</code>, and <code>account_uuid</code>. The two email claims are optional for user-created sessions too: Anthropic records them at session creation only when the creating request's credentials carry an email, and a session dispatched from the CLI can lack both, so key identity on <code>act.sub</code> or <code>ccr:account_id</code> rather than on email. Tokens can also carry additional claims beyond this table; ignore claims you don't recognize.</p>
 <table>
 <thead>
 <tr>
@@ -5957,7 +5957,7 @@ def verify_session_token(raw: str) -&gt; dict:
 </tbody>
 </table>
 <h3 id="the-act-chain">The <code>act</code> chain</h3>
-<p>The <code>act</code> claim records the full delegation path from the user who created the session down to the <a href="/docs/en/self-hosted-environments#key-concepts">environment</a> whose secret admitted the runner, and the identity that created that secret. The creating user is the outermost actor, so <code>act.sub</code> identifies them directly.</p>
+<p>The <code>act</code> claim records the full delegation path from the user or service identity that created the session down to the <a href="/docs/en/self-hosted-environments#key-concepts">environment</a> whose secret admitted the runner, and the identity that created that secret. The creator is the outermost actor, so <code>act.sub</code> identifies them directly.</p>
 <table>
 <thead>
 <tr>
@@ -5968,7 +5968,7 @@ def verify_session_token(raw: str) -&gt; dict:
 <tbody>
 <tr>
 <td style="text-align: left;"><code>act.sub</code></td>
-<td style="text-align: left;">The creating user's Anthropic user ID, in the form <code>user:&lt;id&gt;</code>.</td>
+<td style="text-align: left;">The creating user's Anthropic user ID, in the form <code>user:&lt;id&gt;</code>, or <code>agent:&lt;id&gt;</code> when your organization's service identity created the session, as it does for Claude Tag channel sessions.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>act.email</code></td>
@@ -5993,13 +5993,13 @@ def verify_session_token(raw: str) -&gt; dict:
 </tbody>
 </table>
 <h2 id="scope-derived-credentials">Scope derived credentials</h2>
-<p>The session token identifies the creating user, but don't treat it as equivalent to that user logging in directly. The token sits in an environment variable inside the session, so any code Claude runs, and any tool or MCP server the session starts, can read and present it.</p>
+<p>The session token identifies the user or service identity that created the session, but don't treat it as equivalent to that creator logging in directly. The token sits in an environment variable inside the session, so any code Claude runs, and any tool or MCP server the session starts, can read and present it.</p>
 <p>Verification is also offline: a token that verifies against the JWKS stays valid until its <code>exp</code>, whatever has happened to the session since, and Anthropic doesn't publish a revocation feed for session tokens. Bound anything you derive from the token accordingly.</p>
 <p>When your service exchanges the token for internal credentials, issue credentials scoped to what one coding session should reach:</p>
 <ul>
-<li><strong>Limit capabilities</strong>: grant read and write access to the resources the session needs for coding tasks, not administrative capabilities the user holds elsewhere.</li>
+<li><strong>Limit capabilities</strong>: grant read and write access to the resources the session needs for coding tasks, not administrative capabilities the creator holds elsewhere.</li>
 <li><strong>Limit lifetime</strong>: bound derived credentials to the token's <code>exp</code>, or shorter.</li>
-<li><strong>Audit as the session</strong>: record the <code>ccr:session_id</code> and <code>jti</code> alongside the user identity so you can trace actions back to a specific session.</li>
+<li><strong>Audit as the session</strong>: record the <code>ccr:session_id</code> and <code>jti</code> alongside the creator identity so you can trace actions back to a specific session.</li>
 </ul>
 <h2 id="related-environment-variables">Related environment variables</h2>
 <p>The creator identity also appears in plain environment variables on two surfaces that never verify the token:</p>

@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6202,7 +6202,7 @@ You can also watch from the task panel below the input box: a one-line progress 
 <p>To run a single task as a workflow without changing the session's effort level, include the keyword <code>ultracode</code> in your prompt. Asking in your own words, for example "use a workflow" or "run a workflow", also works: Claude treats a direct request as the same opt-in. Before v2.1.160 the literal trigger keyword was <code>workflow</code>; natural-language requests work in both versions.</p>
 <p>```text wrap theme={null}
 ultracode: audit every API endpoint under src/routes/ for missing auth checks
-<div class="highlight"><pre><span></span><code>Claude Code highlights the keyword in your input and Claude writes a workflow script for the task instead of working through it turn by turn. The keyword only chooses how Claude structures the work: a workflow started this way runs inside the session's existing [permission mode](/docs/en/permission-modes), and its agents' tool calls receive the same permission checks and [sandboxing](/docs/en/sandboxing) as any other tool call in the session.
+<div class="highlight"><pre><span></span><code>Claude Code highlights the keyword in your input and Claude writes a workflow script for the task instead of working through it turn by turn. The keyword only chooses how Claude structures the work: the agents' tool calls receive the same permission checks and [sandboxing](/docs/en/sandboxing) as any other tool call in the session.
 
 If the run does what you wanted, you can [save it as a command](#save-the-workflow-for-reuse) afterward. If you already have an orchestrator built another way, such as a folder of subagent prompts or a skill that fans work out, you can point Claude at it and ask for a workflow that does the same thing.
 
@@ -6237,7 +6237,7 @@ Ultracode is a Claude Code setting that combines `xhigh` [reasoning effort](/doc
 <p>In the CLI, the per-run prompt shows the planned phases and these options:</p>
 <ul>
 <li><strong>Yes, run it</strong>: start the run</li>
-<li><strong>Yes, and don't ask again for <code>&lt;name&gt;</code> in <code>&lt;path&gt;</code></strong>: start, and skip this prompt for this workflow in this project from now on</li>
+<li><strong>Yes, and don't ask again for <code>&lt;name&gt;</code> in <code>&lt;path&gt;</code></strong>: start, and skip this prompt for this workflow in this project from now on. Claude Code offers this option when you run a bundled, saved, or plugin workflow by name, not for a script Claude wrote for the current task.</li>
 <li><strong>View raw script</strong>: read the script before deciding</li>
 <li><strong>No</strong>: cancel</li>
 </ul>
@@ -6260,15 +6260,25 @@ Ultracode is a Claude Code setting that combines `xhigh` [reasoning effort](/doc
 <td style="text-align: left;">Every run, unless you've selected <strong>Yes, and don't ask again</strong> for that workflow in this project</td>
 </tr>
 <tr>
-<td style="text-align: left;">Bypass permissions, <code>claude -p</code>, Agent SDK</td>
-<td style="text-align: left;">Never. The run starts immediately</td>
+<td style="text-align: left;">Bypass permissions</td>
+<td style="text-align: left;">Claude Code doesn't prompt you. The run starts immediately</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>claude -p</code>, Agent SDK</td>
+<td style="text-align: left;">Claude Code doesn't prompt you</td>
 </tr>
 </tbody>
 </table>
+<p>In <code>claude -p</code> and the Agent SDK, Claude Code never shows this prompt. It runs the Workflow tool call through the same <a href="/docs/en/agent-sdk/permissions#how-permissions-are-evaluated">permission evaluation</a> as the rest of the session, so deny rules, ask rules, and <code>dontAsk</code> mode apply to the launch as they apply to every tool call. To let the workflow start in these runs, use one of these:</p>
+<ul>
+<li><strong>Permission rule</strong>: <code>Workflow</code> in your allow rules approves every workflow, and <code>Workflow(&lt;name&gt;)</code> approves one saved workflow by name.</li>
+<li><strong>Auto permission mode</strong>: the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">classifier</a> reviews the call and can approve it.</li>
+<li><strong>Bypass permissions mode</strong>: Claude Code approves the call.</li>
+<li><strong>A <code>PreToolUse</code> hook</strong>: a <a href="/docs/en/hooks#pretooluse">hook</a> that returns <code>allow</code> for the call approves it.</li>
+<li><strong>Your host</strong>: a <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a> approves it, or, with the Agent SDK, a <a href="/docs/en/agent-sdk/permissions"><code>canUseTool</code></a> callback or a <a href="/docs/en/hooks#permissionrequest"><code>PermissionRequest</code> hook</a> approves it.</li>
+</ul>
 <p>In the Desktop app, an approval card shows the workflow name, the phase list, and a token-usage caution, with <strong>Once</strong>, <strong>Always</strong>, and <strong>Deny</strong> actions. The progress view appears in the Background tasks side pane.</p>
-<p>Your permission mode controls only the launch prompt above. The subagents the workflow spawns always run in <code>acceptEdits</code> mode and inherit your <a href="/docs/en/settings-reference#permission-settings">tool allowlist</a>, regardless of your session's mode. File edits are auto-approved.</p>
-<p>Shell commands, web fetches, and MCP tools that aren't in your allowlist can still prompt you mid-run. To avoid this on a long run, add the commands the agents need to your allowlist before starting.</p>
-<p>In <code>claude -p</code> and the Agent SDK there is no one to prompt, so tool calls follow your configured permission rules without interactive confirmation.</p>
+<p>The subagents the workflow spawns use your <a href="/docs/en/settings-reference#permission-settings">permission rules</a>, and Claude Code picks their permission mode by the rules under <a href="/docs/en/sub-agents#permission-modes">which permission mode a subagent runs in</a>. To avoid prompts on a long run, add the tools the agents need to your allow rules before starting.</p>
 <h3 id="save-the-workflow-for-reuse">Save the workflow for reuse</h3>
 <p>When Claude writes a workflow for a task you'll repeat, you can save that run's script as a command. A process like a review you run on every branch then runs the same orchestration each time.</p>
 <p>Run <code>/workflows</code>, select the run you want to keep, and press <code>s</code>. In the save dialog, Tab toggles between the two save locations:</p>
@@ -6403,16 +6413,18 @@ return audits.filter(Boolean)
 <h2 id="manage-runs">Manage runs</h2>
 <p>Once a run starts, you manage it from the <code>/workflows</code> view, or by expanding its progress line in the task panel below the input box.</p>
 <h3 id="resume-after-a-pause">Resume after a pause</h3>
-<p>If you stop a run, you can resume it. Agents that already completed usually return their cached results, and the rest run live.</p>
-<p>Two rules decide which results survive:</p>
+<p>Resume a paused run from <code>/workflows</code> by selecting it and pressing <code>p</code>. For a run you stopped, ask Claude to relaunch the workflow with the same script. Claude Code replays the run in the order agents started, and each agent either returns its saved result or runs again:</p>
 <ul>
-<li>An agent that was still running when you stopped isn't saved, so it starts over on resume.</li>
-<li>Replay follows the order agents started. Cached results stop at the first agent that didn't finish, and every agent that started after that one runs again, even if it completed.</li>
+<li><strong>Completed</strong>: returns its saved result. The first agent whose prompt differs from the previous run, because you edited the script or an earlier agent returned something different, runs again, and so does every agent after it, even ones that completed.</li>
+<li><strong>Still running when you stopped</strong>: starts over. Stopping the whole run doesn't count any agent as failed.</li>
+<li><strong>Failed</strong>: runs again, and so does every agent that started after it, even ones that completed. Stopping one agent alone, by selecting it in <a href="#watch-the-run"><code>/workflows</code></a> and pressing <code>x</code>, counts as failing.</li>
 </ul>
-<p>The second rule is what makes stopping mid fan-out expensive. Say a script starts four agents, A, B, C, and D, in that order, and you stop the run while B is still going. On resume, A returns from cache. B runs again because it never finished. C and D run again too, because they started after B, even though both completed before you stopped.</p>
-<p>A workflow that fans work out across many small agents therefore preserves more progress than one long agent.</p>
-<p>Resume a paused run from <code>/workflows</code> by selecting it and pressing <code>p</code>, or ask Claude to relaunch the workflow with the same script.</p>
-<p>Resume works within the same Claude Code session. If you exit Claude Code while a workflow is running, the next session starts the workflow fresh.</p>
+<p>That last case means a failure in the middle of a fan-out reruns work that already finished. If a script starts A, B, C, and D in that order and B fails, relaunching returns A from cache and runs B, C, and D again.</p>
+<p>You can resume a run within the same Claude Code session. What happens to a running workflow when you leave the session depends on how you leave:</p>
+<ul>
+<li>If you <a href="/docs/en/agent-view#what-carries-over-when-you-background">background the session</a>, Claude Code replays the run the same way in the background session and continues it.</li>
+<li>If you exit Claude Code while a workflow is running and <a href="/docs/en/agent-view#from-inside-a-session">agent view is on</a>, the exit dialog offers <code>Move to background and exit</code>, which carries the run over the same way. If you choose <code>Exit and stop tasks</code> instead, or the option isn't offered, the run stops with the session. Claude Code keeps the run's saved results under that session's directory in <code>~/.claude/projects/</code>, so a session you resume with <code>claude --resume</code> can replay them when you ask Claude to relaunch the workflow, while a session you start fresh has nothing to replay and starts the workflow over.</li>
+</ul>
 <h3 id="cost">Cost</h3>
 <p>A workflow spawns many agents, so a single run can use meaningfully more tokens than working through the same task in conversation. Runs count toward your plan's usage and rate limits like any other session.</p>
 <p>To gauge the spend before committing to a large task, run the workflow on a small slice first: one directory instead of the whole repo, or a narrow question instead of a broad one. The <code>/workflows</code> view shows each agent's token usage as the run progresses, and you can stop the run there at any time, usually without losing completed work. <a href="#resume-after-a-pause">Resume after a pause</a> covers what a stopped run keeps. The runtime's <a href="#behavior-and-limits">agent caps</a> limit how many agents a single run can spawn, which bounds the cost of a runaway script. To keep runs to fewer agents, choose the <code>small</code> <a href="#set-a-size-guideline">size guideline</a>.</p>

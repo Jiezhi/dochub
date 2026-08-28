@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5932,11 +5932,11 @@ The example below checks CI and review comments, with Claude waiting longer betw
 ```text theme={null}
 /loop check whether CI passed and address any review comments
 </code></pre></div></p>
-<p>When you ask for a dynamic <code>/loop</code> schedule, Claude may use the <a href="/docs/en/tools-reference#monitor-tool">Monitor tool</a> directly. Monitor runs a background script and streams each output line back, which avoids polling altogether and is often more token-efficient and responsive than re-running a prompt on an interval.</p>
+<p>In a session where the <a href="/docs/en/tools-reference#monitor-tool">Monitor tool is available</a>, Claude may use it directly when you ask for a dynamic <code>/loop</code> schedule. Monitor runs a background script and streams each output line back, which avoids polling altogether and is often more token-efficient and responsive than re-running a prompt on an interval.</p>
 <p>A dynamically scheduled loop appears in your <a href="#manage-scheduled-tasks">scheduled task list</a> like any other task, so you can list or cancel it the same way. The <a href="#jitter">jitter rules</a> don't apply to it, but the <a href="#seven-day-expiry">seven-day expiry</a> does.</p>
 <p><span id="loop-provider-differences" /></p>
 <p><Note>
-  On Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, and Microsoft Foundry, <code>/loop</code> behaves differently in two ways: a prompt with no interval runs on a fixed 10-minute schedule instead of a schedule Claude chooses, and <code>/loop</code> with no prompt prints the usage message instead of running the maintenance prompt or reading <code>loop.md</code>. The same happens when you turn off <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">feature-flag fetching</a>.
+  Dynamically chosen intervals and the <a href="#run-the-built-in-maintenance-prompt">built-in maintenance prompt</a> work on every provider, and with <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">feature-flag fetching</a> turned off. On Amazon Bedrock, Claude Platform on AWS, Google Cloud's Agent Platform, and Microsoft Foundry, or with fetching turned off, both require Claude Code v2.1.248 or later. In those cases, on earlier versions, a prompt with no interval runs on a fixed 10-minute schedule, and a <code>/loop</code> with no prompt prints the usage message.
 </Note></p>
 <h3 id="run-the-built-in-maintenance-prompt">Run the built-in maintenance prompt</h3>
 <p>When you omit the prompt, Claude uses a built-in maintenance prompt instead of one you supply. On each iteration it works through the following, in order:</p>
@@ -5952,7 +5952,7 @@ The example below checks CI and review comments, with Claude waiting longer betw
 
 ### Customize the default prompt with loop.md
 
-Where the [built-in maintenance prompt is available](#loop-provider-differences), a `loop.md` file replaces it with your own instructions. It defines a single default prompt for bare `/loop`, not a list of separate scheduled tasks, and is ignored whenever you supply a prompt on the command line. To schedule additional prompts alongside it, use `/loop &lt;prompt&gt;` or [ask Claude directly](#manage-scheduled-tasks).
+Create a `loop.md` file to replace the [built-in maintenance prompt](#run-the-built-in-maintenance-prompt) with your own instructions. It defines a single default prompt for bare `/loop`, not a list of separate scheduled tasks, and Claude Code ignores it whenever you supply a prompt on the command line. To schedule additional prompts alongside it, use `/loop &lt;prompt&gt;` or [ask Claude directly](#manage-scheduled-tasks).
 
 Claude looks for the file in two locations and uses the first one it finds.
 
@@ -5971,9 +5971,9 @@ quiet, say so in one line.
 </code></pre></div></p>
 <p>Edits to <code>loop.md</code> take effect on the next iteration, so you can refine the instructions while a loop is running. When no <code>loop.md</code> exists in either location, the loop falls back to the built-in maintenance prompt. Keep the file concise: content beyond 25,000 bytes is truncated.</p>
 <h3 id="stop-a-loop">Stop a loop</h3>
-<p>To stop a <code>/loop</code> while it is waiting for the next iteration, press <code>Esc</code>. This clears the pending wakeup so the loop does not fire again. Tasks you scheduled by <a href="#manage-scheduled-tasks">asking Claude directly</a> are not affected by <code>Esc</code> and stay in place until you delete them.</p>
+<p>To stop a <a href="#let-claude-choose-the-interval">self-paced <code>/loop</code></a> while it is waiting for the next iteration, press <code>Esc</code>. This clears the pending wakeup so the loop does not fire again. Tasks you scheduled by <a href="#manage-scheduled-tasks">asking Claude directly</a> are not affected by <code>Esc</code> and stay in place until you delete them.</p>
 <p>In <a href="#let-claude-choose-the-interval">self-paced mode</a>, Claude can also end the loop on its own once the task is complete. Claude calls the <a href="/docs/en/tools-reference"><code>ScheduleWakeup</code> tool</a> with <code>stop: true</code>, which cancels the pending wakeup immediately. If an iteration ends without either rescheduling or stopping, Claude Code schedules one fallback wakeup about 20 minutes later and ends the loop when that iteration doesn't reschedule either.</p>
-<p>Loops on a fixed interval keep running until you stop them or <a href="#seven-day-expiry">seven days elapse</a>.</p>
+<p>Loops on a fixed interval keep running until you <a href="#manage-scheduled-tasks">cancel them like any other scheduled task</a> or <a href="#seven-day-expiry">seven days elapse</a>.</p>
 <h2 id="set-a-one-time-reminder">Set a one-time reminder</h2>
 <p>For one-shot reminders, describe what you want in natural language instead of using <code>/loop</code>. Claude schedules a single-fire task that deletes itself after running.</p>
 <p>```text theme={null}
@@ -6071,7 +6071,7 @@ cancel the deploy check job
 <li>Tasks only fire while Claude Code is running and idle. Closing the terminal or letting the session exit stops them firing. <a href="/docs/en/agent-view#from-inside-a-session">Backgrounding the session</a> carries <code>/loop</code> tasks over to a background session, which keeps running without a terminal.</li>
 <li>No catch-up for missed fires. If a task's scheduled time passes while Claude is busy on a long-running request, it fires once when Claude becomes idle, not once per missed interval.</li>
 <li>Starting a fresh conversation clears all session-scoped tasks. Resuming with <code>claude --resume</code> or <code>claude --continue</code> restores recurring tasks that have not <a href="#seven-day-expiry">expired</a> and one-shot tasks whose scheduled time has not yet passed. Background Bash and monitor tasks are never restored on resume.</li>
-<li>Claude Code stores the scheduled task list in the project's <code>.claude</code> directory, and scheduling a task fails with an error when that directory, or the task file inside it, is a symlink.</li>
+<li>With <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">feature-flag fetching off</a>, Claude Code stores a task you asked to keep across sessions in the project's <code>.claude</code> directory. When that directory or the task file in it is a symlink, Claude Code returns an error instead of scheduling the task.</li>
 </ul>
 <p>For cron-driven automation that needs to run unattended:</p>
 <ul>

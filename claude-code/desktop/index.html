@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -8041,7 +8041,7 @@ The following example allows connections to any host under `devboxes.example.com
 </tr>
 <tr>
 <td><code>disableDesktopLocalSessions</code></td>
-<td>set to <code>true</code> to turn off <a href="#local-sessions-on-managed-devices">Code sessions that run on the device</a>, leaving SSH sessions to other hosts and cloud sessions available. The value must be the JSON boolean <code>true</code>. Read from managed settings only.</td>
+<td>set to <code>true</code> to turn off <a href="#local-sessions-on-managed-devices">Code sessions that run on the device</a>, leaving SSH sessions to other hosts and cloud sessions available. The value must be the JSON boolean <code>true</code>. Read from managed settings only. Requires Claude Desktop v1.37937.0 or later.</td>
 </tr>
 <tr>
 <td><code>managedMcpServers</code></td>
@@ -8052,9 +8052,11 @@ The following example allows connections to any host under `devboxes.example.com
 <p>Which managed settings reach a Desktop session depends on where that session runs. Model restrictions such as <a href="/docs/en/model-config#restrict-model-selection"><code>availableModels</code></a> are enforced in Desktop's Claude Code sessions the same way as in the terminal CLI; see <a href="/docs/en/model-config#surface-coverage">surface coverage</a>.</p>
 <ul>
 <li><strong>Local sessions on this machine</strong>: a managed settings file deployed to disk applies. Managed settings pushed remotely through the admin console also reach these sessions on Anthropic's API when the session authenticates with an <a href="/docs/en/server-managed-settings#platform-availability">eligible login or key</a>, following the same <a href="/docs/en/settings#settings-precedence">settings precedence</a> as the terminal CLI.</li>
-<li><strong><a href="#cloud-sessions">Cloud sessions</a></strong>: receive <a href="/docs/en/server-managed-settings">server-managed settings</a>; device-deployed files don't reach them, because they run on Anthropic-managed VMs. Sessions routed to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> fall back to the managed settings file in the runner image when server-managed settings deliver no keys, per <a href="/docs/en/server-managed-settings#settings-precedence">settings precedence</a>, apart from the <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">keys Claude Code reads from every admin source</a>.</li>
+<li><strong><a href="#cloud-sessions">Cloud sessions</a></strong>: receive <a href="/docs/en/server-managed-settings">server-managed settings</a>; device-deployed files don't reach them, because they run on Anthropic-managed VMs. Sessions routed to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> also read the managed settings file in the runner image. <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">How Claude Code combines managed sources</a> says when that file applies.</li>
 <li><strong><a href="#ssh-sessions">SSH sessions</a></strong>: the session reads the managed settings file from the remote host. Desktop itself reads <code>sshConfigs</code>, <code>sshHostAllowlist</code>, and <code>disableDesktopLocalSessions</code> from the local machine's managed settings.</li>
+<li><strong><a href="https://claude.com/docs/cowork/overview">Cowork</a> sessions</strong>: in a Cowork session on this machine, Claude Code never fetches admin-console settings, even when the user signs in with a Team or Enterprise account, and reads policy deployed to the machine unless your Claude Desktop configuration sets <code>requireCoworkFullVmSandbox</code>. Remote Cowork sessions receive neither. See <a href="/docs/en/managed-settings#where-and-when-a-policy-applies">where and when a policy applies</a> for which device files reach Cowork, and <a href="/docs/en/permissions#mcp">MCP permission rules</a> for how <code>Bash</code> and <code>WebFetch</code> rules apply to Cowork's tools.</li>
 </ul>
+<p>In local and SSH sessions, the desktop app delivers each user's connected claude.ai connectors to Claude Code directly. No MCP setting or <code>managed-mcp.json</code> reaches those connectors, whichever settings source or file location you use. To block a connector's tools in these sessions, use your organization's <a href="/docs/en/mcp#organization-controls-on-connector-tools">connector tool controls</a>. <a href="/docs/en/mcp#how-connectors-reach-claude-code">How connectors reach Claude Code</a> shows which settings govern connectors in each kind of session.</p>
 <p><code>permissions.disableBypassPermissionsMode</code> and <code>disableAutoMode</code> also work in user and project settings, but placing them in managed settings prevents users from overriding them.</p>
 <p>For the permission, plugin, and delivery keys only a managed source can set, see <a href="/docs/en/managed-settings#managed-only-settings">Keys only managed settings can set</a>.</p>
 <h3 id="device-management-policies">Device management policies</h3>
@@ -8104,6 +8106,7 @@ platform.claude.com
 <p>If your organization has <a href="https://support.claude.com/en/articles/13200993-restrict-access-to-claude-with-ip-allowlisting">IP allowlisting</a> enabled for Claude, route <code>bridge.claudeusercontent.com</code> through the same proxy egress as <code>claude.ai</code> and <code>api.anthropic.com</code>. If you can't route it that way, add the egress address your proxy uses for that host to your organization's IP allowlist, but only when that address is dedicated to your organization: a shared proxy egress range also admits the proxy vendor's other customers.</p>
 <p>Anthropic checks connections to that host against your organization's IP allowlist using the address they arrive from. If your proxy sends traffic for it out through an address that isn't on that allowlist, Claude in Chrome and other features that connect through the bridge stop working while the rest of the app keeps working.</p>
 <p>An <a href="/docs/en/artifacts">artifact</a> that loads a typeface from <a href="/docs/en/artifacts#improve-the-visual-design">Google Fonts</a> also requests <code>fonts.googleapis.com</code> and <code>fonts.gstatic.com</code>. Both hosts are optional. If you block them, artifacts render in fallback typefaces. Block with a fast rejection rather than a silent drop so the font request fails immediately instead of delaying the page's first render.</p>
+<p>Artifacts can also load JavaScript libraries, such as React or a charting package, from <code>cdnjs.cloudflare.com</code>, <code>cdn.jsdelivr.net</code>, <code>cdn.tailwindcss.com</code>, and <code>code.jquery.com</code>, and from no other external host. If you block those hosts, the parts of an artifact that depend on a library don't work, and unlike a blocked font, a blocked library has no fallback. Block with a fast rejection here too, so a blocked library request fails at once rather than hanging until it times out.</p>
 <h3 id="authentication-and-sso">Authentication and SSO</h3>
 <p>Enterprise organizations can require SSO for all users. See <a href="/docs/en/authentication">authentication</a> for plan-level details and <a href="https://support.claude.com/en/articles/13132885-setting-up-single-sign-on-sso">Setting up SSO</a> for SAML configuration; OIDC setup is covered in the <a href="https://claude.com/resources/tutorials/claude-enterprise-administrator-guide">Claude Enterprise Administrator Guide</a>.</p>
 <h3 id="data-handling">Data handling</h3>

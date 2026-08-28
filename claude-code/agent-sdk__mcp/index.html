@@ -1635,7 +1635,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -5903,7 +5903,7 @@ asyncio.run(main())
 }
 <div class="highlight"><pre><span></span><code>## Connection timing
 
-Claude Code registers the servers you pass in `options.mcpServers` at startup and emits the [init message](#error-handling) once the first-turn wait, if any, resolves. Servers loaded from [settings files](#from-a-config-file) such as `.mcp.json` don't get the full wait and commonly show `pending` at init. When each `options.mcpServers` server connects, and whether it delays the first turn, depends on its type:
+Claude Code registers the servers you pass in `options.mcpServers` at startup and emits the [init message](#error-handling) once the first-turn wait, if any, resolves. Without `options.mcpServers`, Claude Code waits 2 seconds for pending servers before the first turn, so servers loaded from [settings files](#from-a-config-file) such as `.mcp.json` commonly show `pending` at init. When each `options.mcpServers` server connects, and whether it delays the first turn, depends on its type:
 
 | Server type                                                                            | Delays the first turn?                                 | First-turn wait timeout                                                                     |
 | :------------------------------------------------------------------------------------- | :----------------------------------------------------- | :------------------------------------------------------------------------------------------ |
@@ -6442,7 +6442,14 @@ asyncio.run(main())
 </CodeGroup></p>
 <h2 id="error-handling">Error handling</h2>
 <p>MCP servers can fail to connect for various reasons: the server process might not be installed, credentials might be invalid, or a remote server might be unreachable.</p>
-<p>Claude Code emits a <code>system</code> message with subtype <code>init</code> at the start of each query. This message includes the connection status for each MCP server. The <code>status</code> field can be <code>"pending"</code>, <code>"connected"</code>, <code>"failed"</code>, <code>"needs-auth"</code>, or <code>"disabled"</code>. Claude Code emits the init message after the <a href="#connection-timing">first-turn connection wait</a> for servers passed in <code>options.mcpServers</code>, so such a server that connected within the wait shows <code>"connected"</code>. A <code>"pending"</code> status means the server hasn't connected yet, which is common for <a href="#from-a-config-file">settings-file servers</a> that don't get the full wait, or that its tool list was <a href="#connection-timing">served from the cache</a> with a connection made on first use; the reported status for a deadline-expired server can be <code>"pending"</code> or <code>"failed"</code> depending on timing. Don't treat <code>"pending"</code> as a failure. Check for <code>"failed"</code> or <code>"needs-auth"</code> to detect servers that won't be usable:</p>
+<p>Claude Code emits a <code>system</code> message with subtype <code>init</code> at the start of each query. This message includes the connection status for each MCP server. The <code>status</code> field can be <code>"pending"</code>, <code>"connected"</code>, <code>"failed"</code>, <code>"needs-auth"</code>, or <code>"disabled"</code>. Claude Code emits the init message after the <a href="#connection-timing">first-turn connection wait</a> for servers passed in <code>options.mcpServers</code>, so such a server that connected within the wait shows <code>"connected"</code>.</p>
+<p>In the init message, don't treat <code>"pending"</code> as a failure on its own. It can mean any of these:</p>
+<ul>
+<li>The server hasn't connected yet. See <a href="#connection-timing">how long Claude Code waits for it before the first turn</a></li>
+<li>The server's tool list was <a href="#connection-timing">served from the cache</a>, with a connection made on first use</li>
+<li>The connection deadline expired. Such a server reports <code>"pending"</code> or <code>"failed"</code> depending on timing</li>
+</ul>
+<p>Check for <code>"failed"</code> or <code>"needs-auth"</code> to detect servers that won't be usable:</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
   import { query } from "@anthropic-ai/claude-agent-sdk";</p>
@@ -6518,6 +6525,8 @@ asyncio.run(main())
   asyncio.run(main())
   ```
 </CodeGroup></p>
+<p>A remote server's status can also change after it reports <code>"connected"</code>. When the connection to it drops mid-session, Claude Code moves the server back to <code>"pending"</code> while <a href="/docs/en/mcp#automatic-reconnection">reconnecting</a>. A later <code>mcpServerStatus()</code> call in TypeScript, or <a href="/docs/en/agent-sdk/python#methods"><code>ClaudeSDKClient.get_mcp_status()</code></a> in Python, can then report <code>"pending"</code> for a server you saw connected earlier, with no configuration change on your side.</p>
+<p>After five reconnection attempts fail, the server reports <code>"failed"</code>, or <code>"needs-auth"</code> when it needs authorizing again. To retry manually, call <a href="/docs/en/agent-sdk/typescript#methods"><code>reconnectMcpServer()</code></a> in TypeScript or <a href="/docs/en/agent-sdk/python#methods"><code>ClaudeSDKClient.reconnect_mcp_server()</code></a> in Python.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="server-shows-failed-status">Server shows "failed" status</h3>
 <p>Check the <code>init</code> message to see which servers failed to connect:</p>
@@ -6537,7 +6546,7 @@ if isinstance(message, SystemMessage) and message.subtype == "init":
             print(f"Server {server['name']} failed to connect")
 </code></pre></div>
 </CodeGroup></p>
-<p>A <code>"pending"</code> status doesn't mean the server failed; see <a href="#error-handling">Error handling</a> for the two cases it covers at init. To get updated statuses later in the session, call the query's <code>mcpServerStatus()</code> method in the TypeScript SDK, or <a href="/docs/en/agent-sdk/python#methods"><code>ClaudeSDKClient.get_mcp_status()</code></a> in Python.</p>
+<p>A <code>"pending"</code> status doesn't mean the server failed. See <a href="#error-handling">Error handling</a> for the cases it covers at init. To get updated statuses later in the session, call the query's <code>mcpServerStatus()</code> method in the TypeScript SDK, or <a href="/docs/en/agent-sdk/python#methods"><code>ClaudeSDKClient.get_mcp_status()</code></a> in Python.</p>
 <p>Common causes:</p>
 <ul>
 <li><strong>Missing environment variables</strong>: Ensure required tokens and credentials are set. For stdio servers, check the <code>env</code> field matches what the server expects.</li>

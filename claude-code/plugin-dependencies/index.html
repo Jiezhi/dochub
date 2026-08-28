@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -3658,10 +3658,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#how-constraints-interact" class="md-nav__link">
+  <a href="#tag-plugin-releases-for-version-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How constraints interact
+        Tag plugin releases for version resolution
       
     </span>
   </a>
@@ -3669,10 +3669,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#enable-or-disable-a-plugin-with-dependencies" class="md-nav__link">
+  <a href="#remove-orphaned-auto-installed-dependencies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Enable or disable a plugin with dependencies
+        Remove orphaned auto-installed dependencies
       
     </span>
   </a>
@@ -5577,10 +5577,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#how-constraints-interact" class="md-nav__link">
+  <a href="#tag-plugin-releases-for-version-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How constraints interact
+        Tag plugin releases for version resolution
       
     </span>
   </a>
@@ -5588,10 +5588,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#enable-or-disable-a-plugin-with-dependencies" class="md-nav__link">
+  <a href="#remove-orphaned-auto-installed-dependencies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Enable or disable a plugin with dependencies
+        Remove orphaned auto-installed dependencies
       
     </span>
   </a>
@@ -5652,7 +5652,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Declare version constraints on plugin dependencies, and bundle a curated plugin set behind one install.</p>
 </blockquote>
 <p>A plugin can depend on other plugins by listing them in <code>plugin.json</code> or in its marketplace entry. By default, a dependency tracks the latest available version, so an upstream release can change the dependency under your plugin without warning. Version constraints let you hold a dependency at a tested version range until you choose to move.</p>
-<p>When you install a plugin that declares dependencies, Claude Code resolves and installs them automatically, apart from a dependency whose marketplace entry has a <a href="/docs/en/plugin-marketplaces#how-users-accept-the-command"><code>command</code> source</a> or a <a href="/docs/en/plugin-marketplaces#how-users-accept-a-headershelper-command"><code>headersHelper</code></a>, which you install yourself first. If a dependency later goes missing, <code>/reload-plugins</code> and the background plugin auto-update reinstall it, provided its marketplace is already in your configured marketplaces. Re-running <code>claude plugin install</code> on the dependent plugin, or adding a marketplace with <code>claude plugin marketplace add</code>, also resolves any outstanding missing dependencies. Dependencies from a marketplace you have not added are left unresolved.</p>
+<p>When you install a plugin that declares dependencies, Claude Code resolves and installs them automatically, apart from a dependency whose marketplace entry has a <a href="/docs/en/plugin-marketplaces#how-users-accept-the-command"><code>command</code> source</a> or a <a href="/docs/en/plugin-marketplaces#how-users-accept-a-headershelper-command"><code>headersHelper</code></a>, which you install yourself first. Later, <code>/reload-plugins</code>, auto-update of the dependent plugin's marketplace, re-running <code>claude plugin install</code> on the dependent plugin, and <code>claude plugin marketplace add</code> each install any declared dependency that isn't installed yet, under the same rules; if one stays unresolved, see <a href="#resolve-dependency-errors">Resolve dependency errors</a>.</p>
 <p>This guide is for plugin authors who declare dependencies in <code>plugin.json</code> and for marketplace maintainers who tag releases. Dependencies here are other plugins; for the npm and Bun packages a plugin itself uses, see <a href="/docs/en/plugins-reference#node-js-package-dependencies">Node.js package dependencies</a>. To install plugins that have dependencies, see <a href="/docs/en/discover-plugins">Discover and install plugins</a>. For the full manifest schema, see the <a href="/docs/en/plugins-reference">Plugins reference</a>.</p>
 <h2 id="why-constrain-dependency-versions">Why constrain dependency versions</h2>
 <p>Consider an internal marketplace where two teams publish plugins. The platform team maintains <code>secrets-vault</code>, an MCP server that wraps a secrets backend. The deploy team maintains <code>deploy-kit</code>, which calls <code>secrets-vault</code> to fetch credentials during deploys.</p>
@@ -5727,121 +5727,111 @@ For example, a platform team can publish role-specific bundles in an internal ma
 }
 <div class="highlight"><pre><span></span><code>If the field is missing or does not include the target marketplace, install fails with a `cross-marketplace` error naming the field to set. Users can still install the dependency manually first, which satisfies the constraint without changing the allowlist.
 
-## Tag plugin releases for version resolution
+## Test a plugin and its dependency locally
 
-Claude Code resolves version constraints against git tags on the repository that hosts the dependency: the plugin's own repository for `github`, `url`, and `git-subdir` [plugin sources](/docs/en/plugin-marketplaces#plugin-sources), or the marketplace repository for a plugin the marketplace references by a relative path. For Claude Code to find a dependency's available versions, the upstream plugin's releases must be tagged using a specific naming convention.
-
-Tag each release as `{plugin-name}--v{version}`, where `{version}` matches the `version` field in that commit's `plugin.json`. From the plugin directory, run:
+If you're developing a plugin and the plugin it depends on at the same time, load both with `--plugin-dir`:
 
 ```bash theme={null}
-claude plugin tag --push
+claude --plugin-dir ./my-dependency --plugin-dir ./my-plugin
 </code></pre></div></p>
-<p>The <code>claude plugin tag</code> command derives the tag name from the plugin's manifest and the enclosing marketplace entry. Before creating the tag, it validates the plugin contents, checks that <code>plugin.json</code> and the marketplace entry agree on the version, requires a clean working tree under the plugin directory, and refuses if the tag already exists.</p>
+<p>The local copy of the dependency satisfies your plugin's dependency entry, even when the entry names a marketplace, so you don't need to install the dependency from its marketplace. Claude Code doesn't check a <a href="#declare-a-dependency-with-a-version-constraint">version constraint</a> against a local copy, so the local <code>plugin.json</code> doesn't need a <code>version</code>. Before v2.1.242, a dependency entry that named a marketplace never matched the local copy, and Claude Code disabled your plugin at load.</p>
+<p>If you haven't installed the dependency from its marketplace, your plugin stops loading when the local copy goes away:</p>
 <ul>
-<li><code>--push</code> pushes the tag to the <code>origin</code> remote, so the repository needs a configured <code>origin</code> remote. Pass <code>--remote</code> to push to a different one.</li>
-<li>If the push fails, the tag is still created locally and the command exits with an error.</li>
-<li>With <code>--push</code>, a successful run ends with <code>Created tag secrets-vault--v2.1.0</code> and <code>Pushed to origin</code>, where the last line names the remote it pushed to. Without <code>--push</code>, the command prints the <code>git push</code> command to run instead.</li>
-<li><code>--dry-run</code> prints what would be tagged without creating it.</li>
+<li><strong>You disabled the local copy</strong>: Claude Code disables your plugin at the next plugin load. For a dependency entry that names a marketplace, Claude Code reports <code>Dependency "&lt;name&gt;@inline" is disabled — enable it or remove the dependency</code>; for a bare-name entry, it reports the dependency by its bare name. <code>&lt;name&gt;@inline</code> is how Claude Code identifies every <code>--plugin-dir</code> and <code>--plugin-url</code> plugin.</li>
+<li><strong>You started a session without the dependency's <code>--plugin-dir</code> flag</strong>: Claude Code reports the dependency as not installed. Pass the flag again, or install the dependency from its marketplace.</li>
 </ul>
-<p>Running <code>git tag secrets-vault--v2.1.0</code> directly is equivalent if you keep <code>plugin.json</code> and the marketplace entry in sync yourself.</p>
-<p>The plugin name prefix lets one marketplace repository host multiple plugins with independent version lines. The <code>--v</code> separator is parsed as a prefix match on the full plugin name, so plugin names that contain hyphens are handled correctly.</p>
-<p>When you install a plugin that declares <code>{ "name": "secrets-vault", "version": "~2.1.0" }</code>, Claude Code lists the tags on the repository that hosts <code>secrets-vault</code>, filters to those starting with <code>secrets-vault--v</code>, and fetches the highest version satisfying <code>~2.1.0</code>. If no tag on the plugin's own repository satisfies the range, the install fails with <code>Dependency "secrets-vault@acme-tools" has no git tag satisfying ~2.1.0</code>, which names the dependency together with its marketplace. For a relative-path plugin with no matching tag, Claude Code installs the marketplace's current copy instead and checks the constraint when the plugin loads.</p>
-<p>For a plugin the marketplace references by a relative path, a marketplace added as a local folder path resolves tags the same way when the folder is a git repository. This requires Claude Code v2.1.196 or later. In two cases Claude Code installs the dependency from the folder's current contents instead:</p>
-<ul>
-<li>Earlier versions don't read tags from a local-folder marketplace, so a constrained dependency loads only if that copy satisfies the range.</li>
-<li>A local folder that isn't a git repository has no tags, regardless of version.</li>
-</ul>
-<p>The resolved tag's semver is recorded separately from <code>plugin.json</code>'s <code>version</code>, so constraint checks use the tag that was actually fetched even if <code>plugin.json</code> at that commit has a stale value. The cache directory name for a tag-resolved install includes a 12-character commit-SHA suffix, so if a maintainer force-moves a tag to a different commit, the next install gets a fresh cache directory instead of reusing stale content.</p>
-<p><Note>
-  For dependencies with an <code>npm</code>, <code>archive</code>, or <code>command</code> <a href="/docs/en/plugin-marketplaces#plugin-sources">plugin source</a>, the constraint does not control which version is fetched, since tag-based resolution applies only to git-backed sources. The constraint is still checked at load time, and the dependent plugin is disabled with <code>dependency-version-unsatisfied</code> if the installed version does not satisfy it. For a <code>command</code> source, Claude Code checks the version in the dependency's <code>plugin.json</code> and ignores the content-hash suffix; a dependency whose <code>plugin.json</code> sets no version satisfies no constraint, so set one before you constrain it.</p>
-<p>Claude Code never installs a dependency with a <code>command</code> source itself, so users <a href="/docs/en/plugin-marketplaces#how-users-accept-the-command">install it first</a>. Claude Code never runs the <code>headersHelper</code> on a dependency's marketplace entry either, so users <a href="/docs/en/plugin-marketplaces#how-users-accept-a-headershelper-command">install that plugin first</a>.
-</Note></p>
-<h2 id="how-constraints-interact">How constraints interact</h2>
-<p>When several installed plugins constrain the same dependency, Claude Code intersects their ranges and resolves the dependency to the highest version that satisfies all of them. The table below shows how common combinations resolve.</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Plugin A requires</th>
-<th style="text-align: left;">Plugin B requires</th>
-<th style="text-align: left;">Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>^2.0</code></td>
-<td style="text-align: left;"><code>&gt;=2.1</code></td>
-<td style="text-align: left;">One install at the highest <code>2.x</code> tag at or above <code>2.1.0</code>. Both plugins load.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>~2.1</code></td>
-<td style="text-align: left;"><code>~3.0</code></td>
-<td style="text-align: left;">Install of plugin B fails with <code>range-conflict</code>. Plugin A and the dependency stay as they were.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>=2.1.0</code></td>
-<td style="text-align: left;">none</td>
-<td style="text-align: left;">The dependency stays at <code>2.1.0</code>. Auto-update skips newer versions while plugin A is installed.</td>
-</tr>
-</tbody>
-</table>
-<p>Auto-update fetches a constrained dependency at the highest git tag that satisfies every installed plugin's range, rather than at the marketplace's latest version, so the dependency continues to receive updates within its allowed range. If no tag satisfies all ranges, auto-update skips that dependency and lists the skip in the <code>/plugin</code> Errors tab, naming the constraining plugin.</p>
-<p>When you uninstall the last plugin that constrains a dependency, the dependency is no longer held and resumes tracking its marketplace entry on the next update.</p>
-<h2 id="enable-or-disable-a-plugin-with-dependencies">Enable or disable a plugin with dependencies</h2>
-<p>Enabling a plugin also enables the plugins it depends on, and disabling a plugin is blocked if another enabled plugin still needs it.</p>
-<p>When you enable a plugin, Claude Code also enables its dependencies at the same scope. If a dependency has its own dependencies, Claude Code enables those too. The success message lists what else was enabled along with the plugin you named. If a dependency can't be enabled, the command refuses and tells you what's blocking and how to fix it:</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Condition</th>
-<th style="text-align: left;">Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">A dependency is not installed</td>
-<td style="text-align: left;">Enable fails and prints the <code>claude plugin install</code> command for each missing dependency.</td>
-</tr>
-<tr>
-<td style="text-align: left;">A dependency is blocked by your organization's plugin policy</td>
-<td style="text-align: left;">Enable fails and names the blocked dependency.</td>
-</tr>
-<tr>
-<td style="text-align: left;">A dependency is set to <code>false</code> at a scope with higher precedence than the target scope</td>
-<td style="text-align: left;">Enable fails. Enable the dependency at that scope, or pass <code>--scope</code> to write there.</td>
-</tr>
-<tr>
-<td style="text-align: left;">All dependencies are installed and allowed</td>
-<td style="text-align: left;">Enable succeeds and writes <code>true</code> for the plugin and each dependency that was not already enabled at the target scope.</td>
-</tr>
-</tbody>
-</table>
-<p>This holds even when a dependency sets <a href="/docs/en/plugins-reference#default-enablement"><code>defaultEnabled: false</code></a> in its manifest, because Claude Code writes an explicit <code>true</code> for it. The same applies at install: a dependency pulled in to satisfy an active plugin installs with <code>true</code> regardless of its own default.</p>
-<p>When you disable a plugin, Claude Code refuses if another enabled plugin still depends on it. The error names the plugins that depend on it and gives you a chained command that disables them in the right order, ending with the one you asked for.</p>
-<p>For example, if <code>deploy-kit</code> depends on <code>secrets-vault</code>, disabling <code>secrets-vault</code> alone fails with output similar to the following:</p>
-<p>```text theme={null}
+<h2 id="tag-plugin-releases-for-version-resolution">Tag plugin releases for version resolution</h2>
+<p>Claude Code resolves version constraints against git tags on the repository that hosts the dependency: the plugin's own repository for <code>github</code>, <code>url</code>, and <code>git-subdir</code> <a href="/docs/en/plugin-marketplaces#plugin-sources">plugin sources</a>, or the marketplace repository for a plugin the marketplace references by a relative path. For Claude Code to find a dependency's available versions, the upstream plugin's releases must be tagged using a specific naming convention.</p>
+<p>Tag each release as <code>{plugin-name}--v{version}</code>, where <code>{version}</code> matches the <code>version</code> field in that commit's <code>plugin.json</code>. From the plugin directory, run:</p>
+<p>```bash theme={null}
+claude plugin tag --push
+<div class="highlight"><pre><span></span><code>The `claude plugin tag` command derives the tag name from the plugin's manifest and the enclosing marketplace entry. Before creating the tag, it validates the plugin contents, checks that `plugin.json` and the marketplace entry agree on the version, requires a clean working tree under the plugin directory, and refuses if the tag already exists.
+
+* `--push` pushes the tag to the `origin` remote, so the repository needs a configured `origin` remote. Pass `--remote` to push to a different one.
+* If the push fails, the tag is still created locally and the command exits with an error.
+* With `--push`, a successful run ends with `Created tag secrets-vault--v2.1.0` and `Pushed to origin`, where the last line names the remote it pushed to. Without `--push`, the command prints the `git push` command to run instead.
+* `--dry-run` prints what would be tagged without creating it.
+
+Running `git tag secrets-vault--v2.1.0` directly is equivalent if you keep `plugin.json` and the marketplace entry in sync yourself.
+
+The plugin name prefix lets one marketplace repository host multiple plugins with independent version lines. The `--v` separator is parsed as a prefix match on the full plugin name, so plugin names that contain hyphens are handled correctly.
+
+When you install a plugin that declares `{ "name": "secrets-vault", "version": "~2.1.0" }`, Claude Code lists the tags on the repository that hosts `secrets-vault`, filters to those starting with `secrets-vault--v`, and fetches the highest version satisfying `~2.1.0`. If no tag on the plugin's own repository satisfies the range, the install fails with `Dependency "secrets-vault@acme-tools" has no git tag satisfying ~2.1.0`, which names the dependency together with its marketplace. For a relative-path plugin with no matching tag, Claude Code installs the marketplace's current copy instead and checks the constraint when the plugin loads.
+
+For a plugin the marketplace references by a relative path, a marketplace added as a local folder path resolves tags the same way when the folder is a git repository. This requires Claude Code v2.1.196 or later. In two cases Claude Code installs the dependency from the folder's current contents instead:
+
+* Earlier versions don't read tags from a local-folder marketplace, so a constrained dependency loads only if that copy satisfies the range.
+* A local folder that isn't a git repository has no tags, regardless of version.
+
+The resolved tag's semver is recorded separately from `plugin.json`'s `version`, so constraint checks use the tag that was actually fetched even if `plugin.json` at that commit has a stale value. The cache directory name for a tag-resolved install includes a 12-character commit-SHA suffix, so if a maintainer force-moves a tag to a different commit, the next install gets a fresh cache directory instead of reusing stale content.
+
+&lt;Note&gt;
+  For dependencies with an `npm`, `archive`, or `command` [plugin source](/docs/en/plugin-marketplaces#plugin-sources), the constraint does not control which version is fetched, since tag-based resolution applies only to git-backed sources. The constraint is still checked at load time, and the dependent plugin is disabled with `dependency-version-unsatisfied` if the installed version does not satisfy it. For a `command` source, Claude Code checks the version in the dependency's `plugin.json` and ignores the content-hash suffix; a dependency whose `plugin.json` sets no version satisfies no constraint, so set one before you constrain it.
+
+  Claude Code never installs a dependency with a `command` source itself, so users [install it first](/docs/en/plugin-marketplaces#how-users-accept-the-command). Claude Code never runs the `headersHelper` on a dependency's marketplace entry either, so users [install that plugin first](/docs/en/plugin-marketplaces#how-users-accept-a-headershelper-command).
+&lt;/Note&gt;
+
+## How constraints interact
+
+When several installed plugins constrain the same dependency, Claude Code intersects their ranges and resolves the dependency to the highest version that satisfies all of them. The table below shows how common combinations resolve.
+
+| Plugin A requires | Plugin B requires | Result                                                                                          |
+| :---------------- | :---------------- | :---------------------------------------------------------------------------------------------- |
+| `^2.0`            | `&gt;=2.1`           | One install at the highest `2.x` tag at or above `2.1.0`. Both plugins load.                    |
+| `~2.1`            | `~3.0`            | Install of plugin B fails with `range-conflict`. Plugin A and the dependency stay as they were. |
+| `=2.1.0`          | none              | The dependency stays at `2.1.0`. Auto-update skips newer versions while plugin A is installed.  |
+
+Auto-update fetches a constrained dependency at the highest git tag that satisfies every installed plugin's range, rather than at the marketplace's latest version, so the dependency continues to receive updates within its allowed range. If no tag satisfies all ranges, auto-update skips that dependency and lists the skip in the `/plugin` Errors tab, naming the constraining plugin.
+
+When you uninstall the last plugin that constrains a dependency, the dependency is no longer held and resumes tracking its marketplace entry on the next update.
+
+## Enable or disable a plugin with dependencies
+
+This section covers plugins installed from a marketplace. For a copy you loaded with `--plugin-dir`, see [Test a plugin and its dependency locally](#test-a-plugin-and-its-dependency-locally).
+
+Enabling a plugin also enables the plugins it depends on, and disabling a plugin is blocked if another enabled plugin still needs it.
+
+When you enable a plugin, Claude Code also enables its dependencies at the same scope. If a dependency has its own dependencies, Claude Code enables those too. The success message lists what else was enabled along with the plugin you named. If a dependency can't be enabled, the command refuses and tells you what's blocking and how to fix it:
+
+| Condition                                                                              | Result                                                                                                                 |
+| :------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| A dependency is not installed                                                          | Enable fails and prints the `claude plugin install` command for each missing dependency.                               |
+| A dependency is blocked by your organization's plugin policy                           | Enable fails and names the blocked dependency.                                                                         |
+| A dependency is set to `false` at a scope with higher precedence than the target scope | Enable fails. Enable the dependency at that scope, or pass `--scope` to write there.                                   |
+| All dependencies are installed and allowed                                             | Enable succeeds and writes `true` for the plugin and each dependency that was not already enabled at the target scope. |
+
+This holds even when a dependency sets [`defaultEnabled: false`](/docs/en/plugins-reference#default-enablement) in its manifest, because Claude Code writes an explicit `true` for it. The same applies at install: a dependency pulled in to satisfy an active plugin installs with `true` regardless of its own default.
+
+When you disable a plugin, Claude Code refuses if another enabled plugin still depends on it. The error names the plugins that depend on it and gives you a chained command that disables them in the right order, ending with the one you asked for.
+
+For example, if `deploy-kit` depends on `secrets-vault`, disabling `secrets-vault` alone fails with output similar to the following:
+
+```text theme={null}
 secrets-vault is still required by deploy-kit. Disable that plugin first, or
 disable everything together: claude plugin disable deploy-kit@acme-tools &amp;&amp; claude plugin disable secrets-vault@acme-tools
-<div class="highlight"><pre><span></span><code>Copy the chained command from the error to disable the full set in one step.
+</code></pre></div></p>
+<p>Copy the chained command from the error to disable the full set in one step.</p>
+<h2 id="remove-orphaned-auto-installed-dependencies">Remove orphaned auto-installed dependencies</h2>
+<p>Auto-installed dependencies stay on disk after the plugins that installed them are uninstalled, in case you reinstall a dependent plugin or want to keep using the dependency directly. To clean them up, run <code>claude plugin prune</code> to list the auto-installed dependencies that no longer have any installed plugin requiring them and remove them after a confirmation prompt.</p>
+<p>```bash theme={null}
+claude plugin prune
+<div class="highlight"><pre><span></span><code>If nothing qualifies for removal, the command prints `Nothing to prune` with the reason and exits. This is the expected output on a fresh install, not an error.
 
-## Remove orphaned auto-installed dependencies
+By default, prune operates at user scope and asks for confirmation before removing anything:
 
-Auto-installed dependencies stay on disk after the plugins that installed them are uninstalled, in case you reinstall a dependent plugin or want to keep using the dependency directly. To clean them up, run `claude plugin prune` to list the auto-installed dependencies that no longer have any installed plugin requiring them and remove them after a confirmation prompt.
+* `--scope project` or `--scope local` targets a different scope.
+* `--dry-run` lists what would be removed without changing anything.
+* `-y` skips the confirmation prompt. When stdin or stdout isn't a terminal, prune lists the orphans and exits without removing them unless you pass `-y`.
+
+To prune as part of an uninstall, pass `--prune` to `claude plugin uninstall`. After removing the named plugin, Claude Code scans for and removes any auto-installed dependencies that are now orphaned. Plugins you installed yourself are never pruned, only those installed automatically through another plugin's `dependencies` array.
+
+The same confirmation behavior applies. When stdin or stdout isn't a terminal, the uninstall still completes, but the prune step lists the orphans and removes nothing unless you pass `-y`.
+
+For example, to uninstall `deploy-kit` and clean up the dependencies it leaves behind:
 
 ```bash theme={null}
-claude plugin prune
+claude plugin uninstall deploy-kit --prune
 </code></pre></div></p>
-<p>If nothing qualifies for removal, the command prints <code>Nothing to prune</code> with the reason and exits. This is the expected output on a fresh install, not an error.</p>
-<p>By default, prune operates at user scope and asks for confirmation before removing anything:</p>
-<ul>
-<li><code>--scope project</code> or <code>--scope local</code> targets a different scope.</li>
-<li><code>--dry-run</code> lists what would be removed without changing anything.</li>
-<li><code>-y</code> skips the confirmation prompt. When stdin or stdout isn't a terminal, prune lists the orphans and exits without removing them unless you pass <code>-y</code>.</li>
-</ul>
-<p>To prune as part of an uninstall, pass <code>--prune</code> to <code>claude plugin uninstall</code>. After removing the named plugin, Claude Code scans for and removes any auto-installed dependencies that are now orphaned. Plugins you installed yourself are never pruned, only those installed automatically through another plugin's <code>dependencies</code> array.</p>
-<p>The same confirmation behavior applies. When stdin or stdout isn't a terminal, the uninstall still completes, but the prune step lists the orphans and removes nothing unless you pass <code>-y</code>.</p>
-<p>For example, to uninstall <code>deploy-kit</code> and clean up the dependencies it leaves behind:</p>
-<p><code>bash theme={null}
-claude plugin uninstall deploy-kit --prune</code></p>
 <h2 id="resolve-dependency-errors">Resolve dependency errors</h2>
 <p>Dependency problems appear in <code>claude plugin list</code> and in the <code>/plugin</code> interface, as descriptive error messages rather than the literal codes in this table. Claude Code disables the affected plugin until you resolve the error. The table below lists the most common errors and how to resolve them.</p>
 <table>

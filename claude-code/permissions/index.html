@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -3822,6 +3822,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#move-the-session-to-another-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Move the session to another directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#additional-directories-grant-file-access-not-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6079,6 +6090,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#move-the-session-to-another-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Move the session to another directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#additional-directories-grant-file-access-not-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6264,7 +6286,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>When you choose "Yes, and don't ask again" and the approval saves permanently, such as for a Bash command or a WebFetch domain, Claude Code saves the rule to <code>.claude/settings.local.json</code> at the root of the git repository, resolved through <a href="/docs/en/worktrees">worktrees</a> to the main checkout. The rule applies to future sessions anywhere in that repository, including sessions started in subdirectories and in worktrees. A file-modification approval isn't saved to the file: as the table shows, it lasts until the session ends. In some cases, such as outside a git repository or on Windows, Claude Code saves the rule in the directory you started it from; <a href="/docs/en/settings#where-claude-code-looks-for-each-file">Where Claude Code looks for each file</a> lists them.</p>
+<p>When you choose "Yes, and don't ask again" and the approval saves permanently, such as for a Bash command or a WebFetch domain, Claude Code saves the rule to <code>.claude/settings.local.json</code> at the root of the git repository, resolved through <a href="/docs/en/worktrees">worktrees</a> to the main checkout. The rule applies to future sessions anywhere in that repository, including sessions started in subdirectories and in worktrees. A file-modification approval isn't saved to the file: as the table shows, it lasts until the session ends. In some cases, such as outside a git repository or on Windows, Claude Code doesn't use the repository root; <a href="/docs/en/settings#where-claude-code-looks-for-each-file">Where Claude Code looks for each file</a> lists those cases and where it saves the rule instead.</p>
 <p>Before v2.1.211, Claude Code always saved the rule in the starting directory, so an approval granted in a worktree or subdirectory didn't apply to the rest of the repository. Rules that earlier versions saved in a subdirectory or worktree still apply to sessions started there.</p>
 <p>Sometimes a permission prompt offers only a one-time approval, with no "don't ask again" option and no option to allow the action for the rest of the session. Claude Code offers those options only when the prompt can show you everything they would allow, so a rule you save from a prompt covers only what its option named.</p>
 <p>When the directory you started Claude Code in is what makes the option's label too long, Claude Code shortens it in the label, replacing your home directory with <code>~</code> and then the end of the path with <code>…</code>, and keeps the option. You still save the same rule. Claude Code leaves the options out in three cases:</p>
@@ -6331,7 +6353,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>dontAsk</code></td>
-<td style="text-align: left;">Auto-denies tools unless pre-approved via <code>/permissions</code> or <code>permissions.allow</code> rules. <code>AskUserQuestion</code>, connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> are denied even if you've allowed them</td>
+<td style="text-align: left;">Auto-denies tools unless pre-approved via <code>/permissions</code> or <code>permissions.allow</code> rules. <code>AskUserQuestion</code>, MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>, and connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> in sessions where that setting reaches Claude Code are denied even if you've allowed them</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>bypassPermissions</code></td>
@@ -6395,7 +6417,9 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <h3 id="match-by-input-parameter">Match by input parameter</h3>
-<p>Deny and ask rules can match a top-level input parameter on any tool with <code>Tool(param:value)</code>. The rule matches when Claude calls the tool with that parameter set to that exact value. An allow rule for one parameter value wouldn't establish that the call is safe overall, so allow rules continue to use each tool's own specifier syntax. This works for any scalar parameter the tool accepts:</p>
+<p>Deny and ask rules can match a top-level input parameter on any built-in tool with <code>Tool(param:value)</code>.</p>
+<p>To match a parameter on an MCP tool, pass a deny rule with <a href="/docs/en/cli-reference#cli-flags"><code>--disallowedTools</code></a>. When Claude Code loads a settings file, it skips any <code>mcp__</code> rule that has parentheses. Claude Code lists the skipped rule in the invalid-settings dialog when an interactive session starts, and in <a href="/docs/en/debug-your-config#check-resolved-settings"><code>claude doctor</code></a> output.</p>
+<p>A parameter rule matches when Claude calls the tool with that parameter set to that exact value. An allow rule for one parameter value wouldn't establish that the call is safe overall, so allow rules continue to use each tool's own specifier syntax. This works for any scalar parameter the tool accepts:</p>
 <table>
 <thead>
 <tr>
@@ -6572,12 +6596,12 @@ Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules 
 
 Read and Edit rules both use [gitignore](https://git-scm.com/docs/gitignore) pattern syntax with four distinct pattern types; for single-segment directory patterns, the matching depth also depends on the rule type, described later in this section:
 
-| Pattern            | Meaning                              | Example                          | Matches                                          |
-| ------------------ | ------------------------------------ | -------------------------------- | ------------------------------------------------ |
-| `//path`           | Absolute path from filesystem root   | `Read(//Users/alice/secrets/**)` | `/Users/alice/secrets/**`                        |
-| `~/path`           | Path from home directory             | `Read(~/Documents/*.pdf)`        | `/Users/alice/Documents/*.pdf`                   |
-| `/path`            | Path relative to the settings source | `Edit(/src/**/*.ts)`             | `&lt;project root&gt;/src/**/*.ts` in project settings |
-| `path` or `./path` | Path relative to current directory   | `Read(*.env)`                    | `&lt;cwd&gt;/*.env`                                    |
+| Pattern            | Meaning                              | Example                          | Matches                                                       |
+| ------------------ | ------------------------------------ | -------------------------------- | ------------------------------------------------------------- |
+| `//path`           | Absolute path from filesystem root   | `Read(//Users/alice/secrets/**)` | `/Users/alice/secrets/**`                                     |
+| `~/path`           | Path from home directory             | `Read(~/Documents/*.pdf)`        | `/Users/alice/Documents/*.pdf`                                |
+| `/path`            | Path relative to the settings source | `Edit(/src/**/*.ts)`             | `&lt;primary working directory&gt;/src/**/*.ts` in project settings |
+| `path` or `./path` | Path relative to current directory   | `Read(*.env)`                    | `&lt;cwd&gt;/*.env`                                                 |
 
 &lt;Warning&gt;
   A pattern like `/Users/alice/file` isn't an absolute path. The single leading slash anchors at the settings source, not the filesystem root. Use `//Users/alice/file` for absolute paths.
@@ -6585,15 +6609,17 @@ Read and Edit rules both use [gitignore](https://git-scm.com/docs/gitignore) pat
 
 A `/path` pattern anchors at a directory associated with the settings source that defines it, so the same rule matches different locations depending on where you put it:
 
-| Rule defined in                                 | `/path` resolves to        |
-| :---------------------------------------------- | :------------------------- |
-| Project settings at `.claude/settings.json`     | `&lt;project root&gt;/path`      |
-| Local settings at `.claude/settings.local.json` | `&lt;original cwd&gt;/path`      |
-| User settings at `~/.claude/settings.json`      | `~/.claude/path`           |
-| A file passed with `--settings &lt;file&gt;`          | `&lt;directory of file&gt;/path` |
-| CLI flags, `/permissions`, or session rules     | `&lt;original cwd&gt;/path`      |
+| Rule defined in                                 | `/path` resolves to                |
+| :---------------------------------------------- | :--------------------------------- |
+| Project settings at `.claude/settings.json`     | `&lt;primary working directory&gt;/path` |
+| Local settings at `.claude/settings.local.json` | `&lt;primary working directory&gt;/path` |
+| User settings at `~/.claude/settings.json`      | `~/.claude/path`                   |
+| A file passed with `--settings &lt;file&gt;`          | `&lt;directory of file&gt;/path`         |
+| CLI flags or session rules                      | `&lt;primary working directory&gt;/path` |
 
-Local settings rules anchor at the directory you started Claude Code from, not at the repository root where Claude Code [stores the file](#permission-system) in v2.1.211 and later. In a session started at the repository root, the two directories are the same; in a [worktree](/docs/en/worktrees) session, a shared rule such as `Edit(/src/**)` matches that worktree's own `src/` directory.
+A rule you add through `/permissions` follows the row for the settings file you save it to.
+
+Local settings rules anchor at the session's [primary working directory](#working-directories), not at the repository root where Claude Code [stores the file](#permission-system) in v2.1.211 and later. In a session started at the repository root, the two directories are the same; in a [worktree](/docs/en/worktrees) session, a shared rule such as `Edit(/src/**)` matches that worktree's own `src/` directory.
 
 A deny rule such as `Read(/secrets/**)` in user settings blocks `~/.claude/secrets/**`, not a `secrets` directory in your project. To write a rule in user settings that applies inside every project, use a `//` absolute path or a `~/` home-relative path instead.
 
@@ -6601,7 +6627,7 @@ On Windows, paths are normalized to POSIX form before matching. `C:\Users\alice`
 
 Examples:
 
-* `Edit(/docs/**)`: edits in `&lt;project&gt;/docs/`, not `/docs/` or `&lt;project&gt;/.claude/docs/`
+* `Edit(/docs/**)`: edits in `&lt;primary working directory&gt;/docs/`, not `/docs/` or `&lt;primary working directory&gt;/.claude/docs/`
 * `Read(~/.zshrc)`: reads your home directory's `.zshrc`
 * `Edit(//tmp/scratch.txt)`: edits the absolute path `/tmp/scratch.txt`
 * `Read(src/**)`: as an allow rule, reads from `&lt;current-directory&gt;/src/` only; as a deny or ask rule, matches a `src` directory at any depth under the current directory
@@ -6722,7 +6748,9 @@ MCP rules use the server name as configured in Claude Code, optionally followed 
 * `mcp__puppeteer__*` uses wildcard syntax and also matches all tools from the `puppeteer` server
 * `mcp__puppeteer__puppeteer_navigate` matches the `puppeteer_navigate` tool provided by the `puppeteer` server
 
-If your organization has set a [claude.ai connector](/docs/en/mcp#organization-controls-on-connector-tools) tool to `ask`, allow rules for that tool don't take effect: Claude Code prompts on every call, even in `auto` and `bypassPermissions` modes. In `dontAsk` mode, which never prompts, Claude Code denies the call instead. Connector tools appear as `mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;`.
+If your organization has set a [claude.ai connector](/docs/en/mcp#organization-controls-on-connector-tools) tool to `ask` and that setting reaches Claude Code in your session, allow rules for that tool don't take effect: Claude Code prompts on every call, even in `auto` and `bypassPermissions` modes. In `dontAsk` mode, which never prompts, Claude Code denies the call instead. Tools from connectors Claude Code fetches itself appear as `mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;`.
+
+In a [Cowork](https://claude.com/docs/cowork/overview) session in the Claude Desktop app, Claude runs shell commands through Cowork's `mcp__workspace__bash` tool rather than the built-in `Bash` tool, and Cowork likewise provides `mcp__workspace__web_fetch` for web fetches. Claude Code also applies deny rules that name the whole `Bash` or `WebFetch` tool to these Cowork tools, so a managed `Bash` deny rule stops Claude from running shell commands in Cowork. When Claude Code blocks such a call, the message names the Cowork tool: `Permission to use mcp__workspace__bash has been denied.` Allow rules don't carry over: Claude Code never applies a `Bash` allow rule to `mcp__workspace__bash`.
 
 ### Agent (subagents)
 
@@ -6775,10 +6803,10 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <h2 id="extend-permissions-with-hooks">Extend permissions with hooks</h2>
 <p><a href="/docs/en/hooks-guide">Claude Code hooks</a> let you register custom shell commands that evaluate permissions at runtime. When Claude Code makes a tool call, PreToolUse hooks run before the permission prompt, for every tool except <a href="/docs/en/tools-reference#endconversation-tool-behavior"><code>EndConversation</code></a>. The hook output can deny the tool call, force a prompt, or skip the prompt to let the call proceed.</p>
 <p>Hook decisions don't bypass permission rules. Claude Code evaluates deny and ask rules regardless of what a PreToolUse hook returns: a matching deny rule blocks the call, and a matching ask rule still prompts even when the hook returned <code>"allow"</code> or <code>"ask"</code>. This preserves the deny-first precedence described in <a href="#manage-permissions">Manage permissions</a>, including deny rules set in managed settings.</p>
-<p>Connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> also still prompt when a hook returns <code>"allow"</code>.</p>
+<p>MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> also still prompt when a hook returns <code>"allow"</code>, as do connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> in sessions where that setting reaches Claude Code.</p>
 <p>A blocking hook also takes precedence over allow rules. A hook that exits with code 2 stops the tool call before permission rules are evaluated, so the block applies even when an allow rule would otherwise let the call proceed. To run all Bash commands without prompts except for a few you want blocked, add <code>"Bash"</code> to your allow list and register a PreToolUse hook that rejects those specific commands. See <a href="/docs/en/hooks-guide#block-edits-to-protected-files">Block edits to protected files</a> for a hook script you can adapt.</p>
 <h2 id="working-directories">Working directories</h2>
-<p>By default, Claude has access to files in the directory where you launched it. You can extend this access:</p>
+<p>By default, Claude has access to files in the directory where you launched it. That directory is the session's primary working directory until you <a href="#move-the-session-to-another-directory">move the session with <code>/cd</code></a>. You can extend this access:</p>
 <ul>
 <li><strong>During startup</strong>: use <code>--add-dir &lt;path&gt;</code> CLI argument</li>
 <li><strong>During session</strong>: use <code>/add-dir</code> command</li>
@@ -6786,7 +6814,18 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 </ul>
 <p>Files in additional directories follow the same permission rules as the original working directory: they become readable without prompts, and file editing permissions follow the current permission mode.</p>
 <p>In background sessions on macOS, the session host requests access to protected folders such as <code>~/Desktop</code>, <code>~/Documents</code>, and <code>~/Downloads</code> separately from your terminal when Claude needs to read or write files there; if reads there fail with <code>Operation not permitted</code>, see <a href="/docs/en/agent-view#background-sessions-can’t-read-desktop-documents-or-downloads-on-macos">how to grant folder access to background sessions</a>.</p>
-<p>To change the session's primary working directory instead of adding another, use <a href="/docs/en/commands"><code>/cd</code></a>. The <code>/cd</code> command requires Claude Code v2.1.169 or later. Unlike <code>/add-dir</code>, it relocates the session: the new directory's <code>CLAUDE.md</code> is loaded and <code>--resume</code> finds the session from there.</p>
+<h3 id="move-the-session-to-another-directory">Move the session to another directory</h3>
+<p>To move the session to a different primary working directory, rather than <a href="#working-directories">adding a directory</a> alongside the current one, run <code>/cd &lt;path&gt;</code>. Claude Code keeps the conversation, loads the new directory's <code>CLAUDE.md</code>, and prompts you to <a href="#project-allow-rules-and-workspace-trust">trust the workspace</a> if you haven't worked in it before. Afterward, Claude Code <a href="/docs/en/sessions#resume-a-session">finds the moved session</a> when you run <code>--resume</code> from the new directory. The <code>/cd</code> command requires Claude Code v2.1.169 or later.</p>
+<p>As soon as you move, Claude Code applies the new directory's project configuration:</p>
+<ul>
+<li>Its project settings, including their permission rules and <a href="/docs/en/hooks">hooks</a></li>
+<li>Its <a href="/docs/en/mcp#project-scope"><code>.mcp.json</code> servers</a>, subject to the same <a href="/docs/en/mcp#project-server-approvals-and-workspace-trust">server approval</a> as at startup, and the <a href="/docs/en/mcp#local-scope">local-scope</a> MCP servers you registered in it</li>
+<li>The <a href="/docs/en/plugins">plugins</a> its settings enable, its <a href="/docs/en/skills#discovery-from-parent-and-nested-directories">skills</a>, and its <a href="/docs/en/sub-agents">subagents</a></li>
+<li>Its <a href="/docs/en/settings-reference#env"><code>env</code></a> values, applied on top of the environment variables from the previous directory's settings, which stay in effect</li>
+</ul>
+<p>Claude Code also disconnects the previous directory's project and <a href="/docs/en/mcp#local-scope">local-scope</a> MCP servers, and the servers of <a href="/docs/en/mcp#plugin-provided-mcp-servers">plugins</a> that are no longer enabled after the move. It takes <a href="#working-directories">additional directories</a> from the new directory's settings instead of the previous one's, and keeps the directories you added with <code>--add-dir</code> or <code>/add-dir</code>. Hooks the move activates still receive <a href="/docs/en/hooks#reference-scripts-by-path"><code>${CLAUDE_PROJECT_DIR}</code></a> set to the project root where the session started.</p>
+<p>When the new directory isn't trusted yet, Claude Code lists in the trust prompt the allow rules, additional directories, hooks, and helper commands the directory's settings would activate, so you can review them before you accept. If you decline, the session stays where it is. Before v2.1.246, <code>/cd</code> didn't apply the new directory's settings, hooks, MCP servers, or skills until you resumed the session, and its trust prompt didn't list what the directory's settings would activate.</p>
+<p>Restrict or disable <code>/cd</code> targets with <a href="#cd"><code>Cd</code> permission rules</a>.</p>
 <h3 id="additional-directories-grant-file-access-not-configuration">Additional directories grant file access, not configuration</h3>
 <p>Adding a directory extends where Claude can read and edit files. It doesn't make that directory a full configuration root: most <code>.claude/</code> configuration is not discovered from additional directories, though a few types are loaded as exceptions.</p>
 <p>These exceptions apply only to directories added with the <code>--add-dir</code> flag or the <code>/add-dir</code> command, including directories the Agent SDK adds through the flag. Directories listed in <code>permissions.additionalDirectories</code> in a settings file grant file access only and don't load any of the configuration below.</p>
@@ -6822,7 +6861,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 </tr>
 </tbody>
 </table>
-<p>Claude Code discovers output styles from the current working directory and its parents, your user directory at <code>~/.claude/</code>, and managed settings. Hooks and other <code>.claude/settings.json</code> keys load from the current working directory's <code>.claude/</code> folder with no parent-directory fallback, alongside your user <code>~/.claude/settings.json</code> and managed settings. <code>.claude/settings.local.json</code> loads from the git repository root instead, even when you start Claude Code in a subdirectory, except in the cases where Claude Code <a href="/docs/en/settings#where-claude-code-looks-for-each-file">keeps the local file in the starting directory</a>, such as on Windows; before v2.1.211, it too loaded only from the current working directory. <a href="/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources">Agent SDK</a> sessions load it from the working directory in all versions.</p>
+<p>Claude Code discovers output styles from the current working directory and its parents, your user directory at <code>~/.claude/</code>, and managed settings. Hooks and other <code>.claude/settings.json</code> keys load from the current working directory's <code>.claude/</code> folder with no parent-directory fallback, alongside your user <code>~/.claude/settings.json</code> and managed settings. <code>.claude/settings.local.json</code> loads from the git repository root instead, even when you start Claude Code in a subdirectory, except in the cases where Claude Code <a href="/docs/en/settings#where-claude-code-looks-for-each-file">doesn't use the repository root</a>, such as on Windows; before v2.1.211, it too loaded only from the current working directory. <a href="/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources">Agent SDK</a> sessions load it from the working directory in all versions.</p>
 <p>To share that configuration across projects, use one of these approaches:</p>
 <ul>
 <li><strong>User-level configuration</strong>: place files in <code>~/.claude/agents/</code>, <code>~/.claude/output-styles/</code>, or <code>~/.claude/settings.json</code> to make them available in every project</li>
@@ -6907,7 +6946,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <td style="text-align: left;">Not used</td>
 </tr>
 <tr>
-<td style="text-align: left;">Inline <a href="/docs/en/sub-agents#scope-mcp-servers-to-a-subagent"><code>mcpServers</code></a> in the frontmatter of a subagent from the repository or an <code>--add-dir</code> directory</td>
+<td style="text-align: left;">Inline <a href="/docs/en/sub-agents#scope-mcp-servers-to-a-subagent"><code>mcpServers</code></a> in the frontmatter of a subagent from the repository or an <code>--add-dir</code> directory. Before v2.1.238, Claude Code loaded these servers in both situations</td>
 <td style="text-align: left;">Not used, and no dialog is offered</td>
 <td style="text-align: left;">Not used</td>
 </tr>
@@ -6917,7 +6956,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <td style="text-align: left;">Connected without asking, approved or not. The SDK loads them only when <code>settingSources</code> includes project settings. <code>claude mcp list</code> in the same folder still reports such a server as pending</td>
 </tr>
 <tr>
-<td style="text-align: left;">A <a href="/docs/en/mcp#trust-a-folder-before-its-headershelper-runs"><code>headersHelper</code></a> on a server in <code>.mcp.json</code></td>
+<td style="text-align: left;">A <a href="/docs/en/mcp#trust-a-folder-before-its-headershelper-runs"><code>headersHelper</code></a> on a server in <code>.mcp.json</code>. Before v2.1.238, Claude Code ran the helper in both situations</td>
 <td style="text-align: left;">Not run until you accept the trust dialog, which appears again naming where the helper is declared. Claude Code connects the server with its static <code>headers</code> alone until then</td>
 <td style="text-align: left;">Not run. Claude Code connects the server with its static <code>headers</code> alone and prints a <a href="/docs/en/errors#headershelper-not-run"><code>headersHelper not run</code></a> line per server to stderr</td>
 </tr>
