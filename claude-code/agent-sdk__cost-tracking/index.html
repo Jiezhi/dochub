@@ -1646,7 +1646,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5810,12 +5810,13 @@ Use this file to discover all available pages before exploring further.</p>
 <p>The Claude Agent SDK provides detailed token usage information for each interaction with Claude. This guide explains how to properly track usage and understand cost reporting, especially when dealing with parallel tool uses and multi-step conversations.</p>
 <p>For complete API documentation, see the <a href="/docs/en/agent-sdk/typescript">TypeScript SDK reference</a> and <a href="/docs/en/agent-sdk/python">Python SDK reference</a>.</p>
 <p><Warning>
-  The <code>total_cost_usd</code> and <code>costUSD</code> fields are client-side estimates, not authoritative billing data. The SDK computes them locally from a price table bundled at build time, so they can drift from what you are actually billed when:</p>
+  The <code>total_cost_usd</code> and <code>costUSD</code> fields are client-side estimates, not authoritative billing data. The SDK computes them locally from a price table bundled at build time, unless a <a href="/docs/en/settings-reference#modelpricing"><code>modelPricing</code></a> table is in effect. They can drift from what you are actually billed when:</p>
 <ul>
 <li>pricing changes</li>
 <li>the installed SDK version does not recognize a model</li>
 <li>billing rules apply that the client cannot model</li>
 </ul>
+<p>One billing rule the SDK does model is <a href="https://platform.claude.com/docs/en/about-claude/pricing#data-residency-pricing">data residency pricing</a>. When a response's <code>usage</code> reports <code>inference_geo: "us"</code>, the SDK multiplies the list price of that response's tokens by 1.1. Per-request fees such as web search aren't multiplied. Requires TypeScript Agent SDK v0.3.239 or later, or Python Agent SDK v0.2.144 or later.</p>
 <p>Use these fields for development insight and approximate budgeting. For authoritative billing, use the <a href="https://platform.claude.com/docs/en/build-with-claude/usage-cost-api">Usage and Cost API</a> or the Usage page in the <a href="https://platform.claude.com/usage">Claude Console</a>. Do not bill end users or trigger financial decisions from these fields.
 </Warning></p>
 <h2 id="understand-token-usage">Understand token usage</h2>
@@ -5966,6 +5967,8 @@ console.log(<code>Output tokens: ${resultOutputTokens}</code>);
 <div class="highlight"><pre><span></span><code>### Break down usage per model
 
 The result message includes [`modelUsage`](/docs/en/agent-sdk/typescript#modelusage), a map of model name to per-model token counts and cost. This is useful when you run multiple models (for example, Haiku for subagents and Opus for the main agent) and want to see where tokens are going.
+
+Each entry's `costBasis` says which price table priced that model's latest request: `list` for list price, `managed` for a [`modelPricing`](/docs/en/settings-reference#modelpricing) table, or `unknown` when neither matched the model ID. The field requires Claude Code v2.1.246 or later.
 
 The following example runs a query and prints the cost and token breakdown for each model used:
 

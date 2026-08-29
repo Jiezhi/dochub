@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6072,6 +6072,12 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Forward the field and its headers together</td>
 </tr>
 <tr>
+<td style="text-align: left;"><a href="/docs/en/prompt-caching">Prompt caching</a></td>
+<td style="text-align: left;">No beta pairing. Claude Code attaches <code>cache_control</code> markers to <code>system</code> blocks and to <code>messages</code> entries, including <code>role: "system"</code> entries appended mid-conversation</td>
+<td style="text-align: left;">No error: the conversation bills as uncached input on every turn, visible as high <code>input_tokens</code> with little or no cache activity in <code>usage</code></td>
+<td style="text-align: left;">Forward <code>cache_control</code> unchanged wherever it appears, and don't convert block-form <code>system</code> or message content to plain strings</td>
+</tr>
+<tr>
 <td style="text-align: left;"><a href="https://platform.claude.com/docs/en/build-with-claude/token-counting">Token counting</a></td>
 <td style="text-align: left;">No beta pairing; uses the <code>count_tokens</code> endpoint</td>
 <td style="text-align: left;">Claude Code falls back to counting context usage through the messages endpoint</td>
@@ -6081,7 +6087,7 @@ Use this file to discover all available pages before exploring further.</p>
 </table>
 <p>The <code>ANTHROPIC_DEFAULT_*_MODEL_SUPPORTED_CAPABILITIES</code> <a href="/docs/en/model-config">variables</a> declare model capabilities only in the provider configurations: <code>CLAUDE_CODE_USE_BEDROCK</code>, <code>CLAUDE_CODE_USE_VERTEX</code>, <code>CLAUDE_CODE_USE_FOUNDRY</code>, and <a href="/docs/en/amazon-bedrock#use-the-mantle-endpoint"><code>CLAUDE_CODE_USE_MANTLE</code></a>. They have no effect behind an <code>ANTHROPIC_BASE_URL</code> gateway.</p>
 <h3 id="automatic-retry-and-error-forwarding">Automatic retry and error forwarding</h3>
-<p>Claude Code retries automatically after some upstream rejections and disables the rejected capability for the rest of the conversation. Rejections of the <code>thinking</code> field, of <a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">thinking signatures</a>, and of mid-conversation system messages all recover this way. Context management and tool schema field rejections don't retry; those <code>400</code> errors reach the developer.</p>
+<p>When the upstream rejects the <code>thinking</code> field, a <a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">thinking signature</a>, a mid-conversation system message, or the <code>cache_control</code> marker on one of those messages, Claude Code retries the request and disables the rejected capability for the rest of the conversation. Claude Code doesn't retry context management or tool schema field rejections; those <code>400</code> errors reach the developer.</p>
 <p>The retry logic matches on the upstream's error wording, so forward error response bodies unmodified. A gateway that wraps upstream errors in its own envelope breaks the recovery path, even when it preserves the status code, unless the envelope's message carries a stable <code>capability_rejected:</code> token. <a href="/docs/en/claude-apps-gateway-config#upstream-error-messages">Claude apps gateway substitutes those tokens for cloud providers' error wording</a>, for example <code>capability_rejected: prompt_too_long</code>.</p>
 <h3 id="disable-pre-release-capabilities">Disable pre-release capabilities</h3>
 <p><code>CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1</code> stops Claude Code from sending pre-release capabilities and their body fields on every provider, including context management and the beta tool fields. The variable doesn't affect adaptive reasoning, which is selected by model rather than by beta. It never suppresses the OAuth capability that subscription authentication requires.</p>
@@ -6103,12 +6109,13 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <h3 id="request-and-response">Request and response</h3>
 <p>The request is <code>GET /v1/models?limit=1000</code> with a 3-second timeout, and any redirect is treated as failure so the credential can't leak to a redirect target. A gateway that responds slowly or redirects <code>/v1/models</code>, even <code>http</code> to <code>https</code>, fails discovery silently; serve the endpoint directly at the configured base URL.</p>
-<p>The discovery request sends exactly one credential header:</p>
+<p>Claude Code sends the discovery request with both credential headers below and omits a header whose value doesn't resolve. Sending both headers requires Claude Code v2.1.248 or later. Earlier versions send only <code>Authorization</code> when <code>ANTHROPIC_AUTH_TOKEN</code> is set and only <code>x-api-key</code> otherwise.</p>
 <ul>
-<li><code>ANTHROPIC_AUTH_TOKEN</code> as a bearer token, when set</li>
-<li>Otherwise the resolved API key, including an <a href="/docs/en/llm-gateway-connect#rotate-credentials-with-apikeyhelper"><code>apiKeyHelper</code></a> value, in the <code>x-api-key</code> header</li>
+<li><code>Authorization</code>: <code>ANTHROPIC_AUTH_TOKEN</code> as a bearer token, otherwise the <a href="/docs/en/llm-gateway-connect#rotate-credentials-with-apikeyhelper"><code>apiKeyHelper</code></a> value as a bearer token. In that case Claude Code waits for the helper to return before sending the request.</li>
+<li><code>x-api-key</code>: the API key Claude Code resolved, such as <code>ANTHROPIC_API_KEY</code>. When a helper value is the only credential, this header carries it too, so the value arrives in both headers.</li>
 </ul>
-<p>This differs from inference requests, which send a helper value in both headers. A gateway that authenticates <code>/v1/models</code> must accept <code>x-api-key</code> for helper deployments. Any headers from <code>ANTHROPIC_CUSTOM_HEADERS</code> are included as well.</p>
+<p>Claude Code also sends any headers from <code>ANTHROPIC_CUSTOM_HEADERS</code>.</p>
+<p>When neither credential header's value resolves, Claude Code skips discovery and writes a <code>[gatewayDiscovery] skipped</code> line to the debug log of a <code>claude --debug</code> session.</p>
 <p>Claude Code reads <code>id</code> and the optional <code>display_name</code> from each entry in the response's <code>data</code> array:</p>
 <p><code>json theme={null}
 {

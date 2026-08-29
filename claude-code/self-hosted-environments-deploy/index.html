@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5974,11 +5974,6 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Only when the <a href="/docs/en/artifacts#availability">Artifact tool</a> is available for sessions in your organization; defaults vary by plan, per the availability table there. Set <code>CLAUDE_CODE_DISABLE_ARTIFACT=1</code> on the runner to keep the tool disabled regardless of the organization setting.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>raw.githubusercontent.com</code></td>
-<td style="text-align: left;">443</td>
-<td style="text-align: left;">Only for the changelog fetch behind <code>/release-notes</code> and the release notes shown after a CLI version change. Suppressed by <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code>.</td>
-</tr>
-<tr>
 <td style="text-align: left;"><code>registry.npmjs.org</code></td>
 <td style="text-align: left;">443</td>
 <td style="text-align: left;">When a session installs a plugin, both for fetching npm-source plugin packages and for installing a plugin's Node.js dependencies, or when an <code>npx</code>-launched MCP server runs</td>
@@ -6205,7 +6200,9 @@ services:
     file: ./environment-secret
 <div class="highlight"><pre><span></span><code>## Shutdown timing
 
-On `SIGTERM`, the runner stops taking new work and, unless you set [`--defer-shutdown-max-min`](#defer-the-drain-past-the-first-signal), waits up to `--drain-wait-sec`, zero by default, for in-flight turns to finish, terminates each child process, and runs the [`post-session` lifecycle hook](/docs/en/self-hosted-environments-configuration#post-session). The full drain path needs up to `--session-stop-grace-sec` + `--drain-wait-sec` + `--post-session-hook-timeout-sec`, plus 15 seconds of fixed overhead for process cleanup, plus 30 more seconds when [`--push-outcome-on-release`](/docs/en/self-hosted-environments-reference#runner-cli-flags) is set. That is 80 seconds at defaults, and the runner logs the total at startup. Sessions drain in parallel under this one budget, so the total doesn't grow with `--capacity`.
+On `SIGTERM`, the runner stops taking new work and, unless you set [`--defer-shutdown-max-min`](#defer-the-drain-past-the-first-signal), waits up to `--drain-wait-sec`, zero by default, for in-flight turns to finish, terminates each session's process tree, and runs the [`post-session` lifecycle hook](/docs/en/self-hosted-environments-configuration#post-session). That process tree includes commands Claude was still running in the session.
+
+The full drain path needs up to `--session-stop-grace-sec` + `--drain-wait-sec` + `--post-session-hook-timeout-sec`, plus 15 seconds of fixed overhead for process cleanup, plus 30 more seconds when [`--push-outcome-on-release`](/docs/en/self-hosted-environments-reference#runner-cli-flags) is set. That is 80 seconds at defaults, and the runner logs the total at startup. Sessions drain in parallel under this one budget, so the total doesn't grow with `--capacity`.
 
 At the default `--drain-wait-sec 0`, a rolling restart interrupts in-flight turns; each session resumes on another runner, losing unpushed work as described under [Known issues](#additional-limitations). Set `--drain-wait-sec`, and raise the grace period to match, to let turns finish first.
 
@@ -6317,7 +6314,7 @@ For issues with self-hosted environments, contact your Anthropic account team.
 
 ## Troubleshooting
 
-For guided diagnosis, run the doctor subcommand on the runner host. It starts an interactive Claude Code session with read-only access to the runner's logs and state; the only change it can make is requeuing a stuck session. Sign in with `claude auth login` on that host first so the session can query your environment, its runners, and its queued sessions. Without that sign-in, for example when the host authenticates with an API key, it's limited to the local health endpoint, metrics, and the runner's log, and it reads the log only if you started the runner with `--log-file`.
+For guided diagnosis, run the doctor subcommand on the runner host. The doctor subcommand starts an interactive Claude Code session with the runner's logs and state attached. Sign in with `claude auth login` on that host first so the session can query your environment, its runners, and its queued sessions. Without that sign-in, for example when the host authenticates with an API key, it's limited to the local health endpoint, metrics, and the runner's log, and it reads the log only if you started the runner with `--log-file`.
 
 ```bash theme={null}
 claude self-hosted-runner doctor
@@ -6329,6 +6326,7 @@ claude self-hosted-runner doctor
 <li><strong>Sessions stay queued</strong>: every online runner may be locked to a different owner. Check each runner's <code>claude_code_self_hosted_runner_locked_account</code> <a href="/docs/en/self-hosted-environments-reference#prometheus-metrics">metric</a> or the <code>locked_account</code> field of its <code>[runner:health]</code> log line to see who holds it. Both show the owner's email only after the runner has been issued a session token carrying an <code>act.email</code> claim, which a Claude Tag agent's sessions never do. Without the claim, the runner emits no <code>locked_account</code> series and logs <code>locked_account=yes</code>, which tells you the runner is locked but not to which owner. Add replicas, or wait for an existing runner to drain and restart. If the environment uses on-demand runners, check the orchestrator instead; see <a href="/docs/en/self-hosted-environments-configuration#on-demand-runners">On-demand runners</a>.</li>
 <li><strong>Sessions fail immediately after pickup</strong>: open the session in claude.ai/code to see the error. The most common causes are missing <a href="#configure-git">git credentials</a> in the runner image and build tools that aren't installed. An unwritable base directory stops the runner at startup instead of failing sessions. See the <strong>Runner exits at startup with <code>cannot create or write to base directory</code></strong> entry in this list.</li>
 <li><strong>Sessions can't reach the network through an authenticating egress proxy</strong>: when the source you set with <a href="#authenticate-to-an-egress-proxy"><code>--proxy-authorization-command</code> or <code>--proxy-authorization-file</code></a> fails, times out after 30 seconds, or yields an empty value, the runner answers that connection <code>502 Bad Gateway</code> and logs why. The runner redacts the command's stderr in that log and never logs the header value. With <code>--proxy-authorization-command</code>, run the command yourself on the host to confirm it prints the whole header value on stdout. If the runner instead exits at startup with <code>could not start the proxy-authorization listener</code>, it couldn't open its loopback listener.</li>
+<li><strong>Runner logs <code>Poll failed</code> lines containing <code>rejecting the malformed poll response</code></strong>: the runner received a work-poll response whose body isn't the queue's expected JSON, most often because something between the runner and <code>api.anthropic.com</code>, such as an intercepting proxy or a captive portal, answered with its own page. The runner rejects the response, counts it under the <code>transport</code> kind of the <code>claude_code_self_hosted_runner_poll_errors_total</code> <a href="/docs/en/self-hosted-environments-reference#prometheus-metrics">metric</a>, and retries on the failed-poll schedule described in <a href="/docs/en/self-hosted-environments#session-lifecycle">Session lifecycle</a>. The runner keeps serving its live sessions. Configure the proxy to pass responses from <code>api.anthropic.com</code> through unaltered. Before v2.1.246, the runner read such a response as an empty work queue, which could end its live sessions or make it exit.</li>
 <li><strong>A session's branch no longer exists on the remote</strong>: for a git source the session only reads from, the runner skips that source and continues on the remaining ones. For the source the session pushes results to, a deleted branch, typically because it was merged and auto-deleted, fails the session with an error naming the repository and branch and asking you to restore the branch and retry. The runner fails the session with the same error when skipping would leave it with no repository at all. Before v2.1.228, such a session started in an empty directory.</li>
 <li><strong>Sessions take minutes to start</strong>: the initial clone usually dominates. Watch the <code>claude_code_self_hosted_runner_session_init_duration_seconds</code> <a href="/docs/en/self-hosted-environments-reference#prometheus-metrics">metric</a> to confirm, and cut the clone with a <a href="#reuse-a-pre-warmed-checkout">pre-warmed checkout</a> or a smaller <code>CLAUDE_RUNNER_FETCH_DEPTH</code>.</li>
 <li><strong>Pod is killed mid-drain</strong>: raise <code>terminationGracePeriodSeconds</code> to at least the value the runner logs at startup. See <a href="#shutdown-timing">Shutdown timing</a>.</li>

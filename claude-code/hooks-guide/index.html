@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6437,7 +6437,7 @@ exit 0  # exit 0 = no decision; the normal permission flow applies
 <li><strong>Exit 2</strong>: Claude Code blocks the action. Write a reason to stderr. Where it lands depends on the event: some events feed it to Claude as feedback so it can adjust, others show it to the user, and a few, such as <code>ConfigChange</code> and <code>Elicitation</code>, surface no message. Some events can't be blocked: for <code>SessionStart</code> and others, exit 2 shows stderr to the user and execution continues. See <a href="/docs/en/hooks#exit-code-2-behavior-per-event">exit code 2 behavior per event</a> for the full list.</li>
 <li><strong>Any other exit code</strong>: for most events, the outcome depends on what your hook printed to stdout:</li>
 <li>A parsed object that passes schema validation: Claude Code ignores the exit code, the JSON alone decides the outcome, and the hook isn't reported as an error. The per-event exceptions, like <code>WorktreeCreate</code> failing on any nonzero exit, are listed in the reference's <a href="/docs/en/hooks#exit-code-output">Exit code output</a> section.</li>
-<li>A parsed object that fails schema validation: a non-blocking error; the notice carries the validation message.</li>
+<li>A parsed object that fails schema validation, or stdout that Claude Code <a href="/docs/en/hooks#exit-code-0">tries to parse as JSON</a> but that isn't valid JSON: a non-blocking error; the notice carries the validation or parse message.</li>
 <li>Stdout that Claude Code <a href="/docs/en/hooks#exit-code-0">treats as plain text</a>, or empty stdout: the action proceeds as a non-blocking error. The transcript shows a <code>&lt;hook name&gt; hook error</code> notice, then the first line of stderr prefixed with <code>Failed with non-blocking status code:</code>. To capture the full stderr, enable <a href="/docs/en/hooks#debug-hooks">debug logging</a> with <code>claude --debug</code> or by running <code>/debug</code> mid-session.</li>
 </ul>
 <h4 id="structured-json-output">Structured JSON output</h4>
@@ -6658,7 +6658,7 @@ For example, this configuration runs a hook only when Claude uses `git` commands
 </tr>
 </tbody>
 </table>
-<p>The filter also fails open, running your hook regardless of pattern, when the Bash command can't be parsed. Because the filter is best-effort, use the <a href="/docs/en/permissions">permission system</a> rather than a hook to enforce a hard allow or deny.</p>
+<p>When Claude Code can't determine which commands the Bash input runs, it runs your hook regardless of the pattern. The <a href="/docs/en/hooks#bash-if-matching">Bash matching table</a> covers the command shapes Claude Code can and can't narrow by subcommand. Because the filter is best-effort, use the <a href="/docs/en/permissions">permission system</a> rather than a hook to enforce a hard allow or deny.</p>
 <p>The <code>if</code> field accepts the same patterns as permission rules: <code>"Bash(git *)"</code>, <code>"Edit(*.ts)"</code>, and so on. To match multiple tool names, use separate handlers each with its own <code>if</code> value, or match at the <code>matcher</code> level where pipe alternation is supported.</p>
 <p><code>if</code> only works on tool events: <code>PreToolUse</code>, <code>PostToolUse</code>, <code>PostToolUseFailure</code>, <code>PermissionRequest</code>, and <code>PermissionDenied</code>. Adding it to any other event prevents the hook from running.</p>
 <h3 id="configure-hook-location">Configure hook location</h3>
@@ -6845,7 +6845,9 @@ You see a message like "PreToolUse hook error: ..." in the transcript.
   ```
 * If you see "command not found", use absolute paths or `${CLAUDE_PROJECT_DIR}` to reference scripts. To avoid shell quoting entirely, add `"args": []` to switch to [exec form](/docs/en/hooks#exec-form-and-shell-form), which spawns the script directly without a shell
 * If you see "jq: command not found", install `jq` or use Python/Node.js for JSON parsing
-* If the notice shows a JSON validation message, your hook's stdout parsed as JSON but failed schema validation. This happens even on exit 0. The reference's [Exit code output](/docs/en/hooks#exit-code-0) section covers the exit-code and JSON combinations
+* If the notice shows a JSON validation message, your hook's stdout parsed as JSON but failed schema validation. If it shows a JSON parse message, the stdout looked like a JSON object but wasn't valid JSON. Both happen even on exit 0.
+
+  To fix a parse failure, build the payload with a JSON encoder such as `jq` instead of string concatenation, so quotes and backslashes inside values are escaped. The reference's [Exit code output](/docs/en/hooks#exit-code-output) section covers the exit-code and JSON combinations
 * If the script isn't running at all, make it executable: `chmod +x ./my-hook.sh`
 
 ### `/hooks` shows no hooks configured
@@ -6892,7 +6894,7 @@ fi
 <li><strong>Successful run</strong>: you see nothing, unless the hook's JSON surfaces something, such as <code>systemMessage</code> or Stop hook feedback.</li>
 <li>To confirm a hook ran, check for its effect, like a reformatted file, or turn on debug logging as described below and trigger the hook again</li>
 <li><strong>Blocking error</strong>: on most events you see the hook's feedback. When the hook's JSON made a blocking decision, the feedback is the reason from that decision; otherwise it is the hook's stderr. On a few events, such as <code>ConfigChange</code> and <code>Elicitation</code>, a block surfaces no message.</li>
-<li><strong>Non-blocking error</strong>: the action proceeded, and you see a <code>&lt;hook name&gt; hook error</code> notice with a short explanation, such as the first line of stderr prefixed with <code>Failed with non-blocking status code:</code> or a JSON validation message.</li>
+<li><strong>Non-blocking error</strong>: the action proceeded, and you see a <code>&lt;hook name&gt; hook error</code> notice with a short explanation, such as the first line of stderr prefixed with <code>Failed with non-blocking status code:</code>, or a JSON validation or parse message.</li>
 </ul>
 <p>Which exit-code and JSON combinations produce each outcome, including the per-event exceptions, is defined in the reference's <a href="/docs/en/hooks#exit-code-output">Exit code output</a> section.</p>
 <p>For full execution details including which hooks matched, their exit codes, stdout, and stderr, read the debug log. Start Claude Code with <code>claude --debug-file /tmp/claude.log</code> to write to a known path, then <code>tail -f /tmp/claude.log</code> in another terminal. If you started without that flag, run <code>/debug</code> mid-session to enable logging and find the log path.</p>

@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6064,6 +6064,15 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 </Steps></p>
 <h3 id="verify-settings-delivery">Verify settings delivery</h3>
 <p>To confirm that settings are being applied, ask a user to restart Claude Code. If the configuration includes settings that trigger the <a href="#security-approval-dialogs">security approval dialog</a>, the user sees a prompt describing the managed settings the next time Claude Code fetches them: at the next start, or within an hour in a running interactive session. You can also verify that managed permission rules are active by having a user run <code>/permissions</code> to view their effective permission rules.</p>
+<p>To check the fetch outcome on a specific machine, have the user run <code>claude doctor</code> and read the <code>Managed settings (remote)</code> line. Requires Claude Code v2.1.248 or later. The line reports one of four outcomes:</p>
+<ul>
+<li>The delivered settings loaded</li>
+<li>Your organization has no server-managed settings configured</li>
+<li>The fetch failed, with the cause and whether a cached policy still applies</li>
+<li>Claude Code skipped the fetch, with the reason. See <a href="#platform-availability">Platform availability</a> for the providers and configurations that skip it</li>
+</ul>
+<p>While the fetch is still in progress, the line reports that instead.</p>
+<p>In a running session, <code>/status</code> shows the same line after a failed fetch, and for some skipped-fetch causes, such as a third-party provider variable or a custom <code>ANTHROPIC_BASE_URL</code> exported in the user's shell.</p>
 <h3 id="access-control">Access control</h3>
 <p>The following roles can manage server-managed settings:</p>
 <ul>
@@ -6096,18 +6105,20 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 </ul>
 <h3 id="fetch-and-caching-behavior">Fetch and caching behavior</h3>
 <p>Claude Code fetches settings from Anthropic's servers at startup and polls for updates hourly during active sessions.</p>
-<p>A client signed in through a <a href="#platform-availability">Claude apps gateway</a> fetches its settings from the gateway and waits for that fetch before the session starts, so the asynchronous fetch in the lists below doesn't apply to it. <a href="#enforce-fail-closed-startup">Enforce fail-closed startup</a> covers what happens when that fetch fails.</p>
+<p>A client signed in through a <a href="#platform-availability">Claude apps gateway</a> fetches its settings from the gateway and waits for that fetch before the session starts, so the fetch in the lists below doesn't apply to it. <a href="#enforce-fail-closed-startup">Enforce fail-closed startup</a> covers what happens when that fetch fails.</p>
 <p><strong>First launch without cached settings:</strong></p>
 <ul>
-<li>Claude Code fetches settings asynchronously</li>
-<li>If the fetch fails, Claude Code continues without server-managed settings; endpoint-managed settings still apply. If a managed source sets <a href="#enforce-fail-closed-startup"><code>forceRemoteSettingsRefresh</code></a>, Claude Code exits instead</li>
-<li>Until the fetch completes, Claude Code doesn't yet enforce the server-managed settings</li>
+<li>When a developer signs in at startup, such as on a first run or after <code>/logout</code>, Claude Code waits up to five seconds for the fetch before it opens the session. When the policy arrives in time, Claude Code enforces it from the first screen and shows your <a href="/docs/en/settings-reference#companyannouncements"><code>companyAnnouncements</code></a> on it. When the payload needs <a href="#security-approval-dialogs">security approval</a>, Claude Code ends the wait and applies the payload once the developer approves</li>
+<li>In any other startup, and when that five-second wait runs out, Claude Code opens the session while the fetch continues, so a brief window passes before the settings load and the restrictions take effect</li>
+<li>If the fetch fails, Claude Code continues without server-managed settings and warns in interactive sessions that no remote policy applies; endpoint-managed settings still apply. If a managed source sets <a href="#enforce-fail-closed-startup"><code>forceRemoteSettingsRefresh</code></a>, Claude Code exits instead</li>
 </ul>
 <p><strong>Subsequent launches with cached settings:</strong></p>
 <ul>
 <li>Cached settings apply immediately at startup, except for the withheld environment variables described below</li>
+<li>A cached <a href="/docs/en/settings-reference#modelpricing"><code>modelPricing</code></a> doesn't apply until the session's fetch confirms the payload. Until then, the cost figures developers see in <code>/usage</code> and the status line are at list price</li>
 <li>Claude Code fetches fresh settings in the background</li>
-<li>Cached settings persist through network failures. The withheld environment variables remain withheld until a fetch succeeds</li>
+<li>Cached settings persist through network failures. If the startup fetch fails, Claude Code warns in interactive sessions that the cached policy is in effect</li>
+<li>Until a fetch succeeds, the withheld environment variables remain withheld and cost figures stay at list price</li>
 </ul>
 <p>Claude Code withholds several categories of variables in the cached <code>env</code> block until the server confirms the payload for the session. This keeps a cached proxy, certificate authority, endpoint, or credential value from redirecting, intercepting, or re-authenticating the settings fetch that confirms the payload. The hardening applies only to the server-fetched settings cache: <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> deployed through MDM or <code>managed-settings.json</code> are unaffected. The withholding requires Claude Code v2.1.198 or later; before v2.1.198, the whole cached <code>env</code> block applies at startup. The withheld categories include:</p>
 <ul>
@@ -6181,10 +6192,12 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 </ul>
 <p>Other delivered variables can require the user's approval before they take effect; a non-empty proxy, base-URL, or <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> value always does. When a delivered variable needs approval, the dialog names it, so the user sees exactly what the policy is asking to set. Before v2.1.218, Claude Code applied fewer variables without asking the user, so settings such as <code>DISABLE_AUTO_COMPACT</code> triggered the dialog at any non-empty value.</p>
 <p>Claude Code decides whether four privacy toggles need approval by the delivered value rather than by the variable name: <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code>, <code>DISABLE_ERROR_REPORTING</code>, <code>DISABLE_TELEMETRY</code>, and <code>DO_NOT_TRACK</code>. A truthy value such as <code>1</code> or <code>true</code> only turns tracking, reporting, or other nonessential traffic off, so Claude Code applies it without asking the user. For any other non-empty value, Claude Code shows the dialog. Before v2.1.218, all of them except <code>DO_NOT_TRACK</code> applied without approval at any value, and <code>DO_NOT_TRACK</code> triggered the dialog at any non-empty value.</p>
+<p>Claude Code also decides whether <a href="/docs/en/env-vars"><code>API_FORCE_IDLE_TIMEOUT</code></a> needs approval by the delivered value: a truthy value only turns the <a href="/docs/en/network-config#streaming-idle-watchdogs">body idle timeout</a> on, so Claude Code applies it without asking the user. For any other non-empty value, Claude Code shows the dialog. Before v2.1.248, any non-empty value triggered the dialog.</p>
 <h2 id="platform-availability">Platform availability</h2>
 <p>Server-managed settings require a direct connection to <code>api.anthropic.com</code>, and delivery requires the session to authenticate with a Team or Enterprise OAuth login, an OAuth token supplied through <code>CLAUDE_CODE_OAUTH_TOKEN</code>, or a directly configured API key. Keys returned by an <a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a> script don't trigger the settings fetch.</p>
 <p>In a <a href="https://claude.com/docs/cowork/overview">Cowork</a> session in the Claude Desktop app, Claude Code doesn't fetch server-managed settings from the claude.ai admin console, even when the user signs in with a Team or Enterprise account. <a href="/docs/en/managed-settings#where-and-when-a-policy-applies">Where and when a policy applies</a> covers which policy reaches Cowork sessions on the user's machine and remote Cowork sessions.</p>
-<p>If you export a <code>CLAUDE_CODE_USE_*</code> provider variable or a non-default <code>ANTHROPIC_BASE_URL</code> in your shell, Claude Code skips the settings fetch for your sessions. You can't clear the export with a server-managed <code>env</code> block, because the block arrives through the fetch that the export prevents. An <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> <code>env</code> block doesn't restore the fetch either: Claude Code checks eligibility before it applies managed <code>env</code> blocks, so the override changes the session's provider selection but the fetch stays skipped.</p>
+<p>If you export a <code>CLAUDE_CODE_USE_*</code> provider variable or a non-default <code>ANTHROPIC_BASE_URL</code> in your shell, Claude Code skips the settings fetch for your sessions. <a href="#verify-settings-delivery"><code>claude doctor</code> and <code>/status</code> report the skipped fetch and its cause</a>.</p>
+<p>You can't clear the export with a server-managed <code>env</code> block, because the block arrives through the fetch that the export prevents. An <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> <code>env</code> block doesn't restore the fetch either: Claude Code checks eligibility before it applies managed <code>env</code> blocks, so the endpoint-managed value changes the session's provider selection but the fetch stays skipped.</p>
 <p>To restore server-managed delivery, remove the export from your shell, or set the variable to <code>""</code> in your user settings <code>env</code> block, which applies before the eligibility check. To enforce policy without relying on users to change their shells, deliver the settings through the endpoint-managed channel instead.</p>
 <p>For Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a> deployments, a self-hosted <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a> provides the equivalent remote managed-settings delivery: gateway-signed-in clients fetch managed settings from the gateway instead of <code>api.anthropic.com</code>. The failure semantics differ at startup: a gateway client that can't reach the gateway exits with an error instead of falling back to cached settings, while the hourly background refresh is fail-open on both channels.</p>
 <h2 id="audit-logging">Audit logging</h2>
@@ -6202,11 +6215,11 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 <tbody>
 <tr>
 <td style="text-align: left;">User edits the cached settings file</td>
-<td style="text-align: left;">Tampered file applies at startup, and the next server fetch restores the correct settings, except for the <a href="#fetch-and-caching-behavior">keys that apply only at the next launch</a>, such as <code>model</code> or a variable added to the <code>env</code> block, which stay in effect until relaunch. In Claude Code v2.1.198 or later, the <a href="#fetch-and-caching-behavior">withheld environment variables</a> in the <code>env</code> block don't apply until the server confirms the payload</td>
+<td style="text-align: left;">Tampered file applies at startup, and the next server fetch restores the correct settings, except for the <a href="#fetch-and-caching-behavior">keys that apply only at the next launch</a>, such as <code>model</code> or a variable added to the <code>env</code> block, which stay in effect until relaunch. In Claude Code v2.1.198 or later, the <a href="#fetch-and-caching-behavior">withheld environment variables</a> in the <code>env</code> block don't apply until the server confirms the payload. In Claude Code v2.1.242 or later, a cached <a href="/docs/en/settings-reference#modelpricing"><code>modelPricing</code></a> doesn't apply until the server confirms the payload either, so cost figures are at list price until then</td>
 </tr>
 <tr>
 <td style="text-align: left;">User deletes the cached settings file</td>
-<td style="text-align: left;">First-launch behavior occurs: Claude Code fetches the settings asynchronously and doesn't enforce server-managed settings until the fetch completes</td>
+<td style="text-align: left;"><a href="#fetch-and-caching-behavior">First-launch behavior</a> occurs</td>
 </tr>
 <tr>
 <td style="text-align: left;">User runs a modified Claude Code binary</td>
@@ -6218,7 +6231,7 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 </tr>
 <tr>
 <td style="text-align: left;">API is unavailable</td>
-<td style="text-align: left;">Cached settings apply if available. Without a cache, Claude Code enforces no server-managed settings until the next successful fetch and still applies any <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> on the device. In Claude Code v2.1.198 or later, the <a href="#fetch-and-caching-behavior">withheld environment variables</a> in the cached <code>env</code> block don't apply on fetch failure; the rest of the cache still applies. With <code>forceRemoteSettingsRefresh: true</code>, the CLI exits instead of continuing, except for <a href="#enforce-fail-closed-startup"><code>claude auth</code> subcommands</a>. Clients signed in through a <a href="#platform-availability">Claude apps gateway</a> exit at startup without that setting, with the same <code>claude auth</code> exemption</td>
+<td style="text-align: left;">Cached settings apply if available. Without a cache, Claude Code enforces no server-managed settings until the next successful fetch and still applies any <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> on the device. In Claude Code v2.1.198 or later, the <a href="#fetch-and-caching-behavior">withheld environment variables</a> in the cached <code>env</code> block don't apply on fetch failure. In Claude Code v2.1.242 or later, a cached <a href="/docs/en/settings-reference#modelpricing"><code>modelPricing</code></a> doesn't apply on fetch failure either, so cost figures stay at list price until a fetch succeeds. The rest of the cache still applies. With <code>forceRemoteSettingsRefresh: true</code>, the CLI exits instead of continuing, except for <a href="#enforce-fail-closed-startup"><code>claude auth</code> subcommands</a>. Clients signed in through a <a href="#platform-availability">Claude apps gateway</a> exit at startup without that setting, with the same <code>claude auth</code> exemption</td>
 </tr>
 <tr>
 <td style="text-align: left;">User authenticates with a different organization</td>

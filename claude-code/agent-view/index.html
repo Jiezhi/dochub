@@ -1885,7 +1885,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6799,6 +6799,7 @@ Every background session, whether started from agent view, `/bg`, or `claude --b
 Claude skips the worktree when:
 
 * The session is already inside a linked git worktree, whether Claude created it under `.claude/worktrees/` or you created it with `git worktree add` somewhere else
+* The file that Claude is editing is inside a linked git worktree, such as one that the session or its subagent created with `git worktree add`
 * The working directory isn't a git repository and no [`WorktreeCreate` hook](/docs/en/hooks#worktreecreate) is configured
 * The write is outside the working directory
 
@@ -6812,7 +6813,7 @@ To turn off worktree isolation for a repository where git worktrees are impracti
 }
 </code></pre></div></p>
 <p>Outside a git repository, sessions write to the working directory directly and aren't isolated from each other, so avoid dispatching parallel sessions that edit the same files. If you use a different version control system, configure a <a href="/docs/en/worktrees#non-git-version-control"><code>WorktreeCreate</code> hook</a> and Claude isolates edits the same way it does for git.</p>
-<p>When the hook fails in a directory that isn't a git repository, the session skips isolation for that directory and edits the working directory in place. Inside a git repository, writes stay blocked until the session isolates.</p>
+<p>When the hook fails in a directory that isn't a git repository, Claude skips isolation for that directory and edits the working directory in place. Inside a git repository, Claude Code blocks writes to the shared checkout until Claude moves the session into a worktree.</p>
 <p>To find a session's worktree path, peek the session or attach and check its working directory.</p>
 <p>A <a href="/docs/en/sub-agents">subagent</a> the background session spawns inherits the session's working directory, so its file edits land in the session's worktree rather than your working copy. To give a subagent its own separate worktree instead, set <a href="/docs/en/sub-agents#supported-frontmatter-fields"><code>isolation: worktree</code></a> in its frontmatter or pass <code>isolation: "worktree"</code> when spawning it.</p>
 <p>When a background session has made code changes in a worktree Claude entered, Claude Code instructs Claude to preserve the work before finishing, so it survives if you delete the session and its worktree:</p>
@@ -6885,6 +6886,7 @@ claude agents --permission-mode plan --model opus --effort high
 <p><code>--effort</code> here accepts the same values as the <a href="/docs/en/cli-reference#cli-flags">top-level <code>--effort</code> flag</a>, including <code>ultracode</code>.</p>
 <p><code>--agent</code> sets the <a href="/docs/en/sub-agents">subagent</a> used when a dispatch prompt doesn't name one, either with <code>@name</code> or as the first word. It defaults to the <a href="/docs/en/settings-reference#agent"><code>agent</code> setting</a> if one is set, otherwise the built-in catch-all <code>claude</code> agent. Naming a subagent in the dispatch input overrides both.</p>
 <p><code>claude agents</code> also accepts <code>--dangerously-skip-permissions</code> as shorthand for <code>--permission-mode bypassPermissions</code>, and <code>--allow-dangerously-skip-permissions</code> to make <code>bypassPermissions</code> available in each dispatched session's <code>Shift+Tab</code> cycle without starting in that mode. Both match the <a href="/docs/en/cli-reference">top-level CLI flags</a>.</p>
+<p>Pass <code>--restricted</code> to start every session you dispatch from the view in <a href="/docs/en/cli-reference#cli-flags">restricted mode</a>, as if each were launched with the top-level <code>--restricted</code> flag. Requires Claude Code v2.1.248 or later.</p>
 <p>The active defaults appear in the footer below the dispatch input.</p>
 <p>Claude Code refuses <code>claude --bg --permission-mode bypassPermissions</code> until you've accepted the bypass disclaimer by running <code>claude --dangerously-skip-permissions</code> once interactively, since that mode lets a session you aren't watching act without approval. Passing <code>--dangerously-skip-permissions</code> or <code>--permission-mode bypassPermissions</code> to <code>claude agents</code> shows the same disclaimer when you haven't accepted it before, and accepting applies <code>bypassPermissions</code> to the sessions you launch from the view. Passing <code>--allow-dangerously-skip-permissions</code> shows the same disclaimer too, and accepting makes <code>bypassPermissions</code> available in the <code>Shift+Tab</code> cycle of those sessions without starting them in it.</p>
 <h4 id="what-persists-across-restarts">What persists across restarts</h4>
@@ -6989,6 +6991,8 @@ If you export a gateway `ANTHROPIC_BASE_URL` in the shell you dispatch from, it 
 * The session is dispatched into the directory you're dispatching from, or is your own session backgrounded with `←` or `/background`. Dispatching into a different directory with `@repo` or `--cwd` doesn't carry the shell's gateway; that project's `settings.json` `env` block supplies the endpoint instead.
 
 When the supervisor's environment carries a different gateway or none, the worker keeps your stored credentials against the default endpoint instead of mixing one environment's credential with another's endpoint. The forwarded endpoint applies only to that live process and is never written to disk.
+
+Claude Code forwards a gateway in front of a cloud provider. If the shell you dispatch from selects the provider and exports its gateway endpoint with its auth-bypass flag, Claude Code forwards the endpoint-and-flag pair to the worker under the conditions that apply to `ANTHROPIC_BASE_URL`, together with `ANTHROPIC_CUSTOM_HEADERS`. For example, export `CLAUDE_CODE_USE_VERTEX=1` with `ANTHROPIC_VERTEX_BASE_URL` and `CLAUDE_CODE_SKIP_VERTEX_AUTH=1`, and Claude Code forwards that endpoint and flag.
 
 When the supervisor stops an idle session and you later wake it by attaching or replying, your environment's gateway is forwarded again under the same conditions as a fresh dispatch. Waking a session from a shell without the gateway restarts it against your settings and stored credentials instead.
 
@@ -7192,6 +7196,18 @@ claude daemon stop --any --keep-workers</code></p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>v2.1.251</td>
+<td>In a background session that hasn't <a href="#how-file-edits-are-isolated">moved into a worktree</a>, Claude and the subagents it spawns can edit files inside a linked git worktree.</td>
+</tr>
+<tr>
+<td>v2.1.251</td>
+<td>Claude Code forwards a cloud provider gateway exported in the shell you dispatch from, such as <code>ANTHROPIC_VERTEX_BASE_URL</code> or <code>ANTHROPIC_BEDROCK_BASE_URL</code> with its auth-bypass flag, to <a href="#the-supervisor-process">the session's worker</a> under the same conditions as <code>ANTHROPIC_BASE_URL</code>. Before this release, if you backgrounded or dispatched from a shell authenticated only through such a gateway, every request the session made failed, because the endpoint and flag were dropped from its environment.</td>
+</tr>
+<tr>
+<td>v2.1.251</td>
+<td>When a background session starts while another Claude Code process is refreshing a <a href="/docs/en/plugin-marketplaces">plugin marketplace</a>, such as a sibling session running the <a href="/docs/en/discover-plugins#configure-auto-updates">marketplace auto-update</a>, Claude Code keeps that marketplace's plugins available. Before this release, such a session could start without any of that marketplace's skills, agents, hooks, and MCP servers and stay that way for its whole run.</td>
+</tr>
 <tr>
 <td>v2.1.248</td>
 <td><code>Shift+Enter</code> in the <a href="#keyboard-shortcuts">dispatch input</a> inserts a newline, matching the main prompt, and <code>Ctrl+Enter</code> dispatches and attaches immediately in terminals where the <code>?</code> overlay lists <code>ctrl+enter to start and open</code>. Before this release, <code>Shift+Enter</code> dispatched and attached.</td>

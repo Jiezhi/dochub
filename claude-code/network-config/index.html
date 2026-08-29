@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5984,6 +5984,8 @@ Use this file to discover all available pages before exploring further.</p>
 <p>export NO_PROXY="*"
 <div class="highlight"><pre><span></span><code>Lowercase variants also work, and Claude Code uses the first one that's set in the order `https_proxy`, `HTTPS_PROXY`, `http_proxy`, `HTTP_PROXY`.
 
+Claude Code never sends its WebSocket connections to `localhost`, `::1`, or `127.0.0.0/8` through the proxy, so you don't need a loopback entry in `NO_PROXY` for them.
+
 &lt;Note&gt;
   Claude Code does not support SOCKS proxies.
 &lt;/Note&gt;
@@ -6087,7 +6089,7 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
   An already-running supervisor keeps the launch configuration it started with. After deploying the launcher setting, run <a href="/docs/en/agent-view#the-supervisor-process"><code>claude daemon stop --any</code></a> so the next <code>claude agents</code> or <code>--bg</code> starts a supervisor that honors it. An installed service takes <code>claude daemon stop</code> without <code>--any</code>.
 </Note></p>
 <h2 id="streaming-idle-watchdogs">Streaming idle watchdogs</h2>
-<p>Claude Code runs three independent timers that abort a streaming model response when it goes quiet, so a dead connection fails and retries instead of hanging. Each timer watches a different signal:</p>
+<p>Claude Code runs four independent timers that abort a streaming model response when it goes quiet, so a dead connection fails and retries instead of hanging. The first-byte deadline covers the wait for response headers, before any of the response has arrived. Each of the other three watches a live response for a different signal.</p>
 <table>
 <thead>
 <tr>
@@ -6098,6 +6100,12 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
 </tr>
 </thead>
 <tbody>
+<tr>
+<td style="text-align: left;">First-byte deadline</td>
+<td style="text-align: left;">No response headers arrive after Claude Code sends the request</td>
+<td style="text-align: left;">Direct Anthropic API and <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>, including through an HTTPS proxy, but not when <code>ANTHROPIC_BASE_URL</code> or <code>ANTHROPIC_AWS_BASE_URL</code> routes them through a <a href="/docs/en/gateways">gateway</a>. Opt-in on Amazon Bedrock with <code>CLAUDE_ENABLE_BYTE_WATCHDOG_BEDROCK=1</code>; doesn't run on Google Cloud's Agent Platform or Microsoft Foundry</td>
+<td style="text-align: left;">180 seconds on the direct Anthropic API, 300 seconds elsewhere, plus one second per 32KB of request body</td>
+</tr>
 <tr>
 <td style="text-align: left;">Event-level watchdog</td>
 <td style="text-align: left;">No response events parse. On connections where the byte-level watchdog runs, arriving bytes, including keep-alive pings, also reset this watchdog, for up to about five minutes without a parsed event</td>
@@ -6120,12 +6128,14 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
 </table>
 <p>Configure the timers with these variables, each detailed in the <a href="/docs/en/env-vars">environment variables reference</a>:</p>
 <ul>
-<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> and <code>CLAUDE_ENABLE_BYTE_WATCHDOG</code> force the corresponding watchdog on with <code>1</code> or off with <code>0</code>, within the connections the table lists; neither variable extends a watchdog to a connection type it doesn't cover.</li>
+<li><code>CLAUDE_ENABLE_STREAM_WATCHDOG</code> and <code>CLAUDE_ENABLE_BYTE_WATCHDOG</code> force the corresponding watchdog on with <code>1</code> or off with <code>0</code>, within the connections the table lists; neither variable extends a watchdog to a connection type it doesn't cover. <code>CLAUDE_ENABLE_BYTE_WATCHDOG</code> set to <code>0</code> also turns off the first-byte deadline.</li>
 <li><code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> sets both watchdogs' timeout. Claude Code raises values below 5 minutes to 5 minutes, and caps the value at 30 minutes for the byte-level watchdog.</li>
-<li><code>CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS</code> sets the byte-level watchdog's timeout alone, clamped to between 10 seconds and 30 minutes, and takes precedence over <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> for that watchdog.</li>
+<li><code>CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS</code> sets the byte-level watchdog's timeout without changing the event-level watchdog's, clamped to between 10 seconds and 30 minutes, and takes precedence over <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> for that watchdog.</li>
+<li><code>CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS</code> sets the first-byte deadline directly. Leave it unset and Claude Code derives the deadline from the byte-level watchdog's timeout or from an <code>API_TIMEOUT_MS</code> you set above that timeout, so <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> and <code>CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS</code> change the deadline too. For the clamps, the upload allowance, and the <code>API_TIMEOUT_MS</code> cap, see <a href="/docs/en/errors#no-response-from-api">No response from API</a>.</li>
 <li><code>API_FORCE_IDLE_TIMEOUT</code> set to <code>0</code> turns the body idle timeout off, and set to <code>1</code> turns it on for every provider. The watchdogs run independently of it, so to let a stream pause longer than their thresholds, also raise or disable them.</li>
 </ul>
 <p>When a watchdog aborts a stalled stream, Claude Code treats it as a mid-stream failure: depending on how far the response had got, it retries the request or ends the turn with an error, keeps the completed output and shows an <a href="/docs/en/errors#the-response-above-may-be-incomplete">incomplete-response notice</a>, or ends the turn normally. <a href="/docs/en/errors#automatic-retries">Automatic retries</a> says where each outcome applies. In a <a href="/docs/en/headless">non-interactive session</a>, Claude Code may first prompt Claude to continue the cut-off response; <a href="/docs/en/errors#the-response-above-may-be-incomplete">that notice's entry</a> says when it does and when you still see the notice.</p>
+<p>When the first-byte deadline fires, no response has started, so there is no partial output to keep. For how Claude Code re-sends the request and when the turn ends instead, see <a href="/docs/en/errors#no-response-from-api">No response from API</a>.</p>
 <h2 id="network-access-requirements">Network access requirements</h2>
 <p>Claude Code requires access to the following URLs. Allowlist these in your proxy configuration and firewall rules, especially in containerized or restricted network environments. The first-run setup connectivity check points here when it can't reach <code>api.anthropic.com</code> or <code>platform.claude.com</code>; see <a href="/docs/en/errors#unable-to-connect-to-anthropic-services">Unable to connect to Anthropic services</a> for the check's messages and recovery steps.</p>
 <table>
@@ -6182,7 +6192,7 @@ mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY
 </tr>
 <tr>
 <td><code>raw.githubusercontent.com</code></td>
-<td>Changelog feed for <a href="/docs/en/commands"><code>/release-notes</code></a> and the release notes shown after updating</td>
+<td>Changelog feed for <a href="/docs/en/commands"><code>/release-notes</code></a>. In interactive sessions, Claude Code also fetches it in the background at startup when its cached changelog doesn't yet cover the running version, such as the first start after an update; non-interactive and cloud sessions never fetch it</td>
 </tr>
 <tr>
 <td><code>http-intake.logs.us5.datadoghq.com</code></td>

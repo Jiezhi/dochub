@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6816,7 +6816,7 @@ When an HTTP or SSE server's first connection fails with a transient error, such
 Claude Code doesn't retry in these cases:
 
 * A WebSocket server's first connection
-* An authentication or not-found error, because it requires a configuration change to resolve
+* An authentication or not-found error, because it requires a configuration change to resolve. When a [`headersHelper`](#use-dynamic-headers-for-custom-authentication) is the server's only source of the `Authorization` header, Claude Code retries an authentication error anyway, because it re-runs the helper on each attempt and can pick up a fresh credential
 
 #### Failed discovery requests
 
@@ -6850,7 +6850,7 @@ On the [v2 runtime](#mcp-client-runtimes), if you set [`MCP_PROTOCOL_NEGOTIATION
   * Use `/mcp` to authenticate with remote servers that require OAuth 2.0 authentication
 &lt;/Tip&gt;
 
-The per-server `timeout` is a hard wall-clock limit per tool call, and progress notifications from the server don't extend it. Values below 1000 are ignored and fall through to `MCP_TOOL_TIMEOUT`, or to its default of about 28 hours when that variable is unset. For an HTTP, SSE, or [claude.ai connector](/docs/en/mcp#use-mcp-servers-from-claude-ai) server there is also a second, per-request timer that covers each request through to the server's first response byte. That timer is 60 seconds unless you set the per-server `timeout` or `MCP_TOOL_TIMEOUT`; setting either to 60 seconds or higher raises the per-request timer to that value, a lower value doesn't shorten it, and the 28-hour default of an unset `MCP_TOOL_TIMEOUT` never feeds it. Stdio and WebSocket servers have no per-request timer. Before v2.1.162, values below 1000 were floored to one second instead.
+The per-server `timeout` is a hard wall-clock limit per tool call, and progress notifications from the server don't extend it. Values below 1000 are ignored and fall through to `MCP_TOOL_TIMEOUT`, or to its default of about 28 hours when that variable is unset. For an HTTP, SSE, or [claude.ai connector](/docs/en/mcp#use-mcp-servers-from-claude-ai) server there is also a second, per-request timer that covers each request through to the server's first response byte. Claude Code sets that timer to the greatest of three values: 60 seconds, the tool timeout that applies to the server, and `MCP_TIMEOUT`. The 28-hour default of an unset `MCP_TOOL_TIMEOUT` doesn't enter that comparison, and a value below 60 seconds doesn't shorten the timer. Stdio and WebSocket servers have no per-request timer. Before v2.1.162, values below 1000 were floored to one second instead.
 
 A per-server `timeout` of at least 1000 also acts as a floor on the idle timeout described below: Claude Code never aborts that server's tool calls for idleness sooner than the per-server `timeout`. Requires Claude Code v2.1.203 or later.
 
@@ -7102,6 +7102,7 @@ Claude Code marks a remote server as needing authentication when the server resp
 
 * For a server you haven't signed in to, either status code flags it in `/mcp` so you can complete the OAuth flow.
 * For a [claude.ai connector](#use-mcp-servers-from-claude-ai), a `401` caused by claude.ai rejecting your session token doesn't flag the connector, because re-authorizing the connector can't fix your login. Claude Code shows the [session-token-rejected state](/docs/en/errors#claude-ai-rejected-the-session-token) instead.
+* For a server whose `Authorization` header you configured, in `headers` or through a [`headersHelper`](#use-dynamic-headers-for-custom-authentication), a `401` or `403` while connecting doesn't flag the server, because the credential to fix is the one you configured. Claude Code reports the connection as failed instead.
 
 When a request to an OAuth server you already signed in to returns `401 Unauthorized`, Claude Code refreshes the stored token, reconnects, and retries the request once. It flags the server in `/mcp` only if that retry also fails. Before v2.1.206, a token refresh that failed for a transient reason, such as a network error, flagged an OAuth server as needing authentication for the rest of the session even though its refresh token was still valid.
 
@@ -7307,6 +7308,8 @@ Set `oauth.scopes` to pin the scopes Claude Code requests during the authorizati
 </ul>
 <p>Claude Code runs the helper fresh on each connection, at session start and on reconnect, once the <a href="#trust-a-folder-before-its-headershelper-runs">trust rule for project and local-scope servers</a> lets it run. It doesn't cache the result, so your script is responsible for any token reuse.</p>
 <p>If a tool call returns <code>401 Unauthorized</code> or <code>403 Forbidden</code>, Claude Code automatically re-runs the helper under the same rule, reconnects with the fresh headers, and retries the call once. Claude Code marks the server as needing authentication in <code>/mcp</code> only if that retry also fails.</p>
+<p>When the helper's output includes an <code>Authorization</code> header, Claude Code uses that credential as the server's authentication and doesn't fall back to OAuth for the server.</p>
+<p>If the server rejects the helper's credential while connecting, Claude Code reports the connection as failed rather than marking the server as needing authentication. Fix the credential your helper returns, then reconnect from <code>/mcp</code> to re-run the helper.</p>
 <p>Claude Code sets these environment variables when executing the helper:</p>
 <table>
 <thead>
@@ -7454,6 +7457,7 @@ Servers from claude.ai appear in the list with indicators showing they come from
 </code></pre>
 <p></Step>
 </Steps></p>
+<p>Claude Code marks a connector <code>managed</code> in <code>/mcp</code> and in the <a href="/docs/en/plugins"><code>/plugin</code></a> manager when your organization manages its authentication in claude.ai. Managed status doesn't change how Claude Code connects to the connector or applies your organization's <a href="#organization-controls-on-connector-tools">tool controls</a>.</p>
 <p>Connectors you have never signed in to are collapsed behind a <code>Show unused connectors</code> row at the end of the claude.ai section, so an organization-provisioned list doesn't fill the panel. Select the row to expand them. A connector you signed in to before stays visible even when it currently needs re-authentication.</p>
 <p>Connectors from claude.ai are fetched only when your active <a href="/docs/en/authentication#authentication-precedence">authentication method</a> is a claude.ai subscription login. They aren't loaded, even if you previously ran <code>/login</code>, when:</p>
 <ul>
@@ -7652,6 +7656,8 @@ Servers can request input in two ways:
 * **Form mode**: Claude Code shows a dialog with form fields defined by the server (for example, a username and password prompt). Fill in the fields and submit.
 * **URL mode**: Claude Code opens a browser URL for authentication or approval. Complete the flow in the browser, then confirm in the CLI.
 
+In URL mode, Claude Code passes the URL as a command-line argument to your system's URL handler, and caps how long that argument can be. When the URL, once escaped for the command line, is over that cap, you can only decline the request. Every character that needs escaping, such as `%` or `&amp;`, counts four times toward the cap: its own character plus three escape characters. A URL with none of them reaches the cap at about 8,000 characters. A URL built largely of percent-escapes, where every third character is a `%`, reaches it at roughly 4,000.
+
 To auto-respond to elicitation requests without showing a dialog, use the [`Elicitation` hook](/docs/en/hooks#elicitation).
 
 If you're building an MCP server that uses elicitation, see the [MCP elicitation specification](https://modelcontextprotocol.io/docs/learn/client-concepts#elicitation) for protocol details and schema examples.
@@ -7781,20 +7787,20 @@ The following `.mcp.json` entry exempts one HTTP server while leaving other serv
 <h3 id="execute-mcp-prompts">Execute MCP prompts</h3>
 <p><Steps>
   <Step title="Discover available prompts">
-    Type <code>/</code> to see the commands available to you, including those from MCP servers. MCP prompts appear with the format <code>/mcp__servername__promptname</code>.
+    Type <code>/</code> to see the commands available to you, including those from MCP servers. Claude Code lists each MCP prompt as <code>/servername:promptname (MCP)</code>. Typing <code>/mcp__servername__promptname</code> also runs it.
   </Step></p>
 <p><Step title="Execute a prompt without arguments">
     <code>text wrap theme={null}
     /mcp__github__list_prs</code>
   </Step></p>
 <p><Step title="Execute a prompt with arguments">
-    Many prompts accept arguments. Pass them space-separated after the command:</p>
+    Many prompts accept arguments. Pass them space-separated after the command. Claude Code splits the arguments on whitespace, so each argument is a single token:</p>
 <pre><code>```text wrap theme={null}
 /mcp__github__pr_review 456
 ```
 
 ```text wrap theme={null}
-/mcp__jira__create_issue "Bug in login flow" high
+/mcp__jira__create_issue login-bug high
 ```
 </code></pre>
 <p></Step>
@@ -7805,7 +7811,7 @@ The following `.mcp.json` entry exempts one HTTP server while leaving other serv
 <li>MCP prompts are dynamically discovered from connected servers</li>
 <li>Arguments are parsed based on the prompt's defined parameters</li>
 <li>Prompt results are injected directly into the conversation</li>
-<li>Server and prompt names are normalized, with spaces converted to underscores
+<li>In the <code>/mcp__servername__promptname</code> form, Claude Code replaces any character in the server name outside <code>A-Z</code>, <code>a-z</code>, <code>0-9</code>, <code>_</code>, and <code>-</code> with <code>_</code>, and uses the prompt name as the server declares it
 </Tip></li>
 </ul>
 <h2 id="managed-mcp-configuration">Managed MCP configuration</h2>

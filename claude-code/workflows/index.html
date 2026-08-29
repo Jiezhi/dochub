@@ -1420,7 +1420,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5502,6 +5502,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#edit-a-saved-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edit a saved script
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5882,6 +5893,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#edit-a-saved-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edit a saved script
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6030,9 +6052,9 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Dynamic workflows orchestrate many subagents from a script Claude writes and you can rerun. Use them for codebase audits, large migrations, and cross-checked research.</p>
 </blockquote>
 <p><Note>
-  Dynamic workflows require Claude Code v2.1.154 or later and are available on all paid plans, with Anthropic API access, and on Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry. On Pro, turn them on from the Dynamic workflows row in <code>/config</code>.
+  Dynamic workflows are available on all paid plans, with Anthropic API access, and on Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry. On Pro, turn them on from the Dynamic workflows row in <code>/config</code>.
 </Note></p>
-<p>A dynamic workflow is a JavaScript script that orchestrates <a href="/docs/en/sub-agents">subagents</a> at scale. Claude writes the script for the task you describe, and a runtime executes it in the background while your session stays responsive.</p>
+<p>A dynamic workflow is a JavaScript script that orchestrates many <a href="/docs/en/sub-agents">subagents</a> at once. Claude writes the script for the task you describe, and a runtime executes it in the background while your session stays responsive.</p>
 <p>Reach for a workflow when a task needs more agents than one conversation can coordinate, or when you want the orchestration codified as a script you can read and rerun. Examples include a codebase-wide bug sweep, a 500-file migration, a research question that needs sources cross-checked against each other, and a hard plan worth drafting from several independent angles before you commit to one.</p>
 <h2 id="when-to-use-a-workflow">When to use a workflow</h2>
 <p><a href="/docs/en/sub-agents">Subagents</a>, <a href="/docs/en/skills">skills</a>, <a href="/docs/en/agent-teams">agent teams</a>, and workflows can all run a multi-step task. The difference is who holds the plan:</p>
@@ -6363,12 +6385,23 @@ const audits = await pipeline(found.files, file =&gt;
 
 return audits.filter(Boolean)
 </code></pre></div></p>
-<p>The body is plain JavaScript with top-level <code>await</code>. <code>agent()</code> spawns one subagent and <code>pipeline()</code> runs one per item in a list.</p>
+<p>The body is plain JavaScript with top-level <code>await</code>. <code>agent()</code> spawns one subagent, <code>pipeline()</code> runs one per item in a list, and <code>parallel()</code> runs a set of agent tasks at the same time and waits for all of them.</p>
 <p>An <code>agent()</code> call resolves to <code>null</code> if you stop it mid-run or it hits an unrecoverable API error. <code>pipeline()</code> keeps that <code>null</code> in the results array, which is why the example ends with <code>.filter(Boolean)</code> to drop those entries.</p>
-<p>If you want to edit a script by hand, ask Claude to walk you through the change, or see the Workflow tool entry in the <a href="/docs/en/agent-sdk/typescript">Agent SDK reference</a> for the full set of options.</p>
+<h3 id="edit-a-saved-script">Edit a saved script</h3>
+<p>To change a <a href="#save-the-workflow-for-reuse">workflow you saved</a>, edit its <code>.js</code> file or ask Claude to make the change. Before you edit or ask, run the <code>/workflow-authoring</code> <a href="/docs/en/skills#bundled-skills">bundled skill</a> to load the script-writing reference Claude works from. The skill requires Claude Code v2.1.248 or later.</p>
+<p>To run the edited version in the current session, run <a href="/docs/en/commands#all-commands"><code>/reload-skills</code></a> to re-read the workflow directories, then run <code>/&lt;name&gt;</code> again.</p>
+<p>Claude Code applies these rules to each part of the file when it loads and runs the script:</p>
+<ul>
+<li><strong><code>meta</code> block</strong>: keep <code>export const meta</code> as the first statement, and keep it a plain object literal with a <code>name</code> and a <code>description</code>. If it contains anything other than literal values, such as a variable, a function call, or a spread, Claude Code drops <code>/&lt;name&gt;</code> from <code>/</code> autocomplete.</li>
+<li><strong>Body</strong>: besides <code>agent()</code>, <code>pipeline()</code>, and <code>parallel()</code>, you can call <code>phase()</code> to group the agents that follow under a title in the progress view, call <code>log()</code> to show a message above the phases, and read the <a href="#pass-input-to-a-saved-workflow"><code>args</code></a> global. If the body has a syntax error, Claude Code reports it when you run the workflow.</li>
+<li><strong><code>phases</code></strong>: if you list them in <code>meta</code>, give each entry exactly the title you pass to <code>phase()</code>. A <code>phase()</code> title with no entry gets a progress group of its own.</li>
+<li><strong>Timestamps and randomness</strong>: Claude Code makes <code>Date.now()</code>, <code>Math.random()</code>, and a no-argument <code>new Date()</code> throw inside the script, so that a <a href="#resume-after-a-pause">relaunched run</a> repeats the same <code>agent()</code> calls. Pass a timestamp in through <code>args</code> instead.</li>
+</ul>
+<p>You can also edit <a href="#how-a-workflow-runs">the script of a single run</a> rather than the saved copy. <a href="#resume-after-a-pause">Resume after a pause</a> covers which agents run again when you relaunch an edited script. For the Workflow tool's inputs, see its entry in the <a href="/docs/en/agent-sdk/typescript#workflow">Agent SDK reference</a>.</p>
 <h2 id="how-a-workflow-runs">How a workflow runs</h2>
 <p>The workflow runtime executes the script in an isolated environment, separate from your conversation. Intermediate results stay in script variables instead of landing in Claude's context.</p>
 <p>Every run writes its script to a file under your session's directory in <code>~/.claude/projects/</code>. Claude receives the path when the run starts, so you can ask for it. You can open that file to read the orchestration Claude wrote, diff it against a previous run's script, or edit it and ask Claude to relaunch from the edited version.</p>
+<p>Claude can start a workflow only from a script file the session is already allowed to read. To run a script kept outside your working directory, add its directory with <a href="/docs/en/permissions#working-directories"><code>/add-dir</code></a> or a <a href="/docs/en/permissions#read-and-edit">Read allow rule</a> first.</p>
 <p>The runtime tracks each agent's result as the run progresses, which is what makes a run <a href="#resume-after-a-pause">resumable</a> within the same session.</p>
 <h3 id="prompt-caching-in-a-fan-out">Prompt caching in a fan-out</h3>
 <p>Agents in the same run can read each other's <a href="/docs/en/prompt-caching#subagents-and-the-cache">prompt cache</a>. Two agents that run with the same model, effort level, agent type, tools, output schema, and working directory build the same tools-and-system-prompt prefix, so an agent that starts after a matching sibling's response has begun reads that sibling's cache on its first request.</p>
@@ -6403,6 +6436,10 @@ return audits.filter(Boolean)
 <tr>
 <td style="text-align: left;">In a fan-out, agents that share the first agent's prompt-cache prefix start up to 5 seconds after it by default</td>
 <td style="text-align: left;">All but the first read the <a href="#prompt-caching-in-a-fan-out">prefix the first agent cached</a> instead of each processing it uncached</td>
+</tr>
+<tr>
+<td style="text-align: left;">Up to 4,096 items in a single <code>parallel()</code> or <code>pipeline()</code> call: the runtime rejects a longer list with an error</td>
+<td style="text-align: left;">A silent cap would drop part of the workload without telling the script</td>
 </tr>
 <tr>
 <td style="text-align: left;">1,000 agents total per run</td>
@@ -6481,7 +6518,7 @@ return audits.filter(Boolean)
 <li>Set <code>CLAUDE_CODE_DISABLE_WORKFLOWS=1</code>. Read at startup, so it applies wherever you set it.</li>
 </ul>
 <p>To turn workflows off for your whole organization, set <code>"disableWorkflows": true</code> in <a href="/docs/en/server-managed-settings">managed settings</a>, or use the toggle on the <a href="https://claude.ai/admin-settings/claude-code">Claude Code admin settings</a> page.</p>
-<p>When workflows are disabled, the bundled workflow commands are unavailable, the <code>ultracode</code> keyword no longer triggers a run, and <code>ultracode</code> is removed from the <code>/effort</code> menu.</p>
+<p>When workflows are disabled, the bundled workflow commands and the <code>/workflow-authoring</code> skill are unavailable, the <code>ultracode</code> keyword no longer triggers a run, and <code>ultracode</code> is removed from the <code>/effort</code> menu.</p>
 <h2 id="related-resources">Related resources</h2>
 <ul>
 <li><a href="/docs/en/agents">Run agents in parallel</a>: compare subagents, agent view, agent teams, and workflows</li>
