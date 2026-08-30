@@ -5910,7 +5910,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Note>
   Cloud environments require <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a>, which is in research preview for Pro, Max, and Team users, and for Enterprise users with <a href="https://support.claude.com/en/articles/11845131-use-claude-code-with-your-team-or-enterprise-plan">premium seats or Chat + Claude Code seats</a>.
 </Note></p>
-<p>Each <a href="/docs/en/claude-code-on-the-web">cloud session</a> runs in a cloud environment. You can configure an environment to allow or deny <a href="#access-levels">network access</a>, set environment variables for the session, and run a <a href="#setup-scripts">setup script</a> before Claude starts working.</p>
+<p>Each <a href="/docs/en/claude-code-on-the-web">cloud session</a> runs in a cloud environment. You can configure an environment to allow or deny <a href="#access-levels">network access</a>, <a href="#set-environment-variables">set environment variables</a> for the session, store <a href="#add-api-credentials">API credentials</a> that sessions use without seeing them, and run a <a href="#setup-scripts">setup script</a> before Claude starts working.</p>
 <p>The same environments apply wherever you start a cloud session: <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a>, the terminal with <a href="/docs/en/claude-code-on-the-web#from-terminal-to-web"><code>claude --cloud</code></a>, <a href="https://claude.com/docs/claude-tag/overview">Claude Tag</a>, <a href="/docs/en/routines">routines</a>, the <a href="/docs/en/mobile">Claude mobile app</a>, and the <a href="/docs/en/desktop">Desktop app</a>. Each of these surfaces can also route to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a>. <a href="/docs/en/self-hosted-environments#availability-and-limitations">Availability and limitations</a> covers what Claude can't use yet when a Claude Tag session runs in one.</p>
 <p><Info>
   <a href="/docs/en/remote-control">Remote Control</a> sessions connect the web and mobile interfaces to a session on your own machine, which uses your machine's network and files, not a cloud environment. Claude Tag channel sessions use organization-level environments only, either <a href="#organization-shared-environments">shared environments</a> or <a href="/docs/en/self-hosted-environments">self-hosted environments</a>.
@@ -5944,7 +5944,7 @@ Use this file to discover all available pages before exploring further.</p>
 </code></pre>
 <p></Step></p>
 <p><Step title="Add or edit an environment">
-    Select <strong>Add cloud environment</strong>, or hover over an existing environment and select the settings icon that appears on the right. The dialog includes the name, network access level, environment variables, and setup script.</p>
+    Select <strong>Add cloud environment</strong>, or hover over an existing environment and select the settings icon that appears on the right. The dialog includes the name, network access level, environment variables, and setup script. When you edit an existing cloud environment, the dialog also includes <a href="#add-api-credentials">API credentials</a>.</p>
 <pre><code>&lt;Frame&gt;
   &lt;img src="https://mintcdn.com/claude-code/ZFId6l95856c5LSw/images/cloud-environment-dialog.png?fit=max&amp;auto=format&amp;n=ZFId6l95856c5LSw&amp;q=85&amp;s=30d4478b31d1f879f7ee287ddab32505" alt="The New cloud environment dialog. A Name field with the placeholder Default, a Network access selector set to Trusted with links to the network policy and access levels, an Environment variables box showing .env-format placeholder text with a note that values are visible to anyone using the environment, a Setup script box described as a Bash script that runs when a new session starts before Claude Code launches, and Cancel and Create environment buttons." width="874" height="1372" data-path="images/cloud-environment-dialog.png" /&gt;
 &lt;/Frame&gt;
@@ -5962,7 +5962,60 @@ DATABASE_URL=postgres://localhost:5432/myapp
 
 Claude Code on the web also sets some variables itself when it starts a session. For [`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`](/docs/en/claude-code-on-the-web#manage-context), the value Claude Code on the web sets overrides one you add here, so adding that key here has no effect.
 
-Anyone who uses the environment can read the values, and cloud environments have no dedicated secrets store, so don't add API keys or other credentials. If a session needs a credential anyway, see [What carries over from your setup](#what-carries-over-from-your-setup).
+Anyone who uses the environment can read the values. For a key the agent proxy can attach to a request, use an [API credential](#add-api-credentials) instead. The [requests that never get a credential](#requests-that-never-get-the-credential) are listed there.
+
+### Add API credentials
+
+An API credential is an API key or token you store on a cloud environment so Claude can call that API from any session in the environment without seeing the key. Anthropic's agent proxy adds the key to requests for the hosts you list, after each request leaves the session's VM. The key never reaches Claude, the commands it runs, or the session's environment variables.
+
+#### Requirements
+
+Two of these decide whether you can add a credential, and two decide whether the agent proxy can use it once added:
+
+* **Role**: an organization admin role in your claude.ai organization, which Admins and Owners hold
+  * On Pro and Max, you hold it in your own organization
+  * Without it, you see a note instead of the credential list, on your own environments too. Ask an Owner to add the credential to a shared environment and run your sessions there
+* **Environment type**: an Anthropic-hosted cloud environment that already exists. A [self-hosted environment](/docs/en/self-hosted-environments) doesn't have API credentials
+* **API reachability**: the API accepts connections from the internet, because requests leave from Anthropic's network
+* **Encryption keys**: if your organization uses customer-managed encryption keys, you can't save credentials
+
+#### Add a credential
+
+You add credentials one at a time from the editor of an environment that already exists. The dialog for a new environment doesn't offer them. There's no edit, either. To change a credential's hosts or value, delete it and add it again.
+
+&lt;Steps&gt;
+  &lt;Step title="Open the environment's API credentials"&gt;
+    [Open the environment for editing](#configure-your-environment) at [claude.ai/code](https://claude.ai/code). In the **Update cloud environment** dialog, find **API credentials** below **Environment variables**. You see the credentials already on the environment, each with the hosts it applies to.
+  &lt;/Step&gt;
+
+  &lt;Step title="Add the credential"&gt;
+    Select **Add credential** and fill in the form. Keep the default **Credential type**, **Bearer**, for an API key that travels in a request header, and fill in these fields:
+
+    * **Name**: a label for the credential, such as `Internal billing API`
+    * **Allowed websites**: the API's hosts, such as `api.example.com`. A leading `*.` matches every subdomain
+    * **Custom headers**: one row for the header that carries the key. The row starts with `Authorization` as the header's **Name** and `Bearer` as its **Prefix**; paste the key itself as the **Value**. For a header like `X-Api-Key` that takes the bare value, change the name and clear the prefix
+
+    For an API that authenticates another way, pick a different **Credential type**. The list is the same one [Claude Tag](https://claude.com/docs/claude-tag/overview), the Slack integration for Team and Enterprise plans, offers for [connections](https://claude.com/docs/claude-tag/admins/add-connections).
+  &lt;/Step&gt;
+
+  &lt;Step title="Save the credential"&gt;
+    Select **Connect**. The credential appears in the list with its hosts, saved without the dialog's **Save changes** button. You can't view the value again after saving.
+  &lt;/Step&gt;
+&lt;/Steps&gt;
+
+To confirm the credential works, start a session in the environment and ask Claude to call the API, for example with `curl`. The API answers as if the key were in the request, and the key doesn't appear in the session's environment variables or in any file. If the list marks a credential **Not sent** instead, the note under it says why and what to do. Two credentials whose hosts overlap without matching exactly get no marker, and the agent proxy sends only one of them.
+
+#### Which requests get the credential
+
+The agent proxy attaches a credential to a request when the request's host matches one you listed on that credential. Sessions can reach those hosts even when the environment's [network access level](#access-levels) wouldn't otherwise allow them, except the [hosts the agent proxy skips](#requests-that-never-get-the-credential). The credential applies in every session that runs in the environment, whoever started it, until you delete it.
+
+#### Requests that never get the credential
+
+The agent proxy never attaches a credential you add to these requests:
+
+* **GitHub**: the [GitHub proxy](#github-proxy) authenticates requests to GitHub instead, so you don't need an API credential for it
+* **The Anthropic API and public package registries**: requests to `api.anthropic.com`, `registry.npmjs.org`, `jsr.io`, `npm.jsr.io`, `pypi.org`, `files.pythonhosted.org`, `index.crates.io`, and `proxy.golang.org` don't go through the agent proxy
+* **Setup script requests**: Claude Code connects to the agent proxy when it launches, after the [setup script](#setup-scripts) has run
 
 ### Select an environment from the CLI
 
@@ -5980,17 +6033,20 @@ Archiving affects new sessions, not running ones:
 
 * Sessions already running in the environment continue to work.
 * The environment disappears from the selector and from `/remote-env`, so you can't pick it for new sessions.
+* API credentials on the environment stay attached in its running sessions. Delete any you no longer want before you archive.
 * No new session can start in an archived environment, on any surface. If the environment was your saved [CLI default](#select-an-environment-from-the-cli), Claude Code starts CLI cloud sessions in the Anthropic-hosted environment when your list has one, and otherwise in the first environment in your list that isn't a [Remote Control bridge environment](#the-default-environment). Anything configured with the environment explicitly, such as a [routine](/docs/en/routines#environments-and-network-access), can't start new sessions in it. Point it at another environment.
 
 ### Organization-shared environments
 
 On Team and Enterprise plans, an Owner can create cloud environments that are shared with every member of the organization. The same role manages everything else on the **Cloud environments** admin page, including [self-hosted environments](/docs/en/self-hosted-environments); the Admin role can't open the page. The full list of roles that can open it is the one for [managing server-managed settings](/docs/en/server-managed-settings#access-control). Shared environments appear in each member's environment selector alongside their personal ones, so a team can standardize on one configuration instead of each member recreating it.
 
-Create, edit, and archive shared environments from the **Cloud environments** page in [admin settings](https://claude.ai/admin-settings). Each shared environment has a name, a [network access level](#access-levels), [environment variables](#set-environment-variables) in `.env` format, and a [setup script](#setup-scripts). Owners choose the organization's [default environment](#the-default-environment) separately, at [claude.ai/admin-settings/claude-code](https://claude.ai/admin-settings/claude-code).
+Create, edit, and archive shared environments from the **Cloud environments** page in [admin settings](https://claude.ai/admin-settings). A shared environment also opens from the [environment selector](#configure-your-environment) at [claude.ai/code](https://claude.ai/code): an Admin or Owner can edit it there, and that dialog is where [API credentials](#add-api-credentials) are added. Other members see it read-only. Each shared environment has a name, a [network access level](#access-levels), [environment variables](#set-environment-variables) in `.env` format, and a [setup script](#setup-scripts). Owners choose the organization's [default environment](#the-default-environment) separately, at [claude.ai/admin-settings/claude-code](https://claude.ai/admin-settings/claude-code).
 
-Values in a shared environment reach every member's sessions in that environment. Like personal environments, shared environments have no dedicated secrets store, so don't include secrets.
+Every member's sessions in a shared environment read its variables, so don't include secrets in them. To give those sessions a key they can't read, [add an API credential](#add-api-credentials) from that dialog.
 
-In [Claude Tag](https://claude.com/docs/claude-tag/overview) channels, Claude works as your organization's shared identity, not as any member, so channel sessions use organization-level environments only, either shared environments or [self-hosted environments](/docs/en/self-hosted-environments). You can set the environment a channel uses in two ways:
+### Set the environment a Claude Tag channel uses
+
+In [Claude Tag](https://claude.com/docs/claude-tag/overview) channels, Claude works as your organization's shared identity, not as any member, so channel sessions use organization-level environments only, either shared environments or [self-hosted environments](/docs/en/self-hosted-environments). To give a channel a toolchain that isn't [pre-installed](#installed-tools), such as .NET, an Owner can create a [shared environment](#organization-shared-environments) from the **Cloud environments** admin page with a [setup script](#setup-scripts) that installs it. Point the channel at an environment in one of two ways:
 
 * Set a shared or self-hosted environment as the organization's [default environment](#the-default-environment) at [claude.ai/admin-settings/claude-code](https://claude.ai/admin-settings/claude-code).
 * [Pin one to a channel](https://claude.com/docs/claude-tag/admins/troubleshooting#channel-sessions-use-the-wrong-environment-or-can%E2%80%99t-find-one) in the Claude Tag admin settings.
@@ -6016,7 +6072,12 @@ The **Network access** field in the [environment dialog](#configure-your-environ
 | **Full**    | Any domain                                                                                   |
 | **Custom**  | Your own allowlist, optionally including the defaults                                        |
 
-GitHub operations use a [separate proxy](#github-proxy) that is independent of this setting, and Claude Code's connection to the Anthropic API still works at **None**, as noted under [Security and isolation](/docs/en/claude-code-on-the-web#security-and-isolation).
+Whichever level you pick, sessions can still reach these, because each one takes a path that doesn't go through the session's network allowlist:
+
+* GitHub, through its [separate proxy](#github-proxy)
+* [MCP connectors](#network-access) you enable, whose traffic travels through Anthropic's servers
+* The hosts you listed on the environment's [API credentials](#add-api-credentials), except the [hosts the agent proxy skips](#requests-that-never-get-the-credential)
+* The Anthropic API, for Claude Code's own requests, even at **None**, as noted under [Security and isolation](/docs/en/claude-code-on-the-web#security-and-isolation)
 
 ### Allow specific domains
 
@@ -6027,7 +6088,7 @@ api.example.com
 *.internal.example.com
 registry.example.com
 </code></pre></div></p>
-<p>Sessions in this environment can now reach <code>api.example.com</code>, any subdomain of <code>internal.example.com</code>, and <code>registry.example.com</code>, and no other domains through the session's network; <a href="#github-proxy">GitHub traffic</a> and <a href="#network-access">MCP connector traffic</a> don't go through this allowlist. A leading <code>*.</code> matches every subdomain. To keep the <a href="#default-allowed-domains">Trusted domains</a> too, check <strong>Also include default list of common package managers</strong>; leave it unchecked to allow only what you list.</p>
+<p>Sessions in this environment can now reach <code>api.example.com</code>, any subdomain of <code>internal.example.com</code>, and <code>registry.example.com</code>, and no other domains through the session's network. <a href="#github-proxy">GitHub traffic</a>, <a href="#network-access">MCP connector traffic</a>, and requests to the hosts of the environment's <a href="#add-api-credentials">API credentials</a>, other than the <a href="#requests-that-never-get-the-credential">hosts the agent proxy skips</a>, don't go through this allowlist. A leading <code>*.</code> matches every subdomain. To keep the <a href="#default-allowed-domains">Trusted domains</a> too, check <strong>Also include default list of common package managers</strong>; leave it unchecked to allow only what you list.</p>
 <p>If sessions in the environment work with <a href="/docs/en/artifacts">artifacts</a>, include <code>*.frame.claudeusercontent.com</code> in your list. Claude Code fetches artifact content from that host. If you leave it out, Claude can't read artifacts in sessions that run in the environment.</p>
 <p>Each environment has its own allowed-domains list; there's no organization-level allowlist that admins can push to every member's environments. <a href="/docs/en/server-managed-settings">Server-managed settings</a> still apply inside cloud sessions, but none of them adds domains to the environment's network allowlist.</p>
 <h3 id="github-proxy">GitHub proxy</h3>
@@ -6125,9 +6186,9 @@ registry.example.com
 <td style="text-align: left;">The hosting environment manages the session's API connection, so Claude Code ignores these keys and notes each ignored key in the session's debug log</td>
 </tr>
 <tr>
-<td style="text-align: left;">Static API tokens and credentials</td>
-<td style="text-align: left;">No</td>
-<td style="text-align: left;">No dedicated secrets store exists yet. See below</td>
+<td style="text-align: left;">API keys and tokens for services Claude calls</td>
+<td style="text-align: left;">Yes, as <a href="#add-api-credentials">API credentials</a></td>
+<td style="text-align: left;">You add the key once on the environment and the agent proxy attaches it to requests for the hosts you list. A key the agent proxy <a href="#requests-that-never-get-the-credential">can't attach</a> stays in an environment variable</td>
 </tr>
 <tr>
 <td style="text-align: left;">Interactive auth like AWS SSO</td>
@@ -6137,7 +6198,7 @@ registry.example.com
 </tbody>
 </table>
 <p>To make your own configuration available in cloud sessions, commit it to the repo.</p>
-<p>A dedicated secrets store is not yet available, and the dialog warns against adding secrets or credentials: environment variables and setup scripts live in the environment configuration, where anyone who uses the environment can read them. If a session needs a credential anyway, add it with that visibility in mind.</p>
+<p>Anyone who uses the environment can read its environment variables and setup script. The dialog's note under <strong>Environment variables</strong> says so and warns against putting secrets there. Store a key the agent proxy can attach as an <a href="#add-api-credentials">API credential</a> instead.</p>
 <h3 id="installed-tools">Installed tools</h3>
 <p>Cloud sessions come with common language runtimes, build tools, and databases pre-installed. The table below summarizes what's included by category.</p>
 <table>
@@ -6293,7 +6354,7 @@ apt update &amp;&amp; apt install -y shellcheck
 <tbody>
 <tr>
 <td><strong>Where you configure them</strong></td>
-<td>The environment dialog at <a href="https://claude.ai/code">claude.ai/code</a>, or the <strong>Cloud environments</strong> admin page for <a href="#organization-shared-environments">shared environments</a></td>
+<td>The environment dialog at <a href="https://claude.ai/code">claude.ai/code</a>, plus the <strong>Cloud environments</strong> admin page for <a href="#organization-shared-environments">shared environments</a></td>
 <td>A <a href="/docs/en/settings#where-settings-live">settings file</a> such as your repo's <code>.claude/settings.json</code>; see <a href="#what-carries-over-from-your-setup">What carries over from your setup</a> for which files reach a cloud session</td>
 </tr>
 <tr>

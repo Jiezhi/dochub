@@ -7842,12 +7842,16 @@ marginTop: '20px'
 </tr>
 </tbody>
 </table>
-<p>Claude Code makes four exceptions to this sweep:</p>
+<p>Session files in <code>sessions/</code>, auto memory, and Claude Desktop and Cowork transcripts each follow their own retention rule:</p>
 <ul>
 <li><strong><code>sessions/</code></strong>: holds one small file per running session, used to detect concurrent sessions and crashes. It isn't part of the age-based sweep: Claude Code removes each file when its session exits and clears crash leftovers on the next launch.</li>
 <li><strong>Auto memory</strong>: Claude Code excludes a project's <a href="/docs/en/memory#auto-memory">auto memory</a> directory, <code>projects/&lt;project&gt;/memory/</code>, from this sweep, and removes the directory itself only after it has been empty for the whole retention period. Before v2.1.228, the sweep treated folders inside the memory directory as session data and could delete old files beneath it.</li>
+<li><strong>Claude Desktop and Cowork transcripts</strong>: Claude Code keeps the transcript of a session you started or most recently continued in Claude Desktop or Cowork at any age. To give these transcripts an age limit, set <a href="/docs/en/settings-reference#desktopsessioncleanupperioddays"><code>desktopSessionCleanupPeriodDays</code></a>. When <a href="/docs/en/managed-settings">managed settings</a> set <code>cleanupPeriodDays</code>, Claude Code deletes these transcripts after that period instead. Requires Claude Code v2.1.248 or later; earlier versions delete them after <code>cleanupPeriodDays</code>.</li>
+</ul>
+<p>Claude Code skips the sweep entirely in these cases:</p>
+<ul>
 <li><strong>Bare mode</strong>: when you run <code>claude -p</code> with <a href="/docs/en/headless#start-faster-with-bare-mode"><code>--bare</code></a>, Claude Code doesn't run the sweep in that session.</li>
-<li><strong>Paused sweep</strong>: if Claude Code can't safely determine the retention period, it pauses the retention cleanup sweep; the <a href="/docs/en/monitoring-usage#retention-sweep-event"><code>retention_sweep</code> event</a> lists each configuration that pauses it. When the cause is a settings file that can't be read or parsed, or settings errors with <code>cleanupPeriodDays</code> explicitly set, Claude Code also shows a warning in <code>/status</code> until you fix the settings errors. When <a href="/docs/en/server-managed-settings">managed settings</a> provide <code>cleanupPeriodDays</code>, Claude Code runs the sweep at the managed value in either case.</li>
+<li><strong>Paused sweep</strong>: if Claude Code can't safely determine the retention period, it pauses the retention cleanup sweep; the <a href="/docs/en/monitoring-usage#retention-sweep-event"><code>retention_sweep</code> event</a> lists each configuration that pauses it. When the cause is a settings file that can't be read or parsed, or settings errors with <code>cleanupPeriodDays</code> or <code>desktopSessionCleanupPeriodDays</code> explicitly set, Claude Code also shows a warning in <code>/status</code> until you fix the settings errors. When <a href="/docs/en/server-managed-settings">managed settings</a> provide <code>cleanupPeriodDays</code>, Claude Code runs the sweep at the managed value in either case.</li>
 </ul>
 <h3 id="kept-until-you-delete-them">Kept until you delete them</h3>
 <p>The retention cleanup sweep doesn't cover the following paths. Claude Code keeps them until you delete them, apart from the two caches whose rows say that logging out deletes them.</p>
@@ -7885,7 +7889,8 @@ marginTop: '20px'
 <h3 id="plaintext-storage">Plaintext storage</h3>
 <p>Transcripts and history are not encrypted at rest. OS file permissions are the only protection. If a tool reads a <code>.env</code> file or a command prints a credential, that value is written to <code>projects/&lt;project&gt;/&lt;session&gt;.jsonl</code>. To reduce exposure:</p>
 <ul>
-<li>Lower <code>cleanupPeriodDays</code> to shorten how long transcripts are kept</li>
+<li>Lower <code>cleanupPeriodDays</code> to shorten how long Claude Code keeps transcripts</li>
+<li>Set <a href="/docs/en/settings-reference#desktopsessioncleanupperioddays"><code>desktopSessionCleanupPeriodDays</code></a> to give Claude Desktop and Cowork transcripts an age limit too</li>
 <li>Set the <a href="/docs/en/env-vars"><code>CLAUDE_CODE_SKIP_PROMPT_HISTORY</code></a> environment variable to skip writing transcripts and prompt history in any mode. In non-interactive mode, you can instead pass <code>--no-session-persistence</code> alongside <code>-p</code>, or set <code>persistSession: false</code> in the TypeScript Agent SDK; the Python SDK has no equivalent option.</li>
 <li>Use <a href="/docs/en/permissions">permission rules</a> to deny reads of credential files</li>
 </ul>
