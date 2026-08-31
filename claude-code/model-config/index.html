@@ -6577,7 +6577,11 @@ Claude Code handles any other blocked selection according to where the model was
 * **`/model`**: Claude Code rejects the switch with an error
 * **`--model` flag, `ANTHROPIC_MODEL`, or the `model` setting**: Claude Code replaces the value at startup with a warning naming both the requested and substituted models, and the session starts on the default model
 * **[`ANTHROPIC_DEFAULT_MODEL`](#set-a-default-model-for-new-sessions)**: Claude Code ignores the variable
-* **Subagent or teammate override**: Claude Code falls back to the [subagent's inherited model](/docs/en/sub-agents#choose-a-model) or the [lead's model for a teammate](/docs/en/agent-teams#specify-teammates-and-models) rather than failing the request. In interactive sessions, Claude Code warns you when it substitutes a subagent's model, by this fallback or by the newest-permitted-version substitution above, naming the requested and substituted models; it doesn't report a teammate's fallback. Where the newest-permitted-version substitution above operates, a blocked family alias follows it instead; before v2.1.222, an alias fell back like any other blocked value on every provider
+* **Subagent or teammate override**: Claude Code runs the subagent or teammate on a fallback model rather than failing the request. See [Choose a model](/docs/en/sub-agents#choose-a-model) for the subagent fallback and [Specify teammates and models](/docs/en/agent-teams#specify-teammates-and-models) for the teammate fallback.
+
+  In interactive sessions, Claude Code warns you when it substitutes a subagent's model, by this fallback or by the newest-permitted-version substitution above, naming the requested and substituted models; it doesn't report a teammate's fallback.
+
+  Where the newest-permitted-version substitution above operates, a blocked family alias follows it instead. Before v2.1.222, an alias fell back like any other blocked value on every provider
 * **Skill or command override**: Claude Code ignores the override, including a blocked family alias, and the skill or command runs on the session model. A skill or command that [runs in a subagent](/docs/en/skills#run-skills-in-a-subagent) follows the subagent behavior above instead
 * **`advisorModel` setting**: the advisor is disabled for the session
 * **`--advisor` flag**: Claude Code exits with an error at launch. In a [background session](/docs/en/agent-view), it starts the session without the advisor instead of exiting
@@ -6724,12 +6728,11 @@ This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, 
 <h3 id="default-model-setting"><code>default</code> model setting</h3>
 <p>The behavior of <code>default</code> depends on your account type:</p>
 <ul>
-<li><strong>Max, Team Premium, Enterprise pay-as-you-go, and Anthropic API</strong>: defaults to Opus 5</li>
+<li><strong>Max, Team Premium, Enterprise, and Anthropic API</strong>: defaults to Opus 5</li>
 <li><strong>Claude Platform on AWS, Amazon Bedrock, and Google Cloud's Agent Platform</strong>: defaults to Opus 5</li>
-<li><strong>Pro, Team Standard, and Enterprise subscription seats</strong>: defaults to Sonnet 5</li>
+<li><strong>Pro and Team Standard</strong>: defaults to Sonnet 5</li>
 <li><strong>Microsoft Foundry</strong>: defaults to Sonnet 4.5</li>
 </ul>
-<p>Enterprise pay-as-you-go means an Enterprise organization billed by usage rather than by subscription seat.</p>
 <p>Before v2.1.219, <code>default</code> resolved to Opus 4.8 on the Anthropic API, Max, Team Premium, and Enterprise pay-as-you-go from v2.1.154, and on Claude Platform on AWS, Amazon Bedrock, and Google Cloud's Agent Platform from v2.1.207. Before v2.1.207, <code>default</code> resolved to Opus 4.7 on Claude Platform on AWS and to Sonnet 4.5 on Amazon Bedrock and Google Cloud's Agent Platform.</p>
 <p>When an admin has set an <a href="#organization-default-model">organization default model</a>, <code>default</code> resolves to that model instead of the account-type default above. Requires Claude Code v2.1.196 or later. <code>default</code> can also resolve to the model you set with <a href="#set-a-default-model-for-new-sessions"><code>ANTHROPIC_DEFAULT_MODEL</code></a>, under the conditions listed in its section.</p>
 <p>When managed settings <a href="#enforce-the-allowlist-for-the-default-model">enforce the allowlist for the Default model</a> and the account-type default is not in <code>availableModels</code>, <code>default</code> resolves to the enforced Default instead of the account-type default above. When both apply, the organization default replaces the account-type default first and enforcement then applies to it: an allowlisted organization default is kept, while one outside the list resolves to the enforced Default.</p>
@@ -6826,19 +6829,27 @@ claude --fallback-model sonnet,haiku
 </tbody>
 </table>
 <p>If you set a level the active model does not support, Claude Code falls back to the highest supported level at or below the one you set. For example, <code>xhigh</code> runs as <code>high</code> on Opus 4.6. Your organization can also cap which levels are available for a model; see <a href="#organization-effort-limits">Organization effort limits</a>.</p>
-<p>The default effort is <code>high</code> on every model that supports effort, except Opus 4.7, which defaults to <code>xhigh</code>.</p>
-<p>When you first run Fable 5, Opus 4.8, or Opus 4.7, Claude Code applies that model's default effort even if you previously set a different level for another model, and holds it across sessions until you make an explicit effort choice, such as running <code>/effort</code> in an interactive session or launching with <code>--effort</code>. Opus 5 has no such hold: a level you previously set carries over.</p>
-<p><code>low</code>, <code>medium</code>, <code>high</code>, and <code>xhigh</code> persist across sessions when you set them in an interactive session. <code>max</code> provides the deepest reasoning. Unless you set it through the <code>CLAUDE_CODE_EFFORT_LEVEL</code> environment variable, <code>max</code> applies to the current session only.</p>
+<p>With the <a href="/docs/en/settings-reference#ultracode"><code>ultracode</code></a> setting off, Claude Code resolves the session's effort level in this order, taking the first that applies:</p>
+<ol>
+<li>An explicit choice: the <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_EFFORT_LEVEL</code></a> environment variable, launching with <code>--effort</code>, or <code>/effort</code> in the session (<a href="#non-interactive-effort">a non-interactive <code>/effort</code> has narrower effect</a>)</li>
+<li>The model's default effort, on Fable 5, Opus 4.8, or Opus 4.7: from the first time you run one of these models, Claude Code holds that model's default effort across sessions, even when your settings resolve a different level, until you change effort once, for example with an interactive <code>/effort</code>, the <code>/model</code> picker's effort slider, or <code>--effort</code> at launch. Opus 5 has no such hold</li>
+<li>Your settings: the level you saved for the model or an <a href="/docs/en/settings-reference#effortlevel"><code>effortLevel</code></a> key, with the precedence between them and across settings files stated at <a href="/docs/en/settings-reference#modelsettings"><code>modelSettings</code></a></li>
+<li>The model's default effort: <code>high</code> on every model that supports effort, except that Opus 4.7 defaults to <code>xhigh</code> and, when your organization sets a default effort level for its <a href="#organization-default-model">organization default model</a>, that level is the default when you run that model</li>
+</ol>
+<p>When you set <code>low</code>, <code>medium</code>, <code>high</code>, or <code>xhigh</code> in an interactive session on your machine, Claude Code saves the level and applies it in later sessions. It saves the level per model, under the <a href="/docs/en/settings-reference#modelsettings"><code>modelSettings</code></a> key in your user settings, so each model keeps its own saved level.</p>
+<p><code>max</code> is the deepest reasoning level. Unless you set it through the <code>CLAUDE_CODE_EFFORT_LEVEL</code> environment variable, Claude Code applies <code>max</code> to the current session only.</p>
 <p><Note>
   A level you pick from the effort control on a phone or browser connected through <a href="/docs/en/remote-control#what-connected-devices-see">Remote Control</a> applies to that session only.
 </Note></p>
-<p>A level set with <code>/effort</code> in <a href="/docs/en/headless">non-interactive mode</a>, with the <code>-p</code> flag, applies to the current session only and isn't saved as your default. It also can't release the model-default hold: while the hold is in force, a non-interactive <code>/effort</code> reports <code>Not applied</code>, so pass <code>--effort</code> at launch instead.</p>
+<p><span id="non-interactive-effort" /></p>
+<p>A level set with <code>/effort</code> in <a href="/docs/en/headless">non-interactive mode</a>, with the <code>-p</code> flag, applies to the current session only and isn't saved as your default. It also doesn't count as the one change that ends the model-default step above on Fable 5, Opus 4.8, or Opus 4.7: while that step is in effect, a non-interactive <code>/effort</code> reports <code>Not applied</code>, so pass <code>--effort</code> at launch instead.</p>
 <p>The <code>/effort</code> menu also offers <code>ultracode</code>. Ultracode is a Claude Code setting rather than a model effort level: it sends <code>xhigh</code> to the model and additionally has Claude orchestrate <a href="/docs/en/workflows">dynamic workflows</a> for substantive tasks. For where it can be set persistently, see the <a href="/docs/en/settings-reference#ultracode"><code>ultracode</code></a> setting.</p>
 <p>You can turn on ultracode through any of the following:</p>
 <ul>
 <li><strong><code>/effort</code></strong>: run <code>/effort ultracode</code>, or select it from the menu</li>
 <li><strong><code>--effort</code> flag</strong>: launch with <code>claude --effort ultracode</code>, which starts the session at <code>xhigh</code> effort with ultracode on</li>
 <li><strong><code>ultracode</code> setting</strong>: set <a href="/docs/en/settings-reference#ultracode"><code>"ultracode": true</code></a> in a settings file, with <code>--settings</code>, or in an Agent SDK control request. An <a href="/docs/en/agent-sdk/typescript#applyflagsettings"><code>applyFlagSettings()</code></a> request also accepts <code>effortLevel: "ultracode"</code></li>
+<li><strong><code>/model</code> picker</strong>: move the effort slider to <code>ultracode</code> with the arrow keys while you choose a model. Claude Code turns it on for the current session, even when you save that model as your default</li>
 </ul>
 <p>Passing <code>ultracode</code> to the <code>--effort</code> flag or the Agent SDK <code>effortLevel</code> value requires Claude Code v2.1.203 or later. Before v2.1.203, <code>--effort ultracode</code> printed <code>Unknown --effort value 'ultracode'</code> and the session started at the default effort.</p>
 <p>The persisted <code>effortLevel</code> setting and the <code>CLAUDE_CODE_EFFORT_LEVEL</code> environment variable don't accept <code>ultracode</code>. When <code>CLAUDE_CODE_EFFORT_LEVEL</code> is set to a level other than <code>xhigh</code>, requests run at that level and ultracode's workflow orchestration stays inactive. Selecting ultracode then shows a warning that the environment variable overrides effort for the session.</p>
@@ -6885,15 +6896,15 @@ claude --fallback-model sonnet,haiku
 <h4 id="set-the-effort-level">Set the effort level</h4>
 <p>You can change effort through any of the following:</p>
 <ul>
-<li><strong><code>/effort</code></strong>: run <code>/effort</code> with no arguments to open an interactive slider, <code>/effort</code> followed by a level name to set it directly, or <code>/effort auto</code> to reset to the model default. You can run it while Claude is working, and once you confirm the <a href="/docs/en/prompt-caching#changing-effort-level">cache warning</a>, if Claude Code shows one, Claude Code applies the new level to the next request in the turn</li>
+<li><strong><code>/effort</code></strong>: run <code>/effort</code> with no arguments to open an interactive slider, <code>/effort</code> followed by a level name to set it directly, or <code>/effort auto</code> to clear your saved level for the active model. You can run it while Claude is working, and once you confirm the <a href="/docs/en/prompt-caching#changing-effort-level">cache warning</a>, if Claude Code shows one, Claude Code applies the new level to the next request in the turn</li>
 <li><strong>In <code>/model</code></strong>: use left/right arrow keys to adjust the effort slider when selecting a model</li>
 <li><strong><code>--effort</code> flag</strong>: pass a level name to set it for a single session when launching Claude Code</li>
 <li><strong>Environment variable</strong>: set <code>CLAUDE_CODE_EFFORT_LEVEL</code> to a level name or <code>auto</code></li>
-<li><strong>Settings</strong>: set <code>effortLevel</code> to <code>low</code>, <code>medium</code>, <code>high</code>, or <code>xhigh</code> in your settings file. <code>max</code> isn't accepted here, and <code>ultracode</code> has its own <a href="/docs/en/settings-reference#ultracode"><code>ultracode</code></a> key</li>
+<li><strong>Settings</strong>: set a per-model level in <a href="/docs/en/settings-reference#modelsettings"><code>modelSettings</code></a>, or set <a href="/docs/en/settings-reference#effortlevel"><code>effortLevel</code></a> to <code>low</code>, <code>medium</code>, <code>high</code>, or <code>xhigh</code> as the default for models without one. <code>max</code> isn't accepted in either key, and <code>ultracode</code> has its own <a href="/docs/en/settings-reference#ultracode"><code>ultracode</code></a> key</li>
 <li><strong>From a connected device</strong>: in a <a href="/docs/en/remote-control#what-connected-devices-see">Remote Control</a> session, pick a level from the effort control on your phone or in your browser. The level applies to the current session only. Requires Claude Code v2.1.234 or later</li>
 <li><strong>Skill and subagent frontmatter</strong>: set <code>effort</code> in a <a href="/docs/en/skills#frontmatter-reference">skill</a> or <a href="/docs/en/sub-agents#supported-frontmatter-fields">subagent</a> markdown file to override the effort level when that skill or subagent runs</li>
 </ul>
-<p>The environment variable takes precedence over all other methods, then your configured level, then the model default. Frontmatter effort applies when that skill or subagent is active, overriding the session level but not the environment variable.</p>
+<p>Frontmatter effort applies when that skill or subagent is active, overriding the session level but not the environment variable.</p>
 <p>The <code>effortLevel</code> key in <a href="/docs/en/managed-settings">managed settings</a> is a starting default, not enforcement: users can change it for a session with <code>/effort</code> or <code>--effort</code>, and the managed value re-asserts as the default in new sessions.</p>
 <p>The effort slider appears in <code>/model</code> when a supported model is selected. The current effort level is also shown in the session header next to the model name, for example "with low effort", so you can confirm which setting is active without opening <code>/model</code>. The footer also briefly shows the effort level at startup and when it changes.</p>
 <h4 id="adaptive-reasoning-and-fixed-thinking-budgets">Adaptive reasoning and fixed thinking budgets</h4>
@@ -7073,7 +7084,7 @@ export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="Custom deployment routed throu
 </tr>
 <tr>
 <td><code>CLAUDE_CODE_SUBAGENT_MODEL</code></td>
-<td>The model Claude Code uses for all <a href="/docs/en/sub-agents#choose-a-model">subagents</a>, <a href="/docs/en/agent-teams">agent teams</a>, and agents in a <a href="/docs/en/workflows">workflow</a>. Accepts an alias such as <code>haiku</code> or a full model name, and overrides the per-invocation <code>model</code> parameter and the subagent definition's <code>model</code> frontmatter. Set to <code>inherit</code> to use normal model resolution instead</td>
+<td>The default model for <a href="/docs/en/sub-agents#choose-a-model">subagents</a>, <a href="/docs/en/agent-teams#specify-teammates-and-models">agent team</a> teammates, and <a href="/docs/en/workflows">workflow</a> agents that aren't assigned a model another way. Accepts an alias such as <code>haiku</code> or a full model name. A per-invocation model or a definition's <code>model</code> field, including <code>inherit</code>, takes precedence</td>
 </tr>
 </tbody>
 </table>

@@ -6300,7 +6300,8 @@ exit 0
 <h2 id="authenticate-from-ci">Authenticate from CI</h2>
 <p>Both <code>claude -p ... --environment</code> and <code>claude -p ... --cloud</code> authenticate with a claude.ai OAuth token; API keys, such as <code>sk-ant-xxxxx</code>, aren't accepted for either call. Two approaches make a token available in CI.</p>
 <h3 id="long-lived-ci-host">Long-lived CI host</h3>
-<p>Run <code>claude auth login</code> once interactively on the machine that executes the script, using a dedicated user account for automation. The token lives in the OS keychain on macOS, or in <code>~/.claude/.credentials.json</code> on Linux and Windows. The CLI refreshes the short-lived access token automatically on each invocation, but the underlying refresh-token grant is capped at 30 days from the initial login, so re-run <code>claude auth login</code> interactively on that host every 30 days.</p>
+<p>Run <code>claude auth login</code> once interactively on the machine that executes the script, using a dedicated user account for automation. Claude Code stores the token in the OS keychain on macOS, or in <code>~/.claude/.credentials.json</code> on Linux and Windows. On a macOS host whose Keychain can't be written, as is typical in an SSH session where the login Keychain stays locked, Claude Code stores the token in <code>~/.claude/.credentials.json</code> there too. See <a href="/docs/en/authentication#credential-management">Credential management</a>.</p>
+<p>The CLI refreshes the short-lived access token automatically on each invocation, but the underlying refresh-token grant is capped at 30 days from the initial login, so re-run <code>claude auth login</code> interactively on that host every 30 days.</p>
 <h3 id="ephemeral-ci-runners">Ephemeral CI runners</h3>
 <p>There is no long-lived CI token for this today. The scope that grants remote-session control, <code>user:sessions:claude_code</code>, is capped server-side at 30 days, so <code>claude setup-token</code>, which mints a one-year inference-only token, doesn't cover it. The <a href="/docs/en/self-hosted-environments-quickstart#set-up-an-environment-and-runner">environment secret</a> isn't accepted either, since it only authorizes a runner to register with the environment, not to create sessions.</p>
 <p>To provision a stored login onto an ephemeral runner, set <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_OAUTH_REFRESH_TOKEN</code> and <code>CLAUDE_CODE_OAUTH_SCOPES</code></a> so <code>claude auth login</code> exchanges the token without a browser; the same 30-day cap applies to the refresh grant. Contact your Anthropic account team if you need a machine-identity path that isn't bound to a human account.</p>
@@ -6309,7 +6310,7 @@ exit 0
 <h3 id="mint-the-admin-token">Mint the admin token</h3>
 <p><code>$ADMIN_TOKEN</code> is a claude.ai OAuth access token for an account that holds an Owner role, minted the same way as <a href="#authenticate-from-ci">Authenticate from CI</a>:</p>
 <ul>
-<li><strong>Mint it</strong>: run <code>claude auth login</code> with an account that holds an Owner role, then read the current access token from the OS keychain on macOS or <code>~/.claude/.credentials.json</code> on Linux and Windows.</li>
+<li><strong>Mint it</strong>: run <code>claude auth login</code> with an account that holds an Owner role, then read the current access token from wherever <a href="#long-lived-ci-host">Long-lived CI host</a> says Claude Code stored it.</li>
 <li><strong>Read it fresh each run</strong>: the CLI rotates the access token, and the same 30-day refresh-grant cap applies, so don't store a copy.</li>
 <li><strong>Pass it via stdin</strong>: as the example does, so the token never lands in curl's argument list or your build log.</li>
 </ul>

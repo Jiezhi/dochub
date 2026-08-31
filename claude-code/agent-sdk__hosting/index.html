@@ -5992,14 +5992,34 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Every hosting decision on this page follows from how the SDK runs the agent. When your code calls <code>query()</code>, the SDK spawns a separate <code>claude</code> CLI process and talks to it over stdio. That subprocess owns the shell, the working directory, and the JSONL session transcripts on local disk.</p>
 <p><img src="https://mintcdn.com/claude-code/ikqp3_70mqIahteV/images/agent-sdk/hosting-subprocess.svg?fit=max&auto=format&n=ikqp3_70mqIahteV&q=85&s=9dac857ca9d3b1410c3734900c386004" className="dark:hidden" alt="Request flow: client to your app, which spawns a claude CLI subprocess over stdio inside the container; the subprocess writes to local disk and calls api.anthropic.com over HTTPS" width="920" height="220" data-path="images/agent-sdk/hosting-subprocess.svg" /></p>
 <p><img src="https://mintcdn.com/claude-code/_xqph1dUOslCOwsj/images/agent-sdk/hosting-subprocess-dark.svg?fit=max&auto=format&n=_xqph1dUOslCOwsj&q=85&s=3fdeff3d7f44b2b67762668acfbb25f5" className="hidden dark:block" alt="Request flow: client to your app, which spawns a claude CLI subprocess over stdio inside the container; the subprocess writes to local disk and calls api.anthropic.com over HTTPS" width="920" height="220" data-path="images/agent-sdk/hosting-subprocess-dark.svg" /></p>
-<p>One agent session maps to one subprocess. Running N concurrent sessions means N subprocesses, each with its own process tree and transcript file. By default they all inherit your application's working directory, so pass <code>cwd</code> on each <code>query()</code> call when sessions need separate filesystems:</p>
+<p>One agent session maps to one subprocess. Running N concurrent sessions means N subprocesses, each with its own process tree and transcript file. By default they all inherit your application's working directory. When sessions need separate filesystems, pass a distinct <code>cwd</code> in the options of each session's <code>query()</code> call:</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
-  query({ prompt, options: { cwd: "/work/session-a" } })
+  import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>for await (const message of query({
+    prompt: "Summarize the files in this directory",
+    options: { cwd: "/work/session-a" },
+  })) {
+    console.log(message);
+  }
   <div class="highlight"><pre><span></span><code>```python Python theme={null}
-query(prompt=prompt, options=ClaudeAgentOptions(cwd="/work/session-a"))
+import asyncio
+
+from claude_agent_sdk import ClaudeAgentOptions, query
+
+
+async def main():
+    async for message in query(
+        prompt="Summarize the files in this directory",
+        options=ClaudeAgentOptions(cwd="/work/session-a"),
+    ):
+        print(message)
+
+
+asyncio.run(main())
 </code></pre></div>
 </CodeGroup></p>
+<p>The TypeScript examples on this page use top-level <code>await</code>, so save them as <code>.mts</code> files or set <code>"type": "module"</code> in <code>package.json</code>.</p>
 <h3 id="state-that-lives-on-local-disk">State that lives on local disk</h3>
 <p>Three kinds of agent state live on the container's filesystem by default. None of them survive a container restart, a scale-down, or a move to a different node.</p>
 <table>
@@ -6031,7 +6051,7 @@ query(prompt=prompt, options=ClaudeAgentOptions(cwd="/work/session-a"))
 <h3 id="ephemeral-sessions">Ephemeral sessions</h3>
 <p>Create a container for each user task and destroy it when the task completes. Best for one-off tasks. The user may still interact with the AI while the task is completing, but once completed the container is destroyed.</p>
 <p>Example workloads include bug investigation and fix, invoice and receipt extraction, document translation, and media transformation.</p>
-<p>The container runs a one-shot entrypoint that calls the SDK and exits. In TypeScript, save the file as <code>entrypoint.mts</code> or set <code>"type": "module"</code> in <code>package.json</code> so top-level <code>await</code> is available.</p>
+<p>The container runs a one-shot entrypoint that reads the task from the <code>TASK_PROMPT</code> environment variable, calls the SDK, and exits.</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
   import { query } from "@anthropic-ai/claude-agent-sdk";</p>
@@ -6057,6 +6077,7 @@ async def main():
 asyncio.run(main())
 </code></pre></div>
 </CodeGroup></p>
+<p>The script prints each message as it arrives, including a result message whose <code>subtype</code> is <code>success</code> when the task completes within the turn limit. If the task hits the 20-turn limit instead, the result message's <code>subtype</code> is <code>error_max_turns</code> and the <code>query()</code> call raises an error after yielding it, so wrap the loop in a try block if the container needs to exit cleanly. See <a href="/docs/en/agent-sdk/agent-loop#handle-the-result">Handle the result</a> for the error subtypes.</p>
 <h3 id="long-running-sessions">Long-running sessions</h3>
 <p>Run persistent container instances, often hosting multiple SDK processes per container, to serve ongoing work. Best for agents that take autonomous action, serve content, or handle high-volume message streams.</p>
 <p>Example workloads include an email agent that triages and responds to incoming mail, a site builder that hosts a per-user editable site through container ports, and a chat bot that handles continuous traffic from a platform like Slack.</p>
@@ -6242,7 +6263,7 @@ asyncio.run(main())
 <tbody>
 <tr>
 <td>No top-level session timeout</td>
-<td>A session does not time out on its own. Set <code>maxTurns</code> in <code>Options</code> to bound how many tool-use round trips the agent takes before stopping.</td>
+<td>A session does not time out on its own. Set <code>maxTurns</code> in TypeScript or <code>max_turns</code> in Python to bound how many tool-use round trips the agent takes before stopping.</td>
 </tr>
 <tr>
 <td>Memory growth over long sessions</td>
