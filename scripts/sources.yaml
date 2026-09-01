@@ -304,3 +304,61 @@ sources:
         - "sed -i \"s|^  base: '/',|  base: '/dochub/mermaid/',|\" src/docs/.vitepress/config.ts"
       script: pnpm docs:build:vitepress
       output: src/vitepress/.vitepress/dist
+
+  - name: langchain-docs
+    repo: langchain-ai/docs
+    ref: main
+    homepage: https://docs.langchain.com/
+    paths:
+      - src
+    strip: src
+    include:
+      - "**/*.md"
+      - "**/*.mdx"
+    exclude:
+      - "images/**"
+      - "snippets/images/**"
+      - "node_modules/**"
+      - ".mintlify/**"
+    build:
+      # Upstream uses Mintlify (docs.langchain.com) with no public static-export
+      # build. Same MkDocs Material pattern as bruno / claude-code / fastmcp so
+      # the mirrored .md/.mdx are browsable under /dochub/langchain-docs/.
+      # Mintlify components (<Tabs>, <Note>, <CodeGroup>, etc.) pass through as
+      # raw HTML — readable but won't render identically to upstream.
+      tool: pip
+      working_dir: .
+      install: pip install mkdocs-material
+      pre_build:
+        # Rename .mdx -> .md for MkDocs.
+        - "find . -name '*.mdx' -not -path '*/node_modules/*' -exec sh -c 'mv \"$1\" \"${1%.mdx}.md\"' _ {} \\;"
+        # Strip MDX import lines that MkDocs would render literally.
+        - "find . -name '*.md' -not -path '*/node_modules/*' -exec sed -i -E '/^import[[:space:]].*from[[:space:]].*;?$/d' {} +"
+        # Strip Mintlify icon frontmatter lines that break MkDocs Material.
+        - "find . -name '*.md' -not -path '*/node_modules/*' -exec sed -i -E '/^icon:[[:space:]]/d' {} +"
+        # Stage all .md files under _docs/ preserving relative paths.
+        - "rsync -aR --include='*/' --include='*.md' --exclude='node_modules/' --exclude='*' --prune-empty-dirs ./ _docs/"
+        # Heredoc must remain the LAST entry: gen-build-matrix.py joins entries
+        # with ` && `, and anything appended after the terminator line would
+        # break the heredoc syntax.
+        - |
+          cat > mkdocs.yml <<'YAML'
+          site_name: LangChain Docs (mirror)
+          site_url: https://jiezhi.github.io/dochub/langchain-docs/
+          docs_dir: _docs
+          site_dir: _site
+          use_directory_urls: true
+          theme:
+            name: material
+          markdown_extensions:
+            - admonition
+            - attr_list
+            - md_in_html
+            - tables
+            - pymdownx.details
+            - pymdownx.superfences
+            - pymdownx.tabbed:
+                alternate_style: true
+          YAML
+      script: mkdocs build
+      output: _site
