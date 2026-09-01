@@ -6122,7 +6122,9 @@ sudo systemctl reload apparmor
 }
 <div class="highlight"><pre><span></span><code>These paths are enforced at the OS level, so all commands running inside the sandbox, including their child processes, respect them. This is the recommended approach when a tool needs write access to a specific location, rather than excluding the tool from the sandbox entirely with `excludedCommands`.
 
-When you define the same filesystem array in multiple [settings scopes](/docs/en/settings#settings-precedence), Claude Code merges them, combining paths from every scope rather than replacing one scope's array with another's. If you exclude a source with [`--setting-sources`](/docs/en/cli-reference) on the CLI or [`settingSources`](/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources) in the Agent SDK, Claude Code ignores its `sandbox.filesystem` entries, its `Edit` permission rules, and its `Read` deny rules when building the sandbox configuration. Requires Claude Code v2.1.246 or later.
+When you define the same filesystem array in multiple [settings scopes](/docs/en/settings#settings-precedence), Claude Code merges them, combining paths from every scope rather than replacing one scope's array with another's.
+
+If you exclude a source with [`--setting-sources`](/docs/en/cli-reference) on the CLI or [`settingSources`](/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources) in the Agent SDK, Claude Code ignores its `sandbox.filesystem` entries, its `Edit` permission rules, and its `Read` deny rules when building the sandbox configuration. Requires Claude Code v2.1.246 or later.
 
 When you edit these filesystem lists during a session, Claude Code [applies the change to the running session](/docs/en/settings#when-edits-take-effect), so the next sandboxed command runs under the new paths.
 
@@ -6211,7 +6213,9 @@ Setting `filesystem.disabled` lifts the protections the filesystem layer itself 
 
 Two other things change:
 
-* Sandboxed commands inherit your shell's `$TMPDIR` instead of the session temp directory, because every temp directory is writable and Claude Code no longer redirects commands to the session one. On Linux the variable is often unset in the parent shell, so it can expand empty inside sandboxed commands; Claude Code tells Claude through its Bash tool guidance to create scratch directories with `mktemp -d` instead of relying on `$TMPDIR`.
+* Sandboxed commands inherit your shell's `$TMPDIR` instead of the session temp directory, because every temp directory is writable and Claude Code no longer redirects commands to the session one.
+
+  On Linux the variable is often unset in the parent shell, so it can expand empty inside sandboxed commands; Claude Code tells Claude through its Bash tool guidance to create scratch directories with `mktemp -d` instead of relying on `$TMPDIR`.
 * [`autoAllowBashIfSandboxed`](/docs/en/settings-reference#sandbox-autoallowbashifsandboxed) still defaults to `true`, so sandboxed commands keep running without prompts. Set it to `false` to prompt for sandboxed commands.
 
 ### Protect credentials
@@ -6240,7 +6244,8 @@ The example below blocks reads of the AWS credentials file and the SSH directory
 }
 </code></pre></div></p>
 <p>Environment variable entries and file entries also accept <code>"mode": "mask"</code>, described under <a href="#mask-credentials">Mask credentials</a>.</p>
-<p>File paths follow the same <a href="/docs/en/settings-reference#sandbox-path-prefixes">prefix rules</a> as <code>sandbox.filesystem.*</code> settings. Claude Code merges the <code>deny</code> entries from every <a href="/docs/en/settings#settings-precedence">settings scope</a> the session loads. A <code>deny</code> entry only ever narrows access, so any scope can add one, but no scope can remove one that another scope added.</p>
+<p>File paths follow the same <a href="/docs/en/settings-reference#sandbox-path-prefixes">prefix rules</a> as <code>sandbox.filesystem.*</code> settings.</p>
+<p>Claude Code merges the <code>deny</code> entries from every <a href="/docs/en/settings#settings-precedence">settings scope</a> the session loads. A <code>deny</code> entry only ever narrows access, so any scope can add one, but no scope can remove one that another scope added.</p>
 <p>When you <a href="#configure-sandboxing">exclude a settings source</a>:</p>
 <ul>
 <li><strong>Project or local settings</strong>: Claude Code applies none of their <code>credentials</code> entries. Requires Claude Code v2.1.246 or later.</li>
@@ -6252,9 +6257,11 @@ The example below blocks reads of the AWS credentials file and the SSH directory
 <h4 id="mask-environment-variables">Mask environment variables</h4>
 <p><code>"mode": "mask"</code> protects a credential while keeping the tools that authenticate with it working. <code>deny</code> removes the variable entirely, which also breaks tools that need it, such as <code>gh</code> or <code>npm</code>. Requires Claude Code v2.1.199 or later.</p>
 <p>With <code>mask</code>, the sandboxed command sees a per-session sentinel value instead of the real one. Each <code>mask</code> entry can list <code>injectHosts</code>, the hosts the real value is allowed to reach. When a request leaves the sandbox for one of them, the <a href="#network-isolation">sandbox proxy</a> replaces the sentinel with the real value. The command and anything it logs never hold the real credential, but its requests still authenticate.</p>
-<p>The proxy substitutes the credential inside request contents, so it has to see them. Set <a href="/docs/en/settings-reference#sandbox-network-tlsterminate"><code>network.tlsTerminate</code></a> so the proxy terminates TLS itself. Without it, masking fails without exposing anything: the command still sees only the sentinel, but the sentinel reaches the server unchanged and authentication fails. Claude Code reports this misconfiguration at startup.</p>
+<p>The proxy substitutes the credential inside request contents, so it has to see them. Set <a href="/docs/en/settings-reference#sandbox-network-tlsterminate"><code>network.tlsTerminate</code></a> so the proxy terminates TLS itself.</p>
+<p>Without it, masking fails without exposing anything: the command still sees only the sentinel, but the sentinel reaches the server unchanged and authentication fails. Claude Code reports this misconfiguration at startup.</p>
 <p>Substitution covers headers and request bodies. Requests that authenticate with a signature derived from the credential, rather than the credential itself, need re-signing at the proxy; <a href="#re-sign-aws-requests">Re-sign AWS requests</a> covers how that works for AWS.</p>
-<p>The example below masks two tokens. <code>GH_TOKEN</code> is substituted only on requests to <code>api.github.com</code>, while <code>NPM_TOKEN</code> has no <code>injectHosts</code> and is substituted on requests to every host in <code>network.allowedDomains</code>. The proxy injects only on connections the <a href="#network-isolation">domain allowlist</a> admits, so each <code>injectHosts</code> destination must also be reachable through <code>network.allowedDomains</code>.</p>
+<p>The proxy injects only on connections the <a href="#network-isolation">domain allowlist</a> admits, so each <code>injectHosts</code> destination must also be reachable through <code>network.allowedDomains</code>.</p>
+<p>The example below masks two tokens. <code>GH_TOKEN</code> is substituted only on requests to <code>api.github.com</code>, while <code>NPM_TOKEN</code> has no <code>injectHosts</code> and is substituted on requests to every host in <code>network.allowedDomains</code>.</p>
 <p>```json theme={null}
 {
   "sandbox": {
@@ -6279,6 +6286,8 @@ The example below blocks reads of the AWS credentials file and the SSH directory
 `claude doctor` flags `injectHosts` entries that can never match with the warning `Sandbox credential injectHosts entries can never match their destination`. This check requires Claude Code v2.1.229 or later.
 
 Unlike `deny`, masking authorizes the proxy to send your real credential to the listed hosts, so Claude Code honors it only from settings you or your administrator control: user settings, managed settings, and the `--settings` CLI flag. Claude Code ignores `mask` entries in a repository's `.claude/settings.json` or `.claude/settings.local.json`. In those files it also ignores `network.tlsTerminate` and [`credentials.allowPlaintextInject`](/docs/en/settings-reference#sandbox-credentials-allowplaintextinject), the setting that lets the proxy inject credentials into unencrypted requests. If you [exclude user settings](#configure-sandboxing), Claude Code drops the environment variable `mask` entries in `~/.claude/settings.json` too.
+
+When your administrator delivers `mask` entries, `network.tlsTerminate`, or `credentials.allowPlaintextInject` through server-managed settings, they count as [settings that need approval](/docs/en/server-managed-settings#security-approval-dialogs).
 
 When the same variable is listed with `deny` in any scope, `deny` takes precedence.
 
