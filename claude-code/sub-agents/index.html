@@ -6486,7 +6486,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Tabs>
   <Tab title="Explore">
     A fast, read-only agent optimized for searching and analyzing codebases.</p>
-<pre><code>* **Model**: inherits from the main conversation, capped at Opus on the Claude API, so Explore never runs on a more expensive model than the one you already chose for the session
+<pre><code>* **Model**: inherits from the main conversation, capped at Opus on the Claude API, so Explore never runs on a more expensive model than the one you already chose for the session, unless you [force `CLAUDE_CODE_SUBAGENT_MODEL` onto it](#choose-a-model)
 * **Tools**: read-only tools; Write and Edit are denied
 * **Purpose**: file discovery, code search, codebase exploration
 
@@ -6501,7 +6501,7 @@ When invoking Explore, Claude specifies a thoroughness level: **quick** for targ
 <p></Tab></p>
 <p><Tab title="Plan">
     A research agent used during <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a> to gather context before presenting a plan.</p>
-<pre><code>* **Model**: inherits from the main conversation
+<pre><code>* **Model**: inherits from the main conversation, unless you [force `CLAUDE_CODE_SUBAGENT_MODEL` onto it](#choose-a-model)
 * **Tools**: read-only tools; Write and Edit are denied
 * **Purpose**: codebase research for planning
 
@@ -6510,7 +6510,7 @@ When you're in plan mode and Claude needs to understand your codebase, it delega
 <p></Tab></p>
 <p><Tab title="General-purpose">
     A capable agent for complex, multi-step tasks that require both exploration and action.</p>
-<pre><code>* **Model**: the [`CLAUDE_CODE_SUBAGENT_MODEL`](#choose-a-model) model if you set one and nothing assigns a model another way, otherwise the main conversation's model; [Choose a model](#choose-a-model) states the full order
+<pre><code>* **Model**: the [`CLAUDE_CODE_SUBAGENT_MODEL`](#choose-a-model) model if you set one and nothing assigns a model another way, otherwise the main conversation's model; [Choose a model](#choose-a-model) states the full order and how to force the variable onto subagents
 * **Tools**: every tool [available to subagents](#available-tools)
 * **Purpose**: complex research, multi-step operations, code modifications
 
@@ -6787,6 +6787,7 @@ experimental:
 <p>Setting <code>CLAUDE_CODE_SUBAGENT_MODEL</code> by itself doesn't change the model the built-in Explore and Plan subagents run on.</p>
 <p>Before v2.1.251, <code>CLAUDE_CODE_SUBAGENT_MODEL</code> came first in this order and overrode both the per-invocation parameter and the frontmatter, including <code>model: inherit</code>.</p>
 <p>Setting the variable to <code>inherit</code> is the same as leaving it unset. Before v2.1.196, that value forced subagents onto the main conversation's model and ignored the other sources.</p>
+<p>Set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code></a> to run subagents, <a href="/docs/en/agent-teams#specify-teammates-and-models">teammates</a>, and <a href="/docs/en/workflows">workflow agents</a> on <code>CLAUDE_CODE_SUBAGENT_MODEL</code> whatever model their definition or invocation names, the built-in Explore and Plan definitions included. A <a href="#fork-the-current-conversation">fork</a>, and a <a href="/docs/en/skills#run-skills-in-a-subagent">skill that runs in a subagent</a> with <code>model: inherit</code>, still run on the main conversation's model. When you haven't set <code>CLAUDE_CODE_SUBAGENT_MODEL</code>, subagents, teammates, and workflow agents run on the main conversation's model, and the built-in Explore subagent keeps its <a href="#built-in-subagents">model cap</a>. Requires Claude Code v2.1.257 or later.</p>
 <p>Claude Code checks the per-invocation parameter, frontmatter, and environment variable values against your organization's <a href="/docs/en/model-config#restrict-model-selection"><code>availableModels</code></a> allowlist. For a blocked value, it substitutes another model:</p>
 <ul>
 <li>When the blocked value is a family alias such as <code>opus</code>, Claude Code runs the subagent on the newest version of that family the allowlist permits, following the same <a href="/docs/en/model-config#restrict-model-selection">substitution rules and provider scope</a> as <code>/model</code>. Before v2.1.222, Claude Code ran the subagent on the inherited model for a blocked family alias as well.</li>
