@@ -3965,6 +3965,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#accumulating-many-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accumulating many images
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#upgrading-claude-code" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6027,6 +6038,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#accumulating-many-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accumulating many images
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#upgrading-claude-code" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6332,6 +6354,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#enabling-or-disabling-a-plugin">Enabling or disabling a plugin</a></li>
 <li><a href="#denying-an-entire-tool">Denying an entire tool</a></li>
 <li><a href="#compacting-the-conversation">Compacting the conversation</a></li>
+<li><a href="#accumulating-many-images">Accumulating many images</a></li>
 <li><a href="#upgrading-claude-code">Upgrading Claude Code</a></li>
 </ul>
 <h3 id="switching-models">Switching models</h3>
@@ -6386,6 +6409,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Tip>
   Compaction works in your favor when the context you discard is content you no longer need. To choose when its overhead happens, run <code>/compact</code> at a natural break in your work, such as between tasks, instead of waiting for auto-compaction to trigger mid-task. If you've gone down a path you want to abandon entirely, <a href="#rewinding-the-conversation"><code>/rewind</code></a> to an earlier turn instead. Rewinding truncates back to a prefix that is already cached, rather than building a new one as compaction does.
 </Tip></p>
+<h3 id="accumulating-many-images">Accumulating many images</h3>
+<p>The API limits how many images and PDFs each request can carry. For the current numbers, see <a href="https://platform.claude.com/docs/en/build-with-claude/vision#request-limits">Request limits</a> in the API docs. Claude Code also caps the total size of the images and PDFs in a request, so large screenshots reach the limit with fewer images than small ones.</p>
+<p>When the next request would pass either limit, Claude Code removes a batch of the oldest images and PDFs from what it sends, which leaves room for more before it needs to remove any again. Claude can no longer see the removed images. If Claude needs one of them again, share it again.</p>
+<p>Removing images changes the messages that held them, so the next request reprocesses the conversation from the earliest of those messages onward. Because Claude Code removes a batch at a time, you see one slower turn per batch rather than one with each new screenshot.</p>
 <h3 id="upgrading-claude-code">Upgrading Claude Code</h3>
 <p>A new Claude Code version typically updates the system prompt or tool definitions, so the first request after an upgrade rebuilds the cache from the top. <a href="/docs/en/setup#auto-updates">Auto-update</a> downloads new versions in the background but applies them on the next launch, never mid-session, so you see this as an uncached first turn after restarting rather than a surprise during a session. Set <code>DISABLE_AUTOUPDATER=1</code> to control when upgrades apply.</p>
 <p><Note>
@@ -6501,7 +6528,13 @@ Use this file to discover all available pages before exploring further.</p>
 <h2 id="subagents-and-the-cache">Subagents and the cache</h2>
 <p>A <a href="/docs/en/sub-agents">subagent</a> starts its own conversation with its own system prompt and tool set, separate from the parent's. Its first request doesn't read the parent's cache, because the two prefixes differ, and it warms a cache of its own across its turns. Subagents fall outside the main-conversation <a href="#which-ttl-each-request-gets">TTL bucket</a>, so they get five minutes even on a subscription until you <a href="#choose-the-ttl-yourself">choose a longer one</a>.</p>
 <p>The parent's cache is unaffected. From the parent's side, the subagent's call and result append to the conversation, leaving the parent's prefix intact.</p>
-<p>A <a href="/docs/en/sub-agents#fork-the-current-conversation">fork</a>, by contrast, inherits the parent's system prompt, tools, and conversation history exactly, so its first request reads the parent's cache. The compaction summarization call described in <a href="#compacting-the-conversation">Compacting the conversation</a> uses the same prefix-sharing approach. In a <a href="/docs/en/workflows#prompt-caching-in-a-fan-out">workflow fan-out</a> of same-prefix agents, Claude Code briefly holds all but the first so their first requests can read the prefix the first agent cached.</p>
+<p>A <a href="/docs/en/sub-agents#fork-the-current-conversation">fork</a>, by contrast, inherits the parent's system prompt, tools, and conversation history exactly, so its first request reads the parent's cache.</p>
+<p>Other requests can also read a prefix that an earlier request cached:</p>
+<ul>
+<li><strong>Session copies</strong>: a session you <a href="/docs/en/agent-view#copy-the-session-with-%2Ffork">copy with <code>/fork</code></a> receives its isolation instruction as a message at the end of the copied conversation, so the cache that the original conversation built stays intact.</li>
+<li><strong>Compaction</strong>: the summarization call described in <a href="#compacting-the-conversation">Compacting the conversation</a> uses the same prefix-sharing approach.</li>
+<li><strong>Workflow fan-outs</strong>: in a <a href="/docs/en/workflows#prompt-caching-in-a-fan-out">workflow fan-out</a> of same-prefix agents, Claude Code holds all but the first for up to 5 seconds by default, so their first requests can read the prefix that the first agent cached.</li>
+</ul>
 <h2 id="disable-prompt-caching">Disable prompt caching</h2>
 <p>Disabling caching is occasionally useful when debugging caching behavior with a specific model or provider. To turn it off, set one of these environment variables to <code>1</code>:</p>
 <table>
