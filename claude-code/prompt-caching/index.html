@@ -3954,6 +3954,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changing-output-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing output style
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#compacting-the-conversation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4019,17 +4030,6 @@
     <span class="md-ellipsis">
       
         Editing CLAUDE.md mid-session
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#changing-output-style" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing output style
       
     </span>
   </a>
@@ -6027,6 +6027,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changing-output-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing output style
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#compacting-the-conversation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6092,17 +6103,6 @@
     <span class="md-ellipsis">
       
         Editing CLAUDE.md mid-session
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#changing-output-style" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing output style
       
     </span>
   </a>
@@ -6303,7 +6303,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>System prompt</td>
 <td>Core instructions, tool definitions, output style</td>
-<td>The set of loaded tool definitions changes, or Claude Code is upgraded</td>
+<td>The set of loaded tool definitions changes, you switch output style, or Claude Code is upgraded</td>
 </tr>
 <tr>
 <td>Project context</td>
@@ -6317,7 +6317,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>A change to the conversation layer leaves the system prompt and project context cached. A change to the system prompt invalidates everything, because all later content now sits behind a different prefix. The third column gives common triggers rather than an exhaustive list, and the sections below cover the full set, including content such as output style that is fixed at session start.</p>
+<p>A change to the conversation layer leaves the system prompt and project context cached. A change to the system prompt invalidates everything, because all later content now sits behind a different prefix. The third column gives common triggers rather than an exhaustive list, and the sections below cover the full set.</p>
 <p>The prefix-match rule explains most of the behaviors on this page. <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">Plan mode</a> and <a href="/docs/en/skills">skill loading</a>, for example, append their instructions as conversation messages, so the cached prefix stays intact.</p>
 <p>Two settings don't appear in the layer table but still affect what stays cached:</p>
 <ul>
@@ -6353,6 +6353,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#connecting-or-disconnecting-an-mcp-server">Connecting or disconnecting an MCP server</a></li>
 <li><a href="#enabling-or-disabling-a-plugin">Enabling or disabling a plugin</a></li>
 <li><a href="#denying-an-entire-tool">Denying an entire tool</a></li>
+<li><a href="#changing-output-style">Changing output style</a></li>
 <li><a href="#compacting-the-conversation">Compacting the conversation</a></li>
 <li><a href="#accumulating-many-images">Accumulating many images</a></li>
 <li><a href="#upgrading-claude-code">Upgrading Claude Code</a></li>
@@ -6404,6 +6405,9 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="denying-an-entire-tool">Denying an entire tool</h3>
 <p>Adding a bare tool name like <code>Bash</code> or <code>WebFetch</code> as a <a href="/docs/en/permissions#manage-permissions">deny rule</a> removes that tool from Claude's context entirely. Claude Code loads built-in tool definitions into the system prompt layer, so adding or removing one of these rules mid-session invalidates the cache. Claude Code applies the change on the next request, whether you add the rule through <code>/permissions</code> or by <a href="/docs/en/settings#when-edits-take-effect">editing a settings file directly</a>. That includes a rule you add through <code>/permissions</code> in the middle of a turn.</p>
 <p>Only a deny rule that matches in the tool-name position has this effect: a bare tool name, the equivalent <code>Bash(*)</code> form, or a <a href="/docs/en/permissions#tool-name-wildcards">tool-name glob</a> like <code>"*"</code>. A glob that matches only MCP tools, such as <code>"mcp__*"</code>, removes those tools the same way but leaves the cache intact when the matched tools are <a href="#connecting-or-disconnecting-an-mcp-server">deferred</a>, the default, since deferred definitions were never in the cached prefix. Scoped deny rules like <code>Bash(rm *)</code>, and all allow and ask rules, don't change which tools Claude sees. Claude Code checks them when Claude attempts a call, leaving the prefix intact.</p>
+<h3 id="changing-output-style">Changing output style</h3>
+<p><a href="/docs/en/output-styles">Output style</a> is part of the system prompt. When you switch styles mid-session with <code>/config</code> or the <code>outputStyle</code> setting, Claude uses the new style starting with your next message, and that request reads the entire conversation history with no cache hits. To keep that cost small, switch styles before your first message in a session or right after <code>/clear</code> or <code>/compact</code>, when there is little or no conversation history to re-read.</p>
+<p>Before v2.1.251, a mid-session style switch kept the cache but didn't apply until you ran <code>/clear</code> or started a new session.</p>
 <h3 id="compacting-the-conversation">Compacting the conversation</h3>
 <p><a href="/docs/en/context-window#what-survives-compaction">Compaction</a> replaces your message history with a summary. By design, this invalidates the conversation layer, since the next request has a new, shorter history that doesn't share a prefix with the old one. Claude Code reuses the system prompt layer and reloads project context from disk, which cache-hits only if CLAUDE.md and memory are unchanged since the session started.</p>
 <p>To produce the summary, Claude Code sends a separate request with the same system prompt, tools, and history as your conversation, plus a summarization instruction appended as a final user message. While the cache is warm, that request reads your prefix from the cache, so a mid-session <code>/compact</code> costs a fraction of what the context size suggests and spends most of its time generating the summary.</p>
@@ -6421,11 +6425,10 @@ Use this file to discover all available pages before exploring further.</p>
   <a href="/docs/en/sessions#resume-a-session">Resuming a session</a> after an upgrade reprocesses the entire conversation history with no cache hits, since the history now sits behind a different system prompt. The cost scales with how long the resumed conversation is, so the first turn back into a long session can be the most expensive request you send.
 </Note></p>
 <h2 id="actions-that-keep-the-cache">Actions that keep the cache</h2>
-<p>These actions either append to the end of the conversation or don't touch the request at all. Some of them, such as editing CLAUDE.md or changing output style, are also why a setting change waits for a restart to apply.</p>
+<p>These actions either append to the end of the conversation or don't touch the request at all. Some of them, such as editing CLAUDE.md, keep the cache for the same reason the change doesn't reach the running session until <code>/clear</code>, <code>/compact</code>, or a restart.</p>
 <ul>
 <li><a href="#editing-files-in-your-repository">Editing files in your repository</a></li>
 <li><a href="#editing-claude-md-mid-session">Editing CLAUDE.md mid-session</a></li>
-<li><a href="#changing-output-style">Changing output style</a></li>
 <li><a href="#changing-permission-mode">Changing permission mode</a></li>
 <li><a href="#invoking-skills-and-commands">Invoking skills and commands</a></li>
 <li><a href="#running-%2Frecap">Running <code>/recap</code></a></li>
@@ -6437,8 +6440,6 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="editing-claudemd-mid-session">Editing CLAUDE.md mid-session</h3>
 <p>Your project-root and user-level CLAUDE.md files are read once at session start and held in memory. Editing them mid-session does not invalidate the cache, but the edit also doesn't apply. Claude keeps working with the version that was loaded at session start. The new content loads on the next <code>/clear</code>, <code>/compact</code>, or restart.</p>
 <p><a href="/docs/en/memory">Nested CLAUDE.md files in subdirectories</a> and <a href="/docs/en/memory#path-specific-rules">rules with <code>paths:</code> frontmatter</a> load later, when Claude first reads a matching file. Editing one before it loads does take effect. After it loads, the content is part of the conversation history, so a mid-session edit doesn't retroactively change it.</p>
-<h3 id="changing-output-style">Changing output style</h3>
-<p><a href="/docs/en/output-styles">Output style</a> is part of the system prompt, which Claude Code reads once at session start. Changing it via <code>/config</code> or the <code>outputStyle</code> setting mid-session does not invalidate the cache, but the change also doesn't apply. Claude keeps using the style that was loaded at session start. The new style loads on the next <code>/clear</code> or restart.</p>
 <h3 id="changing-permission-mode">Changing permission mode</h3>
 <p>Switching between <a href="/docs/en/permission-modes">permission modes</a>, such as from Manual to accept edits, does not change the system prompt or tool definitions, so mode changes are cache-safe. The exception is plan mode with the <a href="/docs/en/model-config#opusplan-model-setting"><code>opusplan</code></a> model setting, which switches the model between Opus and Sonnet as you enter or leave plan mode. That makes the mode toggle a <a href="#switching-models">model switch</a>.</p>
 <h3 id="invoking-skills-and-commands">Invoking skills and commands</h3>

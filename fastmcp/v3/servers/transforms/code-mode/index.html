@@ -20244,12 +20244,12 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 <h2 id="sandbox-configuration">Sandbox Configuration</h2>
 <h3 id="resource-limits">Resource Limits</h3>
 <p>The default <code>MontySandboxProvider</code> enforces execution limits — timeouts, memory caps, recursion depth, and more.</p>
-<p>Constructed with no arguments, it applies a conservative baseline so the out-of-box configuration is not unbounded: <code>max_duration_secs=30</code> and <code>max_memory=100_000_000</code> (100 MB). Pass an explicit <code>limits</code> dict to override it, or <code>limits=None</code> to run with no limits at all:</p>
+<p>Constructed with no arguments, it applies a conservative baseline so the out-of-box configuration is not unbounded: <code>max_duration_secs=30</code> and <code>max_memory=100_000_000</code> (100 MB). Pass an explicit <code>limits</code> dict to override it, or <code>limits=None</code> to disable the configurable time, memory, and GC limits. Monty's standard recursion limit still applies:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.experimental.transforms.code_mode</span><span class="w"> </span><span class="kn">import</span> <span class="n">MontySandboxProvider</span>
 
 <span class="n">MontySandboxProvider</span><span class="p">()</span>                  <span class="c1"># baseline: 30s, 100 MB</span>
 <span class="n">MontySandboxProvider</span><span class="p">(</span><span class="n">limits</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">})</span>      <span class="c1"># your own limits</span>
-<span class="n">MontySandboxProvider</span><span class="p">(</span><span class="n">limits</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>       <span class="c1"># explicitly uncapped</span>
+<span class="n">MontySandboxProvider</span><span class="p">(</span><span class="n">limits</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>       <span class="c1"># no time, memory, or GC limits</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.experimental.transforms.code_mode</span><span class="w"> </span><span class="kn">import</span> <span class="n">CodeMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.experimental.transforms.code_mode</span><span class="w"> </span><span class="kn">import</span> <span class="n">MontySandboxProvider</span>
@@ -20260,7 +20260,7 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Server"</span><span class="p">,</span> <span class="n">transforms</span><span class="o">=</span><span class="p">[</span><span class="n">CodeMode</span><span class="p">(</span><span class="n">sandbox_provider</span><span class="o">=</span><span class="n">sandbox</span><span class="p">)])</span>
 </code></pre></div>
-<p>All keys are optional — omit any to leave that dimension uncapped:</p>
+<p>Time, memory, and GC limits are optional; omit a key to disable that limit. Recursion depth defaults to Monty's standard maximum of 1,000:</p>
 <table>
 <thead>
 <tr>
@@ -20281,11 +20281,6 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 <td>Memory ceiling in bytes</td>
 </tr>
 <tr>
-<td><code>max_allocations</code></td>
-<td><code>int</code></td>
-<td>Cap on total object allocations</td>
-</tr>
-<tr>
 <td><code>max_recursion_depth</code></td>
 <td><code>int</code></td>
 <td>Maximum recursion depth</td>
@@ -20297,6 +20292,7 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 </tr>
 </tbody>
 </table>
+<p>Unsupported keys raise <code>ValueError</code> rather than being silently ignored. Monty no longer supports <code>max_allocations</code>; use <code>max_memory</code> to cap memory usage.</p>
 <h3 id="tool-call-limits">Tool Call Limits</h3>
 <p>A single <code>execute</code> block can issue many <code>call_tool()</code> invocations — a loop in LLM-generated code can fan out into a large number of backend operations from one request. <code>CodeMode</code> caps this at <code>max_tool_calls</code> (default <code>50</code>); exceeding it raises a <code>ToolError</code>. Pass <code>None</code> for no cap:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.experimental.transforms.code_mode</span><span class="w"> </span><span class="kn">import</span> <span class="n">CodeMode</span>
