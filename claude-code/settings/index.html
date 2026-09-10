@@ -6734,9 +6734,9 @@ To try a value without saving it, set it when you start Claude Code. The value a
 
 Each key's entry on the [settings reference](/docs/en/settings-reference) lists its per-session overrides and which one takes precedence, so check the entry for the key you want to change.
 
-Commands you run inside a session mostly save your choice: `/config` writes to your settings files, `/model` saves the value as your default for new sessions, and `/effort` on your machine saves the level as your default for the model you're using.
+Commands you run inside a session mostly save your choice: when you change a setting in `/config`, Claude Code writes it to your settings files, and `/model` saves the value as your default for new sessions.
 
-If you press `s` in the `/model` picker, Claude Code switches the model without saving it as your user default. Claude Code applies some `/effort` levels, such as `max` and `ultracode`, to the current session only; see [Adjust effort level](/docs/en/model-config#adjust-effort-level).
+If you press `s` in the `/model` picker, Claude Code switches the model without saving it as your user default. [Adjust effort level](/docs/en/model-config#adjust-effort-level) says which `/effort` picks Claude Code saves as your default for the model you're using and which apply to the current session only.
 
 For example, to start one session on Opus without changing your default:
 
@@ -6744,7 +6744,8 @@ For example, to start one session on Opus without changing your default:
 claude --settings '{"model": "claude-opus-4-8"}'
 </code></pre></div></p>
 <h3 id="when-edits-take-effect">When edits take effect</h3>
-<p>Claude Code watches your settings files and reloads them when they change, so it applies most edits to the running session without a restart, including edits to <code>permissions</code>, <code>hooks</code>, and credential helpers such as <code>apiKeyHelper</code>. The reload covers user, project, local, and managed settings, and Claude Code runs the <a href="/docs/en/hooks#configchange"><code>ConfigChange</code> hook</a> for each settings-file change it detects, not for managed settings that arrive from MDM or the claude.ai console. Managed settings that arrive through MDM or from the claude.ai console reach a running session on a schedule rather than on save; the <a href="/docs/en/managed-settings#choose-a-delivery-mechanism">delivery table</a> gives it per source.</p>
+<p>Claude Code watches your settings files and reloads them when they change, so it applies most edits to the running session without a restart, including edits to <code>permissions</code>, <code>hooks</code>, and credential helpers such as <code>apiKeyHelper</code>. Claude Code also loads a settings file you create mid-session if its folder existed when the session started. For the project's <code>.claude/</code> folder, it loads the file even when you create the folder in the same session.</p>
+<p>The reload covers user, project, local, and managed settings, and Claude Code runs the <a href="/docs/en/hooks#configchange"><code>ConfigChange</code> hook</a> for each settings-file change it detects, not for managed settings that arrive from MDM or the claude.ai console. Managed settings that arrive through MDM or from the claude.ai console reach a running session on a schedule rather than on save; the <a href="/docs/en/managed-settings#choose-a-delivery-mechanism">delivery table</a> gives it per source.</p>
 <p>Claude Code reads some keys only once, at session start, so an edit to one of them doesn't reach the running session. Admin-side keys that also wait for a restart, such as <code>requiredMinimumVersion</code>, are listed under <a href="/docs/en/managed-settings#where-and-when-a-policy-applies">where and when a policy applies</a>. The ones you're most likely to edit mid-session:</p>
 <ul>
 <li><a href="/docs/en/settings-reference#model"><code>model</code></a>: use <a href="/docs/en/model-config#setting-your-model"><code>/model</code></a> to switch mid-session. Each model has its own prompt cache, so the first request after a switch re-reads the whole conversation uncached; see <a href="/docs/en/prompt-caching#switching-models">Switching models</a></li>
@@ -6837,7 +6838,7 @@ claude --settings '{"model": "claude-opus-4-8"}'
 </ul>
 <p><span id="security-keys-where-the-stricter-value-applies" /></p>
 <h3 id="exceptions-to-managed-settings-precedence">Exceptions to managed settings precedence</h3>
-<p>For a few security-sensitive keys, Claude Code honors a restrictive value from a scope that otherwise couldn't override managed settings. Find the key in this table to see which value it honors and from where.</p>
+<p>For a few keys whose values restrict a session, Claude Code honors a restrictive value from a scope that otherwise couldn't override managed settings. Find the key in this table to see which value it honors and from where.</p>
 <table>
 <thead>
 <tr>
@@ -6881,6 +6882,11 @@ claude --settings '{"model": "claude-opus-4-8"}'
 <td style="text-align: left;"><a href="/docs/en/settings-reference#syncclaudeaiskills"><code>syncClaudeAiSkills</code></a></td>
 <td style="text-align: left;"><code>false</code> from any managed source, <code>--settings</code>, <code>~/.claude/settings.json</code>, or <code>.claude/settings.local.json</code></td>
 <td style="text-align: left;">Honored even when the winning managed source sets <code>true</code>; a <code>false</code> in <code>.claude/settings.json</code> is ignored</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/settings-reference#maxeffortlevel"><code>maxEffortLevel</code></a></td>
+<td style="text-align: left;">A lower cap from any scope, including <code>--settings</code></td>
+<td style="text-align: left;">Honored even when the managed settings Claude Code applies set a higher cap; the lowest cap applies. Requires Claude Code v2.1.267 or later</td>
 </tr>
 </tbody>
 </table>

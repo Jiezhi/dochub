@@ -6181,7 +6181,7 @@ You can also watch from the task panel below the input box: a one-line progress 
 </tr>
 <tr>
 <td style="text-align: left;"><code>Enter</code> or <code>→</code></td>
-<td style="text-align: left;">Drill into the selected phase, then into an agent to read its prompt, recent tool calls, and result</td>
+<td style="text-align: left;">Drill into the selected phase, then into an agent's detail. In the detail, <code>Enter</code> expands or collapses it</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Esc</code> or <code>←</code></td>
@@ -6213,6 +6213,8 @@ You can also watch from the task panel below the input box: a one-line progress 
 </tr>
 </tbody>
 </table>
+<p>The agent detail lists the agent's prompt, its recent tool calls, and its result. Each call shows its state, such as still running or failed. When the agent keeps a task list of its own, the detail shows it too, with each task's status.</p>
+<p>Press <code>Enter</code> to expand the detail. The prompt and result then show in full, and each listed call shows its input and the start of its result.</p>
 <h2 id="have-claude-write-a-workflow">Have Claude write a workflow</h2>
 <p>You can have Claude write a workflow for your task in two ways:</p>
 <ul>
@@ -6388,6 +6390,8 @@ return audits.filter(Boolean)
 </code></pre></div></p>
 <p>The body is plain JavaScript with top-level <code>await</code>. <code>agent()</code> spawns one subagent, <code>pipeline()</code> runs one per item in a list, and <code>parallel()</code> runs a set of agent tasks at the same time and waits for all of them.</p>
 <p>An <code>agent()</code> call resolves to <code>null</code> if you stop it mid-run or it hits an unrecoverable API error. <code>pipeline()</code> keeps that <code>null</code> in the results array, which is why the example ends with <code>.filter(Boolean)</code> to drop those entries.</p>
+<p>If you pass a <code>schema</code> on an <code>agent()</code> call, that subagent returns JSON matching the shape instead of prose. Claude Code checks the schema before starting the subagent: when it can prove the schema contradicts itself, the call fails with an error naming the contradiction, and the subagent never starts. One contradiction it can prove is a <code>required</code> key that <code>additionalProperties: false</code> rules out.</p>
+<p>If the subagent's output still fails validation after five attempts, the call fails with an error that includes the last validation failure. To change the attempt count, set <a href="/docs/en/env-vars"><code>MAX_STRUCTURED_OUTPUT_RETRIES</code></a>.</p>
 <h3 id="edit-a-saved-script">Edit a saved script</h3>
 <p>To change a <a href="#save-the-workflow-for-reuse">workflow you saved</a>, edit its <code>.js</code> file or ask Claude to make the change. Before you edit or ask, run the <code>/workflow-authoring</code> <a href="/docs/en/skills#bundled-skills">bundled skill</a> to load the script-writing reference Claude works from. The skill requires Claude Code v2.1.248 or later.</p>
 <p>To run the edited version in the current session, run <a href="/docs/en/commands#all-commands"><code>/reload-skills</code></a> to re-read the workflow directories, then run <code>/&lt;name&gt;</code> again.</p>
@@ -6450,8 +6454,10 @@ return audits.filter(Boolean)
 </table>
 <h2 id="manage-runs">Manage runs</h2>
 <p>Once a run starts, you manage it from the <code>/workflows</code> view, or by expanding its progress line in the task panel below the input box.</p>
+<p>When you stop a run, it stays in the task panel while any of its agents' processes are still running. If you stop it again, Claude Code re-signals those processes.</p>
 <h3 id="resume-after-a-pause">Resume after a pause</h3>
-<p>Resume a paused run from <code>/workflows</code> by selecting it and pressing <code>p</code>. For a run you stopped, ask Claude to relaunch the workflow with the same script. Claude Code replays the run in the order agents started, and each agent either returns its saved result or runs again:</p>
+<p>Resume a paused run from <code>/workflows</code> by selecting it and pressing <code>p</code>. For a run you stopped, ask Claude to relaunch the workflow with the same script. If agents from the stopped run haven't exited yet, Claude Code refuses the relaunch until they have, so a second copy of those agents can't run alongside them.</p>
+<p>Claude Code replays the run in the order agents started, and each agent either returns its saved result or runs again:</p>
 <ul>
 <li><strong>Completed</strong>: returns its saved result. The first agent whose prompt differs from the previous run, because you edited the script or an earlier agent returned something different, runs again, and so does every agent after it, even ones that completed.</li>
 <li><strong>Still running when you stopped</strong>: starts over. Stopping the whole run doesn't count any agent as failed.</li>
@@ -6461,8 +6467,10 @@ return audits.filter(Boolean)
 <p>You can resume a run within the same Claude Code session. What happens to a running workflow when you leave the session depends on how you leave:</p>
 <ul>
 <li>If you <a href="/docs/en/agent-view#what-carries-over-when-you-background">background the session</a>, Claude Code replays the run the same way in the background session and continues it.</li>
-<li>If you exit Claude Code while a workflow is running and <a href="/docs/en/agent-view#from-inside-a-session">agent view is on</a>, the exit dialog offers <code>Move to background and exit</code>, which carries the run over the same way. If you choose <code>Exit and stop tasks</code> instead, or the option isn't offered, the run stops with the session. Claude Code keeps the run's saved results under that session's directory in <code>~/.claude/projects/</code>, so a session you resume with <code>claude --resume</code> can replay them when you ask Claude to relaunch the workflow, while a session you start fresh has nothing to replay and starts the workflow over.</li>
+<li>If you exit Claude Code while a workflow is running and <a href="/docs/en/agent-view#from-inside-a-session">agent view is on</a>, the exit dialog offers <code>Move to background and exit</code>, which carries the run over the same way. If you choose <code>Exit and stop tasks</code> instead, or the option isn't offered, the run stops with the session. Claude Code keeps the run's saved results under that session's directory in <code>~/.claude/projects/</code>, so a session you resume with <code>claude --resume</code> can replay them when you ask Claude to relaunch the workflow. In a session you start fresh, Claude has no earlier run to relaunch and starts the workflow over as a new run.</li>
 </ul>
+<p>In a <a href="/docs/en/claude-code-on-the-web">cloud session</a>, Claude Code also saves the run's results with the session's conversation history, which survives when the session's VM is reclaimed. When you <a href="/docs/en/claude-code-on-the-web#environment-expired">reopen such a session</a> and ask Claude to relaunch the workflow, completed agents still return their saved results.</p>
+<p>In local and cloud sessions alike, when Claude relaunches an earlier run and Claude Code can't find that run's saved results at all, the relaunch fails with a <code>nothing to resume</code> error instead of starting the run over on its own. Ask Claude to start the workflow over as a new run.</p>
 <h3 id="cost">Cost</h3>
 <p>A workflow spawns many agents, so a single run can use meaningfully more tokens than working through the same task in conversation. Runs count toward your plan's usage and rate limits like any other session.</p>
 <p>To gauge the spend before committing to a large task, run the workflow on a small slice first: one directory instead of the whole repo, or a narrow question instead of a broad one. The <code>/workflows</code> view shows each agent's token usage as the run progresses, and you can stop the run there at any time, usually without losing completed work. <a href="#resume-after-a-pause">Resume after a pause</a> covers what a stopped run keeps. The runtime's <a href="#behavior-and-limits">agent caps</a> limit how many agents a single run can spawn, which bounds the cost of a runaway script. To keep runs to fewer agents, choose the <code>small</code> <a href="#set-a-size-guideline">size guideline</a>.</p>

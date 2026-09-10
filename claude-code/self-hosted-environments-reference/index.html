@@ -5808,7 +5808,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--configure-git</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_CONFIGURE_GIT=1</code></td>
 <td style="text-align: left;">off</td>
-<td style="text-align: left;">Write global git identity and enable Anthropic commit signing at startup. See <a href="/docs/en/self-hosted-environments-deploy#configure-git">Configure git</a>.</td>
+<td style="text-align: left;">At startup, write global git identity, enable Anthropic commit signing, turn on git push negotiation, and install commit hooks that append a <code>Co-authored-by:</code> trailer. Push negotiation requires Claude Code v2.1.257 or later. See <a href="/docs/en/self-hosted-environments-deploy#configure-git">Configure git</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--confine-repo-settings &lt;mode&gt;</code></td>
@@ -5886,7 +5886,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--kill-session-after-min &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_MAX_LIFETIME_MS</code></td>
 <td style="text-align: left;"><code>0</code></td>
-<td style="text-align: left;">Terminate a session child once it has lived N minutes wall-clock, as a safety limit for stuck sessions. The runner terminates the session's process tree, including any commands the session left running. The runner defers a kill that falls mid-turn until the turn finishes, for at most the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_MAX_LIFETIME_GRACE_MS</code></a> window. To choose a value, see <a href="/docs/en/self-hosted-environments-deploy#some-sessions-don’t-count-as-idle">Some sessions don't count as idle</a>. <code>0</code> disables.</td>
+<td style="text-align: left;">Limit a session to N minutes wall-clock, as a safety limit for stuck sessions. On v2.1.260 or later, the runner releases a session that reaches the limit so it can resume on its user's next message, and terminates it only if it's still on the runner when the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_MAX_LIFETIME_GRACE_MS</code></a> grace window ends. Before v2.1.260, the runner terminated the session at the limit. See <a href="/docs/en/self-hosted-environments-deploy#some-sessions-don’t-count-as-idle">Some sessions don't count as idle</a> for the details and how to choose a value. <code>0</code> disables.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--lock-to-account &lt;id&gt;</code></td>
@@ -5964,7 +5964,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--use-anthropic-git-proxy</code></td>
 <td style="text-align: left;"><code>CLAUDE_RUNNER_USE_GIT_PROXY=1</code></td>
 <td style="text-align: left;">off</td>
-<td style="text-align: left;">Clone via Anthropic's git proxy instead of customer-managed git auth. Requires <code>--capacity 1</code> and git 2.32 or newer; the runner refuses to start otherwise. Supersedes the rewrite flags.</td>
+<td style="text-align: left;">Clone via the <a href="/docs/en/self-hosted-environments-deploy#use-the-anthropic-git-proxy">Anthropic git proxy</a> instead of customer-managed git auth. Requires <code>--capacity 1</code> and git 2.32 or newer; the runner refuses to start otherwise. Supersedes the rewrite flags.</td>
 </tr>
 </tbody>
 </table>
@@ -6074,7 +6074,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_MAX_LIFETIME_GRACE_MS</code></td>
 <td style="text-align: left;"><code>900000</code></td>
-<td style="text-align: left;">Bounds how long a <code>--kill-session-after-min</code> kill is deferred while waiting for an in-flight turn to finish</td>
+<td style="text-align: left;">How long the runner waits after a session reaches its <code>--kill-session-after-min</code> limit, for a running turn to finish or the release to complete, before it terminates the session</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_SIGKILL_GRACE_MS</code></td>
@@ -6283,11 +6283,13 @@ spec:
 <h3 id="session-lifecycle-counter-semantics">Session lifecycle counter semantics</h3>
 <p>The <code>sessions_started_total</code>, <code>sessions_completed_total</code>, <code>sessions_failed_total</code>, and <code>sessions_interrupted_total</code> counters classify each session by how it ended. Every spawned session child increments <code>sessions_started_total</code> at spawn time, and exactly one of the other three increments at exit, so <code>sessions_started_total</code> minus the sum of the other three equals the number of session children currently running.</p>
 <ul>
-<li><code>completed</code>: the session ended cleanly. This covers the child exiting on its own with code <code>0</code>, the session being archived or deleted while the child was still connected, and the runner releasing the slot as a clean handoff: an idle release, a startup timeout, or a server-side deassign the poll loop noticed before the child exited. Increments <code>sessions_completed_total</code>.</li>
+<li><code>completed</code>: the session ended cleanly. This covers the child exiting on its own with code <code>0</code>, the session being archived or deleted while the child was still connected, and the runner handing the slot back cleanly: releasing the session at the idle timeout, the retire time, or the <code>--kill-session-after-min</code> limit; a startup timeout; or a server-side deassign the poll loop noticed before the child exited. Increments <code>sessions_completed_total</code>.</li>
 <li><code>failed</code>: the child exited on its own with a non-zero code, either a crash or a setup failure after spawn. Increments <code>sessions_failed_total</code>.</li>
-<li><code>interrupted</code>: the runner terminated the child for an operational reason that's neither a session success nor a runner fault, such as a drain or the max-lifetime watchdog <code>--kill-session-after-min</code>. A Kubernetes rolling restart sending <code>SIGTERM</code> is one example of a drain. Increments <code>sessions_interrupted_total</code>.</li>
+<li><code>interrupted</code>: the runner terminated the child for an operational reason that's neither a session success nor a runner fault, such as a drain, or terminating a session that was still on the runner when the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_MAX_LIFETIME_GRACE_MS</code></a> grace window after its <code>--kill-session-after-min</code> limit ended. A Kubernetes rolling restart sending <code>SIGTERM</code> is one example of a drain. Increments <code>sessions_interrupted_total</code>.</li>
 </ul>
-<p>The <a href="/docs/en/self-hosted-environments-configuration#post-session"><code>post-session</code> hook</a>'s <code>CLAUDE_RUNNER_EXIT_REASON</code> doesn't use this classification for clean handoffs. The hook reports an idle release, a startup timeout, and a server deassign as <code>interrupted</code>, since from the hook's perspective the runner killed the child, while the counters above record those same events as <code>completed</code>, since nothing went wrong and the slot was handed back cleanly. If you reconcile hook receipts against <code>sessions_completed_total</code> directly, you undercount completions. Use the hook for per-session guarantees and the counters for aggregate rates.</p>
+<p>Before v2.1.260, the runner terminated every session that reached its <code>--kill-session-after-min</code> limit and counted it in <code>sessions_interrupted_total</code>.</p>
+<p>The <a href="/docs/en/self-hosted-environments-configuration#post-session"><code>post-session</code> hook</a>'s <code>CLAUDE_RUNNER_EXIT_REASON</code> classifies clean handoffs differently. The hook reports a release, a startup timeout, and a server deassign as <code>interrupted</code>, because the runner stopped the child. These counters record the same events as <code>completed</code>, because the slot was handed back cleanly.</p>
+<p>If you reconcile hook receipts against <code>sessions_completed_total</code> directly, you undercount completions. Use the hook for per-session guarantees and the counters for aggregate rates.</p>
 <p>On a one-shot environment, <code>--capacity 1</code> with the default <code>--drain-grace-sec 0</code>, each runner process exits moments after its one session ends. <code>sessions_completed_total</code>, <code>sessions_failed_total</code>, and <code>sessions_interrupted_total</code> increment only at session end, right before that exit, so a Prometheus scrape every 15 to 60 seconds rarely catches the increment before the runner's series disappears; these three end-of-session counters are the terminal counters the rest of this section refers to. <code>sessions_started_total</code> increments at spawn and stays visible for the life of the session, so it reliably shows up, but on a one-shot environment it reads closer to "sessions currently running" than a cumulative count.</p>
 <p>Use the series in this table for the corresponding goal instead of the terminal counters:</p>
 <table>

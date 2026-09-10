@@ -6014,6 +6014,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Serverless</strong>: Cloud Run works if you set <code>min-instances: 1</code> to avoid cold OIDC discovery. Lambda and Cloud Functions don't work, because the gateway is a long-running HTTP server.</li>
 </ul>
 <p>Every production topology here puts an L7 proxy, such as an Ingress, Cloud Run's front end, or an ALB, in front of plain-HTTP replicas. Set <a href="/docs/en/claude-apps-gateway-config#listen"><code>listen.trusted_proxies</code></a> to the proxy's source ranges so the gateway reads client IPs from <code>X-Forwarded-For</code>. The gateway honors the header only when the TCP peer is trusted. The <a href="/docs/en/claude-apps-gateway-on-gcp">Google Cloud</a> and <a href="/docs/en/claude-apps-gateway-on-aws">AWS</a> worked examples have concrete values per topology. Without trusted proxies, every request appears to come from the proxy's IP, which collapses per-IP rate limits into one shared bucket and records the proxy's IP in audit events.</p>
+<p>Don't redirect requests to the gateway's device-authorization and token endpoints, for example with an HTTP-to-HTTPS or host-canonicalization rewrite at the ingress. Claude Code doesn't follow redirects on those requests, so an ingress rule that redirects them breaks sign-in and token refresh.</p>
 <p>Give the proxy any idle timeout longer than the gateway's keepalive interval, which depends on the upstream:</p>
 <ul>
 <li>On every upstream except <code>provider: anthropic</code>, the gateway writes an SSE <code>ping</code> once a stream has been silent for about 15 seconds.</li>
@@ -6053,7 +6054,9 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>For a complete worked example on Google Cloud, covering Cloud Run or GKE, Cloud SQL, and Secret Manager, see <a href="/docs/en/claude-apps-gateway-on-gcp">Deploy on Google Cloud</a>.</p>
 <h3 id="push-the-gateway-url-to-developer-machines">Push the gateway URL to developer machines</h3>
-<p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option. See <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths and the Claude Desktop <code>bootstrapUrl</code> equivalent.</p>
+<p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option.</p>
+<p>Once you deploy the keys, Claude Code stops using a leftover API key or claude.ai login on the machine, so plan the push together with your sign-in instructions. <a href="/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in">Administrator policy requires a Cloud gateway sign-in</a> describes the messages developers see.</p>
+<p>See <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the file paths and the Claude Desktop <code>bootstrapUrl</code> equivalent.</p>
 <h2 id="operations">Operations</h2>
 <p>Once the gateway is serving traffic, day-to-day operation is reading its logs, probing its health, and rotating its secrets on your schedule. The subsections cover each, plus what Postgres holds and how upgrades and rollbacks behave.</p>
 <h3 id="logs">Logs</h3>
@@ -6061,7 +6064,11 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li><strong>Audit events</strong>: single-line JSON per security-relevant event. Pipe stderr to your log aggregator. The events emitted include <code>config.load</code>, <code>session.mint</code>, <code>session.refresh</code>, <code>device.authorize</code>, <code>device.verify</code>, <code>device.callback</code>, <code>auth.denied</code>, <code>access.denied</code>, <code>inference</code>, <code>managed.serve</code>, <code>desktop_bootstrap.serve</code>, <code>desktop_bootstrap.denied</code>, <code>spend.blocked</code>, <code>admin.denied</code>, <code>admin.limit.upsert</code>, and <code>admin.limit.delete</code>. Fields vary by event:</li>
 <li>Successful mint and refresh events carry <code>sub</code>, <code>email</code>, <code>client_ip</code>, and the result</li>
-<li><code>auth.denied</code> and <code>access.denied</code> carry the reason and client IP, plus the request path for <code>auth.denied</code>, since no user identity exists at those denials</li>
+<li><code>auth.denied</code> and <code>access.denied</code> carry the reason and client IP, plus the request path for <code>auth.denied</code>, since no user identity exists at those denials. Two <code>access.denied</code> reasons change what the event carries:<ul>
+<li><code>xff_unparseable</code>: the event also carries the <code>X-Forwarded-For</code> entry that couldn't be read</li>
+<li><code>client_ip_unknown</code>: the event carries no client IP, because the connection had no peer address while an <code>access_control</code> list was set</li>
+</ul>
+</li>
 <li><code>inference</code> records which upstream served the request and the response status</li>
 <li><code>desktop_bootstrap.denied</code> records a rejected Claude Desktop bootstrap fetch with the reason (<code>not_configured</code>, <code>policy_not_opted_in</code>, or <code>no_policy_matched</code>) and the user's identity</li>
 <li><code>admin.denied</code> records a rejected admin-API auth attempt with the client IP, method, path, and a reason, without the presented key material: <code>invalid_key</code> when an <code>x-api-key</code> was presented but matched no configured key, <code>bearer_rejected</code> when only an <code>Authorization</code> header was presented and it didn't verify as a gateway session in <code>admin.admin_groups</code>, or <code>no_credentials</code> when neither header was presented</li>
@@ -6222,6 +6229,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Deploy the <a href="/docs/en/claude-apps-gateway#set-the-gateway-url">managed settings file</a> to the device; <code>/login</code> reads the gateway URL from there</td>
 </tr>
 <tr>
+<td>A developer's requests fail with <code>Not signed in to the Cloud gateway — run /login.</code></td>
+<td>The machine's managed settings set <code>forceLoginMethod: "gateway"</code> or <code>forceLoginGatewayUrl</code>, and the session has no gateway sign-in. A leftover claude.ai login doesn't satisfy the requirement.</td>
+<td>Have the developer run <code>/login</code> and complete the gateway sign-in. See also <a href="/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in">Administrator policy requires a Cloud gateway sign-in</a>.</td>
+</tr>
+<tr>
 <td>Claude Desktop reports that its bootstrap configuration couldn't be fetched</td>
 <td><code>/user/bootstrap</code> returned 404: the policy matching the user doesn't carry a <code>desktop</code> key, or no policy matched. The gateway's audit log records each rejection as <code>desktop_bootstrap.denied</code> with the reason.</td>
 <td>Add a <code>desktop</code> block to the policy that matches the user, or to the <code>match: {}</code> base layer; an empty <code>desktop: {}</code> suffices. See <a href="/docs/en/claude-apps-gateway-config#claude-desktop-overlay">Claude Desktop overlay</a>.</td>
@@ -6230,6 +6242,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Startup shows <code>Gateway login is configured in managed settings, but this Claude Code build does not include Cloud gateway support.</code></td>
 <td>The installed Claude Code build predates gateway support</td>
 <td>Have the developer update Claude Code to a release that includes Cloud gateway support</td>
+</tr>
+<tr>
+<td>Startup or <code>/login</code> reports <code>Claude Code may not be enabled for your organization</code> after a 403 on the managed settings load</td>
+<td>The gateway, or something in front of it, answered the <code>/managed/settings</code> request with 403. The gateway's own settings route never answers 403. The status comes from the <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>access_control</code></a> IP checks or from a proxy or WAF in front of the gateway. The audit log records an IP-check denial as <code>access.denied</code> with the reason. The developer stays signed in.</td>
+<td>Check the audit log for <code>access.denied</code> at the time of the failure and fix the <code>access_control</code> lists or the front end, then have the developer start <code>claude</code> again</td>
 </tr>
 <tr>
 <td>CLI <code>/login</code>: <code>Gateway hosts must be on your organization's private network; &lt;host&gt; resolves to the public (or unrecognized) address &lt;ip&gt;</code></td>
@@ -6282,6 +6299,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Configure the IdP to emit <code>email</code> in the id_token. Okta: add <code>email</code> to a custom authorization server's ID-token claims. Entra: add <code>email</code> as an optional claim on the app registration. PingFederate: enable an OpenID Connect Policy that emits <code>email</code>. If the IdP serves <code>email</code> from the userinfo endpoint but won't include it in the id_token, such as the Okta org authorization server, set <code>oidc.userinfo_fallback: true</code>.</td>
 </tr>
 <tr>
+<td>Log: <code>refresh failed request_id=&lt;id&gt;: invalid_token (…) (at userinfo_no_id_token, …)</code>, and developers see <code>Cloud gateway session expired</code> every <code>session.ttl_hours</code></td>
+<td>The IdP accepted the refresh token but returned no id_token with it, so the gateway asked the IdP's userinfo endpoint for the user's claims. The IdP rejected the refreshed access token there. The gateway answers <code>temporarily_unavailable</code>, so Claude Code keeps the refresh token but can't renew the session. Gateway versions before v2.1.260 log the same line without the <code>(at …)</code> detail.</td>
+<td>Set <a href="/docs/en/claude-apps-gateway-config#oidc"><code>oidc.scope_on_refresh: true</code></a>, available in gateway v2.1.260 or later, so the refresh request asks for <code>openid</code> again. Some IdPs, such as Okta, return an id_token on refresh only when asked. On PingFederate, enable <strong>Return ID Token On Refresh Grant</strong> under <strong>Applications &gt; OAuth &gt; OpenID Connect Policy Management</strong> instead. The key doesn't change PingFederate's behavior. For other IdPs that still omit it, check whether the userinfo endpoint accepts access tokens issued by a refresh. As a stopgap, raise <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a>. See <a href="#identity-provider-setup">Identity provider setup</a> for the deprovisioning tradeoff.</td>
+</tr>
+<tr>
 <td>Every Amazon Bedrock request returns 502; log shows <code>Could not load credentials from any providers</code></td>
 <td>On EC2, IMDSv2's default hop limit of 1 blocks the instance-metadata request from inside the container. Boot and <code>/readyz</code> pass anyway because the AWS SDK resolves instance credentials on the first request, not at client construction</td>
 <td>Raise the hop limit with <code>aws ec2 modify-instance-metadata-options --instance-id &lt;id&gt; --http-put-response-hop-limit 2</code>, or set it in the launch template. The change applies to every container on the instance. Prefer ECS task roles where available, which read credentials from the ECS container-credentials endpoint and avoid the change entirely, or apply the change on a dedicated gateway instance to limit the exposure.</td>
@@ -6331,9 +6353,14 @@ Use this file to discover all available pages before exploring further.</p>
 <td>On the first request after sign-in, the gateway presented a certificate that doesn't match the fingerprint Claude Code pinned, so Claude Code kept no gateway credential. The usual causes are replicas behind one address that serve different certificates, or something on the network path that intercepts TLS.</td>
 <td>Serve one certificate for the hostname, for example by terminating TLS once at the ingress, then have the developer run <code>/login</code> again. If that certificate differs from the pinned one, Claude Code shows the <a href="/docs/en/claude-apps-gateway#connect-developers">trust prompt</a> again with a warning that the certificate changed.</td>
 </tr>
+<tr>
+<td>CLI <code>/login</code> stops with <code>The gateway's TLS certificate changed during sign-in: it no longer matches the one you trusted</code></td>
+<td>A sign-in request reached a server whose certificate doesn't match the one the developer accepted when <code>/login</code> started: replicas behind one address serving different certificates, TLS interception on the path, or a certificate rotation while the sign-in was in progress.</td>
+<td>Serve one certificate for the hostname, then have the developer start the sign-in again and review the new certificate at the <a href="/docs/en/claude-apps-gateway#connect-developers">trust prompt</a>.</td>
+</tr>
 </tbody>
 </table>
-<p>The mismatch message includes the gateway hostname and the first 16 characters of each fingerprint, the pinned one and the presented one.</p>
+<p>The <code>Cloud gateway sign-in was not completed</code> message names the gateway hostname. When Claude Code has both the pinned fingerprint and the presented one, the message also shows the first 16 characters of each.</p>
 <p>If Claude Code reports <code>couldn't load your organization's managed settings</code> after a gateway sign-in, Claude Code names the reason, restarts in place, and resumes the conversation. If Claude Code can't restart, for example in a background session, Claude Code ends the session and keeps the sign-in.</p>
 <h2 id="related">Related</h2>
 <ul>

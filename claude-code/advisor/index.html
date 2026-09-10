@@ -5873,7 +5873,13 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Run <code>/advisor</code> without arguments to open a picker listing the available advisor models, or pass the model directly:</p>
 <div class="highlight"><pre><span></span><code>/advisor opus
 </code></pre></div>
-<p>The command confirms with <code>Advisor set to</code> followed by the advisor model name. Your selection is saved to <code>advisorModel</code> in your user settings and persists across sessions.</p>
+<p>The command confirms with <code>Advisor set to</code> followed by the advisor model name. Your selection is saved to <code>advisorModel</code> in your user settings and persists across sessions, except in the cases the <a href="/docs/en/settings-reference#advisormodel"><code>advisorModel</code> entry</a> lists as applying to the current session only.</p>
+<p>The command also works where there is no terminal picker: in <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code>, in the Agent SDK, in the desktop app, and over <a href="/docs/en/remote-control">Remote Control</a>. This requires Claude Code v2.1.260 or later. On those surfaces:</p>
+<ul>
+<li>Run <code>/advisor</code> with no argument to print the current advisor model and the aliases it accepts.</li>
+<li>Run <code>/advisor</code> with a model, such as <code>/advisor opus</code>, to set it.</li>
+<li>Run <code>/advisor off</code> to turn it off.</li>
+</ul>
 <p>Claude Code doesn't invoke a saved advisor that your organization's <a href="/docs/en/model-config#restrict-model-selection"><code>availableModels</code></a> allowlist excludes. To use the advisor, pick an allowed model with <code>/advisor</code>. Claude Code still saves an advisor that your current main model doesn't support. That advisor activates after you switch to a <a href="#choose-an-advisor-model">compatible main model</a> with <a href="/docs/en/model-config#setting-your-model"><code>/model</code></a>.</p>
 <p>On some plans, Fable as the advisor also needs your one-time <a href="/docs/en/model-config#fable-and-usage-credits">consent to bill Fable usage to usage credits</a>. For what <code>/advisor fable</code> does before you have given that consent, see <a href="#fable-advisor-and-usage-credits">Fable advisor and usage credits</a>.</p>
 <h3 id="set-advisormodel-in-settings">Set <code>advisorModel</code> in settings</h3>
@@ -5940,7 +5946,7 @@ claude --advisor opus
 </tr>
 </tbody>
 </table>
-<p>Fable 5.1 requires Claude Code v2.1.255 or later and Fable 5 requires v2.1.170 or later, plus <a href="/docs/en/model-config#work-with-fable">Fable access</a>.</p>
+<p>Fable 5.1 requires Claude Code v2.1.257 or later, and Fable 5 requires v2.1.170 or later. Both require <a href="/docs/en/model-config#work-with-fable">Fable access</a>.</p>
 <p>Set the advisor as <code>fable</code>, <code>opus</code>, or <code>sonnet</code>. These aliases resolve to Claude Code's built-in default version for each model family, which advances with new Claude Code releases. You can also pass a full model ID such as <code>claude-opus-5</code>.</p>
 <p>Subagents inherit the configured advisor and apply the same pairing check against their own model.</p>
 <p>Claude Code validates the pairing before sending a request:</p>
@@ -6000,7 +6006,12 @@ claude --advisor opus
 <p>Claude generally follows the advisor's guidance, but adapts when its own evidence contradicts a specific claim: if a recommended step fails when tried, or the file contents contradict the advice, Claude surfaces the conflict rather than following the guidance unconditionally.</p>
 <p>The advisor always receives the full conversation, and Claude controls the timing. For more control or a different configuration, see <a href="#compare-with-related-features">how the advisor compares with subagents and opusplan</a>.</p>
 <h2 id="cost">Cost</h2>
-<p>When Claude calls the advisor, the advisor model reads the conversation, so each call consumes tokens at the advisor model's rates in addition to your main model's usage. With API billing, you pay the advisor model's input and output rates for advisor tokens. On subscription plans, advisor usage counts toward your plan's usage limits, except that a Fable advisor bills to <a href="/docs/en/model-config#fable-and-usage-credits">usage credits</a> on plans where Fable usage does. If your account requires the usage-credits consent, a Fable advisor bills nothing before you give it, because Claude Code <a href="#fable-advisor-and-usage-credits">doesn't apply the selection</a> until then.</p>
+<p>When Claude calls the advisor, the advisor model reads the conversation, so each call consumes tokens at the advisor model's rates in addition to your main model's usage. How those advisor tokens are billed depends on how you pay:</p>
+<ul>
+<li><strong>API billing</strong>: you pay the advisor model's input and output rates for advisor tokens</li>
+<li><strong>Subscription plans</strong>: advisor usage counts toward your plan's usage limits, except that a Fable advisor bills to <a href="/docs/en/model-config#fable-and-usage-credits">usage credits</a> on plans where Fable usage does</li>
+</ul>
+<p>If your account requires the usage-credits consent, a Fable advisor bills nothing before you give it, because Claude Code <a href="#fable-advisor-and-usage-credits">doesn't apply the selection</a> until then.</p>
 <p>Claude calls the advisor at decision points rather than on every turn, so pairing a faster main model with a stronger advisor typically costs less than running the stronger model throughout. Advisor usage counts toward the session totals shown by <a href="/docs/en/costs#track-your-costs"><code>/usage</code></a>.</p>
 <p>For how advisor tokens are reported in API responses, see <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool#usage-and-billing">Usage and billing</a> in the Claude API documentation.</p>
 <h2 id="impact-on-prompt-caching">Impact on prompt caching</h2>
@@ -6014,7 +6025,7 @@ claude --advisor opus
 <li><strong>Feature-flag fetching</strong>: Claude Code turns the advisor on through a feature flag it fetches from Anthropic. In a session where a variable that turns flag fetching off is set, such as <code>DISABLE_TELEMETRY</code>, the advisor stays off. See <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">Features that need feature-flag fetching</a>.</li>
 </ul>
 <h2 id="turn-the-advisor-off">Turn the advisor off</h2>
-<p>To stop using the advisor and clear your saved <code>advisorModel</code>, run <code>/advisor off</code> or choose <strong>No advisor</strong> in the <code>/advisor</code> picker:</p>
+<p>To stop using the advisor, run <code>/advisor off</code> or choose <strong>No advisor</strong> in the <code>/advisor</code> picker:</p>
 <div class="highlight"><pre><span></span><code>/advisor off
 </code></pre></div>
 <p>To disable the advisor tool entirely, set <code>CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1</code>. The <code>/advisor</code> command becomes unavailable and any configured <code>advisorModel</code> is ignored. The <code>--advisor</code> flag is accepted but has no effect. See <a href="/docs/en/env-vars">Environment variables</a>.</p>

@@ -6038,7 +6038,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><img src="https://mintcdn.com/claude-code/_xqph1dUOslCOwsj/images/agent-loop-diagram-dark.svg?fit=max&auto=format&n=_xqph1dUOslCOwsj&q=85&s=afe723c52a324d3c61fa72fb02432ab6" className="hidden dark:block" alt="Diagram of the agent loop: your prompt enters the agentic loop, where Claude evaluates and either requests tool calls, whose results feed back into another evaluation, or returns the final answer" width="720" height="212" data-path="images/agent-loop-diagram-dark.svg" /></p>
 <ol>
 <li><strong>Receive prompt.</strong> Claude receives your prompt, along with the system prompt, tool definitions, and conversation history. The SDK yields a <a href="#message-types"><code>SystemMessage</code></a> with subtype <code>"init"</code> containing session metadata.</li>
-<li><strong>Evaluate and respond.</strong> Claude evaluates the current state and determines how to proceed. It may respond with text, request one or more tool calls, or both. The SDK yields an <a href="#message-types"><code>AssistantMessage</code></a> containing the text and any tool call requests.</li>
+<li><strong>Evaluate and respond.</strong> Claude evaluates the current state and determines how to proceed. It may respond with text, request one or more tool calls, or both. The SDK yields one or more <a href="#message-types"><code>AssistantMessage</code></a> objects, one for each content block, such as a text block or a tool call request.</li>
 <li><strong>Execute tools.</strong> The SDK runs each requested tool and collects the results. Each set of tool results feeds back to Claude for the next decision. You can use <a href="/docs/en/agent-sdk/hooks">hooks</a> to intercept, modify, or block tool calls before they run.</li>
 <li><strong>Repeat.</strong> Steps 2 and 3 repeat as a cycle. Each full cycle is one turn. Claude continues calling tools and processing results until it produces a response with no tool calls.</li>
 <li><strong>Return result.</strong> The SDK yields a final <a href="#message-types"><code>AssistantMessage</code></a> with the text response (no tool calls), followed by a <a href="#message-types"><code>ResultMessage</code></a> with the final text, token usage, cost, and session ID.</li>
@@ -6050,8 +6050,8 @@ Use this file to discover all available pages before exploring further.</p>
 <p>First, the SDK sends your prompt to Claude and yields a <a href="#message-types"><code>SystemMessage</code></a> with the session metadata. Then the loop begins:</p>
 <ol>
 <li><strong>Turn 1:</strong> Claude calls <code>Bash</code> to run <code>npm test</code>. The SDK yields an <a href="#message-types"><code>AssistantMessage</code></a> with the tool call, executes the command, then yields a <a href="#message-types"><code>UserMessage</code></a> with the output (three failures).</li>
-<li><strong>Turn 2:</strong> Claude calls <code>Read</code> on <code>auth.ts</code> and <code>auth.test.ts</code>. The SDK returns the file contents and yields an <code>AssistantMessage</code>.</li>
-<li><strong>Turn 3:</strong> Claude calls <code>Edit</code> to fix <code>auth.ts</code>, then calls <code>Bash</code> to re-run <code>npm test</code>. All three tests pass. The SDK yields an <code>AssistantMessage</code>.</li>
+<li><strong>Turn 2:</strong> Claude calls <code>Read</code> on <code>auth.ts</code> and <code>auth.test.ts</code>. The SDK yields an <code>AssistantMessage</code> for each call and returns the file contents.</li>
+<li><strong>Turn 3:</strong> Claude calls <code>Edit</code> to fix <code>auth.ts</code>, then calls <code>Bash</code> to re-run <code>npm test</code>. All three tests pass. The SDK yields an <code>AssistantMessage</code> for each call.</li>
 <li><strong>Final turn:</strong> Claude produces a text-only response with no tool calls: "Fixed the auth bug, all three tests pass now." The SDK yields a final <code>AssistantMessage</code> with this text, then a <a href="#message-types"><code>ResultMessage</code></a> with the same text plus cost and usage.</li>
 </ol>
 <p>That was four turns: three with tool calls, one final text-only response.</p>
@@ -6071,7 +6071,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><code>"worker_shutting_down"</code>: the loop will end after the current turn because the host is exiting or Remote Control disconnected</li>
 </ul>
 <p>In TypeScript, each subtype other than <code>"init"</code> is its own type in the <a href="/docs/en/agent-sdk/typescript#sdkmessage"><code>SDKMessage</code> union</a> rather than a subtype of <code>SDKSystemMessage</code>.
-* <strong><code>AssistantMessage</code>:</strong> emitted after each Claude response, including the final text-only one. Contains text content blocks and tool call blocks from that turn.
+* <strong><code>AssistantMessage</code>:</strong> emitted for each content block in Claude's responses, including the final text-only one. Each carries a single content block, such as text or a tool call, and the messages from one response share a message ID.
 * <strong><code>UserMessage</code>:</strong> emitted after each tool execution with the tool result content sent back to Claude. Also emitted for any user inputs you stream mid-loop.
 * <strong><code>StreamEvent</code>:</strong> only emitted when partial messages are enabled. Contains raw API streaming events (text deltas, tool input chunks). See <a href="/docs/en/agent-sdk/streaming-output">Stream responses</a>.
 * <strong><code>ResultMessage</code>:</strong> marks the end of the agent loop. Contains the final text result, token usage, cost, and session ID. Check the <code>subtype</code> field to determine whether the task succeeded or hit a limit. A small number of trailing system events, such as <code>prompt_suggestion</code>, can arrive after it, so iterate the stream to completion rather than breaking on the result. See <a href="#handle-the-result">Handle the result</a>.</p>
@@ -6092,12 +6092,17 @@ Use this file to discover all available pages before exploring further.</p>
   <CodeGroup>
     ```python Python theme={null}
     import asyncio
-    from claude_agent_sdk import query, AssistantMessage, ResultMessage</p>
+    from claude_agent_sdk import query, AssistantMessage, ResultMessage, TextBlock, ToolUseBlock</p>
 <pre><code>async def main():
     try:
         async for message in query(prompt="Summarize this project"):
             if isinstance(message, AssistantMessage):
-                print(f"Turn completed: {len(message.content)} content blocks")
+                # Each AssistantMessage carries one content block
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        print(f"Claude: {block.text}")
+                    elif isinstance(block, ToolUseBlock):
+                        print(f"Tool call: {block.name}")
             if isinstance(message, ResultMessage):
                 if message.subtype == "success":
                     print(message.result)
@@ -6119,7 +6124,14 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 try {
   for await (const message of query({ prompt: "Summarize this project" })) {
     if (message.type === "assistant") {
-      console.log(`Turn completed: ${message.message.content.length} content blocks`);
+      // Each assistant message carries one content block
+      for (const block of message.message.content) {
+        if (block.type === "text") {
+          console.log(`Claude: ${block.text}`);
+        } else if (block.type === "tool_use") {
+          console.log(`Tool call: ${block.name}`);
+        }
+      }
     }
     if (message.type === "result") {
       if (message.subtype === "success") {

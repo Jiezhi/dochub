@@ -6054,6 +6054,7 @@ git worktree remove ../project-feature-a
 <h3 id="claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</h3>
 <p>An error starting <code>Refusing to use &lt;path&gt; as an isolation worktree</code> means Claude Code checked the directory's git identity before adopting it as a session's or subagent's isolated checkout, and declined it. The check runs whether Claude Code is creating the worktree, entering an existing one, or reusing one from an earlier run.</p>
 <p>In most cases the rest of the message says the directory's git metadata resolves into the main checkout: for example, its <code>.git</code> file points at the main repository's own <code>.git</code> directory, or git resolves its working tree to the main checkout through a <code>core.worktree</code> redirect. From such a directory, an ordinary git command such as <code>git reset --hard</code> would act on the main checkout instead of the worktree. Claude Code also refuses when the directory has a <code>.git</code> entry it can't read, rather than assuming the worktree is safe.</p>
+<p>A directory with no git metadata at all, such as one your <a href="#non-git-version-control"><code>WorktreeCreate</code> hook</a> creates, passes the check only when no git repository contains it. If the hook creates the directory inside a repository, git resolves it to that repository's checkout and Claude Code refuses it with the <code>git resolves its working tree to</code> message, so have the hook create its directories outside any repository.</p>
 <p>Claude Code leaves the refused directory in place, since it may hold work. Match the message to its recovery, whether it follows <code>Refusing to use &lt;path&gt;</code> or appears in a <a href="#the-session-resumes-outside-its-worktree">resume message</a>; some endings occur only in resume messages:</p>
 <ul>
 <li><strong>Says <code>launch from the parent checkout</code> or <code>Run the resume from the project checkout</code></strong>: you launched Claude Code from inside the worktree. Launch from the main checkout instead; the worktree needs no recreation.</li>
@@ -6064,7 +6065,7 @@ git worktree remove ../project-feature-a
 <li><strong>Any other ending</strong>: the message names the problem and its fix, such as removing a <code>core.worktree</code> redirect or recreating the worktree; follow it. Before deleting a directory whose message says its git identity could not be verified, address the named cause first, for example a symbolic link in the worktree's path or git itself failing to run, since the directory may be healthy. When you do recreate, salvage any changes you need from the old directory first; it stays on disk.</li>
 </ul>
 <h3 id="the-session-resumes-outside-its-worktree">The session resumes outside its worktree</h3>
-<p>When an interactive resume can't return the session to its worktree, Claude Code says so with one of the messages below.</p>
+<p>When you resume a session interactively and Claude Code can't return it to its worktree, Claude Code says so with one of the messages below. When Claude Code clears the worktree binding, it records the clear in the session transcript. If you <a href="/docs/en/sessions#where-transcripts-are-stored">suppress transcript writes</a>, the message says instead that the binding could not be cleared and that Claude Code will re-check the worktree on a later resume.</p>
 <table>
 <thead>
 <tr>
@@ -6091,13 +6092,16 @@ git worktree remove ../project-feature-a
 </tr>
 </tbody>
 </table>
-<p>In <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code>, and on resumes the <a href="/docs/en/agent-sdk/sessions">Agent SDK</a> runs, Claude Code stops the resume with a stderr error for every refusal except a gone worktree, instead of continuing without isolation, and the messages take different shapes from the ones in the table above:</p>
+<p>In <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code>, and on resumes that the <a href="/docs/en/agent-sdk/sessions">Agent SDK</a> runs, Claude Code stops the resume with a stderr error for every refusal except a gone worktree, instead of continuing without isolation.</p>
+<p>With <code>--output-format stream-json</code>, the refusal also arrives on stdout as a <code>result</code> message with subtype <code>error_during_execution</code> whose <code>errors</code> array carries the same text, so an Agent SDK application receives the reason rather than only a non-zero exit. Before v2.1.260, a worktree-resume refusal produced no <code>result</code> message.</p>
+<p>The messages take different shapes from the interactive messages in the table:</p>
 <ul>
-<li><code>Error: cannot resume into worktree &lt;path&gt;: ...This session was not started.</code> for a refusal the table shows as <code>Did not re-enter</code></li>
-<li><code>Error: could not verify worktree &lt;path&gt; for this resume, so the resume was aborted...</code> for <code>Could not verify</code></li>
-<li><code>Error: ...The worktree binding is kept.</code> for <code>Could not re-enter</code></li>
-<li><code>Notice: the worktree &lt;path&gt; for this session no longer exists...</code> for a gone worktree; Claude Code prints it and continues the session, as an interactive resume does</li>
+<li><code>Error: cannot resume into worktree &lt;path&gt;: ...This session was not started.</code> for a refusal the table shows as <code>Did not re-enter</code>. Claude Code clears the worktree binding before exiting, and the error says so; the next time you resume the conversation, the session continues in the current directory without worktree isolation. Before v2.1.260, Claude Code didn't write the cleared binding, so every retry of the same resume failed with the same error.</li>
 </ul>
+<p>If you <a href="/docs/en/sessions#where-transcripts-are-stored">suppress transcript writes</a>, the clear can't be saved. The error then says the same command will be refused again, and names <code>--fork-session</code> and starting a new conversation as ways to continue without the worktree.
+* <code>Error: could not verify worktree &lt;path&gt; for this resume, so the resume was aborted...</code> for <code>Could not verify</code>
+* <code>Error: ...The worktree binding is kept.</code> for <code>Could not re-enter</code>
+* <code>Notice: the worktree &lt;path&gt; for this session no longer exists...</code> for a gone worktree; Claude Code prints it and continues the session, as an interactive resume does</p>
 <p>The refusal ending embedded in each error is shared with the interactive notices, so it still matches its entry under <a href="#claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</a>.</p>
 <h2 id="see-also">See also</h2>
 <p>Worktrees handle file isolation. The related pages below cover delegating work into those isolated checkouts, passing findings between them, and switching between the sessions you create:</p>

@@ -764,6 +764,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="```markdown ~/.claude/output-styles/code-reviewer.md theme={null}">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#change-the-prompt-of-an-existing-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Change the prompt of an existing session
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5738,6 +5755,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="```markdown ~/.claude/output-styles/code-reviewer.md theme={null}">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#change-the-prompt-of-an-existing-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Change the prompt of an existing session
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5871,7 +5905,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>The <a href="#compare-the-four-approaches">comparison table</a> shows what each customization method preserves.</p>
 <h2 id="customize-agent-behavior">Customize agent behavior</h2>
-<p>Output styles, <code>append</code>, and a custom prompt string each change the system prompt directly. CLAUDE.md takes a different path: the SDK reads it and injects its content into the conversation as project context, not into the system prompt, so it shapes behavior alongside whichever system prompt you choose. <a href="/docs/en/agent-sdk/skills">Skills</a>, <a href="/docs/en/agent-sdk/hooks">hooks</a>, and <a href="/docs/en/agent-sdk/permissions">permissions</a> also shape behavior outside the system prompt and are covered on their own pages.</p>
+<p><code>append</code> and a custom prompt string each change the system prompt directly, and an output style changes the instructions Claude Code gives Claude for every response. CLAUDE.md takes a different path: the SDK reads it and injects its content into the conversation as project context, so it shapes behavior alongside whichever system prompt you choose. <a href="/docs/en/agent-sdk/skills">Skills</a>, <a href="/docs/en/agent-sdk/hooks">hooks</a>, and <a href="/docs/en/agent-sdk/permissions">permissions</a> also shape behavior outside the system prompt and are covered on their own pages.</p>
 <h3 id="claudemd-files-for-project-level-instructions">CLAUDE.md files for project-level instructions</h3>
 <p>CLAUDE.md files give Claude persistent project context and instructions. The SDK injects their content into the conversation and leaves the system prompt untouched, so they work with any system prompt configuration. For what to put in CLAUDE.md, where to place it, and how to write effective instructions, see <a href="/docs/en/memory#when-to-add-to-claude-md">When to add to CLAUDE.md</a> and the rest of <a href="/docs/en/memory">How Claude remembers your project</a>. This section covers what's specific to the SDK: how CLAUDE.md loads.</p>
 <p>The SDK reads CLAUDE.md when the matching setting source is enabled: <code>'project'</code> loads <code>CLAUDE.md</code> or <code>.claude/CLAUDE.md</code> from the working directory, and <code>'user'</code> loads <code>~/.claude/CLAUDE.md</code>. Default <code>query()</code> options enable both sources, so CLAUDE.md loads automatically. If you set <code>settingSources</code> in TypeScript or <code>setting_sources</code> in Python explicitly, include the sources you need. CLAUDE.md loading is controlled by setting sources, not by the <code>claude_code</code> preset.</p>
@@ -5924,7 +5958,7 @@ asyncio.run(main())
 <p>When you run either example, the SDK streams messages as Claude works: a system init message, assistant messages, user messages carrying tool results, and a final result message with the session outcome.</p>
 <p>CLAUDE.md is persistent across all sessions in a project, shared with your team through git, and discovered automatically without code changes. It is not loaded if you pass an empty <code>settingSources</code> array.</p>
 <h3 id="output-styles-for-persistent-configurations">Output styles for persistent configurations</h3>
-<p>Output styles are saved configurations that modify Claude's system prompt. They're stored as markdown files and can be reused across sessions and projects.</p>
+<p>Output styles are saved sets of instructions that change Claude's role, tone, and output format. They're stored as markdown files and can be reused across sessions and projects.</p>
 <h4 id="create-an-output-style">Create an output style</h4>
 <p>An output style is a markdown file with <a href="/docs/en/output-styles#frontmatter">frontmatter</a> for metadata, followed by the prompt content. Save it to <code>~/.claude/output-styles/</code> for a user-level style available in every project, or <code>.claude/output-styles/</code> in your repository for a project-level style you can commit and share with your team.</p>
 <p>A custom output style leaves the <code>claude_code</code> preset's software engineering instructions out and uses your own. To keep them and layer your instructions on top, set <code>keep-coding-instructions: true</code> in the frontmatter. Those instructions are only in Claude Code's full system prompt, so the setting has no effect in a session on the shorter system prompt, which you pin on or off with <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT</code></a>. Keep them when your agent is still doing software engineering work. Leave them out when you're replacing the role entirely.</p>
@@ -6169,6 +6203,10 @@ for await (const message of query({
 <li>If you include the marker more than once, the first one is the split and the SDK removes the others.</li>
 <li>If you leave the marker out, the SDK joins all the strings into one block, the same as passing one string.</li>
 </ul>
+<h3 id="change-the-prompt-of-an-existing-session">Change the prompt of an existing session</h3>
+<p>By default, Claude Code builds the system prompt once, on a session's first request, with your <code>append</code> text or custom prompt included, and records it in the session. Until the session is compacted, every later request uses that recorded prompt, including after you return to the session with <code>resume</code> or <code>continue</code>. If you pass a different <code>append</code> or custom prompt on that later call, it takes effect once the session is compacted or in a new session.</p>
+<p>Recording applies in sessions that <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">fetch feature flags</a>, as sessions using a claude.ai or Console account do by default. On Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and in other sessions that don't fetch them, Claude Code rebuilds the prompt on every request. If you start Claude Code in <a href="/docs/en/headless#start-faster-with-bare-mode">bare mode</a> by passing <code>--bare</code> through <code>extraArgs</code> or setting <code>CLAUDE_CODE_SIMPLE=1</code>, recording stays off unless you set <code>snapshot: true</code> on the object form of <code>systemPrompt</code>. Recording an <code>append</code> or custom prompt by default requires Claude Code v2.1.265 or later, which the TypeScript Agent SDK bundles from v0.3.265.</p>
+<p>To rebuild the prompt on every request instead, set <code>snapshot: false</code> on the object form of <code>systemPrompt</code> in the TypeScript SDK: <code>{ type: "preset", preset: "claude_code", append, snapshot: false }</code> or <code>{ type: "custom", prompt, snapshot: false }</code>. Use this form while you iterate on prompt wording, or when your application changes <code>append</code> between calls that resume the same session. The <code>snapshot</code> field requires <code>@anthropic-ai/claude-agent-sdk</code> v0.3.257 or later and has no effect in sessions that don't fetch feature flags.</p>
 <h2 id="compare-the-four-approaches">Compare the four approaches</h2>
 <p>The four customization methods differ in where they live, how they're shared, and what they preserve from the <code>claude_code</code> preset.</p>
 <table>

@@ -1862,6 +1862,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mcp-servers-in-a-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP servers in a policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#claude-desktop-overlay" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6002,6 +6013,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mcp-servers-in-a-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP servers in a policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#claude-desktop-overlay" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6179,7 +6201,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td><code>trusted_proxies</code></td>
 <td>No</td>
-<td>CIDRs or IPs of load balancers in front of the gateway. When set, the gateway trusts <code>X-Forwarded-For</code> only from these peers and records the real client IP for per-IP rate limiting and audit. Equivalent to nginx <code>set_real_ip_from</code>.</td>
+<td>CIDRs or IPs of load balancers in front of the gateway. When set, the gateway trusts <code>X-Forwarded-For</code> only from these peers and records the real client IP for per-IP rate limiting and audit. Equivalent to nginx <code>set_real_ip_from</code>. <code>X-Forwarded-For</code> entries written as <code>ipv4:port</code> or <code>[ipv6]:port</code>, as some load balancers do, are read with the port dropped. An IPv6 address with a port appended and no brackets may be read as a different address or not read at all, so turn off the port option on any proxy that writes that form.</td>
 </tr>
 </tbody>
 </table>
@@ -6234,6 +6256,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td><code>scopes</code></td>
 <td>No</td>
 <td>Full override of the OIDC scopes the gateway requests. Default <code>[openid, profile, email, offline_access]</code>. Set when your IdP rejects scopes it doesn't recognize, or requires a custom scope to emit groups or email. Must include <code>openid</code>. Dropping <code>offline_access</code> disables refresh tokens, so developers re-run the browser login every <code>session.ttl_hours</code>. See <a href="/docs/en/claude-apps-gateway-deploy#identity-provider-setup">Identity provider setup</a> for per-IdP scope recipes such as Google's refresh-token flow.</td>
+</tr>
+<tr>
+<td><code>scope_on_refresh</code></td>
+<td>No</td>
+<td>Also send <code>scope</code>, with the same list as the sign-in request, when the gateway exchanges a refresh token. Default <code>false</code>: the refresh request omits <code>scope</code>. Most IdPs return an id_token on every refresh and don't need this. Set <code>true</code> when your IdP returns an id_token on refresh only if asked for <code>openid</code> again, which Okta documents for its refresh grant. Without an id_token, every refresh depends on the IdP's userinfo endpoint accepting the refreshed access token. If you gate sign-in or match policies on groups and your IdP's refresh-time id_token omits them, also set <code>userinfo_fallback: true</code> so the gateway fills them from the userinfo endpoint. An IdP that granted fewer scopes than requested can reject the refresh with <code>invalid_scope</code>, including for existing sessions if you add entries to <code>scopes</code> while this is on. Unset the key if refreshes start failing at <code>token_endpoint</code> after you set it. Requires Claude Code v2.1.260 or later on the gateway server.</td>
 </tr>
 <tr>
 <td><code>extra_auth_params</code></td>
@@ -6454,7 +6481,7 @@ upstreams:
 <tbody>
 <tr>
 <td>IAM permissions</td>
-<td>Grant the gateway's principal <code>bedrock:InvokeModel</code> and <code>bedrock:InvokeModelWithResponseStream</code> on both the inference-profile ARNs and the underlying foundation-model ARNs. For the built-in catalog in US regions: <code>arn:aws:bedrock:&lt;region&gt;:&lt;account&gt;:inference-profile/us.anthropic.*</code> and <code>arn:aws:bedrock:*::foundation-model/anthropic.*</code>.</td>
+<td>Grant the gateway's principal <code>bedrock:InvokeModel</code> and <code>bedrock:InvokeModelWithResponseStream</code> on both the inference-profile ARNs and the underlying foundation-model ARNs. For the built-in catalog in US regions: <code>arn:aws:bedrock:&lt;region&gt;:&lt;account&gt;:inference-profile/us.anthropic.*</code> and <code>arn:aws:bedrock:*::foundation-model/anthropic.*</code>. Also grant <code>bedrock:CountTokens</code> on the foundation-model ARNs. The gateway uses it, at no charge, to count the input tokens of a request the client abandoned, so <a href="#admin">spend limits</a> stay accurate. Without it the gateway falls back to a one-token Bedrock request for that count.</td>
 </tr>
 <tr>
 <td>Model access</td>
@@ -6867,14 +6894,15 @@ managed:
 </code></pre>
 <p><code>``
 
-| Key                                        | Enforced by   | Effect                                                                                                                                                                                                                                |
-| ------------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|</code>availableModels<code>| Gateway + CLI | Model allowlist. Also checked at</code>/v1/messages<code>, so a patched client can't bypass it.                                                                                                                                                 |
-|</code>permissions.allow<code>/</code>.deny<code>| CLI           | Tool and command rules. See [Permissions](/docs/en/permissions).                                                                                                                                                                           |
-|</code>permissions.disableBypassPermissionsMode<code>| CLI           | Set to</code>disable<code>to block [</code>bypassPermissions<code>](/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode), the mode that skips permission prompts, and the</code>--dangerously-skip-permissions<code>flag                              |
-|</code>allowManagedPermissionRulesOnly<code>| CLI           | When</code>true<code>, managed settings become the only settings source of permission rules. The [</code>allowManagedPermissionRulesOnly<code>](/docs/en/settings-reference#allowmanagedpermissionrulesonly) entry lists every source Claude Code then ignores. |
-|</code>env<code>| CLI           | Environment variables merged into the CLI process. Use for telemetry, auto-update, and model-name overrides.                                                                                                                          |
-|</code>hooks<code>| CLI           | Org-wide [hooks](/docs/en/hooks)                                                                                                                                                                                                           |
+| Key                                        | Enforced by   | Effect                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|</code>availableModels<code>| Gateway + CLI | Model allowlist. Also checked at</code>/v1/messages<code>, so a patched client can't bypass it.                                                                                                                                                                                                                                                                       |
+|</code>permissions.allow<code>/</code>.deny<code>| CLI           | Tool and command rules. See [Permissions](/docs/en/permissions).                                                                                                                                                                                                                                                                                                 |
+|</code>permissions.disableBypassPermissionsMode<code>| CLI           | Set to</code>disable<code>to block [</code>bypassPermissions<code>](/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode), the mode that skips permission prompts, and the</code>--dangerously-skip-permissions<code>flag                                                                                                                                                    |
+|</code>allowManagedPermissionRulesOnly<code>| CLI           | When</code>true<code>, managed settings become the only settings source of permission rules. The [</code>allowManagedPermissionRulesOnly<code>](/docs/en/settings-reference#allowmanagedpermissionrulesonly) entry lists every source Claude Code then ignores.                                                                                                                       |
+|</code>env<code>| CLI           | Environment variables merged into the CLI process. Use for telemetry, auto-update, and model-name overrides.                                                                                                                                                                                                                                                |
+|</code>hooks<code>| CLI           | Org-wide [hooks](/docs/en/hooks)                                                                                                                                                                                                                                                                                                                                 |
+|</code>managedMcpServers<code>| CLI           | Remote MCP servers [provided to every matching developer](/docs/en/managed-mcp#provide-servers-through-managed-settings) alongside the servers they add themselves,</code>http<code>and</code>sse<code>only. See [MCP servers in a policy](#mcp-servers-in-a-policy). Requires Claude Code v2.1.259 or later on the gateway server and on clients. Earlier clients ignore the key. |
 
 Because these settings arrive over the network, the CLI shows each developer a security approval dialog before applying the settings listed below:
 
@@ -6895,6 +6923,15 @@ If a developer declines, Claude Code exits that session rather than applying the
 
 The</code>cli<code>key was named</code>settings<code>in earlier releases. That spelling is still accepted as an alias, but new deployments should use</code>cli`.
 </p>
+<h4 id="mcp-servers-in-a-policy">MCP servers in a policy</h4>
+<p>To provide MCP servers to the Claude Code clients a policy matches, set <a href="/docs/en/managed-mcp#provide-servers-through-managed-settings"><code>managedMcpServers</code></a> in that policy's <code>cli</code> block. You need Claude Code v2.1.259 or later on the gateway server and on clients.
+
+The gateway checks each entry at boot with <a href="/docs/en/managed-mcp#what-an-entry-can-contain">the same rules Claude Code applies on the client</a>, and if an entry fails a check, the gateway refuses to start and names the entry.
+
+If you write a <code>${VAR}</code> reference in <code>gateway.yaml</code>, the gateway resolves it from its environment at boot through <a href="#secret-expansion">secret expansion</a> before it runs the entry checks, so every matching client receives the literal value and can read it. The <a href="/docs/en/managed-mcp#provide-servers-through-managed-settings">header guidance for provided servers</a> applies to the expanded value.
+
+The gateway rejects the <code>.mcp.json</code> spelling <code>mcpServers</code> in a <code>cli</code> block, and its boot error names <code>managedMcpServers</code> as the key to use. Before v2.1.259, the gateway rejected any MCP server definition in a <code>cli</code> block.
+</p>
 <h4 id="claude-desktop-overlay">Claude Desktop overlay</h4>
 <p>If your organization also deploys <a href="/docs/en/desktop">Claude Desktop</a>, the same gateway serves both clients. Point <code>bootstrapUrl</code>, in Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration</a>, at <code>&lt;listen.public_url&gt;/user/bootstrap</code>. Claude Desktop derives the OAuth issuer from that URL, runs the same device-code sign-in against this gateway, and fetches its configuration from the response.
 
@@ -6907,9 +6944,11 @@ The gateway derives much of the response from the matched policy's <code>cli</co
 * The model list, from <code>availableModels</code>
 * Disabled tools, from bare tool-name <code>permissions.deny</code> entries. If you set <code>disabledBuiltinTools</code> in the policy's <code>desktop</code> block, the gateway serves the union of your value and the derived list, so you can disable more tools this way but can't re-enable one you disabled through <code>permissions.deny</code>
 * The egress allowlist, from <code>sandbox.network.allowedDomains</code>. If you set <code>coworkEgressAllowedHosts</code> in the policy's <code>desktop</code> block, the gateway uses that value instead of the derived list
-* An OTLP endpoint that points at the gateway itself, which fans out to your destinations, included when <a href="#telemetry"><code>telemetry</code></a> forwarding is configured
+* An OTLP endpoint that points at the gateway itself, which fans out to your destinations, included when <a href="#telemetry"><code>telemetry</code></a> forwarding is configured.
 
-To set <code>disabledBuiltinTools</code> or <code>coworkEgressAllowedHosts</code> in a policy's <code>desktop</code> block, you need Claude Code v2.1.232 or later on the gateway server.
+  Claude Desktop exports every signal with one encoding: <code>http/protobuf</code>, or <code>http/json</code> when you set <code>OTEL_EXPORTER_OTLP_PROTOCOL</code> or one of its per-signal variants to <code>http/json</code> in the policy's <code>env</code>. Before Claude Code v2.1.261 on the gateway server, the response set <code>http/json</code> regardless, so a collector that accepts only protobuf rejected Claude Desktop's exports
+
+To set <code>disabledBuiltinTools</code>, <code>coworkEgressAllowedHosts</code>, or Claude Desktop's own <code>managedMcpServers</code> setting in a policy's <code>desktop</code> block, you need Claude Code v2.1.232 or later on the gateway server. Claude Desktop's <code>managedMcpServers</code> takes an array value rather than an object.
 
 The gateway omits keys with no Claude Desktop equivalent, such as <code>hooks</code> and scoped permission rules like <code>Bash(npm *)</code>, from the bootstrap response.
 
@@ -6928,11 +6967,13 @@ managed:
 <p>Every key is optional; Claude Desktop applies its own default for any key you omit. The gateway validates each <code>desktop</code> block at boot against the configuration schema Claude Desktop itself uses, so a mistake surfaces at gateway start as an error naming the key rather than reaching every connected desktop. The gateway fails at boot when a block contains:</p>
 <ul>
 <li>An unknown key</li>
-<li>A recognized key whose value Claude Desktop would reject or silently drop, such as an empty value or a misspelled sub-key inside a nested entry</li>
+<li>A recognized key whose value Claude Desktop would reject or silently drop, such as an empty value or a misspelled sub-key inside a nested entry. Before v2.1.260, the gateway silently dropped a misspelled field inside a nested object of a <code>managedMcpServers</code> or <code>orgPluginSettings</code> entry instead of failing at boot.</li>
 <li>A key the gateway computes itself: the inference connection, the model list, and the OTLP relay. Configure those through <a href="#upstreams"><code>upstreams</code></a>, <a href="#models"><code>models</code></a>, and the <a href="#telemetry"><code>telemetry</code></a> section's <code>forward_to</code>.</li>
 <li>A legacy alias of a current key. In the boot error, the gateway names the canonical key to write.</li>
 </ul>
-<p>As with the <code>cli</code> block, the gateway validates against the schema bundled with its installed version. To deliver a setting introduced by a newer Claude Desktop release, upgrade the gateway first.</p>
+<p>If you use a deprecated value or entry shape, such as a <code>managedMcpServers</code> entry without <code>transport</code>, the gateway starts and logs a warning that names the replacement.</p>
+<p>The gateway validates a <code>desktop</code> block against the schema bundled with its installed version, as it does the <code>cli</code> block. To deliver a setting introduced by a newer Claude Desktop release, upgrade the gateway first. For example, <code>userPluginMarketplacesEnabled</code> and <code>userPluginUploadsEnabled</code> need Claude Code v2.1.260 or later on the gateway server and Claude Desktop 1.37937.0 or later on members' machines.</p>
+<p>If you set <code>orgPluginSettings</code> in a policy's <code>desktop</code> block, the gateway serves it in the array form that Claude Desktop 1.15200.0 and later reads. Older desktops ignore the array and enforce no plugin tool policy, so update members to 1.15200.0 or later before you rely on it.</p>
 <p>The gateway fills in keys a policy's <code>desktop</code> block doesn't set from the <code>match: {}</code> catch-all's <code>desktop</code> block, the same way it fills in a policy's <code>cli</code> block from the base. If you set <code>disabledBuiltinTools</code> or <code>builtinToolPolicy</code> in both the base and a role policy, the gateway keeps the base's restriction:</p>
 <ul>
 <li><code>disabledBuiltinTools</code>: the gateway uses the union of the base's list and the policy's list</li>
@@ -6944,9 +6985,6 @@ managed:
 <p>If a device also has an MDM-delivered policy or a local <code>managed-settings.json</code>, gateway-delivered settings rank first. <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">Precedence within the managed tier</a> on the managed settings page says when the local sources apply, and has the <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">keys Claude Code reads from every admin source</a> regardless of which source it selected, such as the sandbox lock keys, <code>forceRemoteSettingsRefresh</code>, and the per-variable <code>env</code> merge. A <a href="/docs/en/settings-reference#policyhelper"><code>policyHelper</code></a> configured in an MDM profile or the managed settings file runs only when the gateway delivers no settings; the entry says what its output replaces.</p>
 <p>Embedding hosts such as <a href="/docs/en/desktop">Claude Desktop</a> can supply policy through the SDK <code>managedSettings</code> option. <a href="/docs/en/managed-settings#parent-settings-from-embedding-hosts">Parent settings from embedding hosts</a> says when Claude Code applies it, and <a href="/docs/en/claude-apps-gateway#restrict-parent-settings">Restrict parent settings</a> lists which allow-direction settings still apply without the <code>allowManaged*Only</code> locks.</p>
 <p>Gateway policies apply to every Claude Code invocation on the machine, including non-interactive <code>claude -p</code> runs and sessions spawned by the Agent SDK. If the gateway is unreachable at startup, signed-in sessions exit with an error rather than running without their policy.</p>
-<p><Warning>
-  At boot, the gateway rejects <code>mcpServers</code> inside a policy's <code>cli</code> block. You can't distribute MCP servers per group to Claude Code clients; deploy MCP servers via the file-based <code>managed-mcp.json</code> on each device or let developers add them locally. You can deliver Claude Desktop's <code>managedMcpServers</code> setting to Claude Desktop clients through a policy's <code>desktop</code> block. To set it, you need Claude Code v2.1.232 or later on the gateway server.
-</Warning></p>
 <h3 id="telemetry"><code>telemetry</code></h3>
 <p>The CLI sends OpenTelemetry Protocol (OTLP) over HTTP metrics, logs, and, when enabled, traces to the gateway, which relays them verbatim to each configured destination. See <a href="/docs/en/monitoring-usage">Monitoring usage</a> for the metrics and events the CLI emits.</p>
 <p>The CLI stamps each export with the authenticated user's identity, read from the gateway-issued JWT: the <code>user.id</code>, <code>user.email</code>, and <code>user.groups</code> attributes. Per-developer cost and usage attribution therefore works with no developer-side configuration.</p>
@@ -6998,15 +7036,15 @@ Both protobuf and JSON OTLP encodings are relayed, and any OpenTelemetry-compati
 
 Four optional top-level blocks, `access_control`, `limits`, `timeouts`, and `rate_limits`, tune the HTTP surface. The defaults suit most deployments.
 
-| Block            | Key                                            | Default  | Description                                                                                                                                                                                                                                                                                                                         |
-| ---------------- | ---------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `access_control` | `allow_cidrs` / `deny_cidrs`                   | empty    | Inbound IP allow/deny by client address, after `trusted_proxies` resolution. `deny_cidrs` is checked first; a client it matches is rejected even if `allow_cidrs` also matches. If `allow_cidrs` is non-empty the gateway is default-deny. `/healthz` and `/readyz` are exempt from `allow_cidrs`.                                  |
-| `limits`         | `max_request_bytes`                            | 32 MiB   | Max inbound request body; oversize requests get `413` before the body is buffered. Raise for large file or image requests.                                                                                                                                                                                                          |
-| `limits`         | `max_request_header_bytes`                     | unset    | When set, oversize headers return `431`                                                                                                                                                                                                                                                                                             |
-| `limits`         | `max_url_length`                               | unset    | When set, an over-long URL returns `414`                                                                                                                                                                                                                                                                                            |
-| `timeouts`       | `upstream_ttfb_ms`                             | 120000   | Max wait for the upstream's response headers (time to first byte). The response body then streams with no wall-clock cap. Applies to the direct Anthropic upstream path; every other provider is bounded by its provider SDK's own timeout.                                                                                         |
-| `rate_limits`    | `device_authorization.max` / `.window_seconds` | 30 / 600 | Per-IP rate limit on the unauthenticated device-authorization endpoint. Raise for a large org behind a shared egress IP or NAT. These limits apply only to the device-grant sign-in flow, not to `/v1/messages` inference. See [User-code brute-force resistance](/docs/en/claude-apps-gateway-deploy#user-code-brute-force-resistance). |
-| `rate_limits`    | `device_verify.max` / `.window_seconds`        | 10 / 600 | Per-IP rate limit on `user_code` submissions at `/device`                                                                                                                                                                                                                                                                           |
+| Block            | Key                                            | Default  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------- | ---------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `access_control` | `allow_cidrs` / `deny_cidrs`                   | empty    | Inbound IP allow/deny by client address, after `trusted_proxies` resolution. `deny_cidrs` is checked first; a client it matches is rejected even if `allow_cidrs` also matches. If `allow_cidrs` is non-empty the gateway is default-deny. `/healthz` and `/readyz` are exempt from `allow_cidrs`. When a trusted proxy sends an `X-Forwarded-For` entry that isn't an IP address, the real client is unknown and the gateway logs a warning once naming what to check. Where either list applies to the request, it refuses it with `403` and audit reason `xff_unparseable`. Where neither does, it serves the request and uses the proxy's own address as the client IP for per-IP rate limits and audit. |
+| `limits`         | `max_request_bytes`                            | 32 MiB   | Max inbound request body; oversize requests get `413` before the body is buffered. Raise for large file or image requests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `limits`         | `max_request_header_bytes`                     | unset    | When set, oversize headers return `431`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `limits`         | `max_url_length`                               | unset    | When set, an over-long URL returns `414`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `timeouts`       | `upstream_ttfb_ms`                             | 120000   | Max wait for the upstream's response headers (time to first byte). The response body then streams with no wall-clock cap. Applies to the direct Anthropic upstream path; every other provider is bounded by its provider SDK's own timeout.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `rate_limits`    | `device_authorization.max` / `.window_seconds` | 30 / 600 | Per-IP rate limit on the unauthenticated device-authorization endpoint. Raise for a large org behind a shared egress IP or NAT. These limits apply only to the device-grant sign-in flow, not to `/v1/messages` inference. See [User-code brute-force resistance](/docs/en/claude-apps-gateway-deploy#user-code-brute-force-resistance).                                                                                                                                                                                                                                                                                                                                                                          |
+| `rate_limits`    | `device_verify.max` / `.window_seconds`        | 10 / 600 | Per-IP rate limit on `user_code` submissions at `/device`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Complete example
 

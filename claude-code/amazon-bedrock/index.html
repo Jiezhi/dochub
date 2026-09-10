@@ -1482,6 +1482,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#certificate-errors-behind-a-tls-inspecting-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate errors behind a TLS-inspecting proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#region-issues" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5885,6 +5896,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#certificate-errors-behind-a-tls-inspecting-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate errors behind a TLS-inspecting proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#region-issues" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6114,6 +6136,8 @@ Claude Code resolves the AWS default credential provider chain once and keeps th
 The cache covers every credential option above except an Amazon Bedrock API key, which doesn't use the provider chain. To resolve the chain on every request instead, set [`CLAUDE_CODE_SKIP_AWS_CRED_CACHE=1`](/docs/en/env-vars).
 
 Each resolve of the chain times out after 60 seconds. If a step in the chain stalls, for example a `credential_process` helper that waits for input it can't receive, the request fails with [`AWS default-chain credential resolve timed out`](/docs/en/errors#aws-default-chain-credential-resolve-timed-out). If your chain runs an interactive sign-in that legitimately needs longer, such as browser-based SSO with MFA through a wrapper like `aws-vault`, raise the limit in milliseconds with [`CLAUDE_CODE_AWS_CHAIN_RESOLVE_TIMEOUT_MS`](/docs/en/env-vars). Before v2.1.207, a stalled credential resolution left the request waiting indefinitely.
+
+Except when you authenticate with an Amazon Bedrock API key, the [setup wizard](#sign-in-with-bedrock) applies the same limit to each AWS call it makes while verifying your credentials, and to the credential lookup before each model check. During credential verification, a check that exceeds it fails with [`Timed out after 60s waiting for AWS`](/docs/en/errors#bedrock-setup-verification-timed-out-waiting-for-aws).
 
 #### Advanced credential configuration
 
@@ -6457,6 +6481,17 @@ export ANTHROPIC_BEDROCK_MANTLE_BASE_URL=https://your-gateway.example.com
 <h3 id="authentication-loop-with-sso-and-corporate-proxies">Authentication loop with SSO and corporate proxies</h3>
 <p>If browser tabs spawn repeatedly when using AWS SSO, remove the <code>awsAuthRefresh</code> setting from your <a href="/docs/en/settings">settings file</a>. This can occur when corporate VPNs or TLS inspection proxies interrupt the SSO browser flow. Claude Code treats the interrupted connection as an authentication failure, re-runs <code>awsAuthRefresh</code>, and loops indefinitely.</p>
 <p>If your network environment interferes with automatic browser-based SSO flows, use <code>aws sso login</code> manually before starting Claude Code instead of relying on <code>awsAuthRefresh</code>.</p>
+<h3 id="certificate-errors-behind-a-tls-inspecting-proxy">Certificate errors behind a TLS-inspecting proxy</h3>
+<p>Claude Code applies your <a href="/docs/en/network-config#ca-certificate-store">CA certificate store</a> configuration to its requests to AWS, including:</p>
+<ul>
+<li>Model discovery</li>
+<li>Token counting</li>
+<li>The STS and SSO role-credential calls that resolve your AWS credentials</li>
+<li>The <a href="#sign-in-with-bedrock">setup wizard</a>'s credential verification and model checks</li>
+</ul>
+<p>For these requests, a corporate root certificate in your OS trust store or <code>NODE_EXTRA_CA_CERTS</code> bundle needs no Amazon Bedrock-specific setup.</p>
+<p>Before v2.1.260, Claude Code applied your CA configuration to these requests only when they went through a configured proxy, and on a direct connection they trusted only the runtime's default certificate store.</p>
+<p>Before v2.1.261, the credential lookup behind the setup wizard's model checks with the <strong>Use credentials already in my environment</strong> option still trusted only the runtime's default certificate store. Behind a TLS-inspecting proxy whose root certificate is only in the OS store, the affected requests failed with <code>unable to get local issuer certificate</code>, or the wizard showed models as <code>unreachable</code>, while inference requests succeeded. Update to v2.1.261 or later.</p>
 <h3 id="region-issues">Region issues</h3>
 <p>If you encounter region issues:</p>
 <ul>

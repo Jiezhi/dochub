@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Change-oriented guidance for isolated unit tests, generated documentation checks, integration-table metadata, and credentialed executable samples. Use the validation matrix to select the narrowest meaningful check and interpret CI failures correctly.">
+        <meta name="description" content="Change-oriented validation guidance for isolated unit tests, repository-wide documentation contracts, generated documentation checks, integration metadata, and credentialed executable samples. Use the validation matrix to select the narrowest meaningful check and interpret CI failures correctly.">
       
       
       
@@ -1297,6 +1297,17 @@
     <span class="md-ellipsis">
       
         Focused coverage to retain when changing behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opentelemetry-documentation-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenTelemetry documentation contract
       
     </span>
   </a>
@@ -8179,6 +8190,34 @@
     
   
     Per-customer policies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../src/langsmith/llm-gateway-model-access-policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model access policies
   
 
     
@@ -15739,10 +15778,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_481" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_482" >
         
           
-          <label class="md-nav__link" for="__nav_6_6_481" id="__nav_6_6_481_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_6_482" id="__nav_6_6_482_label" tabindex="0">
             
   
   
@@ -15760,8 +15799,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_481_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_6_481">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_482_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_6_482">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -72771,6 +72810,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#opentelemetry-documentation-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenTelemetry documentation contract
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -72851,7 +72901,7 @@
   <h1>Testing Overview</h1>
 
 <h2 id="choose-validation-by-change-boundary">Choose validation by change boundary</h2>
-<p>The repository has intentionally separate validation paths. Select the narrowest path that covers the change; a passing unit test does not validate generated docs, external metadata, or a live code sample.</p>
+<p>The repository has intentionally separate validation paths. Select the narrowest path that covers the change: a passing unit test does not validate generated docs, external metadata, or a live code sample.</p>
 <table>
 <thead>
 <tr>
@@ -72863,9 +72913,9 @@
 </thead>
 <tbody>
 <tr>
-<td>Pipeline, parser, preprocessor, watcher, or helper behavior</td>
+<td>Pipeline, parser, preprocessor, watcher, helper, or authored OTel contract</td>
 <td><code>make test</code></td>
-<td>Isolated behavior in <code>tests/unit_tests</code></td>
+<td>Isolated behavior in <code>tests/unit_tests</code>, including repository-wide assertions where applicable</td>
 <td>Regression, assertion failure, or prohibited network socket use</td>
 </tr>
 <tr>
@@ -72909,6 +72959,8 @@
 <div class="highlight"><pre><span></span><code>flowchart TD
   Change["Documentation or code change"] --&gt; Unit["make test"]
   Unit --&gt; Isolated["pytest with network sockets disabled"]
+  Unit --&gt; Contract["Repository documentation contracts"]
+  Contract --&gt; OTel["OTLP endpoint syntax and mocked export"]
   Change --&gt; Docs["make build"]
   Docs --&gt; Mint["Mint links and anchors"]
   Change --&gt; References["make check-cross-refs"]
@@ -72919,7 +72971,7 @@
   Change --&gt; Samples["make test-code-samples"]
   Samples --&gt; Live["Toolchains, services, and provider environment"]
 </code></pre></div>
-<p>This diagram separates deterministic socket-isolated tests from generated metadata validation and intentionally live executable samples.</p>
+<p>This diagram separates deterministic socket-isolated tests and documentation contracts from generated metadata validation and intentionally live executable samples.</p>
 <h2 id="isolated-pytest-suite">Isolated pytest suite</h2>
 <p>Run the core suite with:</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span><span class="nb">test</span>
@@ -72935,6 +72987,10 @@
 <li><strong>Integration issue-form parser:</strong> add cases for <code>###</code> section boundaries, HTML-comment removal, <code>_No response_</code> optional values, checked confirmations, missing required fields, and language-specific PyPI/npm requirements. The parser maps text to data and does not execute form values.</li>
 <li><strong>External <code>docs_url</code> safety:</strong> test accepted <code>https://</code>, <code>http://</code>, and single-slash site-relative paths plus rejected empty, <code>javascript:</code>, <code>data:</code>, <code>vbscript:</code>, and protocol-relative <code>//</code> inputs. Test both validation errors and the fallback that prevents an unsafe URL from being emitted in a table link.</li>
 </ul>
+<h3 id="opentelemetry-documentation-contract">OpenTelemetry documentation contract</h3>
+<p><code>tests/unit_tests/test_otel_endpoints.py</code> treats authored <code>.mdx</code> files below <code>src/</code> as a repository-wide contract, not merely an example-local test. It rejects a generic <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> assignment that already includes <code>/v1/traces</code>, <code>/v1/metrics</code>, or <code>/v1/logs</code>; the generic HTTP exporter endpoint is a base URL, so combining it with a signal suffix risks a duplicated path. Collector configurations are checked separately: in a document that declares <code>exporters:</code>, a trace URL ending in <code>/v1/traces</code> must use <code>traces_endpoint</code>, rather than generic <code>endpoint</code>.</p>
+<p>The runtime portion fixes the expected endpoint semantics against the installed OpenTelemetry HTTP trace exporter without opening a socket. With <code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</code> set to the full traces URL, the exporter must post precisely to that URL. With the generic base <code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, it must append <code>/v1/traces</code> exactly once. Each test builds a <code>TracerProvider</code>, attaches a <code>SimpleSpanProcessor</code>, ends a span, force-flushes it, and replaces the exporter's session <code>post</code> method with a <code>MagicMock</code>; assertions inspect the requested URL and reject <code>/v1/traces/v1/traces</code>.</p>
+<p>When editing <a href="../../src/langsmith/trace-with-opentelemetry.mdx">Trace with OpenTelemetry</a> or adding OTLP snippets elsewhere, preserve that distinction: use the base URL with <code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, use a complete trace URL only with <code>OTEL_EXPORTER_OTLP_TRACES_ENDPOINT</code> or an exporter constructor's trace-specific endpoint, and use <code>traces_endpoint</code> in Collector YAML. Extend both the textual scan and mocked-export cases if support for another signal or exporter configuration changes. Do not turn this into a live endpoint smoke test: mocked transport is what keeps <code>make test</code> within its socket-isolated boundary.</p>
 <h2 id="documentation-gates-built-links-versus-source-references">Documentation gates: built links versus source references</h2>
 <p><code>make broken-links-with-anchors</code> builds first, then runs <code>mint broken-links --check-anchors</code> from <code>build/</code>. Its wrapper filters known non-actionable reports for deployment-generated OpenAPI pages and snippets checked as standalone files; it fails only if filtered output still contains link-report lines. <code>make broken-links</code> omits anchor checking. The reusable link workflow also runs <code>make check-openapi</code>; it uses Node 22, installs/caches the Mint CLI, and applies its KaTeX installation workaround when needed.</p>
 <p><code>make check-cross-refs</code> is a distinct source check. It scans Markdown below <code>src</code>, excluding code-sample snippets and <code>node_modules</code>, skips invalid UTF-8 input, and ignores fenced code and escaped references. Python and JavaScript OSS paths use their respective scope; shared OSS content outside a language conditional must resolve in both maps. It reports each unresolved file, line, name, and scope and exits 1.</p>
@@ -72962,11 +73018,10 @@
 <h2 id="related-documentation">Related documentation</h2>
 <ul>
 <li><a href="/openwiki/integrations/github-actions.md">GitHub Actions</a></li>
-<li><a href="/openwiki/integrations/mintlify.md">Mintlify</a></li>
+<li><a href="/openwiki/integrations/reference-docs.md">Reference Documentation</a></li>
 <li><a href="/openwiki/quickstart.md">Quickstart</a></li>
 <li><a href="/openwiki/testing/builder-tests.md">Builder Tests</a></li>
 <li><a href="/openwiki/testing/conditional-rendering.md">Conditional Rendering</a></li>
-<li><a href="/openwiki/workflows/integration-listing-automation.md">Integration Listing Automation</a></li>
 </ul>
 
 

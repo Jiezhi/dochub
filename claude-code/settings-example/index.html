@@ -5599,11 +5599,12 @@ Use this file to discover all available pages before exploring further.</p>
   A team's shared settings
 </h2>
 
-<p>One team's shared settings, committed to the repository so everyone who clones it gets the same permissions, hooks, telemetry, and plugin marketplace. Save a file like this at <code>.claude/settings.json</code> at the top of the repository. Three things to know before you commit one:</p>
+<p>One team's shared settings, committed to the repository so everyone who clones it gets the same permissions, hooks, telemetry, and plugin marketplace. Save a file like this at <code>.claude/settings.json</code> at the top of the repository. What to know before you commit one:</p>
 <ul>
 <li><strong>Cloud sessions read it too.</strong> A <a href="/docs/en/settings#settings-in-cloud-sessions">cloud session</a> on Claude Code on the web starts from a clone of the repository, so the committed file applies there as well.</li>
 <li><strong>Allow rules wait for trust.</strong> Allow rules and <code>extraKnownMarketplaces</code> entries take effect after each person <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">trusts this folder itself</a>, not only a parent folder; deny and ask rules apply in every session, trusted or not.</li>
 <li><strong>The hook is a script in the repo.</strong> This file's hook runs <code>.claude/hooks/block-rm.sh</code>; <a href="/docs/en/hooks#how-a-hook-resolves">How a hook resolves</a> walks through writing it.</li>
+<li><strong>Rules match the command and path as written.</strong> <code>Bash(git push *)</code> doesn't match <a href="/docs/en/permissions#bash-rule-limits"><code>git -C . push</code></a>. <code>Read(./.env)</code> on its own stops the file tools and commands that name the file, such as <code>cat .env</code>, but not <a href="/docs/en/permissions#read-and-edit"><code>grep -r</code> run over the directory</a>; the <code>sandbox</code> block in this file closes that gap, because the sandbox <a href="/docs/en/settings-reference#sandbox-filesystem-denyread">adds your <code>Read</code> deny paths</a> to what every sandboxed command can't read.</li>
 </ul>
 <p><Tabs>
   <Tab title="Copyable settings file">
@@ -5681,11 +5682,11 @@ Use this file to discover all available pages before exploring further.</p>
     "allow": [
       "Bash(npm run *)"
     ],
-    // Always confirm before pushing
+    // Confirm before git push commands
     "ask": [
       "Bash(git push *)"
     ],
-    // Never read env files or the secrets folder
+    // Deny reads of env files and the secrets folder by the file tools and file-reading commands
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
@@ -5756,7 +5757,7 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li><code>forceLoginMethod</code> and <code>forceLoginOrgUUID</code> pin the login method and organization</li>
 <li><code>availableModels</code> and <code>enforceAvailableModels</code> restrict which models sessions can use</li>
-<li><code>permissions.deny</code> blocks two file reads and <code>curl</code>, and <code>disableBypassPermissionsMode</code> removes the bypass permission mode</li>
+<li><code>permissions.deny</code> denies two file reads and <code>curl</code> commands <a href="/docs/en/permissions#bash-rule-limits">as Claude writes them</a>, and <code>disableBypassPermissionsMode</code> removes the bypass permission mode</li>
 <li><a href="/docs/en/settings-reference#allowmanagedpermissionrulesonly"><code>allowManagedPermissionRulesOnly</code></a> and <a href="/docs/en/settings-reference#allowmanagedmcpserversonly"><code>allowManagedMcpServersOnly</code></a> make the managed permission and MCP allowlists the only ones that apply</li>
 <li><code>allowedMcpServers</code> pins the MCP server by URL</li>
 <li><code>strictKnownMarketplaces</code> allows one plugin marketplace</li>
@@ -5838,7 +5839,7 @@ Use this file to discover all available pages before exploring further.</p>
   ],
   "enforceAvailableModels": true,
   "permissions": {
-    // Block curl, the project's .env file, and its secrets folder on every machine
+    // Deny curl commands and reads of the project's .env file and secrets folder on every machine
     "deny": [
       "Bash(curl *)",
       "Read(./.env)",
@@ -5850,9 +5851,9 @@ Use this file to discover all available pages before exploring further.</p>
   // Ignore permission rules from user, project, and local settings
   "allowManagedPermissionRulesOnly": true,
   // Only the GitHub MCP server, matched by URL rather than by name, since a user can
-  // name any server "github". Servers that don't match don't load, which includes every
-  // stdio server when the list has only URL entries; the lock below makes this managed
-  // list the only allowlist that counts
+  // name any server "github". User-added servers that don't match don't load, including
+  // every stdio server when the list has only URL entries. The allowManagedMcpServersOnly
+  // key below makes this managed list the only allowlist that applies
   "allowedMcpServers": [
     {
       "serverUrl": "https://api.githubcopilot.com/*"

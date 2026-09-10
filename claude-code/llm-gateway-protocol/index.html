@@ -5953,7 +5953,12 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="foundry-and-claude-platform-on-aws">Foundry and Claude Platform on AWS</h3>
 <p>Microsoft Foundry and the <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a> implement the Anthropic Messages format. Claude Code routes to them through their own variables, <code>ANTHROPIC_FOUNDRY_BASE_URL</code> and <code>ANTHROPIC_AWS_BASE_URL</code>, but a gateway fronting either implements the Anthropic Messages row above. A gateway fronting the Claude Platform on AWS must also forward the <code>anthropic-workspace-id</code> header, which <a href="/docs/en/claude-platform-on-aws">that platform requires on every request</a>.</p>
 <h3 id="optional-endpoints-and-startup-traffic">Optional endpoints and startup traffic</h3>
-<p>Token-counting endpoints are the only optional ones: when they're absent, Claude Code falls back to counting context usage through the inference endpoint instead. Inference requests post to <code>/v1/messages?beta=true</code>, so match on the path, not the full URL. The Google Cloud's Agent Platform method suffixes attach to the publisher model path, as in <code>/projects/{project}/locations/{location}/publishers/anthropic/models/{model}:streamRawPredict</code>.</p>
+<p>Token-counting endpoints are the only optional ones: when they're absent, Claude Code falls back to a character-based estimate of context usage.</p>
+<p>Match on the path, not the full URL:</p>
+<ul>
+<li>Inference requests post to <code>/v1/messages?beta=true</code></li>
+<li>The Google Cloud's Agent Platform method suffixes attach to the publisher model path, as in <code>/projects/{project}/locations/{location}/publishers/anthropic/models/{model}:streamRawPredict</code></li>
+</ul>
 <p>A gateway also sees best-effort startup traffic it can reject without breaking anything. An Anthropic Messages-format gateway receives a <code>HEAD /api/hello</code> connection-warming probe, which Claude Code skips when an HTTP proxy or client certificate is configured. An Amazon Bedrock-format gateway receives a <code>GET /inference-profiles?type=SYSTEM_DEFINED</code> request and, when the configured model is an inference profile, <code>GET /inference-profiles/{profile}</code> lookups.</p>
 <p>The <a href="/docs/en/fast-mode">fast mode</a> availability check never appears in gateway logs: it calls <code>api.anthropic.com</code> directly rather than following <code>ANTHROPIC_BASE_URL</code>, so on a network that blocks direct egress to <code>api.anthropic.com</code>, fast mode can report a connectivity error while inference through the gateway keeps working. The <a href="/docs/en/data-usage#webfetch-domain-safety-check">WebFetch domain safety check</a> also calls <code>api.anthropic.com</code> directly. <a href="/docs/en/fast-mode#use-fast-mode-behind-proxies-and-llm-gateways">Use fast mode behind proxies and LLM gateways</a> covers the variables that restore it.</p>
 <h3 id="streaming">Streaming</h3>
@@ -6081,14 +6086,19 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><a href="https://platform.claude.com/docs/en/build-with-claude/token-counting">Token counting</a></td>
 <td style="text-align: left;">No beta pairing; uses the <code>count_tokens</code> endpoint</td>
-<td style="text-align: left;">Claude Code falls back to counting context usage through the messages endpoint</td>
-<td style="text-align: left;">Expose the endpoint so token counts don't consume inference requests</td>
+<td style="text-align: left;">No error: Claude Code falls back to a character-based estimate, so <code>/context</code> shows approximate counts</td>
+<td style="text-align: left;">Expose the endpoint for exact token counts</td>
 </tr>
 </tbody>
 </table>
 <p>The <code>ANTHROPIC_DEFAULT_*_MODEL_SUPPORTED_CAPABILITIES</code> <a href="/docs/en/model-config">variables</a> declare model capabilities only in the provider configurations: <code>CLAUDE_CODE_USE_BEDROCK</code>, <code>CLAUDE_CODE_USE_VERTEX</code>, <code>CLAUDE_CODE_USE_FOUNDRY</code>, and <a href="/docs/en/amazon-bedrock#use-the-mantle-endpoint"><code>CLAUDE_CODE_USE_MANTLE</code></a>. They have no effect behind an <code>ANTHROPIC_BASE_URL</code> gateway.</p>
 <h3 id="automatic-retry-and-error-forwarding">Automatic retry and error forwarding</h3>
-<p>When the upstream rejects the <code>thinking</code> field, a <a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">thinking signature</a>, a mid-conversation system message, or the <code>cache_control</code> marker on one of those messages, Claude Code retries the request and disables the rejected capability for the rest of the conversation. Claude Code doesn't retry context management or tool schema field rejections; those <code>400</code> errors reach the developer.</p>
+<p>What Claude Code does after an upstream rejection depends on what was rejected:</p>
+<ul>
+<li>When the upstream rejects the <code>thinking</code> field, a mid-conversation system message, or the <code>cache_control</code> marker on such a message, Claude Code retries the request and disables the rejected capability for the rest of the conversation</li>
+<li>When the upstream rejects a <a href="https://platform.claude.com/docs/en/build-with-claude/extended-thinking">thinking signature</a>, Claude Code retries the request without the conversation's earlier thinking blocks and keeps them out of every later request. New responses still include thinking</li>
+<li>Claude Code doesn't retry rejections of context management or tool schema fields, so those <code>400</code> errors reach the developer</li>
+</ul>
 <p>The retry logic matches on the upstream's error wording, so forward error response bodies unmodified. A gateway that wraps upstream errors in its own envelope breaks the recovery path, even when it preserves the status code, unless the envelope's message carries a stable <code>capability_rejected:</code> token. <a href="/docs/en/claude-apps-gateway-config#upstream-error-messages">Claude apps gateway substitutes those tokens for cloud providers' error wording</a>, for example <code>capability_rejected: prompt_too_long</code>.</p>
 <h3 id="disable-pre-release-capabilities">Disable pre-release capabilities</h3>
 <p><code>CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1</code> stops Claude Code from sending pre-release capabilities and their body fields on every provider, including context management and the beta tool fields. The variable doesn't affect adaptive reasoning, which is selected by model rather than by beta. It never suppresses the OAuth capability that subscription authentication requires.</p>

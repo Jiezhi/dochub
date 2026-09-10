@@ -6360,7 +6360,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <p><Warning>
-  <code>bypassPermissions</code> mode skips permission prompts, including for writes to <a href="/docs/en/permission-modes#protected-paths">protected paths</a> such as <code>.git</code> and <code>.claude</code>. The <a href="/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode">cross-session messaging safeguards</a> still apply. Only use this mode in isolated environments like containers or VMs where Claude Code can't cause damage.
+  In <code>bypassPermissions</code> mode, Claude Code skips permission prompts, including for writes to <a href="/docs/en/permission-modes#protected-paths">protected paths</a> such as <code>.git</code> and <code>.claude</code>. The <a href="/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode">cross-session messaging safeguards</a> still apply. Only use this mode in isolated environments like containers or VMs where Claude Code can't cause damage.
 </Warning></p>
 <p>To prevent <code>bypassPermissions</code> or <code>auto</code> mode from being used, set <code>permissions.disableBypassPermissionsMode</code> or <code>permissions.disableAutoMode</code> to <code>"disable"</code> in any <a href="/docs/en/settings#where-settings-live">settings file</a>. These are most useful in <a href="#managed-settings">managed settings</a> where they can't be overridden.</p>
 <h2 id="permission-rule-syntax">Permission rule syntax</h2>
@@ -6455,7 +6455,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Warning>
   Put the <code>*</code> after the subcommand. In <code>git log --oneline main</code>, <code>git</code> is the program and <code>log</code> is the subcommand, the word that determines what the program does. Claude Code matches everything before the first <code>*</code> as written, so those words are what limit the rule: <code>Bash(git log *)</code> allows only <code>git log</code> commands, and <code>Bash(git *)</code> allows every git command. Claude Code <a href="/docs/en/errors#has-a-wildcard-before-the-rest-of-the-command">warns at startup</a> about an allow rule with a <code>*</code> before the subcommand, such as <code>Bash(git * main)</code>.
 </Warning></p>
-<p>Write the command you want Claude to run without asking, and replace the parts that vary with <code>*</code>. With this configuration, Claude Code runs npm scripts and git commits without asking and refuses git push:</p>
+<p>Write the command you want Claude to run without asking, and replace the parts that vary with <code>*</code>. With this configuration, Claude Code runs npm scripts and git commits without asking and refuses commands that begin with <code>git push</code>. A push written another way, such as <code>git -C . push</code>, isn't matched; see <a href="#bash-rule-limits">what a Bash rule doesn't match</a>.</p>
 <p>```json theme={null}
 {
   "permissions": {
@@ -6506,10 +6506,10 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 </code></pre></div></p>
 <p>Allow rules accept tool-name globs only after a literal <code>mcp__&lt;server&gt;__</code> prefix. The server segment must be glob-free so the rule names a specific server you configured. <code>mcp__puppeteer__*</code> matches every tool from the <code>puppeteer</code> server, and <code>mcp__github__get_*</code> matches its <code>get_</code> tools. An unanchored allow glob such as <code>"*"</code>, <code>"B*"</code>, or <code>"mcp__*"</code> is skipped with a warning and doesn't auto-approve anything.</p>
 <p>A deny or ask rule whose tool name matches no known tool produces a startup warning to catch typos. Tool names containing <code>_</code> or <code>*</code> are exempt from the check.</p>
-<p>The label shown for a tool in the transcript and permission dialog can differ from its canonical name. For example, the tool labeled <code>Stop Task</code> in the transcript has the canonical name <code>TaskStop</code>. Permission rules and <a href="/docs/en/hooks">hook matchers</a> match the canonical name only, so a rule written as <code>Stop Task</code> doesn't match. For deny and ask rules, the startup warning above catches the mismatch. Use the canonical names listed in the <a href="/docs/en/tools-reference">tools reference</a>.</p>
+<p>The label shown for a tool in the transcript and permission dialog can differ from its canonical name. For example, the tool labeled <code>Stop Task</code> in the transcript has the canonical name <code>TaskStop</code>. Permission rules and <a href="/docs/en/hooks">hook matchers</a> don't match the label, so a rule written as <code>Stop Task</code> doesn't match. For deny and ask rules, the startup warning above catches the mismatch. Use the canonical names listed in the <a href="/docs/en/tools-reference">tools reference</a>.</p>
 <h2 id="tool-specific-permission-rules">Tool-specific permission rules</h2>
 <h3 id="bash">Bash</h3>
-<p>Bash rules match the whole command text, with <code>*</code> standing in for any text. <a href="#wildcard-patterns">Wildcard patterns</a> shows which commands each rule shape matches and where to put the <code>*</code>. The rest of this section covers how Claude Code matches compound commands, wrappers, read-only commands, and redirections.</p>
+<p>Bash rules match the whole command text, with <code>*</code> standing in for any text. <a href="#wildcard-patterns">Wildcard patterns</a> shows which commands each rule shape matches and where to put the <code>*</code>. The rest of this section covers how Claude Code matches compound commands and wrappers, what a rule doesn't match, read-only commands, and redirections.</p>
 <h4 id="compound-commands">Compound commands</h4>
 <p><Tip>
   Claude Code is aware of shell operators, so a rule like <code>Bash(safe-cmd *)</code> won't give it permission to run the command <code>safe-cmd &amp;&amp; other-cmd</code>. The recognized command separators are <code>&amp;&amp;</code>, <code>||</code>, <code>;</code>, <code>|</code>, <code>|&amp;</code>, <code>&amp;</code>, and newlines. A rule must match each subcommand independently.
@@ -6526,6 +6526,39 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <p>Bare <code>xargs</code> is also stripped, so <code>Bash(grep *)</code> matches <code>xargs grep pattern</code>. Stripping applies only when <code>xargs</code> has no flags: an invocation like <code>xargs -n1 grep pattern</code> is matched as an <code>xargs</code> command, so rules written for the inner command do not cover it.</p>
 <p>This wrapper list is built in and is not configurable. Development environment runners such as <code>direnv exec</code>, <code>devbox run</code>, <code>mise exec</code>, <code>npx</code>, and <code>docker exec</code> are not in the list. Because these tools execute their arguments as a command, a rule like <code>Bash(devbox run *)</code> matches whatever comes after <code>run</code>, including <code>devbox run rm -rf .</code>. To approve work inside an environment runner, write a specific rule that includes both the runner and the inner command, such as <code>Bash(devbox run npm test)</code>. Add one rule per inner command you want to allow.</p>
 <p>Exec wrappers such as <code>watch</code>, <code>setsid</code>, <code>ionice</code>, and <code>flock</code> can't be auto-approved by a prefix rule like <code>Bash(watch *)</code>, so in Manual mode they always prompt. The same applies to <code>find</code> with <code>-exec</code> or <code>-delete</code>: a <code>Bash(find *)</code> rule doesn't cover these forms. To approve a specific invocation, write an exact-match rule for the full command string.</p>
+<h4 id="bash-rule-limits">
+  What a Bash rule doesn't match
+</h4>
+
+<p>A Bash rule matches the command text Claude writes, after Claude Code splits <a href="#compound-commands">compound commands</a> and strips <a href="#process-wrappers">wrappers</a>. It doesn't match the same program invoked in a different form, so a deny or ask rule covers the invocation Claude usually produces and isn't a security boundary around the program. These rules in <code>deny</code> or <code>ask</code> stop the first form and not the others:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Rule</th>
+<th style="text-align: left;">Stops</th>
+<th style="text-align: left;">Doesn't stop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>Bash(curl *)</code></td>
+<td style="text-align: left;"><code>curl https://example.com</code></td>
+<td style="text-align: left;"><code>/usr/bin/curl https://example.com</code>, <code>sh -c 'curl https://example.com'</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Bash(rm *)</code></td>
+<td style="text-align: left;"><code>rm -rf build/</code></td>
+<td style="text-align: left;"><code>/bin/rm -rf build/</code>, <code>bash -c 'rm -rf build/'</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Bash(git push *)</code></td>
+<td style="text-align: left;"><code>git push origin main</code></td>
+<td style="text-align: left;"><code>git -C . push origin main</code>, <code>git -c push.default=current push origin main</code>, <code>git 'push' origin main</code></td>
+</tr>
+</tbody>
+</table>
+<p>Your other rules and the permission mode decide the commands in the last column.</p>
+<p>For filesystem and network enforcement that doesn't depend on the command text, use <a href="/docs/en/sandboxing">sandboxing</a>. To inspect the full command text with your own logic before it runs, use a <a href="#extend-permissions-with-hooks">PreToolUse hook</a>.</p>
 <h4 id="read-only-commands">Read-only commands</h4>
 <p>Claude Code recognizes a built-in set of Bash commands as read-only and runs them without a permission prompt in every mode, except for a path that <a href="/docs/en/settings-reference#permissions-blockreadsoutsideworkingdirectories"><code>permissions.blockReadsOutsideWorkingDirectories</code></a> fences. The set includes <code>ls</code>, <code>cat</code>, <code>echo</code>, <code>pwd</code>, <code>head</code>, <code>tail</code>, <code>grep</code>, <code>find</code>, <code>wc</code>, <code>which</code>, <code>diff</code>, <code>stat</code>, <code>du</code>, <code>cd</code>, and read-only forms of <code>git</code>. The set is not configurable; to require a prompt for one of these commands, add an <code>ask</code> or <code>deny</code> rule for it.</p>
 <p>A redirect such as <code>ls &gt; out.txt</code> adds a check on the target. See <a href="#redirections">Redirections</a>.</p>
@@ -6550,11 +6583,10 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <li>Different protocol: <code>curl https://github.com/...</code></li>
 <li>Redirects: <code>curl -L http://short.example.com/xyz</code>, which redirects to GitHub</li>
 <li>Variables: <code>URL=http://github.com &amp;&amp; curl $URL</code></li>
-<li>Extra spaces: <code>curl  http://github.com</code></li>
 </ul>
 <p>For more reliable URL filtering, consider:</p>
 <ul>
-<li><strong>Restrict Bash network tools</strong>: use deny rules to block <code>curl</code>, <code>wget</code>, and similar commands, then use the WebFetch tool with <code>WebFetch(domain:github.com)</code> permission for allowed domains</li>
+<li><strong>Restrict Bash network tools</strong>: use deny rules to stop <code>curl</code>, <code>wget</code>, and similar commands, then use the WebFetch tool with <code>WebFetch(domain:github.com)</code> permission for allowed domains. A deny rule doesn't match the same program by path or inside <code>sh -c</code>, so pair it with the <a href="/docs/en/sandboxing#network-isolation">sandbox network allowlist</a> when the restriction must hold; see <a href="#bash-rule-limits">what a Bash rule doesn't match</a></li>
 <li><strong>Use PreToolUse hooks</strong>: implement a hook that validates URLs in Bash commands and blocks disallowed domains</li>
 <li><strong>Add CLAUDE.md guidance</strong>: describe your allowed curl patterns in <code>CLAUDE.md</code>. This shapes what Claude tries but doesn't enforce a boundary, so pair it with one of the options above</li>
 </ul>
@@ -6596,7 +6628,7 @@ A `Read` deny rule also blocks the [Edit and Write tools](/docs/en/errors#file-i
 Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only. If you write a path rule for `Write`, `NotebookEdit`, `Glob`, or the legacy `MultiEdit` tool instead, Claude Code accepts the rule but never consults it, and [warns at startup](/docs/en/errors#is-not-matched-by-file-permission-checks), except for a `Glob` rule passed in `--allowedTools`. Use `Edit(docs/**)` in place of `Write(docs/**)`, `NotebookEdit(docs/**)`, or `MultiEdit(docs/**)`, and `Read(docs/**)` in place of `Glob(docs/**)`. Claude Code doesn't warn about a tool-name rule with no path, such as a deny rule for `Write`; it matches that rule at the tool level everywhere. Requires Claude Code v2.1.210 or later.
 
 &lt;Warning&gt;
-  Read and Edit deny rules apply to Claude's built-in file tools, to file commands Claude Code recognizes in Bash, such as `cat`, `head`, `tail`, and `sed`, and to the targets of Bash [redirections](#redirections) such as `&gt; file` and `&lt; file`. They don't apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, [enable the sandbox](/docs/en/sandboxing).
+  Read and Edit deny rules apply to Claude's built-in file tools, to file commands Claude Code recognizes in Bash, such as `cat`, `head`, `tail`, and `sed`, and to the targets of Bash [redirections](#redirections) such as `&gt; file` and `&lt; file`. They don't apply to a command that reads files without naming them, such as `grep -r pattern .` run from the directory that holds the file, or to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, [enable the sandbox](/docs/en/sandboxing).
 &lt;/Warning&gt;
 
 Read and Edit rules both use [gitignore](https://git-scm.com/docs/gitignore) pattern syntax with four distinct pattern types; for single-segment directory patterns, the matching depth also depends on the rule type, described later in this section:
@@ -6804,7 +6836,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 </tr>
 <tr>
 <td><code>Cd(**/node_modules)</code></td>
-<td>any <code>node_modules</code> directory at any depth</td>
+<td>any <code>node_modules</code> directory at any depth under the current directory</td>
 <td><code>node_modules/pkg</code></td>
 </tr>
 </tbody>
@@ -6886,13 +6918,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <li><strong>Permissions</strong> control which tools Claude Code can use and which files or domains it can access. They apply to Bash, Read, Edit, WebFetch, MCP, and every other tool, except that a deny or ask rule can't block <a href="/docs/en/tools-reference#endconversation-tool-behavior"><code>EndConversation</code></a> while any other tool remains.</li>
 <li><strong>Sandboxing</strong> provides OS-level enforcement that restricts the Bash tool's filesystem and network access. It applies only to Bash commands and their child processes.</li>
 </ul>
-<p>Use both for defense-in-depth:</p>
-<ul>
-<li>Permission deny rules block Claude from even attempting to access restricted resources</li>
-<li>Sandbox restrictions prevent Bash commands from reaching resources outside defined boundaries, even if a prompt injection bypasses Claude's decision-making</li>
-<li>Filesystem restrictions in the sandbox combine the <a href="/docs/en/sandboxing"><code>sandbox.filesystem</code></a> settings with Read and Edit deny rules; both are merged into the final sandbox boundary</li>
-<li>Network restrictions combine <code>WebFetch(domain:...)</code> permission rules with the sandbox's <code>allowedDomains</code> and <code>deniedDomains</code> lists</li>
-</ul>
+<p>Use both for defense-in-depth, since sandbox restrictions still apply even if a prompt injection bypasses Claude's decision-making. Paths and domains from both sandbox settings and permission rules are <a href="/docs/en/sandboxing#permission-rules">merged into the final sandbox configuration</a>.</p>
 <p>When you enable sandboxing and leave <code>autoAllowBashIfSandboxed</code> at its default of <code>true</code>, sandboxed Bash commands run without prompting even if your permissions include a bare <code>Bash</code> ask rule, or the <a href="#match-all-uses-of-a-tool">equivalent <code>Bash(*)</code> form</a>: the sandbox boundary substitutes for that whole-tool prompt.</p>
 <p>In <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a>, Claude Code skips this substitution. Without an ask rule, the <a href="#read-only-commands">built-in read-only commands</a> still run without prompting, and any other shell command goes through the regular permission flow while you are still planning; see <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a> for how Claude Code gates commands there. With a bare <code>Bash</code> ask rule, every Bash command prompts, including sandboxed read-only commands, the same as outside sandboxing. Before v2.1.212, the substitution applied in plan mode as well.</p>
 <p>These checks still apply:</p>

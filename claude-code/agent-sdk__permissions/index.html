@@ -5781,8 +5781,13 @@ Use this file to discover all available pages before exploring further.</p>
 </code></pre>
 <p></Step></p>
 <p><Step title="Permission mode">
-    Apply the active <a href="#permission-modes">permission mode</a>. <code>bypassPermissions</code> approves everything that reaches this step except <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a>, which fall through instead. <code>acceptEdits</code> approves the file operations listed under <a href="#accept-edits-mode-acceptedits">Accept edits mode</a>. <code>plan</code> routes file-edit and shell-write tools to your <code>canUseTool</code> callback regardless of allow rules, so write operations cannot be auto-approved while planning. Other modes fall through.
-  </Step></p>
+    Apply the active <a href="#permission-modes">permission mode</a>:</p>
+<pre><code>* In `bypassPermissions` mode, Claude Code approves everything that reaches this step except `rm` and `rmdir` removals targeting a [critical path](/docs/en/permission-modes#critical-paths), which fall through instead.
+* In `acceptEdits` mode, Claude Code approves the file operations listed under [Accept edits mode](#accept-edits-mode-acceptedits).
+* In `plan` mode, Claude Code sends file-edit and shell-write tools to your `canUseTool` callback regardless of allow rules, so write operations can't be auto-approved while planning.
+* In other modes, the request falls through.
+</code></pre>
+<p></Step></p>
 <p><Step title="Allow rules">
     Check <code>allow</code> rules (from <code>allowed_tools</code> and settings.json). If a rule matches, the tool is approved. <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> are never approved by an allow rule: they reach your callback in the modes that prompt, go to the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">classifier</a> in <code>auto</code> mode on Claude Code v2.1.218 or later, and are denied in <code>dontAsk</code> mode.
   </Step></p>
@@ -5826,7 +5831,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>disallowed_tools=["Bash(rm *)"]</code></td>
-<td style="text-align: left;"><code>Bash</code> stays available. Calls matching <code>rm *</code> are denied in every permission mode, including <code>bypassPermissions</code>. Other <code>Bash</code> calls fall through to the permission mode.</td>
+<td style="text-align: left;"><code>Bash</code> stays available. Calls matching <code>rm *</code> <a href="/docs/en/permissions#bash-rule-limits">as written</a> are denied in every permission mode, including <code>bypassPermissions</code>. Other <code>Bash</code> calls, including <code>/bin/rm</code>, fall through to the permission mode.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>disallowed_tools=["*"]</code></td>
@@ -5897,7 +5902,7 @@ const options = {
 </tbody>
 </table>
 <p><Warning>
-  <strong>Subagent inheritance:</strong> Subagents inherit the parent session's permission mode. An <a href="/docs/en/agent-sdk/typescript#agentdefinition"><code>AgentDefinition</code>'s <code>permissionMode</code></a> can override it, except when the parent uses <code>bypassPermissions</code>, <code>acceptEdits</code>, or <code>auto</code>: those modes apply to every subagent and can't be overridden per subagent. Claude Code also ignores a definition's <code>permissionMode: "bypassPermissions"</code> when bypass mode is disabled by <a href="/docs/en/permissions#managed-settings"><code>permissions.disableBypassPermissionsMode</code></a>, so that subagent runs with the parent session's mode.</p>
+  <strong>Subagent inheritance:</strong> A subagent runs in the parent session's permission mode unless you set <code>permissionMode</code> on its <a href="/docs/en/agent-sdk/typescript#agentdefinition"><code>AgentDefinition</code></a> and the parent session is in <code>default</code>, <code>dontAsk</code>, or <code>plan</code> mode. Even then, Claude Code never applies a <code>"bypassPermissions"</code> value. A subagent runs in <code>bypassPermissions</code> mode only when the parent session itself does. The <code>bypassPermissions</code> exception requires Claude Code v2.1.267 or later.</p>
 <p>Subagents may have different system prompts and less constrained behavior than your main agent, so inheriting <code>bypassPermissions</code> grants them full, autonomous system access. The <a href="/docs/en/permission-modes#actions-no-mode-auto-approves">actions no mode auto-approves</a> still apply.
 </Warning></p>
 <h3 id="set-permission-mode">Set permission mode</h3>
@@ -6010,7 +6015,12 @@ const options = {
 <li>File edits (Edit, Write tools)</li>
 <li>Filesystem commands: <code>mkdir</code>, <code>touch</code>, <code>rm</code>, <code>rmdir</code>, <code>mv</code>, <code>cp</code>, <code>sed</code></li>
 </ul>
-<p>Both apply only to paths inside the working directory or <code>additionalDirectories</code>. Paths outside that scope, writes to protected paths, and <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> still prompt.</p>
+<p>Both apply only to paths inside the working directory or <code>additionalDirectories</code>. In <code>acceptEdits</code> mode, Claude Code doesn't auto-approve the request when Claude:</p>
+<ul>
+<li>Works on a path outside that scope</li>
+<li>Writes to a protected path</li>
+<li>Removes a <a href="/docs/en/permission-modes#critical-paths">critical path</a> with <code>rm</code> or <code>rmdir</code></li>
+</ul>
 <p><strong>Use when:</strong> you trust Claude's edits and want faster iteration, such as during prototyping or when working in an isolated directory.</p>
 <h4 id="dont-ask-mode-dontask">Don't ask mode (<code>dontAsk</code>)</h4>
 <p>Converts any permission prompt into a denial. Tools pre-approved by <code>allowed_tools</code>, <code>settings.json</code> allow rules, or a hook run as normal. Connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, tools that require user interaction, and <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> are denied even when an allow rule matches. A <code>PreToolUse</code> hook allow doesn't clear a critical-path removal either. Everything else is denied without calling <code>canUseTool</code>.</p>

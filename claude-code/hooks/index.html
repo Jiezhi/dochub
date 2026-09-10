@@ -8492,7 +8492,7 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 <tr>
 <td style="text-align: left;"><code>StopFailure</code></td>
 <td style="text-align: left;">error type</td>
-<td style="text-align: left;"><code>rate_limit</code>, <code>overloaded</code>, <code>authentication_failed</code>, <code>oauth_org_not_allowed</code>, <code>account_on_hold</code>, <code>billing_error</code>, <code>invalid_request</code>, <code>model_not_found</code>, <code>server_error</code>, <code>max_output_tokens</code>, <code>unknown</code></td>
+<td style="text-align: left;"><code>rate_limit</code>, <code>overloaded</code>, <code>authentication_failed</code>, <code>oauth_org_not_allowed</code>, <code>account_on_hold</code>, <code>billing_error</code>, <code>invalid_request</code>, <code>model_not_found</code>, <code>server_error</code>, <code>max_output_tokens</code>, <code>cloud_credential_error</code>, <code>unknown</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>InstructionsLoaded</code></td>
@@ -8521,6 +8521,7 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 </tr>
 </tbody>
 </table>
+<p>Matching <code>StopFailure</code> on <code>cloud_credential_error</code> requires Claude Code v2.1.267 or later, the first version that reports credential-load failures under that value rather than <code>server_error</code> or <code>unknown</code>.</p>
 <p>For most events, Claude Code evaluates the matcher against a field from the <a href="#hook-input-and-output">JSON input</a> it sends to your hook on stdin. For tool events, that field is <code>tool_name</code>. For <code>PreModelSwitch</code> and <code>PostModelSwitch</code>, Claude Code evaluates the matcher against the canonical name it derives from <code>to_model</code>, as described under <a href="#premodelswitch">PreModelSwitch</a>. Each <a href="#hook-events">hook event</a> section lists the full set of matcher values and the input schema for that event.</p>
 <p>This example runs a linting script only when Claude writes or edits a file:</p>
 <p>```json theme={null}
@@ -9009,6 +9010,7 @@ Hook events receive these fields as JSON, in addition to event-specific fields d
 | `prompt_id`       | UUID identifying the user prompt currently being processed. Matches the [`prompt.id` attribute on OpenTelemetry events](/docs/en/monitoring-usage#event-correlation-attributes), so you can correlate hook output with telemetry for a single prompt. Absent until the first user input. Requires Claude Code v2.1.196 or later                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `transcript_path` | Path to conversation JSON. The transcript file is written asynchronously and may lag the in-memory conversation, so it may not yet include the current turn's most recent messages when a hook fires. Hooks that need the final assistant text of the current turn should use `last_assistant_message` on [Stop](#stop) and [SubagentStop](#subagentstop) instead of reading the transcript                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `cwd`             | Current working directory when the hook is invoked                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `scratchpad_dir`  | Path to the session's scratchpad directory, where Claude keeps temporary working files. Absent when the session has no scratchpad or the temp directory is unavailable. Requires Claude Code v2.1.257 or later                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `permission_mode` | Current [permission mode](/docs/en/permissions#permission-modes): `"default"`, `"plan"`, `"acceptEdits"`, `"auto"`, `"dontAsk"`, or `"bypassPermissions"`. The mode labeled **Manual** arrives as `"default"`, never as `"manual"`, so scripts that match `"default"` keep working. Not all events receive this field. Check the JSON example in each [hook event](#hook-events) section                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `effort`          | Object with a `level` field holding the [effort level](/docs/en/model-config#adjust-effort-level) in effect when the hook runs: `"low"`, `"medium"`, `"high"`, `"xhigh"`, or `"max"`. If you set a level the active model doesn't support, `level` reports the level Claude Code ran instead; [Adjust effort level](/docs/en/model-config#adjust-effort-level) says how it picks that level. Ultracode is not a distinct level and reports as `"xhigh"`. The object matches the [status line](/docs/en/statusline#available-data) `effort` field. Present for events that fire within a tool-use context, such as `PreToolUse`, `PostToolUse`, `Stop`, and `SubagentStop`, when the current model supports the effort parameter. The level is also available to hook commands and the Bash tool as the `$CLAUDE_EFFORT` environment variable. |
 | `hook_event_name` | Name of the event that fired                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -9034,6 +9036,7 @@ For example, a `PreToolUse` hook for a Bash command receives this on stdin:
   "prompt_id": "550e8400-e29b-41d4-a716-446655440000",
   "transcript_path": "/home/user/.claude/projects/.../transcript.jsonl",
   "cwd": "/home/user/my-project",
+  "scratchpad_dir": "/tmp/claude-1000/-home-user-my-project/abc123/scratchpad",
   "permission_mode": "default",
   "hook_event_name": "PreToolUse",
   "tool_name": "Bash",
@@ -9241,7 +9244,8 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 <li><a href="#stop">Stop</a> and <a href="#subagentstop">SubagentStop</a>: at the end of the turn. The conversation continues so Claude can act on the feedback. See <a href="#stop-decision-control">Stop decision control</a></li>
 <li><a href="#postmodelswitch">PostModelSwitch</a>: with the next request after the switch. See <a href="#postmodelswitch-decision-control">PostModelSwitch decision control</a> for timing</li>
 </ul>
-<p>When several hooks return <code>additionalContext</code> for the same event, Claude receives all of the values. If a value exceeds 10,000 characters, Claude Code writes the full text to a file in the session directory and passes Claude the file path with a short preview instead.</p>
+<p>When several hooks return <code>additionalContext</code> for the same event, Claude receives all of the values.</p>
+<p>If a value exceeds 10,000 characters, Claude Code writes the text to a file in the session directory and passes Claude the file path with a short preview instead.</p>
 <p>Use <code>additionalContext</code> for information Claude should know about the current state of your environment or the operation that just ran:</p>
 <ul>
 <li><strong>Environment state</strong>: the current branch, deployment target, or active feature flags</li>
@@ -9418,6 +9422,7 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 </tbody>
 </table>
 <p>Before v2.1.214, forked sessions reported source <code>"resume"</code>.</p>
+<p>When you run <code>/clear</code> in an interactive session, the matching SessionStart hooks run in the background and the prompt accepts input again right away. Claude's first response still waits for the hooks to finish, so their context reaches Claude. If you run <code>/clear</code> again or switch to another conversation with a command such as <code>/resume</code> while those hooks are still running, Claude Code cancels them and discards their output.</p>
 <h4 id="sessionstart-input">SessionStart input</h4>
 <p>In addition to the <a href="#common-input-fields">common input fields</a>, SessionStart hooks receive <code>source</code> and optionally <code>model</code>, <code>agent_type</code>, and <code>session_title</code>:</p>
 <table>
@@ -10627,9 +10632,10 @@ PermissionDenied hooks can tell the model it may retry the denied tool call. Ret
 <ul>
 <li>Expect <code>permission_prompt</code> once you haven't typed for about six seconds. The timer starts when the permission prompt appears, and each keystroke defers it. To run a hook immediately when Claude asks for permission to use a tool, use <a href="#permissionrequest">PermissionRequest</a> instead.</li>
 <li>Expect <code>idle_prompt</code> about 60 seconds after Claude finishes responding, and only if you haven't typed since. Claude Code doesn't send <code>idle_prompt</code> while it waits for a claude.ai usage limit to reset. When the wait ends on its own, one of the <code>quota_auto_resume_*</code> types fires instead.</li>
-<li>Expect <code>elicitation_dialog</code> for an elicitation form, or <code>elicitation_url_dialog</code> for a browser URL request, once you haven't typed for about six seconds. Both share the same six-second gate as <code>permission_prompt</code>: the timer starts when the dialog appears, and each keystroke defers it.
-</Note></li>
+<li>Expect <code>elicitation_dialog</code> for an elicitation form, or <code>elicitation_url_dialog</code> for a browser URL request, once you haven't typed for about six seconds. Both share the same six-second gate as <code>permission_prompt</code>: the timer starts when the dialog appears, and each keystroke defers it.</li>
 </ul>
+<p>A permission request or elicitation that arrives while another dialog is on screen keeps the same six-second gate, timed from when the request arrives. Its notification can reach you while the request still waits behind the open dialog.
+</Note></p>
 <p>Claude Code times <code>permission_prompt</code> differently in sessions where it sends permission requests to the Agent SDK's <a href="/docs/en/agent-sdk/user-input"><code>canUseTool</code> callback</a>, which is how Claude Desktop and the VS Code extension host Claude Code:</p>
 <ul>
 <li>Expect <code>permission_prompt</code> about six seconds after Claude asks for permission. Claude Code doesn't defer it while you type.</li>
@@ -10680,7 +10686,7 @@ In addition to the [common input fields](#common-input-fields), Notification hoo
 </code></pre></div></p>
 <p>Notification hooks can't block or modify notifications. Claude Code discards their <code>systemMessage</code> and <code>continue</code> fields but still emits <a href="#emit-terminal-notifications"><code>terminalSequence</code></a>, which is what the desktop notification example relies on. Notification hooks are intended for side effects such as forwarding the notification to an external service.</p>
 <h3 id="subagentstart">SubagentStart</h3>
-<p>Runs when a Claude Code subagent is spawned via the Agent tool. Supports matchers to filter by agent type name. For built-in agents, this is the agent name like <code>general-purpose</code>, <code>Explore</code>, or <code>Plan</code>. For <a href="/docs/en/sub-agents">custom subagents</a>, this is the <code>name</code> field from the agent's frontmatter, not the filename.</p>
+<p>Runs when Claude spawns a subagent with the Agent tool, when Claude <a href="/docs/en/sub-agents#resume-subagents">resumes a subagent</a>, and each time an in-process <a href="/docs/en/agent-teams">agent team</a> teammate handles a new message. Supports matchers to filter by agent type name. For built-in agents, this is the agent name like <code>general-purpose</code>, <code>Explore</code>, or <code>Plan</code>. For <a href="/docs/en/sub-agents">custom subagents</a>, this is the <code>name</code> field from the agent's frontmatter, not the filename.</p>
 <p>For subagents shipped by a <a href="/docs/en/plugins">plugin</a>, the agent type is the plugin-scoped identifier such as <code>my-plugin:reviewer</code>, not the bare frontmatter name. The colon places a plugin-scoped name on the regular-expression path, so anchor the matcher with <code>^</code> and <code>$</code> for an exact match: <code>^my-plugin:reviewer$</code>.</p>
 <h4 id="subagentstart-input">SubagentStart input</h4>
 <p>In addition to the <a href="#common-input-fields">common input fields</a>, SubagentStart hooks receive <code>agent_id</code> with the unique identifier for the subagent and <code>agent_type</code> with the agent name that the matcher filters on.</p>
@@ -10707,6 +10713,7 @@ In addition to the [common input fields](#common-input-fields), Notification hoo
   }
 }
 </code></pre></div></p>
+<p>When the hook runs again for the same subagent, Claude Code injects the returned context only when the subagent's context doesn't already hold the copy from an earlier run. The copy injected at launch stays in place, leaving the subagent's <a href="/docs/en/prompt-caching#subagents-and-the-cache">prompt cache</a> intact. After <a href="/docs/en/sub-agents#auto-compaction">auto-compaction</a> discards that copy, Claude Code injects the next run's context again.</p>
 <h3 id="subagentstop">SubagentStop</h3>
 <p>Runs when a Claude Code subagent has finished responding. Matches on agent type, same values as SubagentStart.</p>
 <h4 id="subagentstop-input">SubagentStop input</h4>
@@ -10994,7 +11001,7 @@ This example shows a Stop input with one in-flight shell task and one recurring 
 <tbody>
 <tr>
 <td style="text-align: left;"><code>error</code></td>
-<td style="text-align: left;">Error type: <code>rate_limit</code>, <code>overloaded</code>, <code>authentication_failed</code>, <code>oauth_org_not_allowed</code>, <code>account_on_hold</code>, <code>billing_error</code>, <code>invalid_request</code>, <code>model_not_found</code>, <code>server_error</code>, <code>max_output_tokens</code>, or <code>unknown</code></td>
+<td style="text-align: left;">Error type: <code>rate_limit</code>, <code>overloaded</code>, <code>authentication_failed</code>, <code>oauth_org_not_allowed</code>, <code>account_on_hold</code>, <code>billing_error</code>, <code>invalid_request</code>, <code>model_not_found</code>, <code>server_error</code>, <code>max_output_tokens</code>, <code>cloud_credential_error</code>, or <code>unknown</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>error_details</code></td>
@@ -11385,10 +11392,10 @@ Runs before Claude Code is about to run a compact operation.
 
 The matcher value indicates whether compaction was triggered manually or automatically:
 
-| Matcher  | When it fires                                |
-| :------- | :------------------------------------------- |
-| `manual` | `/compact`                                   |
-| `auto`   | Auto-compact when the context window is full |
+| Matcher  | When it fires                                                                                                      |
+| :------- | :----------------------------------------------------------------------------------------------------------------- |
+| `manual` | `/compact`                                                                                                         |
+| `auto`   | Auto-compact when the conversation reaches the [auto-compact window](/docs/en/model-config#set-the-auto-compact-window) |
 
 Exit with code 2 to block compaction. For a manual `/compact`, the stderr message is shown to the user. You can also block by returning JSON with `"decision": "block"`.
 
@@ -11427,7 +11434,7 @@ In addition to the [common input fields](#common-input-fields), PreCompact hooks
 </tr>
 <tr>
 <td style="text-align: left;"><code>auto</code></td>
-<td style="text-align: left;">After auto-compact when the context window is full</td>
+<td style="text-align: left;">After auto-compact when the conversation reaches the <a href="/docs/en/model-config#set-the-auto-compact-window">auto-compact window</a></td>
 </tr>
 </tbody>
 </table>
@@ -11989,38 +11996,7 @@ This `Stop` hook uses a detailed prompt to check three conditions before allowin
 </ol>
 <p>Agent hooks are useful when verification requires inspecting actual files or test output, not just evaluating the hook input data alone.</p>
 <h3 id="agent-hook-configuration">Agent hook configuration</h3>
-<p>Set <code>type</code> to <code>"agent"</code> and provide a <code>prompt</code> string. The configuration fields are the same as <a href="#prompt-hook-configuration">prompt hooks</a>, except that agent hooks have a longer default timeout and no <code>continueOnBlock</code> field:</p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Field</th>
-<th style="text-align: left;">Required</th>
-<th style="text-align: left;">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>type</code></td>
-<td style="text-align: left;">yes</td>
-<td style="text-align: left;">Must be <code>"agent"</code></td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>prompt</code></td>
-<td style="text-align: left;">yes</td>
-<td style="text-align: left;">Prompt describing what to verify. Use <code>$ARGUMENTS</code> as a placeholder for the hook input JSON</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>model</code></td>
-<td style="text-align: left;">no</td>
-<td style="text-align: left;">Model to use. Defaults to a fast model</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>timeout</code></td>
-<td style="text-align: left;">no</td>
-<td style="text-align: left;">Timeout in seconds. Default: 60</td>
-</tr>
-</tbody>
-</table>
+<p>Set <code>type</code> to <code>"agent"</code> and provide a <code>prompt</code> string, using <code>$ARGUMENTS</code> as a placeholder for the hook input JSON. The configuration fields are the same as <a href="#prompt-hook-configuration">prompt hooks</a>, except that agent hooks have a longer default timeout of 60 seconds and no <code>continueOnBlock</code> field.</p>
 <p>The response schema is <code>{ "ok": true }</code> to allow or <code>{ "ok": false, "reason": "..." }</code> to block. On <code>ok: false</code>, Claude Code handles an agent hook the way it handles a <a href="#response-schema">prompt hook with <code>continueOnBlock: true</code></a> on the same event; agent hooks have no <code>continueOnBlock</code> field, and don't support the prompt-hook <code>impossible</code> field.</p>
 <p>This <code>Stop</code> hook verifies that all unit tests pass before allowing Claude to finish:</p>
 <p>```json theme={null}
