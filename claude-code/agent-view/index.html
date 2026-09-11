@@ -7313,6 +7313,11 @@ What happens to a worktree Claude created for the session:
 
   When another finished session's records also name the worktree, it stays when you delete again; push the commits, then delete again.
 * A worktree git no longer recognizes, for example after `git worktree prune`, doesn't block the delete. Claude Code deletes the session and leaves the directory on disk.
+* When git or your [`WorktreeRemove` hook](/docs/en/hooks#worktreeremove) fails to remove the worktree, Claude Code keeps the worktree and the session, and the message names the cause. For a hook, the message says how it ended, such as `exited 1`, and quotes the start of its stderr. The message also tells you which of these to do next:
+
+  * Delete the session again to remove the directory anyway, by pressing `Ctrl+X` twice on its row in agent view or running the `claude rm &lt;id&gt; --force-remove-worktree &lt;worktree-id&gt;` command that the `claude rm` refusal printed. Claude Code offers this only when it can confirm the directory is one of the repository's linked worktrees under `.claude/worktrees/` with no uncommitted changes to tracked files, no nested repository inside it, and no other session's record naming it. The worktree's branch stays in the repository.
+  * Fix what stands in the way, such as committing or stashing the uncommitted changes, closing whatever is using the directory, or fixing the hook, then delete the session again.
+  * Remove the directory yourself, then delete the session again.
 
 A worktree you created yourself and started the session inside is left in place either way.
 
@@ -7471,6 +7476,10 @@ claude agents --settings ./ci-settings.json --add-dir ../shared-lib
 <tr>
 <td style="text-align: left;"><code>claude rm &lt;id&gt; --discard-unpushed &lt;commit&gt;@&lt;worktree-id&gt;</code></td>
 <td style="text-align: left;">Delete a session whose delete was refused over unpushed commits, discarding the worktree along with its branch and commits. Pass the exact value that refusal printed; see <a href="#what-deleting-a-session-removes">What deleting a session removes</a>. Requires v2.1.260 or later</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>claude rm &lt;id&gt; --force-remove-worktree &lt;worktree-id&gt;</code></td>
+<td style="text-align: left;">Delete a session whose delete was refused because git or the <code>WorktreeRemove</code> hook couldn't remove its worktree, deleting the worktree directory anyway and leaving its branch in the repository. Pass the exact value that refusal printed; see <a href="#what-deleting-a-session-removes">What deleting a session removes</a>. Requires v2.1.268 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>claude daemon status</code></td>
@@ -7719,6 +7728,10 @@ claude daemon stop --any --keep-workers
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>v2.1.268</td>
+<td>When a <a href="#what-deleting-a-session-removes">delete is refused</a> because git or your <code>WorktreeRemove</code> hook couldn't remove the worktree, the message names the cause, including how a hook ended and the start of its stderr. For a linked worktree under the repository's <code>.claude/worktrees/</code> with no uncommitted changes to tracked files, no nested repository inside it, and no other session's record naming it, deleting the session again removes the directory anyway, from agent view or with <code>claude rm &lt;id&gt; --force-remove-worktree &lt;worktree-id&gt;</code>. Before this release, the row showed only <code>worktree could not be removed (WorktreeRemove hook failed)</code> or git's error, the hook's stderr went only to the debug log, and deleting again was refused the same way.</td>
+</tr>
 <tr>
 <td>v2.1.260</td>
 <td>When you <a href="#from-inside-a-session">background a session</a>, your other sessions' <a href="/docs/en/cross-session-messaging#see-which-sessions-claude-can-reach">agent listing</a> shows the conversation once, as its background session, and their messages to it no longer reach the terminal you moved it from. Before this release, that terminal could stay listed as a second interactive session under the conversation's name, and a session that had messaged the conversation before the move kept delivering to that terminal.</td>

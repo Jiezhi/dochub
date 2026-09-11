@@ -91,7 +91,7 @@
           ]
         },
         "nodePlacementAlignment": {
-          "description": "Elk specific option affecting Brandes-Koepf node placement alignment.\nNONE picks the alignment with the smallest height.\n",
+          "description": "Elk specific option affecting Brandes-Koepf node placement alignment.\nBALANCED combines the four directional alignments; NONE picks the\nsmallest result. Defaults to BALANCED for the default preset and NONE\nfor named non-default presets.\n",
           "type": "string",
           "enum": [
             "NONE",
@@ -100,11 +100,10 @@
             "RIGHTUP",
             "RIGHTDOWN",
             "BALANCED"
-          ],
-          "default": "NONE"
+          ]
         },
         "preset": {
-          "description": "Named combination of the three options that decide where nodes end up:\nlayering strategy, node placement strategy and cycle breaking strategy.\nThey belong to different phases of the layout, so a preset is simply a\nnamed triple rather than a mode with behaviour of its own.\n\n`default` — network simplex layering and placement with depth-first\ncycle breaking at the top level, and Brandes-Koepf placement inside\nsubgraphs. Depth-first breaking gives shorter back edges on graphs\nthat loop.\n\n`legacy` — what shipped before presets existed: Brandes-Koepf placement,\nwhich straightens long edges at the cost of that alignment, with ELK's\nown greedy cycle breaking. Reproduces the rendering of earlier\nversions rather than the defaults their schema advertised.\n\n`modelOrder` — as `default`, but breaks cycles by greedy model order,\nwhich disturbs declaration order least at the cost of longer back\nedges. This is the combination `default` named previously.\n\n`depthFirst` — a name for what `default` already is, for diagrams that\nwould rather say depth-first than rely on the default.\n\nSetting `layeringStrategy`, `nodePlacementStrategy` or\n`cycleBreakingStrategy` explicitly overrides the preset for that one\noption; the rest of the preset still applies.\n",
+          "description": "Named combination of layering, node placement, placement alignment\nand cycle breaking options. Explicit options override the preset for\nthat option; the remaining preset values still apply.\n\n`default` — network simplex layering, balanced Brandes-Koepf placement\nat the top level and inside subgraphs, and depth-first cycle breaking.\nBalanced placement favors centered branches and composite-state entries,\nsometimes at the cost of a wider or taller drawing. It does not\nguarantee that every edge attaches to the center of its target.\n\n`legacy` — Brandes-Koepf placement with NONE alignment and ELK's own\ngreedy cycle breaking. Reproduces the rendering before presets existed.\n\n`modelOrder` — network simplex layering and top-level placement,\nBrandes-Koepf placement inside subgraphs, NONE alignment, and greedy\nmodel-order cycle breaking, which favors declaration order.\n\n`depthFirst` — the previous default: network simplex layering and\ntop-level placement, Brandes-Koepf placement inside subgraphs, NONE\nalignment, and depth-first cycle breaking.\n\nSetting `layeringStrategy`, `nodePlacementStrategy`,\n`nodePlacementAlignment` or `cycleBreakingStrategy` explicitly overrides\nthe preset for that option, including an explicit NONE alignment.\n",
           "type": "string",
           "enum": [
             "default",
@@ -2033,7 +2032,8 @@
       "required": [
         "titleTopMargin",
         "useMaxWidth",
-        "defaultRenderer"
+        "wrappingWidth",
+        "minNodeWidth"
       ],
       "properties": {
         "theme": {
@@ -2047,6 +2047,16 @@
         "layout": {
           "$ref": "#/$defs/BaseDiagramConfig/properties/layout",
           "default": "elk"
+        },
+        "wrappingWidth": {
+          "description": "Width of nodes where text is wrapped.\n\nWhen using markdown strings the text is wrapped automatically, this\nvalue sets the max width of a text before it continues on a new line.\n",
+          "type": "number",
+          "default": 120
+        },
+        "minNodeWidth": {
+          "description": "Minimum width of the label area of a node.\n\nLabels narrower than this are widened to it, so nodes with short text\nget a uniform width; the node's own padding is added on top, the same\nway it is for `wrappingWidth`. Nodes with an explicit width are not\naffected.\n",
+          "type": "number",
+          "default": 120
         },
         "titleTopMargin": {
           "$ref": "#/$defs/GitGraphDiagramConfig/properties/titleTopMargin",
@@ -2123,21 +2133,6 @@
         "radius": {
           "type": "number",
           "default": 5
-        },
-        "defaultRenderer": {
-          "description": "Decides which rendering engine that is to be used for the rendering.\n",
-          "type": "string",
-          "enum": [
-            "dagre-d3",
-            "dagre-wrapper",
-            "elk"
-          ],
-          "default": "dagre-wrapper",
-          "meta:enum": {
-            "dagre-d3": "The [dagre-d3-es](https://www.npmjs.com/package/dagre-d3-es) library.",
-            "dagre-wrapper": "wrapper for dagre implemented in mermaid",
-            "elk": "Layout using [elkjs](https://github.com/kieler/elkjs)"
-          }
         }
       }
     },
@@ -2152,8 +2147,7 @@
       "unevaluatedProperties": false,
       "required": [
         "titleTopMargin",
-        "useMaxWidth",
-        "defaultRenderer"
+        "useMaxWidth"
       ],
       "properties": {
         "theme": {
@@ -2184,10 +2178,6 @@
         "textHeight": {
           "type": "number",
           "default": 10
-        },
-        "defaultRenderer": {
-          "$ref": "#/$defs/StateDiagramConfig/properties/defaultRenderer",
-          "default": "dagre-wrapper"
         },
         "nodeSpacing": {
           "type": "integer",
@@ -3026,6 +3016,16 @@
           "type": "integer",
           "minimum": 0,
           "default": 50
+        },
+        "wrappingWidth": {
+          "description": "Width of nodes where text is wrapped.\n\nWhen using markdown strings the text is wrapped automatically, this\nvalue sets the max width of a text before it continues on a new line.\n",
+          "type": "number",
+          "default": 120
+        },
+        "minNodeWidth": {
+          "description": "Minimum width of the label area of a node.\n\nLabels narrower than this are widened to it, so nodes with short text\nget a uniform width; the node's own padding is added on top, the same\nway it is for `wrappingWidth`. Nodes with an explicit width are not\naffected.\n",
+          "type": "number",
+          "default": 120
         }
       }
     },
@@ -3047,8 +3047,8 @@
         "rankSpacing",
         "curve",
         "useMaxWidth",
-        "defaultRenderer",
-        "wrappingWidth"
+        "wrappingWidth",
+        "minNodeWidth"
       ],
       "properties": {
         "theme": {
@@ -3134,14 +3134,15 @@
           "type": "number",
           "default": 15
         },
-        "defaultRenderer": {
-          "$ref": "#/$defs/StateDiagramConfig/properties/defaultRenderer",
-          "default": "dagre-wrapper"
-        },
         "wrappingWidth": {
           "description": "Width of nodes where text is wrapped.\n\nWhen using markdown strings the text is wrapped automatically, this\nvalue sets the max width of a text before it continues on a new line.\n",
           "type": "number",
-          "default": 200
+          "default": 120
+        },
+        "minNodeWidth": {
+          "description": "Minimum width of the label area of a node.\n\nLabels narrower than this are widened to it, so nodes with short text\nget a uniform width; the node's own padding is added on top, the same\nway it is for `wrappingWidth`. Nodes with an explicit width are not\naffected.\n",
+          "type": "number",
+          "default": 120
         },
         "inheritDir": {
           "type": "boolean",
@@ -3506,7 +3507,9 @@
       "type": "object",
       "unevaluatedProperties": false,
       "required": [
-        "useMaxWidth"
+        "useMaxWidth",
+        "wrappingWidth",
+        "minNodeWidth"
       ],
       "properties": {
         "theme": {
@@ -3516,6 +3519,14 @@
         "look": {
           "$ref": "#/$defs/BaseDiagramConfig/properties/look",
           "default": "neo"
+        },
+        "wrappingWidth": {
+          "$ref": "#/$defs/FlowchartDiagramConfig/properties/wrappingWidth",
+          "default": 120
+        },
+        "minNodeWidth": {
+          "$ref": "#/$defs/FlowchartDiagramConfig/properties/minNodeWidth",
+          "default": 120
         },
         "actorFontSize": {
           "description": "Font size for actor labels",

@@ -6196,17 +6196,17 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>TaskCreate</code></td>
-<td style="text-align: left;">Creates a new task in the task list. Claude Code leaves it out on the models listed under <a href="#task-tool-availability">Task tool availability</a> unless you opt in</td>
+<td style="text-align: left;">Creates a new task in the task list. Provided by default only on the models listed under <a href="#task-tool-availability">Task tool availability</a>, and on other models when you opt in</td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>TaskGet</code></td>
-<td style="text-align: left;">Retrieves full details for a specific task. Claude Code leaves it out on the models listed under <a href="#task-tool-availability">Task tool availability</a> unless you opt in</td>
+<td style="text-align: left;">Retrieves full details for a specific task. Provided by default only on the models listed under <a href="#task-tool-availability">Task tool availability</a>, and on other models when you opt in</td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>TaskList</code></td>
-<td style="text-align: left;">Lists all tasks with their current status. Claude Code leaves it out on the models listed under <a href="#task-tool-availability">Task tool availability</a> unless you opt in</td>
+<td style="text-align: left;">Lists all tasks with their current status. Provided by default only on the models listed under <a href="#task-tool-availability">Task tool availability</a>, and on other models when you opt in</td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
@@ -6221,7 +6221,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>TaskUpdate</code></td>
-<td style="text-align: left;">Updates task status, dependencies, details, or deletes tasks. Claude Code leaves it out on the models listed under <a href="#task-tool-availability">Task tool availability</a> unless you opt in</td>
+<td style="text-align: left;">Updates task status, dependencies, details, or deletes tasks. Provided by default only on the models listed under <a href="#task-tool-availability">Task tool availability</a>, and on other models when you opt in</td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
@@ -6397,13 +6397,7 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="background-commands">Background commands</h3>
 <p>For long-running processes such as dev servers or watch builds, Claude can set <code>run_in_background: true</code> to start the command as a background task and continue working while it runs. List and stop background tasks with <code>/tasks</code>. After you stop one there, or from a connected client such as the desktop app, Claude moves on instead of waiting for it. If a subagent started the command, it's that subagent that moves on.</p>
 <p>A command that a <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">foreground subagent</a> started stops when that subagent gives its final response. A command that the main conversation or a background subagent started keeps running after a final response. In non-interactive mode with the <code>-p</code> flag, <a href="/docs/en/headless#background-tasks-at-exit">background commands end shortly after the run's final result</a>.</p>
-<p>When a command reaches its timeout without finishing, Claude Code moves it to the background instead of stopping it. Claude keeps working while the command continues. Claude Code applies the same lifetime rules to a moved command as to any other background command, so it still ends a foreground subagent's command at that subagent's final response. Setting <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1</code></a> disables auto-backgrounding along with the rest of the background task functionality.</p>
-<p>Claude Code never auto-backgrounds three kinds of command. It stops them at the timeout instead:</p>
-<ul>
-<li>A command that starts with <code>sleep</code>.</li>
-<li>A command that runs <code>git</code> anywhere in it.</li>
-<li>A compound command Claude Code can't fully parse into simple commands. Claude Code treats a parameter expansion such as <code>${VAR}</code> as unparseable, so it stops a command that ends in <code>; exit "${PIPESTATUS[0]}"</code> at the timeout even when the rest of that command parses.</li>
-</ul>
+<p>When a command reaches its timeout without finishing, Claude Code moves it to the background instead of stopping it, unless the command starts with <code>sleep</code>. Claude keeps working while the command continues. Claude Code applies the same lifetime rules to a moved command as to any other background command, so it still ends a foreground subagent's command at that subagent's final response. Setting <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1</code></a> disables auto-backgrounding along with the rest of the background task functionality.</p>
 <p>The result of a command moved to the background states what happened:</p>
 <ul>
 <li>When the timeout triggers the move, the result reports it explicitly: <code>Command did not complete within its 120s timeout and was moved to the background</code>, with the seconds matching the timeout that applied, followed by the task ID and the path of the file the output is being written to.</li>
@@ -6699,9 +6693,11 @@ Claude Code includes the tool in interactive terminal sessions on your own machi
 
 ## Task tool availability
 
-In Claude Code v2.1.233 and later, the following tools aren't available on Opus 4.8, Sonnet 5, Fable 5, Mythos 5, or later versions of those families unless you opt in: `TodoWrite`, `TaskCreate`, `TaskGet`, `TaskUpdate`, and `TaskList`. Those models keep track of multi-step work without a written checklist, and the tools' definitions and reminders take up context, so Claude Code leaves them out. Without them, Claude adds nothing to the [task list](/docs/en/interactive-mode#task-list) while it works. On any other model, such as Opus 4.7, Claude Code provides the four Task tools by default and `TodoWrite` only when you set [`CLAUDE_CODE_ENABLE_TASKS=0`](/docs/en/env-vars).
+The task-tracking tools, `TaskCreate`, `TaskGet`, `TaskUpdate`, `TaskList`, and `TodoWrite`, are available by default only on Claude 3.x models, Opus 4 through 4.7, Sonnet 4 through 4.6, and Haiku 4.5. Wherever the tools are available, you get the four Task tools, or `TodoWrite` instead when you set [`CLAUDE_CODE_ENABLE_TASKS=0`](/docs/en/env-vars).
 
-If you'd like to use these tools on one of the listed models anyway, do one of the following:
+On every other model, Claude Code leaves the tools out unless you opt in. The same applies to a model ID Claude Code doesn't recognize, such as a custom model name served through an [LLM gateway](/docs/en/llm-gateway). On newer models, Claude keeps track of multi-step work without a written checklist, and the tools' definitions and reminders take up context. Without the tools, Claude adds nothing to the [task list](/docs/en/interactive-mode#task-list) while it works.
+
+If you'd like to use these tools on a model that doesn't have them by default, do one of the following:
 
 * Export [`CLAUDE_CODE_ENABLE_TODO_TOOLS=1`](/docs/en/env-vars) before you start Claude Code, for example `CLAUDE_CODE_ENABLE_TODO_TOOLS=1 claude`. Claude Code then provides the same tools on every model and every provider
 * Name one of the tools in [`--allowedTools`](/docs/en/cli-reference#cli-flags), for example `claude --allowedTools TaskCreate`
@@ -6711,6 +6707,8 @@ If you'd like to use these tools on one of the listed models anyway, do one of t
 In [background sessions](/docs/en/agent-view) and in [Claude Code on the web](/docs/en/claude-code-on-the-web), Claude Code provides the same tools on every model, listed or not.
 
 Claude Code gives a subagent the tools only when your session has them, even when the subagent runs a different model. An in-process [agent team](/docs/en/agent-teams) teammate follows your session the same way, while a teammate in its own [split pane](/docs/en/agent-teams#choose-a-display-mode) runs as a separate Claude Code process, so its own model decides. Without the Task tools, an agent coordinates with its team through messages instead of the [shared task list](/docs/en/agent-teams#assign-and-claim-tasks).
+
+The default set described here applies in Claude Code v2.1.268 and later.
 
 ## WebFetch tool behavior
 
@@ -6723,6 +6721,7 @@ A few behaviors shape the response Claude receives:
 * HTTP URLs are automatically upgraded to HTTPS.
 * Large pages are truncated to a fixed character limit before processing.
 * WebFetch caches each response for 15 minutes by default, so repeated fetches of the same URL return quickly. On Claude Code v2.1.233 or later, set [`CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS`](/docs/en/env-vars#variables) to change how long WebFetch keeps each response.
+* A page that hasn't finished downloading within five minutes, including any redirects WebFetch follows, fails with a deadline error. On Claude Code v2.1.268 or later, set [`CLAUDE_CODE_WEBFETCH_DEADLINE_MS`](/docs/en/env-vars#variables) to change the limit, or to `0` to remove it.
 * When a URL redirects to a different host, WebFetch returns a text result that names the original URL and the redirect target instead of following it. Claude then fetches the new URL with a second WebFetch call.
 * When the extraction step hits an overloaded API, Claude Code retries it with backoff; a fetch that still fails returns an error result. Before v2.1.212, the API error text could reach Claude as if it were the extracted page content.
 
