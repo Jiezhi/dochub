@@ -3827,6 +3827,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -6885,7 +6912,11 @@ fi
 </code></pre></div></p>
 <p>If your hook legitimately needs more than eight iterations to converge, raise the cap with <a href="/docs/en/env-vars"><code>CLAUDE_CODE_STOP_HOOK_BLOCK_CAP</code></a>.</p>
 <h3 id="hook-json-has-no-effect">Hook JSON has no effect</h3>
-<p>Your hook prints valid JSON, but the decision doesn't take effect and no error appears in the transcript.</p>
+<p>Your hook prints valid JSON, but the decision doesn't take effect and no error appears in the transcript. Check which cause applies:</p>
+<ul>
+<li><strong>Extra output before the JSON</strong>: something else writes to stdout first, usually an unconditional <code>echo</code> in your shell profile, so the output no longer starts with <code>{</code> and Claude Code doesn't parse it as JSON. The cause and fix follow this list.</li>
+<li><strong>A field at the wrong level</strong>: compare each field's placement against the <a href="/docs/en/hooks#json-output">JSON output</a> format. For example, <code>permissionDecision</code> belongs inside <code>hookSpecificOutput</code>, not at the top level.</li>
+</ul>
 <p>When Claude Code runs a shell-form command hook, one without <code>args</code>, it spawns <code>sh -c</code> on macOS and Linux, Git Bash on Windows, or PowerShell when Git Bash isn't installed by default. This shell is non-interactive, but Git Bash and some configurations, such as <code>BASH_ENV</code> pointing at <code>~/.bashrc</code>, still source your profile. If that profile contains unconditional <code>echo</code> statements, the output gets prepended to your hook's JSON:</p>
 <p>```text theme={null}
 Shell ready on arm64
@@ -6899,6 +6930,7 @@ if [[ $- == *i* ]]; then
 fi
 </code></pre></div></p>
 <p>The <code>$-</code> variable contains shell flags, and <code>i</code> means interactive. Hooks run in non-interactive shells, so the echo is skipped.</p>
+<p>When your hook returns <code>permissionDecision</code> or <code>additionalContext</code> at the top level instead of inside <code>hookSpecificOutput</code>, the JSON still parses, and Claude Code ignores the misplaced fields without reporting an error. To see which fields it ignored, start Claude Code with <code>claude --debug</code> and search the <a href="/docs/en/hooks#debug-hooks">debug log</a> for <code>Hook JSON output had unrecognized keys</code>.</p>
 <h3 id="debug-techniques">Debug techniques</h3>
 <p>Press <code>Ctrl+O</code> to open the transcript view to check the outcome of a hook run:</p>
 <ul>

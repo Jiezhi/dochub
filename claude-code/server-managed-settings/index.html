@@ -3573,6 +3573,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -6098,12 +6125,13 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 <p>If a later fetch finds the server-managed settings removed, Claude Code runs that helper right away instead of at the next launch. The <a href="/docs/en/settings-reference#policyhelper"><code>policyHelper</code></a> entry covers what happens when that run fails.</p>
 <p>If you clear your server-managed configuration in the admin console with the intent of falling back to an endpoint-managed plist or registry policy, be aware that <a href="#fetch-and-caching-behavior">cached settings</a> persist on client machines until the next successful fetch, and the keys that <a href="#fetch-and-caching-behavior">apply only at the next launch</a>, such as <code>model</code>, stay in effect until each client relaunches. Run <code>/status</code> to see which managed source is active.</p>
 <h3 id="per-key-exceptions-across-managed-sources">Per-key exceptions across managed sources</h3>
-<p>Two kinds of keys are exceptions to the no-merge rule:</p>
+<p>Three kinds of keys are exceptions to the no-merge rule:</p>
 <ul>
 <li><strong>Cross-source lock keys</strong>: a small set of keys, such as the sandbox allowlist locks, <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">listed on the managed settings page</a>. Claude Code honors them when any admin-controlled managed source sets them; the user-writable HKCU registry tier is excluded. When a <a href="/docs/en/settings-reference#policyhelper"><code>policyHelper</code></a> supplies managed settings, its output is the only source these checks read, apart from <a href="/docs/en/settings-reference#forceremotesettingsrefresh"><code>forceRemoteSettingsRefresh</code></a>, which Claude Code reads from the admin sources directly at startup.</li>
 <li><strong>The <code>env</code> block</strong>: apart from the telemetry unit and routing variables paired with a credential key, both covered below, it merges per key across the admin-controlled sources. For each environment variable, the highest-priority source defining it wins, and lower admin sources fill in variables the higher sources leave unset. An endpoint-managed <code>env</code> entry therefore applies whenever the server-managed configuration leaves that variable unset, or while a cached server value for it is <a href="#fetch-and-caching-behavior">withheld pending server confirmation</a>. Requires Claude Code v2.1.223 or later. Before v2.1.223, Claude Code applies the selected source's whole <code>env</code> block only.</li>
 <li><strong>Telemetry unit</strong>: the <code>OTEL_EXPORTER_OTLP_*</code> exporter keys, the <code>OTEL_LOG_*</code> content-capture toggles, <code>OTEL_LOGS_EXPORTER</code>, and the beta tracing variables <code>ENABLE_BETA_TRACING_DETAILED</code> and <code>BETA_TRACING_ENDPOINT</code> follow the highest source that sets any of them as a unit. A source that delivers the <code>otelHeadersHelper</code> credential key claims the unit too, but lands these variables only when it is the selected source: a source that isn't selected but delivers the key contributes none of them and still blocks lower sources from filling them in. Either way, an exporter endpoint from one source can never pair with credentials from another.</li>
 <li><strong>Credential-paired routing</strong>: a source that pairs routing variables with a selected-source-only credential key, such as <code>apiKeyHelper</code> or <code>otelHeadersHelper</code>, contributes those routing variables only when it wins the slot.</li>
+<li><strong>Gateway sign-in keys</strong>: Claude Code never reads <a href="/docs/en/settings-reference#forcelogingatewayurl"><code>forceLoginGatewayUrl</code></a> or the <code>"gateway"</code> value of <a href="/docs/en/settings-reference#forceloginmethod"><code>forceLoginMethod</code></a> from server-managed settings, so selecting server-managed settings neither supplies a gateway sign-in nor hides one set in an MDM policy or managed settings file. The <a href="/docs/en/settings-reference#managedsourcesbehavior"><code>managedSourcesBehavior</code> entry</a> says which admin source on the machine supplies them.</li>
 </ul>
 <h3 id="fetch-and-caching-behavior">Fetch and caching behavior</h3>
 <p>Claude Code fetches settings from Anthropic's servers at startup and polls for updates hourly during active sessions.</p>
@@ -6208,7 +6236,7 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 <p>Other delivered variables can require the user's approval before they take effect; a non-empty proxy, base-URL, or <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> value always does. When a delivered variable needs approval, the dialog names it, so the user sees exactly what the policy is asking to set. Before v2.1.218, Claude Code applied fewer variables without asking the user, so settings such as <code>DISABLE_AUTO_COMPACT</code> triggered the dialog at any non-empty value.</p>
 <p>Claude Code decides whether four privacy toggles need approval by the delivered value rather than by the variable name: <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code>, <code>DISABLE_ERROR_REPORTING</code>, <code>DISABLE_TELEMETRY</code>, and <code>DO_NOT_TRACK</code>. A truthy value such as <code>1</code> or <code>true</code> only turns tracking, reporting, or other nonessential traffic off, so Claude Code applies it without asking the user. For any other non-empty value, Claude Code shows the dialog. Before v2.1.218, all of them except <code>DO_NOT_TRACK</code> applied without approval at any value, and <code>DO_NOT_TRACK</code> triggered the dialog at any non-empty value.</p>
 <p>Claude Code also decides whether <a href="/docs/en/env-vars"><code>API_FORCE_IDLE_TIMEOUT</code></a> needs approval by the delivered value: a truthy value only turns the <a href="/docs/en/network-config#streaming-idle-watchdogs">body idle timeout</a> on, so Claude Code applies it without asking the user. For any other non-empty value, Claude Code shows the dialog. Before v2.1.248, any non-empty value triggered the dialog.</p>
-<p>Whether <a href="/docs/en/env-vars#variables"><code>ANTHROPIC_CUSTOM_HEADERS</code></a> needs approval also depends on the delivered value. Headers that only tag requests, such as <code>Accept-Language</code>, apply without the dialog. A line that names a credential, an org or tenant selector, a routing or host override, or an API-behavior header, such as <code>Authorization</code>, <code>X-Api-Key</code>, <code>Host</code>, <code>anthropic-beta</code>, or the <code>X-Amzn-Bedrock-*</code> headers, requires approval. So does a line whose name isn't a valid HTTP header token, or whose value contains a character an HTTP header can't carry. The check matches words inside the header name, so <code>X-Client-Version</code>, which contains <code>client</code> and <code>version</code>, requires approval too. Before v2.1.251, any <code>ANTHROPIC_CUSTOM_HEADERS</code> value applied without it.</p>
+<p>Whether <a href="/docs/en/env-vars#variables"><code>ANTHROPIC_CUSTOM_HEADERS</code></a> needs approval also depends on the delivered value. Headers that only tag requests, such as <code>Accept-Language</code>, apply without the dialog. A line that names a credential, an org or tenant selector, a routing or host override, or an API-behavior header, such as <code>Authorization</code>, <code>X-Api-Key</code>, <code>Host</code>, <code>anthropic-beta</code>, or the <code>X-Amzn-Bedrock-*</code> headers, requires approval. A line also requires approval when its name isn't a valid HTTP header token or its value contains a character an HTTP header can't carry. The check matches words inside the header name, so <code>X-Client-Version</code>, which contains <code>client</code> and <code>version</code>, requires approval too. Before v2.1.251, any <code>ANTHROPIC_CUSTOM_HEADERS</code> value applied without it.</p>
 <p>A falsy value such as <code>0</code> or <code>false</code> for <a href="/docs/en/env-vars#variables"><code>ENABLE_BETA_TRACING_DETAILED</code></a> or <a href="/docs/en/env-vars#variables"><code>OTEL_LOG_RAW_API_BODIES</code></a> applies without the dialog, because it only turns detailed tracing or raw API body capture off. Any other non-empty value for either variable requires approval.</p>
 <h2 id="platform-availability">Platform availability</h2>
 <p>Server-managed settings require a direct connection to <code>api.anthropic.com</code>. Delivery also requires the session to authenticate with one of these credentials:</p>

@@ -3994,6 +3994,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -6224,27 +6251,28 @@ Use this file to discover all available pages before exploring further.</p>
 <thead>
 <tr>
 <th style="text-align: left;">Method</th>
-<th style="text-align: left;">How it works</th>
+<th style="text-align: left;">How you connect</th>
+<th style="text-align: left;">Repositories sessions can reach</th>
 <th style="text-align: left;">Best for</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td style="text-align: left;"><strong>GitHub App</strong></td>
-<td style="text-align: left;">Authorize the Claude GitHub App during <a href="/docs/en/web-quickstart">web onboarding</a>.</td>
+<td style="text-align: left;">Authorize the Claude GitHub App during <a href="/docs/en/web-quickstart">web onboarding</a></td>
+<td style="text-align: left;">Any public repository, and private repositories that the Claude GitHub App is installed on</td>
 <td style="text-align: left;">Browser onboarding; teams that want <a href="#auto-fix-pull-requests">Auto-fix</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong><code>/web-setup</code></strong></td>
-<td style="text-align: left;">Run <code>/web-setup</code> in your terminal to sync your local <code>gh</code> CLI token to your Claude account.</td>
+<td style="text-align: left;">Run <code>/web-setup</code> in your terminal to send your local <code>gh</code> CLI token to your Claude account</td>
+<td style="text-align: left;">Any repository your <code>gh</code> token can access, whether or not the App is installed</td>
 <td style="text-align: left;">Individual developers who already use <code>gh</code></td>
 </tr>
 </tbody>
 </table>
-<p><Note>
-  With either method, a cloud session can access any repository the connecting GitHub account can see, not just the repositories the Claude GitHub App is installed on. App installation enables PR webhooks for <a href="#auto-fix-pull-requests">Auto-fix</a>; it is not a session-level access control. To restrict which repositories your team can reach from cloud sessions, restrict access on GitHub itself, for example by limiting team or repository membership for the connected GitHub accounts.
-</Note></p>
-<p>Either method works. For how <code>/schedule</code> checks that access before creating a routine, see <a href="/docs/en/routines#repositories-and-branch-permissions">Repositories and branch permissions</a>. See <a href="/docs/en/web-quickstart#connect-from-your-terminal">Connect from your terminal</a> for the <code>/web-setup</code> walkthrough.</p>
+<p>Installing the Claude GitHub App on a repository also enables <a href="#auto-fix-pull-requests">Auto-fix</a> for pull requests in it.</p>
+<p>For how <code>/schedule</code> checks repository access before creating a routine, see <a href="/docs/en/routines#repositories-and-branch-permissions">Repositories and branch permissions</a>. See <a href="/docs/en/web-quickstart#connect-from-your-terminal">Connect from your terminal</a> for the <code>/web-setup</code> walkthrough, including what <code>/web-setup</code> stores and how to remove it.</p>
 <p>Quick web setup is an organization setting that lets members connect GitHub with <code>/web-setup</code>, skips the Claude GitHub App install prompt during browser onboarding, and has browser onboarding create the <a href="/docs/en/cloud-environments#the-default-environment"><strong>Default</strong> environment</a> for them instead of showing the environment form. On Team and Enterprise plans it's off by default, which hides <code>/web-setup</code>. An <a href="/docs/en/server-managed-settings#access-control">Owner</a> turns it on with the <strong>Quick web setup</strong> toggle at <a href="https://claude.ai/admin-settings/claude-code"><strong>Admin settings &gt; Claude Code</strong></a>.</p>
 <p><Note>
   Organizations with <a href="/docs/en/zero-data-retention">Zero Data Retention</a> enabled can't use <code>/web-setup</code> or other cloud session features.
@@ -6258,7 +6286,9 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Start a cloud session from the command line with the <code>--cloud</code> flag:</p>
 <p>```bash theme={null}
 claude --cloud "Fix the authentication bug in src/auth/login.ts"
-<div class="highlight"><pre><span></span><code>This creates a new cloud session on claude.ai. The cloud VM clones your current directory's GitHub remote at your current branch, not your local checkout, so push first if you have local commits. `--cloud` works with a single repository at a time. The task runs in the cloud while you continue working locally. The older `--remote` spelling still works as a deprecated alias for `--cloud`.
+<div class="highlight"><pre><span></span><code>This creates a new cloud session on claude.ai. The cloud VM clones your current directory's GitHub remote at your current branch, not your local checkout, so push first if you have local commits. See [Send local repositories without GitHub](#send-local-repositories-without-github) for the cases where Claude Code uploads your local repository instead of cloning.
+
+`--cloud` works with a single repository at a time. The task runs in the cloud while you continue working locally. The older `--remote` spelling still works as a deprecated alias for `--cloud`.
 
 While the cloud container starts, the CLI shows a live checklist of setup steps, such as cloning the repository and running your [setup script](/docs/en/cloud-environments#setup-scripts). It queues messages you type during provisioning and sends them once the session is ready.
 
@@ -6289,9 +6319,9 @@ claude --cloud "Refactor the logger to use structured output"
 </code></pre></div></p>
 <p>Monitor all sessions with <code>/tasks</code> in the Claude Code CLI. When a session completes, you can create a PR from the web interface or <a href="#from-web-to-terminal">teleport</a> the session to your terminal to continue working.</p>
 <h4 id="send-local-repositories-without-github">Send local repositories without GitHub</h4>
-<p>When you run <code>claude --cloud</code> from a repository that isn't connected to GitHub, Claude Code bundles your local repository and uploads it directly to the cloud session. The bundle includes your full repository history across all branches, plus uncommitted changes to tracked files.</p>
+<p>When you run <code>claude --cloud</code> from a repository that has no git remote, or from a github.com repository that the Claude GitHub App isn't installed on, Claude Code bundles your local repository and uploads it directly to the cloud session. This applies even if you connected GitHub with <code>/web-setup</code>. The bundle includes your full repository history across all branches, plus uncommitted changes to tracked files.</p>
 <p>On macOS, Linux, and WSL, Claude Code leaves uncommitted changes to files named like credentials or keys out of the upload and names the files it left out. This covers <code>.env</code> files, Terraform <code>*.tfvars</code> files, and key files such as <code>id_rsa</code> and <code>*.pem</code>. The session starts with the committed version of each, or without the file if none is committed. In a linked worktree, submodule, or similar layout, Claude Code uploads these changes with the rest and names the files it uploads.</p>
-<p>This fallback activates automatically when GitHub access isn't available. To force it even when GitHub is connected, set <code>CCR_FORCE_BUNDLE=1</code>:</p>
+<p>To upload a bundle even when Claude Code would otherwise clone from the remote, set <code>CCR_FORCE_BUNDLE=1</code>:</p>
 <p>```bash theme={null}
 CCR_FORCE_BUNDLE=1 claude --cloud "Run the test suite and fix any failures"
 <div class="highlight"><pre><span></span><code>Bundled repositories must meet these limits:
@@ -6299,7 +6329,7 @@ CCR_FORCE_BUNDLE=1 claude --cloud "Run the test suite and fix any failures"
 * The directory must be a git repository with at least one commit
 * The bundled repository must be under 100 MB. Larger repositories fall back to bundling only the current branch, then to a single squashed snapshot of the working tree, and fail only if the snapshot is still too large
 * Untracked files are not included; run `git add` on files you want the cloud session to see
-* Sessions created from a bundle can't push back to a remote unless you also have [GitHub authentication](#github-authentication-options) configured
+* Sessions created from a bundle can push back to a GitHub remote only when your [GitHub connection](#github-authentication-options) has push access to that repository
 
 ### Send follow-ups from the CLI
 
@@ -6503,7 +6533,7 @@ View: https://claude.ai/code/session_01DiUkqY2kzbUbDmW1w96rfi?from=cli&amp;m=0
 <ul>
 <li>Check <a href="https://status.claude.com">status.claude.com</a> for cloud session incidents</li>
 <li>Retry after a minute, as capacity is provisioned on demand</li>
-<li>Confirm your repository is reachable. The connecting GitHub account must have access to the repository on GitHub, either through the Claude GitHub App authorization or a <code>gh</code> token synced via <code>/web-setup</code>. Installing the App on the repository isn't required. See <a href="#github-authentication-options">GitHub authentication options</a>.</li>
+<li>Confirm your GitHub connection can reach the repository by following <a href="/docs/en/web-quickstart#no-repositories-appear-after-connecting-github">No repositories appear after connecting GitHub</a></li>
 </ul>
 <h3 id="unable-to-get-organization-uuid">Unable to get organization UUID</h3>
 <p><code>claude --cloud</code> and <code>claude --teleport</code> require sign-in with a claude.ai account. If you authenticate with an API key, or your stored account details are stale, these commands fail with <code>Unable to get organization UUID</code> or a message that API key authentication is not sufficient. With API key authentication or stale account details, running <code>claude --teleport</code> without a session ID shows <code>Error loading Claude Code sessions</code> in the session picker instead of either message, and the same fix applies.</p>
@@ -6523,7 +6553,7 @@ View: https://claude.ai/code/session_01DiUkqY2kzbUbDmW1w96rfi?from=cli&amp;m=0
 <ul>
 <li><strong>Rate limits</strong>: Claude Code on the web shares rate limits with all other Claude and Claude Code usage within your account. Running multiple tasks in parallel consumes more rate limits proportionately. There is no separate compute charge for the cloud VM.</li>
 <li><strong>Repository authentication</strong>: you can only move sessions from web to local when you are authenticated to the same account</li>
-<li><strong>Platform restrictions</strong>: repository cloning and pull request creation require GitHub. Self-hosted <a href="/docs/en/github-enterprise-server">GitHub Enterprise Server</a> instances are supported for Team and Enterprise plans. GitLab, Bitbucket, and other non-GitHub repositories can be sent to cloud sessions as a <a href="#send-local-repositories-without-github">local bundle</a>, but the session can't push results back to the remote</li>
+<li><strong>Platform restrictions</strong>: repository cloning and pull request creation require GitHub. Self-hosted <a href="/docs/en/github-enterprise-server">GitHub Enterprise Server</a> instances are supported for Team and Enterprise plans. You can send a GitLab, Bitbucket, or other non-GitHub repository to a cloud session as a <a href="#send-local-repositories-without-github">local bundle</a> by setting <code>CCR_FORCE_BUNDLE=1</code>, but the session can't push results back to that remote</li>
 <li><strong>Organization IP allowlist</strong>: cloud sessions call the Anthropic API from Anthropic-managed infrastructure, not your network, while sessions in a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> call it from your own network. If your organization has <a href="https://support.claude.com/en/articles/13200993-restrict-access-to-claude-with-ip-allowlisting">IP allowlisting</a> enabled, every Anthropic-hosted cloud session fails with an authentication error. The same applies to <a href="/docs/en/code-review">Code Review</a> and to <a href="/docs/en/routines">routines</a> that run on Anthropic-hosted environments; a routine routed to a self-hosted environment calls the API from your own network. Contact <a href="https://support.claude.com/">Anthropic support</a> to exempt Anthropic-hosted services from your organization's IP allowlist.</li>
 </ul>
 <h2 id="related-resources">Related resources</h2>

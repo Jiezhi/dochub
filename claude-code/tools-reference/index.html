@@ -3573,6 +3573,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -6101,12 +6128,12 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Glob</code></td>
-<td style="text-align: left;">Finds files based on pattern matching. See <a href="#glob-tool-behavior">Glob tool behavior</a></td>
+<td style="text-align: left;">Finds files based on pattern matching. Absent by default on macOS, Linux, and WSL. See <a href="#glob-tool-behavior">Glob tool behavior</a></td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Grep</code></td>
-<td style="text-align: left;">Searches for patterns in file contents. See <a href="#grep-tool-behavior">Grep tool behavior</a></td>
+<td style="text-align: left;">Searches for patterns in file contents. Absent by default on macOS, Linux, and WSL. See <a href="#grep-tool-behavior">Grep tool behavior</a></td>
 <td style="text-align: left;">No</td>
 </tr>
 <tr>
@@ -6267,7 +6294,6 @@ Use this file to discover all available pages before exploring further.</p>
 <li>in <a href="/docs/en/settings-reference#permissions-allow"><code>permissions.allow</code></a> and <a href="/docs/en/settings-reference#permissions-deny"><code>permissions.deny</code></a> in settings, and the <code>/permissions</code> interface</li>
 <li>in the <code>--allowedTools</code> and <code>--disallowedTools</code> <a href="/docs/en/cli-reference">CLI flags</a></li>
 <li>in the Agent SDK's <a href="/docs/en/agent-sdk/permissions#allow-and-deny-rules"><code>allowedTools</code> and <code>disallowedTools</code></a> options</li>
-<li>in a <a href="/docs/en/sub-agents#supported-frontmatter-fields">subagent's <code>tools</code> or <code>disallowedTools</code></a> frontmatter</li>
 <li>in a <a href="/docs/en/skills#frontmatter-reference">skill's <code>allowed-tools</code></a> frontmatter</li>
 <li>in a hook's <a href="/docs/en/hooks-guide#filter-by-tool-name-and-arguments-with-the-if-field"><code>if</code> condition</a></li>
 </ul>
@@ -6464,7 +6490,14 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Provider</strong>: not available on <a href="/docs/en/amazon-bedrock">Amazon Bedrock</a>, <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>, <a href="/docs/en/google-vertex-ai">Google Cloud's Agent Platform</a>, or <a href="/docs/en/microsoft-foundry">Microsoft Foundry</a>, or on sessions signed in through a <a href="/docs/en/claude-apps-gateway">cloud gateway</a>.</li>
 </ul>
 <h2 id="glob-tool-behavior">Glob tool behavior</h2>
-<p>The Glob tool finds files by name pattern. It supports standard glob syntax including <code>**</code> for recursive directory matching:</p>
+<p>The Glob tool finds files by name pattern. On Windows, it's part of the default tool set. On macOS, Linux, and WSL, Claude Code leaves Glob and <a href="#grep-tool-behavior">Grep</a> out of the default tool set, and Claude searches with <code>find</code> and <code>grep</code> through the Bash tool instead. In Claude's shell those two commands run embedded versions of <code>bfs</code> and <code>ugrep</code>, and the searches reach your hooks and permission rules as <code>Bash</code> calls.</p>
+<p>On macOS, Linux, and WSL, you get the Glob and Grep tools back in these cases:</p>
+<ul>
+<li>You name <code>Glob</code> or <code>Grep</code> in <a href="/docs/en/cli-reference#cli-flags"><code>--tools</code> or <code>--allowedTools</code></a> when you start the session, or in the equivalent <a href="/docs/en/agent-sdk/overview">Agent SDK</a> options. With <code>--tools</code> you get the ones you list, and naming either tool in <code>--allowedTools</code> restores both. An allow rule in a settings file doesn't have this effect.</li>
+<li>A permissions <a href="/docs/en/permissions#match-all-uses-of-a-tool">deny rule</a>, the <code>--disallowedTools</code> flag, or <a href="/docs/en/cli-reference#cli-flags"><code>--restricted</code></a> removes <code>Bash</code> from the session.</li>
+<li>A <a href="/docs/en/sub-agents#available-tools">subagent</a> lists <code>Glob</code> or <code>Grep</code> in its <code>tools</code> field and leaves out <code>Bash</code>. The listed tools come back for that subagent only, or for the whole session when it runs as the main session agent through <a href="/docs/en/sub-agents#invoke-subagents-explicitly"><code>--agent</code></a> or the <code>agent</code> setting.</li>
+</ul>
+<p>Glob supports standard glob syntax including <code>**</code> for recursive directory matching:</p>
 <ul>
 <li><code>**/*.js</code> matches all <code>.js</code> files at any depth</li>
 <li><code>src/**/*.ts</code> matches all <code>.ts</code> files under <code>src/</code></li>
@@ -6475,7 +6508,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Claude Code decides permission for a Glob call before it checks whether the search directory exists. It still runs the read-permission check for a missing <code>path</code> outside the <a href="/docs/en/permissions#working-directories">working directories</a>, so a permission prompt for a path doesn't mean the path exists.</p>
 <p>A <code>pattern</code> or <code>path</code> value that contains a null byte returns an error asking Claude to remove it.&#x20;</p>
 <h2 id="grep-tool-behavior">Grep tool behavior</h2>
-<p>The Grep tool searches file contents for patterns. Where <a href="#glob-tool-behavior">Glob</a> finds files by name, Grep finds lines inside them.</p>
+<p>The Grep tool searches file contents for patterns. Where <a href="#glob-tool-behavior">Glob</a> finds files by name, Grep finds lines inside them. On macOS, Linux, and WSL, Grep is absent by default under the same conditions as Glob. See <a href="#glob-tool-behavior">Glob tool behavior</a> for when both tools are available.</p>
 <p>Grep is built on <a href="https://github.com/BurntSushi/ripgrep">ripgrep</a> and uses ripgrep's regex syntax, not POSIX grep. Patterns that include regex metacharacters need escaping. For example, finding <code>interface{}</code> in Go code takes the pattern <code>interface\{\}</code>.</p>
 <p>A pattern, glob, or file type that ripgrep rejects returns an error that includes ripgrep's diagnostic, so Claude can correct the input and search again. Before v2.1.208, Claude Code reported a rejected input as <code>No files found</code> instead of an error, even when the searched-for text existed in the target files.</p>
 <p>Three output modes control what comes back:</p>

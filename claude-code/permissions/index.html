@@ -4016,6 +4016,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -6351,7 +6378,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>dontAsk</code></td>
-<td style="text-align: left;">Auto-denies tools unless pre-approved via <code>/permissions</code> or <code>permissions.allow</code> rules. <code>AskUserQuestion</code>, MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>, and connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> in sessions where that setting reaches Claude Code are denied even if you've allowed them</td>
+<td style="text-align: left;">Auto-denies every call that would otherwise prompt; file reads in your working directories and other actions that need no approval still run, as do tools pre-approved via <code>/permissions</code> or <code>permissions.allow</code> rules. <code>AskUserQuestion</code>, MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a>, and connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> in sessions where that setting reaches Claude Code are denied even if you've allowed them</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>bypassPermissions</code></td>
@@ -6734,9 +6761,9 @@ The following example shows each pattern shape against a project with a top-leve
 <p>When Claude accesses a symlink, permission rules check two paths: the symlink itself and the file it resolves to. Allow and deny rules treat that pair differently: allow rules fall back to prompting you, while deny rules block outright.</p>
 <ul>
 <li><strong>Allow rules</strong>: apply only when both the symlink path and its target match. A symlink inside an allowed directory that points outside it still prompts you.</li>
-<li><strong>Deny rules</strong>: apply when either the symlink path or its target matches. A symlink that points to a denied file is itself denied.</li>
+<li><strong>Deny rules</strong>: apply when either the symlink path or its target matches. A symlink that points to a denied file is itself denied. For example, with <code>Read(./project/**)</code> allowed and <code>Read(~/.ssh/**)</code> denied, a symlink at <code>./project/key</code> pointing to <code>~/.ssh/id_rsa</code> is blocked: the target fails the allow rule and matches the deny rule.</li>
 </ul>
-<p>For example, with <code>Read(./project/**)</code> allowed and <code>Read(~/.ssh/**)</code> denied, a symlink at <code>./project/key</code> pointing to <code>~/.ssh/id_rsa</code> is blocked: the target fails the allow rule and matches the deny rule.</p>
+<p>On macOS and Linux, a deny or ask rule written through a symlinked directory with a <code>//</code>, <code>~/</code>, or <code>/</code> pattern also applies at the directory's real location. For example, on macOS, where <code>/etc</code> resolves to <code>/private/etc</code>, <code>Read(//etc/**)</code> blocks <code>/private/etc/hosts</code> too. Before v2.1.268, a deny or ask rule written through a symlinked directory didn't apply to a path given by its real location.</p>
 <p>When a tool opens an approved file, Claude Code <a href="/docs/en/errors#refusing-after-a-symlink-changed">confirms the path still resolves to the location the permission check approved</a>.</p>
 <p>Grep and Glob search the directory the <code>path</code> argument resolves to. Claude Code applies <code>Read</code> deny rules to that directory.</p>
 <h3 id="webfetch">WebFetch</h3>
@@ -6772,6 +6799,8 @@ The following example shows each pattern shape against a project with a top-leve
 </tr>
 </tbody>
 </table>
+<p>The two forms also differ on reads of <a href="/docs/en/artifacts">artifacts</a>, the pages the Artifact tool publishes on claude.ai. A bare <code>WebFetch</code> deny or ask rule doesn't apply to those reads. A <code>domain:</code> rule covering <code>claude.ai</code> or the <code>*.claudeusercontent.com</code> content host, such as <code>WebFetch(domain:claude.ai)</code> or <code>WebFetch(domain:*)</code>, denies each read or prompts before it. An <a href="/docs/en/artifacts#disable-artifacts"><code>Artifact</code> rule</a> does the same.</p>
+<p>When a rule blocks a read, the denial names the rule. Before v2.1.268, a bare <code>WebFetch</code> deny rule blocked every artifact read, and a bare ask rule prompted before each one.</p>
 <p>To let Claude fetch freely while keeping the sandbox allowlist as it is, use the bare form. This <code>settings.json</code> does that:</p>
 <p>```json theme={null}
 {

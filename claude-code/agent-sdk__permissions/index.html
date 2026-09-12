@@ -3777,6 +3777,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -5789,7 +5816,7 @@ Use this file to discover all available pages before exploring further.</p>
 </code></pre>
 <p></Step></p>
 <p><Step title="Allow rules">
-    Check <code>allow</code> rules (from <code>allowed_tools</code> and settings.json). If a rule matches, the tool is approved. <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> are never approved by an allow rule: they reach your callback in the modes that prompt, go to the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">classifier</a> in <code>auto</code> mode on Claude Code v2.1.218 or later, and are denied in <code>dontAsk</code> mode.
+    Check <code>allow</code> rules (from <code>allowed_tools</code> and settings.json). If a rule matches, the tool is approved. A call the tool approves on its own is resolved at this step too, with no rule needed: for example a file read inside your working directories or a <a href="/docs/en/permissions#read-only-commands">read-only Bash command</a>. <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> are never approved by an allow rule: they reach your callback in the modes that prompt, go to the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">classifier</a> in <code>auto</code> mode on Claude Code v2.1.218 or later, and are denied in <code>dontAsk</code> mode.
   </Step></p>
 <p><Step title="canUseTool callback">
     If not resolved by any of the above, call your <a href="/docs/en/agent-sdk/user-input"><code>canUseTool</code> callback</a> for a decision. In <code>dontAsk</code> mode, this step is skipped and the tool is denied.</p>
@@ -5812,7 +5839,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>canUseTool callback:</strong> prompt users for approval at runtime, when no earlier step resolves the call. See <a href="/docs/en/agent-sdk/user-input">Handle approvals and user input</a>.</li>
 </ul>
 <h2 id="allow-and-deny-rules">Allow and deny rules</h2>
-<p><code>allowed_tools</code> and <code>disallowed_tools</code> (TypeScript: <code>allowedTools</code> / <code>disallowedTools</code>) add entries to the allow and deny rule lists in the evaluation flow above. If you name one of the <a href="/docs/en/agent-sdk/todo-tracking#model-availability">task-tracking tools</a> in <code>allowed_tools</code>, Claude Code also opts the session in. Any other tool not listed in <code>allowed_tools</code> is still available to Claude and falls through to the permission mode. Deny rules behave differently depending on whether they name a tool or scope a pattern within one.</p>
+<p><code>allowed_tools</code> and <code>disallowed_tools</code> (TypeScript: <code>allowedTools</code> / <code>disallowedTools</code>) add entries to the allow and deny rule lists in the evaluation flow above. If you name one of the <a href="/docs/en/agent-sdk/todo-tracking#model-availability">task-tracking tools</a> in <code>allowed_tools</code>, Claude Code also opts the session in. Any other tool not listed in <code>allowed_tools</code> is still available to Claude, and a call to it that needs approval falls through to the permission mode. Deny rules behave differently depending on whether they name a tool or scope a pattern within one.</p>
 <table>
 <thead>
 <tr>
@@ -5823,7 +5850,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tbody>
 <tr>
 <td style="text-align: left;"><code>allowed_tools=["Read", "Grep"]</code></td>
-<td style="text-align: left;"><code>Read</code> and <code>Grep</code> are auto-approved. Other tools not listed here still exist and fall through to the permission mode and <code>canUseTool</code>.</td>
+<td style="text-align: left;"><code>Read</code> and <code>Grep</code> are auto-approved. Other tools not listed here still exist, and calls to them that need approval fall through to the permission mode and <code>canUseTool</code>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>disallowed_tools=["Bash"]</code></td>
@@ -5844,14 +5871,15 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Use <code>//path</code> for an absolute filesystem path: a deny rule of <code>Edit(//secrets/**)</code> blocks writes anywhere under <code>/secrets</code> on disk. With a single leading slash, <code>Edit(/secrets/**)</code> anchors at the rule's source instead. For rules passed through <code>allowed_tools</code> or <code>disallowed_tools</code>, that means the session's working directory, so the rule doesn't block <code>/secrets</code> on disk. See <a href="/docs/en/permissions#read-and-edit">Read and Edit rules</a> for the four anchor forms and how rules from settings files resolve.</p>
 <p><Warning>
   <strong>Auto-approved tools never reach <code>canUseTool</code>.</strong> A tool call approved at any earlier step, by <code>acceptEdits</code> or <code>bypassPermissions</code>, or by an allow rule, skips your <code>canUseTool</code> callback, so permission checks you put there are silently bypassed for that tool. <code>AskUserQuestion</code>, MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a>, connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, and <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> still reach the callback, even when an allow rule matches. In <code>auto</code> mode, critical-path removals go to the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">classifier</a> instead of the callback, while the other calls listed here still reach it; the classifier routing requires Claude Code v2.1.218 or later. In <code>dontAsk</code> mode these calls are denied instead, without invoking the callback.</p>
-<p>Coverage depends on the entry's form: a bare name like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool apart from the exceptions above, while a scoped rule like <code>Bash(ls *)</code> auto-approves only matching calls and other <code>Bash</code> calls still fall through to the callback. For checks that must run on every tool call, use a <a href="/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.
+<p>Coverage depends on the entry's form: a bare name like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool apart from the exceptions above, while a scoped rule like <code>Bash(npm test *)</code> auto-approves only matching calls, and other <code>Bash</code> calls that need approval still fall through to the callback. For checks that must run on every tool call, use a <a href="/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.
 </Warning></p>
-<p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>. Listed tools are approved, apart from the always-prompt tools in the Warning above; anything else is denied outright instead of prompting:</p>
+<p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>:</p>
 <p><code>typescript theme={null}
 const options = {
   allowedTools: ["Read", "Glob", "Grep"],
   permissionMode: "dontAsk"
 };</code></p>
+<p>Listed tools are approved, apart from the <a href="/docs/en/permission-modes#actions-no-mode-auto-approves">actions no mode auto-approves</a>, and every other call that would prompt is denied instead. Calls that need no approval in <code>default</code> mode run whether or not you list them, such as <a href="/docs/en/permissions#read-only-commands">read-only Bash commands</a>, tools like <code>Agent</code> that don't ask before running, and file reads inside your working directories. To put a tool out of Claude's reach entirely, add its bare name to <code>disallowedTools</code>.</p>
 <p><Warning>
   <strong><code>allowed_tools</code> does not constrain <code>bypassPermissions</code>.</strong> <code>allowed_tools</code> pre-approves the tools you list. Other unlisted tools are not matched by any allow rule and fall through to the permission mode, where <code>bypassPermissions</code> approves them. Setting <code>allowed_tools=["Read"]</code> alongside <code>permission_mode="bypassPermissions"</code> still approves every tool, including <code>Bash</code>, <code>Write</code>, and <code>Edit</code>. If you need <code>bypassPermissions</code> but want specific tools blocked, use <code>disallowed_tools</code>.
 </Warning></p>
@@ -5872,12 +5900,12 @@ const options = {
 <tr>
 <td style="text-align: left;"><code>default</code></td>
 <td style="text-align: left;">Standard permission behavior</td>
-<td style="text-align: left;">No auto-approvals; unmatched tools trigger your <code>canUseTool</code> callback</td>
+<td style="text-align: left;">No mode-based auto-approvals; calls that need approval and match no allow rule trigger your <code>canUseTool</code> callback</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>dontAsk</code></td>
 <td style="text-align: left;">Deny instead of prompting</td>
-<td style="text-align: left;">Anything not pre-approved by <code>allowed_tools</code> or rules is denied; connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and tools that require user interaction are denied even if you've pre-approved them, as are <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a>. <code>canUseTool</code> is never called</td>
+<td style="text-align: left;">Any call that would otherwise prompt is denied. Calls approved by <code>allowed_tools</code> or rules run, and so do calls that need no approval in <code>default</code> mode; connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> and tools that require user interaction are denied even if you've pre-approved them, as are <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a>. <code>canUseTool</code> is never called</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>acceptEdits</code></td>
@@ -6023,7 +6051,7 @@ const options = {
 </ul>
 <p><strong>Use when:</strong> you trust Claude's edits and want faster iteration, such as during prototyping or when working in an isolated directory.</p>
 <h4 id="dont-ask-mode-dontask">Don't ask mode (<code>dontAsk</code>)</h4>
-<p>Converts any permission prompt into a denial. Tools pre-approved by <code>allowed_tools</code>, <code>settings.json</code> allow rules, or a hook run as normal. Connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, tools that require user interaction, and <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> are denied even when an allow rule matches. A <code>PreToolUse</code> hook allow doesn't clear a critical-path removal either. Everything else is denied without calling <code>canUseTool</code>.</p>
+<p>Converts any permission prompt into a denial, without calling <code>canUseTool</code>. Tools pre-approved by <code>allowed_tools</code>, <code>settings.json</code> allow rules, or a hook run as normal, and so do calls that need no approval in <code>default</code> mode, such as file reads inside your working directories and calls to <code>Agent</code>. Connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, tools that require user interaction, and <code>rm</code> and <code>rmdir</code> removals targeting a <a href="/docs/en/permission-modes#critical-paths">critical path</a> are denied even when an allow rule matches. A <code>PreToolUse</code> hook allow doesn't clear a critical-path removal either.</p>
 <p><strong>Use when:</strong> you want a fixed, explicit tool surface for a headless agent and prefer a hard deny over silent reliance on <code>canUseTool</code> being absent.</p>
 <h4 id="bypass-permissions-mode-bypasspermissions">Bypass permissions mode (<code>bypassPermissions</code>)</h4>
 <p>Auto-approves tool uses without prompting, except the cases listed in the warning below. Hooks still execute and can block operations if needed.</p>

@@ -3573,6 +3573,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../plugin-evals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin evals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plugin-hints/" class="md-nav__link">
         
   
@@ -6900,7 +6927,7 @@ The following fields can be used in the YAML frontmatter. Only `name` and `descr
 | `name`            | Yes      | Unique identifier using lowercase letters and hyphens. [Hooks](/docs/en/hooks#subagentstart) receive this value as `agent_type`. The filename doesn't have to match. Names can't contain `:`, which is reserved for [plugin-scoped identifiers](/docs/en/plugins) such as `my-plugin:reviewer`. Claude Code doesn't load a file whose name contains one and logs an error to the debug log. Before v2.1.218, such names were accepted                                                                  |
 | `description`     | Yes      | When Claude should delegate to this subagent                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tools`           | No       | [Tools](#available-tools) the subagent can use. Inherits every tool available to subagents if omitted. If no entry in the list resolves to a tool, the subagent usually [fails to launch](/docs/en/errors#agent-would-be-spawned-with-zero-tools) with an error naming the entries. To preload Skills into context, use the `skills` field rather than listing `Skill` here                                                                                                                       |
-| `disallowedTools` | No       | Tools to deny, removed from inherited or specified list                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `disallowedTools` | No       | Tools to deny, removed from inherited or specified list. An entry with a specifier, such as `Bash(git push *)`, still [removes the whole tool](#available-tools)                                                                                                                                                                                                                                                                                                                             |
 | `model`           | No       | [Model](#choose-a-model) to use: `sonnet`, `opus`, `haiku`, `fable`, a full model ID such as `claude-opus-5`, or `inherit`. When you omit it, Claude Code picks the model in the [subagent model order](#choose-a-model)                                                                                                                                                                                                                                                                     |
 | `permissionMode`  | No       | [Permission mode](#permission-modes): `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan`, or `manual` as an alias for `default`. The `manual` alias requires Claude Code v2.1.200 or later. Ignored for [plugin subagents](#choose-the-subagent-scope)                                                                                                                                                                                                                 |
 | `maxTurns`        | No       | Maximum number of agentic turns before the subagent stops. When the subagent reaches the limit, Claude Code returns its output marked as partial, and Claude can [resume it](#resume-subagents) to continue. The partial marking requires Claude Code v2.1.246 or later                                                                                                                                                                                                                      |
@@ -6993,7 +7020,7 @@ You can control what subagents can do through tool access, permission modes, and
 
 #### Available tools
 
-Subagents inherit the [built-in tools](/docs/en/tools-reference) and MCP tools available in the main conversation, narrowed by two filters: the first removes a short list of tools from every subagent, and the second reduces the built-in tool set for subagents that run in the [background](#run-subagents-in-foreground-or-background), which is the default. [Forks](#fork-the-current-conversation) skip both filters and receive the main conversation's exact tool pool. The first filter removes these tools, even when listed in the `tools` field:
+Subagents inherit the [built-in tools](/docs/en/tools-reference) and MCP tools available in the main conversation, narrowed by two filters: the first removes a short list of tools from every subagent, and the second reduces the built-in tool set for subagents that run in the [background](#run-subagents-in-foreground-or-background), which is the default. On macOS, Linux, and WSL, a subagent can also receive the Glob and Grep tools when the main conversation doesn't have them, as described under [Glob tool behavior](/docs/en/tools-reference#glob-tool-behavior). [Forks](#fork-the-current-conversation) skip both filters and receive the main conversation's exact tool pool. The first filter removes these tools, even when listed in the `tools` field:
 
 * `Agent`, when the subagent is at the [depth limit](#let-subagents-spawn-their-own-subagents); in a [fork](#fork-the-current-conversation) the tool stays listed but returns an error instead of spawning
 * `AskUserQuestion`
@@ -7041,6 +7068,7 @@ description: Inherits every tool except those from the github MCP server
 disallowedTools: mcp__github
 ---
 </code></pre></div>
+<p>A <code>disallowedTools</code> entry with a specifier, such as <code>Bash(git push *)</code>, still removes the whole tool from the subagent, not only the matching commands. To keep Bash and block specific commands, add a <a href="/docs/en/permissions#bash">Bash deny rule</a> such as <code>Bash(git push *)</code> to <code>permissions.deny</code> in your settings. The rule applies to the main conversation and to subagents.</p>
 <h4 id="restrict-which-subagents-can-be-spawned">Restrict which subagents can be spawned</h4>
 <p>When an agent runs as the main thread with <code>claude --agent</code>, it can spawn subagents using the Agent tool. To restrict which subagent types it can spawn, use <code>Agent(agent_type)</code> syntax in the <code>tools</code> field.</p>
 <p><Note>In version 2.1.63, the Task tool was renamed to Agent. Existing <code>Task(...)</code> references in settings and agent definitions still work as aliases.</Note></p>
@@ -7146,7 +7174,7 @@ Implement API endpoints. Follow the conventions and patterns from the preloaded 
 <p>You can't preload skills that set <a href="/docs/en/skills#control-who-invokes-a-skill"><code>disable-model-invocation: true</code></a>, since preloading draws from the same set of skills Claude can invoke. This includes the bundled <code>/verify</code> skill: only you can run it, so it can't be preloaded either.</p>
 <p>If a listed skill is missing or disabled, for example by your organization's policy, Claude Code skips it and logs a warning to the debug log.</p>
 <p><Note>
-  This is the inverse of <a href="/docs/en/skills#run-skills-in-a-subagent">running a skill in a subagent</a>. With <code>skills</code> in a subagent, the subagent controls the system prompt and loads skill content. With <code>context: fork</code> in a skill, the skill content is injected into the agent you specify. Both use the same underlying system.
+  This is the inverse of <a href="/docs/en/skills#run-skills-in-a-subagent">running a skill in a subagent</a>. With <code>skills</code> in a subagent, the subagent controls the system prompt and loads skill content. With <code>context: fork</code> in a skill, the skill content is injected into the agent you specify. In both cases the subagent starts without your conversation history.
 </Note></p>
 <h4 id="enable-persistent-memory">Enable persistent memory</h4>
 <p>The <code>memory</code> field gives the subagent a persistent directory that survives across conversations. The subagent uses this directory to build up knowledge over time, such as codebase patterns, debugging insights, and architectural decisions.</p>
