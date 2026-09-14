@@ -5839,7 +5839,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>While working on a task, Claude sometimes needs to check in with users. It might need permission before deleting files, or need to ask which database to use for a new project. Your application needs to surface these requests to users so Claude can continue with their input.</p>
 <p>Claude requests user input in two situations: when it needs <strong>permission to use a tool</strong> (like deleting files or running commands), and when it has <strong>clarifying questions</strong> (via the <code>AskUserQuestion</code> tool). Both trigger your <code>canUseTool</code> callback, which pauses execution until you return a response. This is different from normal conversation turns where Claude finishes and waits for your next message.</p>
 <p>For clarifying questions, Claude generates the questions and options. Your role is to present them to users and return their selections. You can't add your own questions to this flow; if you need to ask users something yourself, do that separately in your application logic.</p>
-<p>The callback can stay pending indefinitely. Execution remains paused until your callback returns, and the SDK only cancels the wait when the query itself is cancelled. If a user might take longer to respond than your process can reasonably stay running, register a <a href="/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a> that returns the <a href="/docs/en/hooks#defer-a-tool-call-for-later"><code>defer</code> decision</a> instead of waiting in the callback, so the process can exit and resume later from the persisted session.</p>
+<p>The callback can stay pending indefinitely. Execution remains paused until your callback returns. If a user might take longer to respond than your process can reasonably stay running, register a <a href="/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a> that returns the <a href="/docs/en/hooks#defer-a-tool-call-for-later"><code>defer</code> decision</a> instead of waiting in the callback, so the process can exit and resume later from the persisted session.</p>
 <p>This guide shows you how to detect each type of request and respond appropriately.</p>
 <h2 id="detect-when-claude-needs-input">Detect when Claude needs input</h2>
 <p>Pass a <code>canUseTool</code> callback in your query options. The callback fires whenever Claude needs user input, receiving the tool name and input as arguments:</p>
@@ -6027,9 +6027,6 @@ for await (const message of query({
 }
 </code></pre></div>
 </CodeGroup></p>
-<p><Note>
-  In Python, <code>can_use_tool</code> requires <a href="/docs/en/agent-sdk/streaming-vs-single-mode">streaming mode</a>. When you pass a finite message stream through <code>query(prompt=generator)</code> or <code>ClaudeSDKClient.connect(prompt=async_iterable)</code>, the SDK closes the input stream after the last message, before the permission callback can be invoked, unless a registered hook or in-process MCP server is keeping it open. The example above keeps it open with a <code>PreToolUse</code> hook that returns <code>{"continue_": True}</code>. Connecting with no prompt and sending messages through <code>ClaudeSDKClient.query()</code> keeps the stream open on its own and needs no hook.
-</Note></p>
 <p>This example uses a <code>y/n</code> flow where any input other than <code>y</code> is treated as a denial. In practice, you might build a richer UI that lets users modify the request, provide feedback, or redirect Claude entirely. See <a href="#respond-to-tool-requests">Respond to tool requests</a> for all the ways you can respond.</p>
 <h3 id="respond-to-tool-requests">Respond to tool requests</h3>
 <p>Your callback returns one of two response types:</p>

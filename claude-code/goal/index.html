@@ -2904,6 +2904,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#when-a-turn-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a turn fails
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When a turn fails">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#errors-you-have-to-fix-clear-the-goal" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2911,6 +2923,22 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-errors-retry-or-pause-the-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other errors retry or pause the goal
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5678,6 +5706,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#when-a-turn-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a turn fails
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When a turn fails">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#errors-you-have-to-fix-clear-the-goal" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5685,6 +5725,22 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-errors-retry-or-pause-the-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other errors retry or pause the goal
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5789,7 +5845,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tbody>
 <tr>
 <td style="text-align: left;"><code>/goal</code></td>
-<td style="text-align: left;">The previous turn finishes, or an <a href="#background-work-defers-evaluation">idle check-in</a> comes due while background work keeps the goal waiting, up to three times per goal between your prompts</td>
+<td style="text-align: left;">The previous turn finishes, or, in an interactive session, an <a href="#background-work-defers-evaluation">idle check-in</a> or an <a href="#other-errors-retry-or-pause-the-goal">automatic retry</a> comes due</td>
 <td style="text-align: left;">A model confirms the condition is met or judges it impossible, or a turn fails on <a href="#errors-you-have-to-fix-clear-the-goal">an error you have to fix</a>, or you run <a href="#clear-a-goal"><code>/goal clear</code></a></td>
 </tr>
 <tr>
@@ -5883,7 +5939,9 @@ claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
 <li><strong>Impossible</strong>: the evaluator judged that the condition can never be satisfied. Claude Code clears the goal and records a failed entry in the transcript along with the reason. You don't need to clear it yourself.</li>
 </ul>
 <p>If Claude keeps answering the evaluator without making progress (no tool use for several turns in a row), Claude Code stops the loop, prints a warning, and returns control to you with the goal still set. Evaluation resumes after your next prompt. The <a href="/docs/en/hooks-guide#stop-hook-hits-the-block-cap">hooks guide</a> explains the underlying mechanism.</p>
-<h3 id="errors-you-have-to-fix-clear-the-goal">Errors you have to fix clear the goal</h3>
+<h3 id="when-a-turn-fails">When a turn fails</h3>
+<p>When a turn fails, Claude Code clears the goal if the error is one you have to fix. After any other error the goal stays set.</p>
+<h4 id="errors-you-have-to-fix-clear-the-goal">Errors you have to fix clear the goal</h4>
 <p>If a turn fails on an error that won't clear until you fix it, Claude Code clears the goal and prints a warning naming the cause. The warning starts with <code>Goal cleared after an unrecoverable error</code> and ends with <code>Run /goal again to continue</code>. Fix the cause, then <a href="#set-a-goal">set the goal again</a> with <code>/goal &lt;condition&gt;</code>. Four kinds of failure clear the goal:</p>
 <ul>
 <li>An authentication failure, when Claude Code manages its own credentials. When a host manages them for you, such as the desktop app, the VS Code extension, or a <a href="/docs/en/claude-code-on-the-web">cloud session</a>, Claude Code leaves the goal active because the host restores access on its own.</li>
@@ -5891,7 +5949,13 @@ claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
 <li>A context overflow that <a href="/docs/en/model-config#set-the-auto-compact-window">auto-compaction</a> couldn't clear</li>
 <li>A model that isn't available</li>
 </ul>
-<p>After any other failure, including transient errors such as rate limits and overloaded servers, Claude Code leaves the goal active.</p>
+<h4 id="other-errors-retry-or-pause-the-goal">Other errors retry or pause the goal</h4>
+<p>After any other failure the goal stays set. In an interactive session on Claude Code v2.1.269 or later, Claude Code also prints a line naming the cause and either retries on its own or waits for you:</p>
+<ul>
+<li><strong>Retry</strong>: after a failure that tends to clear on its own, such as an overloaded server or a dropped connection, a notice starting with <code>Goal still active</code> shows the wait before the next attempt. After three automatic retries, the goal pauses instead.</li>
+<li><strong>Pause</strong>: after a failure that a retry would only repeat, such as an API rate limit, a claude.ai <a href="/docs/en/errors#youve-hit-your-session-limit">usage limit</a>, or a hook that ended the turn, a notice starting with <code>Goal paused</code> names the cause. If the session is <a href="/docs/en/interactive-mode#wait-for-a-usage-limit-to-reset">waiting to continue automatically when a usage limit resets</a>, Claude resumes work toward the goal then.</li>
+</ul>
+<p>Send a message at any time to start the next turn immediately. To turn automatic retries off, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_GOAL_CHECKIN_MINUTES</code></a> to <code>0</code>, which also turns <a href="#background-work-defers-evaluation">check-ins</a> off.</p>
 <h3 id="background-work-defers-evaluation">Background work defers evaluation</h3>
 <p>If a subagent or a background shell command is still running when a turn ends, Claude Code skips the evaluation for that turn. It evaluates at the end of the next turn that finishes with no background work running. When the background work finishes, Claude Code delivers the result to Claude as a new turn, so you don't have to prompt.</p>
 <p>Once background work has kept the goal waiting for 30 minutes, a check-in is due. In the check-in, Claude Code lists the running tasks and asks Claude to read their output, keep waiting if they're progressing, and fix or stop any that are stuck. After the first check-in, Claude Code waits twice as long before each later check-in, up to four times the first interval: with the default, 1 hour after the first check-in, then every 2 hours. Claude Code delivers a due check-in, the first one included, in one of two ways:</p>
@@ -5900,7 +5964,8 @@ claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
 <li><strong>While the session is idle</strong>: in an interactive session, Claude Code also starts a turn on its own to deliver the check-in instead of waiting for your next prompt. If the background work has stopped without reporting a result, Claude Code asks Claude to continue toward the goal. Claude Code starts at most three idle check-ins per goal between your prompts. In the third idle check-in, Claude Code says that idle check-ins are paused until you send another prompt. Before v2.1.246, idle check-ins were uncapped. Idle check-ins require Claude Code v2.1.236 or later.</li>
 </ul>
 <p>Before v2.1.239, only idle check-ins backed off this way; a check-in delivered at a turn end recurred at the first interval.</p>
-<p>To change the first interval, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_GOAL_CHECKIN_MINUTES</code></a>. Claude Code uses your value in place of the 30-minute interval and scales the later intervals with it. Set it to <code>0</code> to turn check-ins off. Check-ins require Claude Code v2.1.234 or later.</p>
+<p>To change the first interval, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_GOAL_CHECKIN_MINUTES</code></a>. Claude Code uses your value in place of the 30-minute interval and scales the later intervals with it. Set it to <code>0</code> to turn off check-ins and <a href="#other-errors-retry-or-pause-the-goal">automatic retries</a>.</p>
+<p>Check-ins require Claude Code v2.1.234 or later.</p>
 <h3 id="evaluation-model-and-cost">Evaluation model and cost</h3>
 <p>To evaluate on a different model, set <a href="/docs/en/model-config#environment-variables"><code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code></a>.</p>
 <p><Warning>
