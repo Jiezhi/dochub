@@ -697,6 +697,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -6349,7 +6376,7 @@ try {
 </table>
 <p>When either limit is hit, the SDK returns a <code>ResultMessage</code> with a corresponding error subtype (<code>error_max_turns</code> or <code>error_max_budget_usd</code>). See <a href="#handle-the-result">Handle the result</a> for how to check these subtypes and <a href="/docs/en/agent-sdk/python#claudeagentoptions"><code>ClaudeAgentOptions</code></a> / <a href="/docs/en/agent-sdk/typescript#options"><code>Options</code></a> for syntax.</p>
 <p>The budget cap covers <a href="/docs/en/agent-sdk/subagents">subagents</a>: their spend counts toward the total. Once spend reaches the cap, spawning another subagent fails with <code>Budget limit reached</code>, and Claude Code stops any background subagents still running. The cap-enforcement behaviors require Claude Code v2.1.217 or later.</p>
-<p>With <a href="/docs/en/agent-sdk/streaming-vs-single-mode">streaming input</a>, a message that is still queued when a turn ends at the max-turns limit stays queued. Claude Code doesn't add it to that turn's last model call. It starts a new turn for the message, and the max-turns count starts over for that turn.</p>
+<p>With <a href="/docs/en/agent-sdk/streaming-vs-single-mode">streaming input</a>, a message that is still queued when a turn ends at the max-turns limit stays queued. Claude Code doesn't add it to that turn's last model call. It starts a new turn for the message, and the max-turns count starts over for that turn. The budget total keeps accumulating across messages, and once spend reaches <code>maxBudgetUsd</code>, later messages in the same conversation end with the <code>error_max_budget_usd</code> result. A <a href="/docs/en/agent-sdk/cost-tracking"><code>/clear</code></a> starts the budget over.</p>
 <h3 id="effort-level">Effort level</h3>
 <p>The <code>effort</code> option controls how much reasoning Claude applies. Lower effort levels use fewer tokens per turn and reduce cost. Not all models support the effort parameter. See <a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a> for which models support it.</p>
 <table>
@@ -6438,7 +6465,7 @@ try {
 </table>
 <p>For interactive applications, use <code>"default"</code> with a tool approval callback to surface approval prompts. For autonomous agents on a dev machine, <code>"acceptEdits"</code> auto-approves file edits and common filesystem commands (<code>mkdir</code>, <code>touch</code>, <code>mv</code>, <code>cp</code>, etc.) while still gating other <code>Bash</code> commands behind allow rules. Reserve <code>"bypassPermissions"</code> for CI, containers, or other isolated environments. See <a href="/docs/en/agent-sdk/permissions">Permissions</a> for full details.</p>
 <h3 id="model">Model</h3>
-<p>If you don't set <code>model</code>, the SDK uses Claude Code's default, which depends on your authentication method and subscription. Set it explicitly (for example, <code>model="claude-sonnet-5"</code>) to pin a specific model or to use a smaller model for faster, cheaper agents. See <a href="https://platform.claude.com/docs/en/about-claude/models">models</a> for available IDs.</p>
+<p>Set the <code>model</code> option to choose which model runs the session. For more information, see <a href="/docs/en/agent-sdk/configuration#choose-a-model">Choose a model</a>.</p>
 <h2 id="the-context-window">The context window</h2>
 <p>The context window is the total amount of information available to Claude during a session. It does not reset between turns within a session. Everything accumulates: the system prompt, tool definitions, conversation history, tool inputs, and tool outputs. Content that stays the same across turns (system prompt, tool definitions, CLAUDE.md) is automatically <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt cached</a>, which reduces cost and latency for repeated prefixes. For how a custom system prompt or <code>append</code> text affects cache reuse across sessions, see <a href="/docs/en/agent-sdk/modifying-system-prompts#improve-prompt-caching-across-users-and-machines">Modifying system prompts</a>.</p>
 <h3 id="what-consumes-context">What consumes context</h3>
@@ -6555,7 +6582,7 @@ try {
 </tbody>
 </table>
 <p>The <code>result</code> field holds the final text output and is only present on the <code>success</code> variant, so always check the subtype before reading it.</p>
-<p>All result subtypes carry <code>total_cost_usd</code>, <code>usage</code>, <code>num_turns</code>, and <code>session_id</code> so you can track cost and resume even after errors. Two things to guard for:</p>
+<p>All result subtypes carry <code>total_cost_usd</code>, <code>usage</code>, <code>num_turns</code>, and <code>session_id</code> so you can track cost and resume even after errors. Guard for these cases:</p>
 <ul>
 <li>After a session crash, the final result is an <code>error_during_execution</code> whose cost fields may be zeroed and whose <code>stop_reason</code> is <code>null</code>, and the process exits after emitting it. See <a href="/docs/en/agent-sdk/cost-tracking#recover-totals-after-a-session-crash">Recover totals after a session crash</a>.</li>
 <li>In Python, <code>total_cost_usd</code>, <code>usage</code>, and <code>model_usage</code> are typed as optional, so check that they aren't <code>None</code> before you read them.</li>

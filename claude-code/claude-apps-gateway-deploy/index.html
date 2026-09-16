@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -6091,7 +6118,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ol>
 <p>If a sign-in or boot fails along the way, go straight to <a href="#troubleshooting">Troubleshooting</a>, which is keyed on the error you see.</p>
 <p><Note>
-  <strong>Deploy on your private network.</strong> Claude Code only connects to a gateway whose address is private. This is a security guard, because a trusted gateway can push settings that run commands on developer machines. Put the gateway you deploy behind an internal load balancer or VPN and give it a hostname that resolves to private IPs only.
+  <strong>Deploy on your private network.</strong> Claude Code only connects to a gateway whose address is private. This is a security guard, because a trusted gateway can push settings that run commands on developer machines. Put the gateway you deploy behind an internal load balancer or VPN and give it a hostname that resolves to private IPs only. If your internal network is numbered from public IPv4 space your organization owns, see <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own">Allow a gateway on public address space you own</a>.
 </Note></p>
 <h2 id="identity-provider-setup">Identity provider setup</h2>
 <p>Register a confidential OAuth/OpenID Connect (OIDC) web application with a single redirect URI, <code>https://&lt;gateway&gt;/oauth/callback</code>, and assign it to the users or groups who should have gateway access.</p>
@@ -6170,13 +6197,17 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="logs">Logs</h3>
 <p>The gateway writes two streams to stderr, both JSON-friendly:</p>
 <ul>
-<li><strong>Audit events</strong>: single-line JSON per security-relevant event. Pipe stderr to your log aggregator. The events emitted include <code>config.load</code>, <code>session.mint</code>, <code>session.refresh</code>, <code>device.authorize</code>, <code>device.verify</code>, <code>device.callback</code>, <code>auth.denied</code>, <code>access.denied</code>, <code>inference</code>, <code>managed.serve</code>, <code>desktop_bootstrap.serve</code>, <code>desktop_bootstrap.denied</code>, <code>spend.blocked</code>, <code>admin.denied</code>, <code>admin.limit.upsert</code>, and <code>admin.limit.delete</code>. Fields vary by event:</li>
+<li><strong>Audit events</strong>: single-line JSON per security-relevant event. Pipe stderr to your log aggregator.</li>
+</ul>
+<p>The events emitted include <code>config.load</code>, <code>session.mint</code>, <code>session.refresh</code>, <code>device.authorize</code>, <code>device.verify</code>, <code>device.callback</code>, <code>auth.denied</code>, <code>access.denied</code>, <code>access.public_client</code>, <code>inference</code>, <code>managed.serve</code>, <code>desktop_bootstrap.serve</code>, <code>desktop_bootstrap.denied</code>, <code>spend.blocked</code>, <code>admin.denied</code>, <code>admin.limit.upsert</code>, and <code>admin.limit.delete</code>. Fields vary by event:</p>
+<ul>
 <li>Successful mint and refresh events carry <code>sub</code>, <code>email</code>, <code>client_ip</code>, and the result</li>
 <li><code>auth.denied</code> and <code>access.denied</code> carry the reason and client IP, plus the request path for <code>auth.denied</code>, since no user identity exists at those denials. Two <code>access.denied</code> reasons change what the event carries:<ul>
 <li><code>xff_unparseable</code>: the event also carries the <code>X-Forwarded-For</code> entry that couldn't be read</li>
 <li><code>client_ip_unknown</code>: the event carries no client IP, because the connection had no peer address while an <code>access_control</code> list was set</li>
 </ul>
 </li>
+<li><code>access.public_client</code> carries the client IP of the first request per process to arrive from a public address while <code>access_control.allow_cidrs</code> is empty. The gateway serves the request as usual; the event signals that the gateway may be reachable from the public internet. See the <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>access_control</code> reference</a> for what counts as public and for the recommended allow list.</li>
 <li><code>inference</code> records which upstream served the request and the response status</li>
 <li><code>desktop_bootstrap.denied</code> records a rejected Claude Desktop bootstrap fetch with the reason (<code>not_configured</code>, <code>policy_not_opted_in</code>, or <code>no_policy_matched</code>) and the user's identity</li>
 <li><code>admin.denied</code> records a rejected admin-API auth attempt with the client IP, method, path, and a reason, without the presented key material: <code>invalid_key</code> when an <code>x-api-key</code> was presented but matched no configured key, <code>bearer_rejected</code> when only an <code>Authorization</code> header was presented and it didn't verify as a gateway session in <code>admin.admin_groups</code>, or <code>no_credentials</code> when neither header was presented</li>
@@ -6195,7 +6226,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>If your IdP goes down, existing sessions work until <code>ttl_hours</code>, and new logins and refreshes fail. Set a longer <code>ttl_hours</code> if your IdP has frequent maintenance windows.</p>
 <h3 id="jwt-secret-rotation">JWT secret rotation</h3>
-<p>Rotate the signing secret in three steps so existing sessions stay valid:</p>
+<p>Rotate the signing secret in stages so existing sessions stay valid:</p>
 <ol>
 <li>Generate a new secret. Prepend it to the <code>session.jwt_secret</code> array.</li>
 <li>Roll the deployment. New tokens sign with the new secret; old tokens still verify.</li>
@@ -6359,12 +6390,32 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>CLI <code>/login</code>: <code>Gateway hosts must be on your organization's private network; &lt;host&gt; resolves to the public (or unrecognized) address &lt;ip&gt;</code></td>
 <td>The gateway hostname resolves to at least one public IP address. Claude Code checks each resolved address and requires every one to be private. A common cause is a dual-stack name where one family resolves to a public address, including AWS internal dual-stack load balancers, which return public-range AAAA addresses.</td>
-<td>Have the gateway name resolve only to private addresses on developer machines. For a dual-stack name, drop the public-range record or serve a separate internal-only DNS name. See the <a href="/docs/en/claude-apps-gateway#prerequisites">private-network prerequisite</a>.</td>
+<td>Have the gateway name resolve only to private addresses on developer machines. For a dual-stack name, drop the public-range record or serve a separate internal-only DNS name. See the <a href="/docs/en/claude-apps-gateway#prerequisites">private-network prerequisite</a>. If the address is public space your organization owns and uses internally, <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own">declare that block</a> instead.</td>
 </tr>
 <tr>
 <td>CLI <code>/login</code>: <code>Gateway login would go through proxy &lt;proxy&gt;, which is not on a private network</code></td>
 <td>An <code>HTTPS_PROXY</code> or <code>HTTP_PROXY</code> applies to the gateway host and the proxy's hostname resolves to a public address. A proxy whose host resolves only to private addresses is allowed and doesn't trigger this error</td>
 <td>Add the gateway host to <code>NO_PROXY</code> on the developer's machine so the connection is direct, or use a proxy whose hostname resolves to private addresses. The message names the exact <code>NO_PROXY</code> entry to add</td>
+</tr>
+<tr>
+<td>CLI <code>/login</code>: <code>Claude Code only signs in to &lt;host&gt; from inside its declared network &lt;block&gt; (managed settings), and this machine is connecting from &lt;ip&gt;, outside it</code></td>
+<td>The gateway is on a block declared in <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own"><code>gatewayInternalNetworks</code></a>, and the developer's machine reached it from an address outside that block: a VPN address pool, a container or WSL2 NAT segment, or a network that isn't yours</td>
+<td>Have the developer run <code>/login</code> from the host OS on your network. If the address shown is also your organization's own public space, replace the gateway's entry with a block that covers both, up to <code>/8</code>; a second, overlapping entry is refused</td>
+</tr>
+<tr>
+<td>CLI <code>/login</code>: <code>Every address for gateway host &lt;host&gt; must be inside its declared network &lt;block&gt;, and it also resolves to &lt;ip&gt;</code></td>
+<td>The gateway's name resolves to an address outside the block declared in <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own"><code>gatewayInternalNetworks</code></a>: a second site, or an IPv6 record on a dual-stack name. Under a declared block every record must be inside that one IPv4 block, private and IPv6 addresses included</td>
+<td>Publish only records inside the block for the gateway name on developer machines, or serve a separate internal-only name</td>
+</tr>
+<tr>
+<td>CLI <code>/login</code>: <code>&lt;host&gt; is on the declared network &lt;block&gt;, which Claude Code checks over a direct connection, not through an HTTP proxy</code></td>
+<td>An <code>HTTPS_PROXY</code> or <code>HTTP_PROXY</code> applies to a gateway on a declared block</td>
+<td>On the developer's machine, add the <code>NO_PROXY</code> entry the message names</td>
+</tr>
+<tr>
+<td>CLI <code>/login</code>: a message starting <code>gatewayInternalNetworks in managed settings</code></td>
+<td>The value breaks one of the <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own">validation rules</a>, and the message names which. Until you fix it, Claude Code refuses every new gateway <code>/login</code> on the machine, gateways on private addresses included; existing sign-ins keep working</td>
+<td>In the managed settings source you deploy, correct the entry the message names, then rerun <code>/login</code></td>
 </tr>
 <tr>
 <td>CLI <code>/login</code>: <code>Could not resolve the configured HTTP proxy</code></td>

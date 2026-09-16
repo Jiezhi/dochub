@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -7836,7 +7863,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><Tip>
   For a quickstart guide with examples, see <a href="/docs/en/hooks-guide">Automate actions with hooks</a>.
 </Tip></p>
-<p>Hooks are user-defined shell commands, HTTP endpoints, MCP tool calls, LLM prompts, or subagents that execute automatically at specific points in Claude Code's lifecycle. Claude Code fires the same hook events wherever it runs: sessions in the terminal, IDE extensions, the <a href="/docs/en/desktop-quickstart">Desktop app</a>, and <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a>. Use this reference to look up event schemas, configuration options, JSON input/output formats, and advanced features like async hooks, HTTP hooks, and MCP tool hooks.</p>
+<p>Hooks are user-defined shell commands, HTTP endpoints, MCP tool calls, LLM prompts, or subagents that execute automatically at specific points in Claude Code's lifecycle. Claude Code fires the same hook events wherever it runs: sessions in the terminal, IDE extensions, the <a href="/docs/en/desktop-quickstart">Desktop app</a>, and <a href="/docs/en/claude-code-on-the-web">cloud sessions</a>. Use this reference to look up event schemas, configuration options, JSON input/output formats, and advanced features like async hooks, HTTP hooks, and MCP tool hooks.</p>
 <h2 id="hook-lifecycle">Hook lifecycle</h2>
 <p>Claude Code runs hooks at specific points during a session. When an event fires and a matcher matches, Claude Code passes JSON context about the event to your hook handler. For command hooks, input arrives on stdin. For HTTP hooks, it arrives as the POST request body. Your handler can then inspect the input, take action, and optionally return a decision.</p>
 <p>Events fall into three cadences:</p>
@@ -8206,7 +8233,7 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 </tr>
 </tbody>
 </table>
-<p>Cloud sessions on <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> don't read your local <code>~/.claude/settings.json</code>; hooks there come from the repo and from your organization's server-managed settings. In a <a href="/docs/en/self-hosted-environments-configuration#permissions-and-tool-approval">self-hosted environment</a>, Claude Code also runs the hooks the operator seeded from the runner host's <code>~/.claude/</code>, and it runs the hooks in the runner image's managed settings file when that file is among the <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">managed sources Claude Code applies</a>, which by default means only when neither server-managed settings nor an MDM-delivered Claude Code policy supplies the managed tier. See <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">what carries over from your setup</a> for which files reach a cloud session.</p>
+<p><a href="/docs/en/claude-code-on-the-web">Cloud sessions</a> don't read your local <code>~/.claude/settings.json</code>; hooks there come from the repo and from your organization's server-managed settings. In a <a href="/docs/en/self-hosted-environments-configuration#permissions-and-tool-approval">self-hosted environment</a>, Claude Code also runs the hooks the operator seeded from the runner host's <code>~/.claude/</code>, and it runs the hooks in the runner image's managed settings file when that file is among the <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">managed sources Claude Code applies</a>, which by default means only when neither server-managed settings nor an MDM-delivered Claude Code policy supplies the managed tier. See <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">what carries over from your setup</a> for which files reach a cloud session.</p>
 <p>For details on settings file resolution, see <a href="/docs/en/settings">settings</a>.</p>
 <p>Hooks from settings files, managed policy settings, and plugins also run inside <a href="/docs/en/sub-agents">subagents</a>. When a subagent calls a tool, tool events such as <code>PreToolUse</code> and <code>PostToolUse</code> fire the same configured hooks as in the main conversation, and the input carries the <code>agent_id</code> and <code>agent_type</code> <a href="#common-input-fields">common input fields</a> that identify the subagent.</p>
 <p>Enterprise administrators can use <code>allowManagedHooksOnly</code> to restrict which hooks run:</p>
@@ -8733,7 +8760,7 @@ In addition to the [common fields](#common-fields), prompt and agent hooks accep
 Use these placeholders to reference hook scripts relative to the project or plugin root, regardless of the working directory when the hook runs:
 
 * `${CLAUDE_PROJECT_DIR}`: the project root where the session started. Claude Code also sets this variable in the environment of [stdio MCP servers](/docs/en/mcp#option-3-add-a-local-stdio-server) and plugin LSP servers.
-* `${CLAUDE_PLUGIN_ROOT}`: the plugin's installation directory, for scripts bundled with a [plugin](/docs/en/plugins). Changes on each plugin update.
+* `${CLAUDE_PLUGIN_ROOT}`: the plugin's installation directory, for scripts bundled with a [plugin](/docs/en/plugins). See [plugin environment variables](/docs/en/plugins-reference#environment-variables) for how the path behaves across updates.
 * `${CLAUDE_PLUGIN_DATA}`: the plugin's [persistent data directory](/docs/en/plugins-reference#persistent-data-directory), for dependencies and state that should survive plugin updates.
 
 &lt;Note&gt;
@@ -9409,7 +9436,9 @@ The matcher value corresponds to how the session was initiated:
 
 Before v2.1.214, forked sessions reported source `"resume"`.
 
-When you run `/clear` in an interactive session, the matching SessionStart hooks run in the background and the prompt accepts input again right away. Claude's first response still waits for the hooks to finish, so their context reaches Claude. If you run `/clear` again or switch to another conversation with a command such as `/resume` while those hooks are still running, Claude Code cancels them and discards their output.
+When you start an interactive session, resume a conversation at launch with `--continue` or `--resume`, or run `/clear`, SessionStart hooks run in the background. You can type right away, and a conversation you resumed appears without waiting for the hooks. Claude's first response still waits for the hooks to finish, so their context reaches Claude.
+
+When you switch conversations with `/resume` inside a session, the switch waits for the hooks to finish instead. If you run `/clear` or switch to another conversation while background hooks are still running, nothing they return applies to the session.
 
 The same wait applies at launch, including a resumed session: a prompt you send while SessionStart hooks are still running doesn't reach Claude until they finish.
 
@@ -9887,6 +9916,7 @@ A `Write` call on Windows delivers:
 }
 </code></pre></div></p>
 <p>The <code>tool_input</code> fields depend on the tool:</p>
+<p><a id="bash" /></p>
 <h5 id="bash">Bash</h5>
 <p>Executes shell commands.</p>
 <table>
@@ -9922,6 +9952,60 @@ A `Write` call on Windows delivers:
 <td style="text-align: left;">boolean</td>
 <td style="text-align: left;"><code>false</code></td>
 <td style="text-align: left;">Whether to run the command in background</td>
+</tr>
+</tbody>
+</table>
+<p>When a Bash command changes files in a Git repository, Claude Code can record what changed. It records the changes in every permission mode when the <a href="/docs/en/settings-reference#basheditdiffenabled"><code>bashEditDiffEnabled</code></a> setting turns recording on; that setting's entry says which files can set it. Otherwise it records them only in auto mode and <code>bypassPermissions</code> mode, and only when Claude Code directs Claude to edit files through Bash. Set <code>bashEditDiffEnabled</code> to <code>false</code> to turn the recording off. Background commands and read-only commands carry no diff.</p>
+<p>Your <a href="#posttooluse">PostToolUse hook</a> then receives the changed files in <code>tool_response.bashEditDiff</code>. The list covers what changed under the repository while the command ran. Files that Git ignores and files in submodules aren't listed. Requires Claude Code v2.1.269 or later.</p>
+<p><Note>
+  The list is best effort and in public beta. Claude Code can miss a change, include a file that another process changed at the same time, or stop at its size limits. The field shape may change. Use the list to find what to review, not to enforce a policy.
+</Note></p>
+<p><code>changedFiles</code> and <code>files</code> list what the command changed; the remaining fields say how complete and how reliable that list is.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Field</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Example</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>changedFiles</code></td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;"><code>["/path/to/src/app.ts"]</code></td>
+<td style="text-align: left;">Absolute paths of the files the command changed, at most 200. Present whenever <code>files</code> holds a diff or <code>moreFiles</code> is above zero</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>files</code></td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;"><code>[{"filePath": "/path/to/src/app.ts", "hunks": [...]}]</code></td>
+<td style="text-align: left;">Diffs of up to 5 changed files, for display. <code>created</code> or <code>deleted</code> is <code>true</code> for a file the command added or removed</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>moreFiles</code></td>
+<td style="text-align: left;">number</td>
+<td style="text-align: left;"><code>2</code></td>
+<td style="text-align: left;">Count of changed files with no diff in <code>files</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>unavailable</code></td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>true</code></td>
+<td style="text-align: left;">Set when the diff is incomplete or couldn't be taken</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>skipped</code></td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>true</code></td>
+<td style="text-align: left;">Set for a Git command that moves the working tree, such as <code>git checkout</code> or <code>git stash</code>, so Claude Code takes no diff</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>shared</code></td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>true</code></td>
+<td style="text-align: left;">Set when another Bash tool call, such as a subagent's, ran in the same repository at the same time, so some listed changes may be that command's</td>
 </tr>
 </tbody>
 </table>
@@ -10239,7 +10323,7 @@ A `Write` call on Windows delivers:
 </tr>
 </tbody>
 </table>
-<p>When a foreground Agent call completes, your <a href="#posttooluse">PostToolUse hook</a> receives the subagent's final text and run telemetry in <code>tool_response</code>. Read these fields to inspect the run; for token and cost rollups across subagents, use the <a href="/docs/en/monitoring-usage#token-counter">token and cost counters</a> filtered to <code>query_source</code> <code>"subagent"</code>, since <code>totalTokens</code> and <code>usage</code> cover the final request only:</p>
+<p>When a foreground Agent call completes, your <a href="#posttooluse">PostToolUse hook</a> receives the subagent's result and run telemetry in <code>tool_response</code>. Read these fields to inspect the run; for token and cost rollups across subagents, use the <a href="/docs/en/monitoring-usage#token-counter">token and cost counters</a> filtered to <code>query_source</code> <code>"subagent"</code>, since <code>totalTokens</code> and <code>usage</code> cover the final request only:</p>
 <table>
 <thead>
 <tr>
@@ -10266,7 +10350,7 @@ A `Write` call on Windows delivers:
 <td style="text-align: left;"><code>content</code></td>
 <td style="text-align: left;">array</td>
 <td style="text-align: left;"><code>[{"type": "text", "text": "Found 12 endpoints..."}]</code></td>
-<td style="text-align: left;">The subagent's final text blocks</td>
+<td style="text-align: left;">The subagent's final text blocks, or, for a subagent whose report goes through <code>SubagentHandback</code>, a short note about that hand-back in their place</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>resolvedModel</code></td>
@@ -10306,6 +10390,7 @@ A `Write` call on Windows delivers:
 </tr>
 </tbody>
 </table>
+<p>On Claude Code v2.1.271 or later, a subagent that runs with the <a href="/docs/en/tools-reference"><code>SubagentHandback</code></a> tool, which Claude Code provides in <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, delivers its report through that tool rather than returning it as text. The <code>content</code> field of its <code>completed</code> result then carries a short note about that hand-back rather than the report itself. To read the report, match a <code>PreToolUse</code> or <code>PostToolUse</code> hook on <code>SubagentHandback</code> and read <code>tool_input.message</code>.</p>
 <p>For background subagents, the tool returns when the task moves to the background, so <code>tool_response</code> carries no usage fields: a background launch returns immediately, and a foreground task that Claude Code backgrounds mid-run returns at that transition. It has <code>status: "async_launched"</code>, <code>agentId</code>, <code>description</code>, <code>prompt</code>, <code>outputFile</code>, and <code>resolvedModel</code>.</p>
 <p>On a <code>completed</code> response, <code>resolvedModel</code> names the model the subagent started on, which can differ from the <code>model</code> value in <code>tool_input</code>, such as when <code>availableModels</code> or another override applies. On an <code>async_launched</code> response, <code>resolvedModel</code> names the model in use when the agent moved to the background, so a swap that happened before backgrounding is reflected there. <code>modelsUsed</code> and the backgrounding-time <code>resolvedModel</code> behavior require Claude Code v2.1.212 or later.</p>
 <p><a id="askuserquestion" /></p>
@@ -11017,6 +11102,8 @@ Runs when a Claude Code subagent has finished responding. Matches on agent type,
 #### SubagentStop input
 
 In addition to the [common input fields](#common-input-fields), SubagentStop hooks receive `stop_hook_active`, `agent_id`, `agent_type`, `agent_transcript_path`, and `last_assistant_message`. The `agent_type` field is the value used for matcher filtering. The `transcript_path` is the main session's transcript, while `agent_transcript_path` is the subagent's own transcript stored in a nested `subagents/` folder. The `last_assistant_message` field contains the text content of the subagent's final response, so hooks can access it without parsing the transcript file.
+
+On Claude Code v2.1.271 or later, a subagent that runs with the [`SubagentHandback`](/docs/en/tools-reference) tool delivers its report through that tool before it stops. The `last_assistant_message` field then holds the subagent's closing text, if any, which is not the delivered report. The report is that call's `message` input, which a `PreToolUse` or `PostToolUse` hook matched on `SubagentHandback` receives as `tool_input.message`.
 
 SubagentStop hooks also receive the `background_tasks` and `session_crons` arrays described under [Stop input](#stop-input). Both arrays are scoped to the parent session, not the subagent.
 
@@ -12016,10 +12103,17 @@ In addition to the [common input fields](#common-input-fields), SessionEnd hooks
 }
 </code></pre></div></p>
 <p>SessionEnd hooks have no decision control. They can't block session termination but can perform cleanup tasks. Claude Code discards their <a href="#json-output">JSON output fields</a>, such as <code>systemMessage</code>.</p>
-<p>SessionEnd hooks have a default timeout of 1.5 seconds. This applies to session exit, <code>/clear</code>, and switching sessions via interactive <code>/resume</code>. If a hook needs more time, set a per-hook <code>timeout</code> in the hook configuration. The overall budget is automatically raised to the highest per-hook timeout configured in settings files, up to 60 seconds. Timeouts set on plugin-provided hooks don't raise the budget. To override the budget explicitly, set the <code>CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS</code> environment variable in milliseconds.</p>
+<p>SessionEnd hooks have a default timeout of 1.5 seconds. It applies when you exit, run <code>/clear</code>, or switch sessions with interactive <code>/resume</code>. You can give a hook more time in two ways:</p>
+<ul>
+<li><strong>Per-hook <code>timeout</code></strong>: set <code>timeout</code> in that hook's configuration. The overall budget rises automatically to match the highest per-hook <code>timeout</code> in your settings files, up to 60 seconds. If you raise the budget this way, a hook without its own <code>timeout</code> still keeps the default. Timeouts set on plugin-provided hooks don't raise the budget.</li>
+<li><strong><code>CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS</code></strong>: set this environment variable in milliseconds to override the budget explicitly. The value you set also becomes the timeout for each hook without its own <code>timeout</code>.</li>
+</ul>
+<p>This example sets the budget to 5 seconds:</p>
 <p>```bash theme={null}
 CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS=5000 claude
-<div class="highlight"><pre><span></span><code>### Elicitation
+<div class="highlight"><pre><span></span><code>Before v2.1.268, `CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS` raised only the overall budget, and a hook without its own `timeout` was still canceled after 1.5 seconds.
+
+### Elicitation
 
 Runs when an MCP server requests user input mid-task. By default, Claude Code shows an interactive dialog for the user to respond. Hooks can intercept this request and respond programmatically, skipping the dialog entirely.
 

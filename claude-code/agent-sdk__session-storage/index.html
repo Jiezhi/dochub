@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -5923,13 +5950,13 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <h1 id="persist-sessions-to-external-storage">Persist sessions to external storage</h1>
 <blockquote>
-<p>Mirror session transcripts to S3, Redis, or your own backend so other hosts can resume your sessions.</p>
+<p>Mirror Agent SDK session transcripts to your own object store, key-value store, or database so other hosts can resume your sessions.</p>
 </blockquote>
-<p>By default, the SDK writes session transcripts to JSONL files under <code>~/.claude/projects/</code> on the local filesystem. A <code>SessionStore</code> adapter lets you mirror those transcripts to your own backend, such as S3, Redis, or a database, so a session created on one host can be resumed on another host running from a matching working directory.</p>
+<p>By default, the SDK writes session transcripts to JSONL files under <code>~/.claude/projects/</code> on the local filesystem. A <code>SessionStore</code> adapter lets you mirror those transcripts to your own backend, such as an object store, a key-value store, or a database, so a session created on one host can be resumed on another host running from a matching working directory.</p>
 <p>Common reasons to use a session store:</p>
 <ul>
 <li><strong>Multi-host deployments.</strong> Serverless functions, autoscaled workers, and CI runners don't share a filesystem. A shared store lets replicas resume each other's sessions.</li>
-<li><strong>Durability.</strong> Local containers are ephemeral. A store backed by S3 or a database survives restarts and redeploys.</li>
+<li><strong>Durability.</strong> Local containers are ephemeral. An external store survives restarts and redeploys.</li>
 <li><strong>Compliance and audit.</strong> Keep transcripts in storage you already govern, with your own retention rules, encryption, and access controls.</li>
 </ul>
 <h2 id="the-sessionstore-interface">The <code>SessionStore</code> interface</h2>
@@ -6116,36 +6143,36 @@ asyncio.run(main())
 <p>The second query prints a summary of the files from the first query, which shows the agent resumed with full context from the store.</p>
 <h2 id="write-your-own-adapter">Write your own adapter</h2>
 <p>Implement <code>append</code> and <code>load</code> against your backend. Add <code>listSessions</code>, <code>listSessionSummaries</code>, <code>delete</code>, and <code>listSubkeys</code> if you want <code>listSessions()</code>, one-call metadata reads, <code>deleteSession()</code>, and subagent resume to work against the store.</p>
-<p>Entries passed to <code>append</code> are typed as <code>SessionStoreEntry</code> (a <code>{ type: string; ... }</code> object). Treat them as opaque JSON-safe values: persist them in order and return them from <code>load</code> in the same order. <code>load</code> must return entries that are deep-equal to what was appended; byte-equal serialization is not required, so backends like Postgres <code>jsonb</code> that reorder object keys are fine.</p>
+<p>Entries passed to <code>append</code> are typed as <code>SessionStoreEntry</code> (a <code>{ type: string; ... }</code> object). Treat them as opaque JSON-safe values: persist them in order and return them from <code>load</code> in the same order. <code>load</code> must return entries that are deep-equal to what was appended; byte-equal serialization is not required, so a backend that reorders object keys, such as a binary JSON column type, is fine.</p>
 <h2 id="reference-implementations">Reference implementations</h2>
-<p>The TypeScript SDK repository includes runnable reference adapters for S3, Redis, and Postgres under <a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores"><code>examples/session-stores/</code></a>. They are not published to npm; copy the <code>src/</code> file you need into your project and install the corresponding backend client.</p>
+<p>Both SDK repositories include runnable reference adapters under <a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores"><code>examples/session-stores/</code></a> in TypeScript and <a href="https://github.com/anthropics/claude-agent-sdk-python/tree/main/examples/session_stores"><code>examples/session_stores/</code></a> in Python. There is one adapter per storage type, and each shows how <code>append</code> and <code>load</code> map onto that kind of backend. They are not published as packages; copy the adapter for the type closest to your backend into your project, install your backend's client, and adapt it.</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Adapter</th>
-<th style="text-align: left;">Backend client</th>
+<th style="text-align: left;">Storage type</th>
 <th style="text-align: left;">Storage model</th>
+<th style="text-align: left;">Example adapter</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;"><a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores/s3"><code>S3SessionStore</code></a></td>
-<td style="text-align: left;"><code>@aws-sdk/client-s3</code></td>
-<td style="text-align: left;">One JSONL part file per <code>append()</code>; <code>load()</code> lists, sorts, and concatenates.</td>
+<td style="text-align: left;">Object store</td>
+<td style="text-align: left;">One part file per <code>append()</code>; <code>load()</code> lists the parts, sorts them, and concatenates.</td>
+<td style="text-align: left;">S3 (<a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores/s3">TypeScript</a>, <a href="https://github.com/anthropics/claude-agent-sdk-python/blob/main/examples/session_stores/s3_session_store.py">Python</a>)</td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores/redis"><code>RedisSessionStore</code></a></td>
-<td style="text-align: left;"><code>ioredis</code></td>
-<td style="text-align: left;"><code>RPUSH</code>/<code>LRANGE</code> list per transcript, plus a sorted-set session index.</td>
+<td style="text-align: left;">Key-value store</td>
+<td style="text-align: left;">One list per transcript that <code>append()</code> pushes to and <code>load()</code> reads in range, plus a sorted index of sessions.</td>
+<td style="text-align: left;">Redis (<a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores/redis">TypeScript</a>, <a href="https://github.com/anthropics/claude-agent-sdk-python/blob/main/examples/session_stores/redis_session_store.py">Python</a>)</td>
 </tr>
 <tr>
-<td style="text-align: left;"><a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores/postgres"><code>PostgresSessionStore</code></a></td>
-<td style="text-align: left;"><code>pg</code></td>
-<td style="text-align: left;">One row per entry in a <code>jsonb</code> table, ordered by <code>BIGSERIAL</code>.</td>
+<td style="text-align: left;">Relational database or document store</td>
+<td style="text-align: left;">One row or document per entry, stored as JSON and ordered by a key assigned on insert.</td>
+<td style="text-align: left;">Postgres (<a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores/postgres">TypeScript</a>, <a href="https://github.com/anthropics/claude-agent-sdk-python/blob/main/examples/session_stores/postgres_session_store.py">Python</a>)</td>
 </tr>
 </tbody>
 </table>
-<p>Each adapter takes a pre-configured client instance, so you control credentials, TLS, region, and pooling. For example, with S3:</p>
+<p>Each adapter takes a pre-configured client instance, so you control credentials, TLS, region, and pooling. The following example wires the object-store adapter into <code>query()</code> and then resumes from it on another host:</p>
 <p>```typescript TypeScript theme={null}
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { S3Client } from "@aws-sdk/client-s3";
@@ -6230,7 +6257,7 @@ async def test_my_store_conformance():
 <h3 id="subagent-transcripts">Subagent transcripts</h3>
 <p>Subagent transcripts are mirrored under <code>subpath: "subagents/agent-&lt;id&gt;"</code>. <code>listSubagents({ sessionStore })</code> requires the adapter to implement <code>listSubkeys</code>; <code>getSubagentMessages({ sessionStore })</code> uses it when available but falls back to the direct subpath when it is undefined. Resume also calls <code>listSubkeys</code> to restore subagent files; without it, only the main transcript is materialized.</p>
 <h3 id="retention">Retention</h3>
-<p>The SDK never deletes from your store on its own. Retention is the adapter's responsibility: implement TTLs, S3 lifecycle policies, or scheduled cleanup according to your compliance requirements.</p>
+<p>The SDK never deletes from your store on its own. Retention is the adapter's responsibility: use your backend's expiry or lifecycle mechanism, or run scheduled cleanup, according to your compliance requirements.</p>
 <p>Local transcripts under <code>CLAUDE_CONFIG_DIR</code> are swept independently by the <code>cleanupPeriodDays</code> setting, following the <a href="/docs/en/claude-directory#cleaned-up-automatically">retention sweep rules</a>. A run <a href="#resume-from-the-store">resumed from the store</a> leaves no local transcript, so for those runs your store's retention is the only retention there is.</p>
 <h2 id="supported-on">Supported on</h2>
 <p>The following TypeScript SDK functions accept a <code>sessionStore</code> option and operate against the store instead of the local filesystem when it is provided:</p>
@@ -6253,7 +6280,7 @@ async def test_my_store_conformance():
 <li><a href="/docs/en/agent-sdk/sessions">Work with sessions</a>: Continue, resume, and fork without a custom store</li>
 <li><a href="/docs/en/agent-sdk/hosting">Host the SDK</a>: Deployment patterns for multi-host environments</li>
 <li><a href="/docs/en/agent-sdk/typescript#options">TypeScript <code>Options</code></a>: Full option reference</li>
-<li><a href="https://github.com/anthropics/claude-agent-sdk-typescript/tree/main/examples/session-stores"><code>examples/session-stores/</code></a>: Runnable S3, Redis, and Postgres reference adapters</li>
+<li><a href="#reference-implementations">Reference implementations</a>: Runnable example adapters for an object store, a key-value store, and a database, in both SDK repositories</li>
 </ul>
 
 

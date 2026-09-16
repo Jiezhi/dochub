@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -7185,15 +7212,17 @@ const myHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
 };</code></p>
 <h3 id="hook-timeout">Hook timeout</h3>
 <p>Claude Code runs each callback with a timeout, which you set in seconds with the <code>timeout</code> field on its <code>HookMatcher</code>. When you don't set one, Claude Code uses the event's default: 600 seconds for most events, 30 seconds for <code>UserPromptSubmit</code>, <code>PreModelSwitch</code>, and <code>PostModelSwitch</code>, and 10 seconds for <code>MessageDisplay</code>. Claude Code runs <code>SessionEnd</code> callbacks during shutdown under the shorter <a href="/docs/en/hooks#sessionend-input">SessionEnd timeout budget</a>, 1.5 seconds by default.</p>
-<p>When a callback exceeds its timeout, Claude Code cancels it and treats it as a failed hook: it discards the callback's output and the session continues rather than hanging. What happens next depends on the event:</p>
+<p>When a callback exceeds its timeout, Claude Code cancels it and discards its output, and the session continues rather than hanging. What happens next depends on the event:</p>
 <ul>
 <li><code>PreToolUse</code>: Claude Code doesn't run the tool call, Claude receives a tool result stating the hook didn't respond before its timeout, and the turn continues. If another <code>PreToolUse</code> hook returned an explicit deny, Claude receives that denial instead of the timeout error. Before v2.1.210, Claude Code reported the timeout to Claude as a user rejection, which made unattended sessions stop and wait for input.</li>
 <li><code>PostToolUse</code> and <code>PostToolUseFailure</code>: Claude Code keeps the tool result and the turn continues.</li>
 <li><code>UserPromptSubmit</code> and <a href="/docs/en/hooks#userpromptexpansion"><code>UserPromptExpansion</code></a>: Claude Code blocks the prompt with a message naming the hook and the timeout, and the session continues. Because a callback on these events can act as a policy gate, Claude Code never lets a timed-out prompt through unscreened. Before v2.1.208, Claude Code ended the query with <code>error_during_execution</code> when a callback on these events timed out.</li>
-<li><code>Stop</code> and <code>SubagentStop</code>: Claude Code shows a warning and the agent stops normally.</li>
+<li><code>Stop</code> and <code>SubagentStop</code>: the timed-out callback counts as returning no decision. The agent or subagent stops as if that callback had allowed it, and a decision from your other hooks on the event still applies. Before Claude Code v2.1.273, a timed-out <code>Stop</code> or <code>SubagentStop</code> callback counted as a failed hook run, and Claude Code discarded the decisions of your other hooks on the event.</li>
+<li><code>SessionStart</code>: the timed-out callback counts as returning no output, and the session continues with the output of your other <code>SessionStart</code> hooks.</li>
 <li><code>PreModelSwitch</code>: Claude Code blocks the model switch. A hook that doesn't answer hasn't approved the switch.</li>
 <li>Other events, such as <code>Notification</code>, <code>PreCompact</code>, and <code>PostModelSwitch</code>: Claude Code logs the failure and continues.</li>
 </ul>
+<p>The first time a <code>Stop</code> or <code>SessionStart</code> callback times out in the main session, Claude Code also adds an <a href="/docs/en/agent-sdk/typescript#sdkinformationalmessage"><code>SDKInformationalMessage</code></a> to the message stream saying the app driving the session didn't respond. Later timeouts don't repeat that message while your app stays unresponsive.</p>
 <p>If you interrupt the query while a callback is pending, Claude Code cancels the pending tool call. Before v2.1.208, the tool call could still proceed if you interrupted during a pending <code>PreToolUse</code> callback.</p>
 <p>If your callback needs more time, set a higher <code>timeout</code> on its <code>HookMatcher</code>. In TypeScript, use the <code>AbortSignal</code> from the third callback argument to handle cancellation gracefully when the timeout fires.</p>
 <h3 id="tool-blocked-unexpectedly">Tool blocked unexpectedly</h3>

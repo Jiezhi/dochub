@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -6247,6 +6274,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Time in milliseconds Claude Code waits for the AWS default credential provider chain to produce credentials before the request fails with <a href="/docs/en/errors#aws-default-chain-credential-resolve-timed-out"><code>AWS default-chain credential resolve timed out</code></a> (default: <code>60000</code>). Raise it when a step in your chain legitimately needs longer, such as a browser-based SSO sign-in with MFA through a wrapper like <code>aws-vault</code>. Applies wherever Claude Code signs with the default chain: <a href="/docs/en/amazon-bedrock#credential-caching-and-resolution-timeout">Amazon Bedrock</a>, <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a>, and the <a href="/docs/en/amazon-bedrock#use-the-mantle-endpoint">Mantle endpoint</a>. Requires Claude Code v2.1.207 or later</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>CLAUDE_CODE_BASH_EDIT_DIFF</code></td>
+<td style="text-align: left;">Set to <code>0</code> to turn off the <a href="/docs/en/hooks#bash">diff of the files a Bash command changed</a>, or <code>1</code> to record it in every permission mode. Takes precedence over the <a href="/docs/en/settings-reference#basheditdiffenabled"><code>bashEditDiffEnabled</code></a> setting. Requires Claude Code v2.1.269 or later</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_BRIDGE_SESSION_ID</code></td>
 <td style="text-align: left;">Set automatically in Bash tool and <a href="/docs/en/hooks">hook command</a> subprocesses while the session has an active <a href="/docs/en/remote-control">Remote Control</a> connection, and removed when the connection ends. The value is the session's ID in <code>session_</code> form, the same identifier that appears in the session's <code>claude.ai/code</code> URL, so a script can link back to the session that ran it. Requires Claude Code v2.1.199 or later. In <a href="/docs/en/claude-code-on-the-web">cloud sessions</a>, read <code>CLAUDE_CODE_REMOTE_SESSION_ID</code> instead</td>
 </tr>
@@ -6780,7 +6811,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS</code></td>
-<td style="text-align: left;">Override the time budget in milliseconds for <a href="/docs/en/hooks#sessionend">SessionEnd</a> hooks. Applies to session exit, <code>/clear</code>, and switching sessions via interactive <code>/resume</code>. By default the budget is 1.5 seconds, automatically raised to the highest per-hook <code>timeout</code> configured in settings files, up to 60 seconds. Timeouts on plugin-provided hooks do not raise the budget</td>
+<td style="text-align: left;">Override the time budget in milliseconds for <a href="/docs/en/hooks#sessionend">SessionEnd</a> hooks. The value is also the timeout for each hook that sets no <code>timeout</code> of its own. Applies to session exit, <code>/clear</code>, and switching sessions via interactive <code>/resume</code>. By default the budget is 1.5 seconds, automatically raised to the highest per-hook <code>timeout</code> configured in settings files, up to 60 seconds. Timeouts on plugin-provided hooks do not raise the budget</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SESSION_ID</code></td>
@@ -6856,7 +6887,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SUBPROCESS_ENV_SCRUB</code></td>
-<td style="text-align: left;">Set to <code>1</code> to strip credentials from subprocess environments (Bash tool, hooks, MCP stdio servers): Anthropic and cloud provider credentials, any other variable that Claude Code recognizes as a credential, and credentials embedded in package registry URLs. The parent Claude process keeps these credentials for API calls, but child processes cannot read them, reducing exposure to prompt injection attacks that attempt to exfiltrate secrets via shell expansion. On Linux, this also runs Bash subprocesses in an isolated PID namespace so they cannot read host process environments via <code>/proc</code>; as a side effect, <code>ps</code>, <code>pgrep</code>, and <code>kill</code> cannot see or signal host processes. <code>claude-code-action</code> sets this automatically when <code>allowed_non_write_users</code> is configured</td>
+<td style="text-align: left;">Set to <code>1</code> to strip credentials from subprocess environments (Bash tool, hooks, MCP stdio servers): Anthropic and cloud provider credentials, any other variable that Claude Code recognizes as a credential, and credentials embedded in package registry URLs. The parent Claude process keeps these credentials for API calls, but child processes cannot read them, reducing exposure to prompt injection attacks that attempt to exfiltrate secrets via shell expansion. On v2.1.251 or later, the scrub also removes Claude Code's own configuration-store pointer variables (such as <code>CLAUDE_CONFIG_DIR</code>), so a child process cannot locate a relocated configuration directory. Leave the scrub unset if a subprocess needs these variables. On Linux, this also runs Bash subprocesses in an isolated PID namespace so they cannot read host process environments via <code>/proc</code>; as a side effect, <code>ps</code>, <code>pgrep</code>, and <code>kill</code> cannot see or signal host processes. <code>claude-code-action</code> sets this automatically when <code>allowed_non_write_users</code> is configured</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SYNC_PLUGIN_INSTALL</code></td>
@@ -6868,7 +6899,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SYNC_SKILLS</code></td>
-<td style="text-align: left;">Set to <code>1</code> to download your enabled claude.ai skills into <code>~/.claude/skills/synced/</code> and resync every 10 minutes. Before it runs the first query, Claude Code waits up to <code>CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS</code> for the list of your skills. The downloads themselves finish in the background, and Claude waits for a skill's download when it invokes that skill. The <code>synced</code> folder name is <a href="/docs/en/skills#where-skills-live">reserved for this download</a>. Before v2.1.227, the skills downloaded into <code>~/.claude/skills/</code> directly. Applies only in non-interactive mode with the <code>-p</code> flag. Requires claude.ai authentication. <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> sessions receive your enabled claude.ai skills automatically; you don't need to set this there. Claude Code applies <a href="/docs/en/skills#how-synced-skills-behave">extra rules to the downloaded skills</a>, such as not running their <code>!</code> commands on your machine</td>
+<td style="text-align: left;">Set to <code>1</code> to download your enabled claude.ai skills into <code>~/.claude/skills/synced/</code> and resync every 10 minutes. Before it runs the first query, Claude Code waits up to <code>CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS</code> for the list of your skills. The downloads themselves finish in the background, and Claude waits for a skill's download when it invokes that skill. The <code>synced</code> folder name is <a href="/docs/en/skills#where-skills-live">reserved for this download</a>. Before v2.1.227, the skills downloaded into <code>~/.claude/skills/</code> directly. Applies only in non-interactive mode with the <code>-p</code> flag. Requires claude.ai authentication. <a href="/docs/en/claude-code-on-the-web">Cloud sessions</a> receive your enabled claude.ai skills automatically; you don't need to set this there. Claude Code applies <a href="/docs/en/skills#how-synced-skills-behave">extra rules to the downloaded skills</a>, such as not running their <code>!</code> commands on your machine</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SYNC_SKILLS_INSTALL_TIMEOUT_MS</code></td>

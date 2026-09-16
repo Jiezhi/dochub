@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -6679,7 +6706,7 @@ height: ring.h + 'px'
 </Tip></p>
 <p>Claude Code reads settings from JSON settings files such as <code>~/.claude/settings.json</code>. It looks for them in a few locations, and <a href="#settings-files-and-who-they-affect">the file it reads a setting from decides who the setting applies to</a>. This page covers those files: which one to put a setting in, how to change a setting and confirm it applied, and which value Claude Code uses when the same key is set in more than one file. <a href="/docs/en/permissions">Configure permissions</a> covers what Claude Code can run without asking and how to write <code>allow</code>, <code>ask</code>, and <code>deny</code> rules.</p>
 <p><Note>
-  This page covers Claude Code running on your machine: the terminal, the <a href="/docs/en/vs-code">VS Code</a> and <a href="/docs/en/jetbrains">JetBrains</a> extensions, and the <a href="/docs/en/desktop">desktop app</a>, which all read the same settings files. A cloud session on <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> runs on a different machine and reads only some of them; see <a href="#settings-in-cloud-sessions">Settings in cloud sessions</a>.
+  This page covers Claude Code running on your machine: the terminal, the <a href="/docs/en/vs-code">VS Code</a> and <a href="/docs/en/jetbrains">JetBrains</a> extensions, and the <a href="/docs/en/desktop">desktop app</a>, which all read the same settings files. A <a href="/docs/en/claude-code-on-the-web">cloud session</a> runs on a different machine and reads only some of them; see <a href="#settings-in-cloud-sessions">Settings in cloud sessions</a>.
 </Note></p>
 <p><span id="settings-files" /></p>
 <p><span id="configuration-scopes" /></p>
@@ -6760,7 +6787,7 @@ height: ring.h + 'px'
 <p><span id="keep-personal-settings-out-of-the-repository" /></p>
 <h3 id="keep-personal-settings-out-of-a-repository">Keep personal settings out of a repository</h3>
 <p>To change a setting for yourself in one project without changing it for your teammates, save it in <code>.claude/settings.local.json</code> inside the project. Claude Code applies that file over the committed <code>.claude/settings.json</code>, so if your team's file sets <code>"model": "claude-sonnet-5"</code> and you want Opus, put <code>"model": "claude-opus-4-8"</code> in your local file and only your sessions change.</p>
-<p>Three things to know about the local file:</p>
+<p>Claude Code also writes to this file, keeps it out of your commits, and applies its allow rules without the trust step:</p>
 <ul>
 <li><strong>Claude Code writes it too.</strong> When Claude asks permission to run a Bash command and you choose "Yes, and don't ask again", Claude Code saves that <a href="/docs/en/permissions#permission-system">permission approval</a> here as an <code>allow</code> rule.</li>
 <li><strong>You don't need to gitignore it yourself, unless you created it by hand.</strong> The first time Claude Code writes the file in a git repository that doesn't already ignore it, it adds <code>**/.claude/settings.local.json</code> to your global git excludes file, so the file stays out of your commits in every repository. That file is <code>core.excludesFile</code> when your global git config sets it to an absolute or <code>~</code>-prefixed path; otherwise it's <code>$XDG_CONFIG_HOME/git/ignore</code>, or <code>~/.config/git/ignore</code> when <code>XDG_CONFIG_HOME</code> is unset. If you created the file by hand and Claude Code hasn't written to it yet, add it to <code>.gitignore</code> yourself.</li>
@@ -6936,7 +6963,7 @@ claude --settings '{"model": "claude-opus-4-8"}'
 <h4 id="a-committed-key-doesnt-reach-teammates">A committed key doesn't reach teammates</h4>
 <p>Two things keep a key in <code>.claude/settings.json</code> from applying for everyone who clones it:</p>
 <ul>
-<li><strong>Claude Code ignores the key in a repository file.</strong> Look for <code>User, local, or managed</code>, <code>User or managed</code>, <code>Managed</code>, or <code>Global config</code> in the Scope column of the <a href="/docs/en/settings-reference#settings-index">settings index</a>; those keys never apply from the shared file, apart from <a href="/docs/en/settings-reference#autocontinueatusagelimit"><code>autoContinueAtUsageLimit</code></a>, which a repository file can still switch off: while the file sets the key and no user, <code>--settings</code>, or managed value does, Claude Code reads the setting as off. <code>Global config</code> keys apply only from <code>~/.claude.json</code>.</li>
+<li><strong>Claude Code ignores the key in a repository file.</strong> Look for <code>User, local, or managed</code>, <code>User or managed</code>, <code>Managed</code>, or <code>Global config</code> in the Scope column of the <a href="/docs/en/settings-reference#settings-index">settings index</a>. Those keys never apply from the shared file, apart from a few that a repository file can still switch off. Each of those entries says so on its Scope line. <code>Global config</code> keys apply only from <code>~/.claude.json</code>.</li>
 <li><strong>The key waits for trust.</strong> <code>permissions.allow</code> rules, <code>permissions.additionalDirectories</code>, <code>extraKnownMarketplaces</code>, and most <a href="/docs/en/settings-reference#env"><code>env</code></a> values apply only after each teammate <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">trusts the folder</a>. Until then they still see prompts and don't get plugins from a marketplace the file declares. <code>deny</code> and <code>ask</code> rules apply right away.</li>
 </ul>
 <h4 id="permission-rules-combine-differently-than-you-expected">Permission rules combine differently than you expected</h4>
@@ -7000,12 +7027,12 @@ claude --settings '{"model": "claude-opus-4-8"}'
 </table>
 <p>An app that runs Claude Code inside itself and sets <a href="/docs/en/env-vars"><code>CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST</code></a> is also an exception. Claude Code takes that app's model configuration over the <code>model</code>, <code>fallbackModel</code>, <code>modelPicker</code>, and <code>modelOverrides</code> keys from every managed source, and over the model-selection variables in a managed <code>env</code> block, such as <code>ANTHROPIC_MODEL</code> and the <code>ANTHROPIC_DEFAULT_*_MODEL</code> family. Claude Code keeps a managed <a href="/docs/en/settings-reference#availablemodels"><code>availableModels</code></a> allowlist in force unless the app supplies its own.</p>
 <h2 id="settings-in-cloud-sessions">Settings in cloud sessions</h2>
-<p>A cloud session, on <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> or from <a href="/docs/en/claude-code-on-the-web#from-terminal-to-web"><code>claude --cloud</code></a>, runs in a <a href="/docs/en/cloud-environments">cloud environment</a> on a fresh clone of your repository, not on your machine. That changes which settings reach it:</p>
+<p>A <a href="/docs/en/claude-code-on-the-web">cloud session</a> runs in a <a href="/docs/en/cloud-environments">cloud environment</a> on a fresh clone of your repository, not on your machine. That changes which settings reach it:</p>
 <ul>
 <li><strong>Shared project settings</strong> (<code>.claude/settings.json</code>): read, because the file is part of the clone. Commit a setting there to apply it in cloud sessions.</li>
 <li><strong>User and project local settings</strong> (<code>~/.claude/settings.json</code> and <code>.claude/settings.local.json</code>): not read. Both stay on your machine, and the local file isn't in the clone.</li>
 <li><strong>Managed settings</strong>: only <a href="/docs/en/server-managed-settings">server-managed settings</a> reach a cloud session; a <code>managed-settings.json</code> file or MDM profile on your device doesn't. A <a href="/docs/en/self-hosted-environments">self-hosted environment</a> also reads the managed settings file in its runner image. <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">How Claude Code combines managed sources</a> says when that file applies.</li>
-<li><strong><code>/config</code></strong>: on the web, opens the Claude Code section of your claude.ai settings instead of changing a value. To change a setting for a cloud session, set an <a href="/docs/en/cloud-environments#set-environment-variables">environment variable</a> on the environment or commit the key to the repository's <code>.claude/settings.json</code>.</li>
+<li><strong><code>/config</code></strong>: in your browser at claude.ai/code, opens the Claude Code section of your claude.ai settings instead of changing a value. To change a setting for a cloud session, set an <a href="/docs/en/cloud-environments#set-environment-variables">environment variable</a> on the environment or commit the key to the repository's <code>.claude/settings.json</code>.</li>
 </ul>
 <p><a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">What carries over from your setup</a> lists the rest: <code>CLAUDE.md</code>, skills, MCP servers, plugins, and credentials.</p>
 <h2 id="whats-next">What's next</h2>

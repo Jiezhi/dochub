@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -7599,7 +7626,7 @@ models:
 </code></pre></div></p>
 <p>Each key under <code>upstream_model</code> must match the <code>name</code> of a configured upstream, which defaults to the provider name. A key that matches no upstream fails boot, so omit the lines for providers you don't use.</p>
 <h3 id="managed"><code>managed</code></h3>
-<p>The <code>managed</code> block defines role-based access policies keyed on IdP groups or email domain. Policies are evaluated in order; the first match is selected, then merged onto the <code>match: {}</code> catch-all base described below. They are served per-user at <code>GET /managed/settings</code> with ETag/304 caching.</p>
+<p>The <code>managed</code> block defines role-based access policies keyed on IdP groups or email domain. Policies are evaluated in order; the first match is selected, then merged onto the <code>match: {}</code> catch-all base. They are served per-user at <code>GET /managed/settings</code> with ETag/304 caching.</p>
 <p>```yaml theme={null}
 managed:
   policies:
@@ -7856,7 +7883,7 @@ telemetry:
   Each destination opts into <code>metrics</code>, <code>logs</code>, and <code>traces</code> independently, and the default is metrics only. The signals differ in sensitivity:</p>
 <ul>
 <li><strong>Metrics</strong>: aggregate counters such as token counts, request counts, and latency</li>
-<li><strong>Logs and traces</strong>: can carry full bash commands, tool inputs, and file paths, covering anything Claude Code does on a developer's machine</li>
+<li><strong>Logs and traces</strong>: can carry full Bash commands, tool inputs, and file paths, covering anything Claude Code does on a developer's machine</li>
 </ul>
 <p>Enable logs and traces only on destinations with the access controls and retention policy that data warrants.
 </Warning></p>
@@ -7963,6 +7990,14 @@ telemetry:
 </tr>
 </tbody>
 </table>
+<p>If you leave both <code>access_control</code> lists empty, which is the default, the gateway serves any client address, so only your network restricts who can reach it. That matters because a gateway can push <a href="#managed">managed settings</a> that run commands on developer machines.</p>
+<p>While <code>allow_cidrs</code> is empty, the gateway warns in two places, without changing how it answers any request:</p>
+<ul>
+<li><strong>At boot</strong>: a warning in the operational log recommends allowing only the private ranges <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>, <code>100.64.0.0/10</code>, <code>127.0.0.0/8</code>, <code>::1/128</code>, and <code>fc00::/7</code>, plus any other internal ranges your developers connect from. If you bind the gateway to a loopback address and set neither <code>trusted_proxies</code> nor <code>public_url</code>, as in local development, the warning doesn't appear.</li>
+<li><strong>At runtime</strong>: the first time a request arrives from an address outside those private ranges, the gateway logs a warning and emits an <a href="/docs/en/claude-apps-gateway-deploy#logs"><code>access.public_client</code> audit event</a> carrying the client IP. Both fire once per process. Link-local addresses, <code>169.254.0.0/16</code> and <code>fe80::/10</code>, don't count as public. The gateway answers <code>/healthz</code> and <code>/readyz</code> before this check runs, so health probes from public ranges don't trigger it.</li>
+</ul>
+<p>Both signals use the client address as the gateway resolves it. If a load balancer, port-forward, or tunnel relays traffic and isn't listed in <code>listen.trusted_proxies</code>, the gateway sees the relay's address, which is usually private, so neither the runtime warning nor a private allow list catches traffic relayed through it.</p>
+<p>Behind such a front end, set <a href="#listen"><code>listen.trusted_proxies</code></a> first so the gateway sees real client addresses, and keep the gateway and everything in front of it unreachable from the public internet regardless.</p>
 <h2 id="complete-example">Complete example</h2>
 <p>This full reference config exercises every core section; the <a href="#http-tuning">HTTP tuning blocks</a> keep their defaults. Copy it, delete what you don't need, and fill in your values. The config in the <a href="/docs/en/claude-apps-gateway#quickstart">Quickstart</a> is a minimal version of this.</p>
 <p>```yaml gateway.yaml theme={null}</p>
@@ -8106,7 +8141,7 @@ For the CLI, set these keys in the per-OS `managed-settings.json`. The two login
 <p>Deploy the <code>managed-settings.json</code> file to each device, typically via your MDM platform. The file path differs by platform. See <a href="/docs/en/managed-settings#where-each-mechanism-stores-the-policy">where each mechanism stores the policy</a>.</p>
 <p>By default, a registry policy on Windows or a managed-preferences plist on macOS replaces the <code>managed-settings.json</code> file rather than merging with it, apart from the <a href="#precedence-with-other-managed-sources">exception keys and cross-source checks above</a>. All three keys in this snippet follow the highest-priority-source rule, so fleets that deliver policy through Group Policy or configuration profiles must put all three in that mechanism instead.</p>
 <p>For Claude Desktop, set the <code>bootstrapUrl</code> key in Claude Desktop's own <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration</a> to <code>&lt;listen.public_url&gt;/user/bootstrap</code>. The sign-in flow and per-group policy then match the CLI's once a policy opts in server-side with a <code>desktop</code> key; without the opt-in, <code>/user/bootstrap</code> returns 404. See <a href="#claude-desktop-overlay">Claude Desktop overlay</a> for the server-side half.</p>
-<p><a href="/docs/en/settings-reference#forcelogingatewayurl"><code>forceLoginGatewayUrl</code></a>, and the <code>"gateway"</code> value of <a href="/docs/en/settings-reference#forceloginmethod"><code>forceLoginMethod</code></a>, are honored only from a managed source on the machine: <code>managed-settings.json</code>, the macOS plist or Windows HKLM registry, or a policy helper. A developer setting them in their own <code>~/.claude/settings.json</code> has no effect, and neither does setting them in the gateway payload.</p>
+<p>Claude Code honors <a href="/docs/en/settings-reference#forcelogingatewayurl"><code>forceLoginGatewayUrl</code></a>, <a href="/docs/en/settings-reference#gatewayinternalnetworks"><code>gatewayInternalNetworks</code></a>, and the <code>"gateway"</code> value of <a href="/docs/en/settings-reference#forceloginmethod"><code>forceLoginMethod</code></a> only from a managed source on the machine: <code>managed-settings.json</code>, the macOS plist or Windows HKLM registry, or a policy helper. A developer setting them in their own <code>~/.claude/settings.json</code> has no effect, and neither does setting them in the gateway payload.</p>
 <h2 id="related">Related</h2>
 <ul>
 <li><a href="/docs/en/claude-apps-gateway">Claude apps gateway overview</a>: quickstart and developer connection</li>

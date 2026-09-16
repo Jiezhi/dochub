@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -6763,12 +6790,12 @@ Model changes that Claude Code makes on your behalf are checked the same way:
 </tbody>
 </table>
 <ul>
-<li>Cloud sessions, on <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> or in the Desktop app, run on Anthropic-managed VMs by default: settings deployed to your device do not reach them, so deliver the allowlist through server-managed settings. Sessions your organization routes to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> run on your own compute and also read the managed settings file in the runner image. <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">How Claude Code combines managed sources</a> says when that file applies. A mid-session model switch in a cloud session is rejected when the requested model is excluded by the allowlist. Server-side rejection at session creation applies to <a href="#organization-model-restrictions">organization model restrictions</a>, not the <code>availableModels</code> settings key.</li>
+<li><a href="/docs/en/claude-code-on-the-web">Cloud sessions</a>, including those you start from the Desktop app, run on Anthropic-managed VMs by default: settings deployed to your device do not reach them, so deliver the allowlist through server-managed settings. Sessions your organization routes to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> run on your own compute and also read the managed settings file in the runner image. <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">How Claude Code combines managed sources</a> says when that file applies. A mid-session model switch in a cloud session is rejected when the requested model is excluded by the allowlist. When the <code>availableModels</code> list in your server-managed settings is non-empty, the server rejects a user's request to start a cloud session on a model the list excludes.</li>
 <li>Cowork, the agentic-work tab in the Claude Desktop app, runs its sessions on Claude Code but, by design, does not receive server-managed settings from the claude.ai admin console. A managed settings file applies to Cowork sessions when it is present where the session runs; remote Cowork sessions run on Anthropic-managed VMs, where a device-deployed file is not present.</li>
 <li>Sessions on <a href="/docs/en/server-managed-settings#platform-availability">third-party providers</a> such as Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and <a href="/docs/en/claude-platform-on-aws">Claude Platform on AWS</a> do not receive server-managed settings, so deliver the allowlist through MDM or managed settings files there.</li>
 <li>Server-managed delivery also requires the session to authenticate with an <a href="/docs/en/server-managed-settings#platform-availability">eligible login or key</a>. Fleets that generate keys only through an <a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a> script should deliver the allowlist through MDM or managed settings files.</li>
 <li>The Desktop Code tab also hosts <a href="/docs/en/desktop#ssh-sessions">SSH sessions</a>, which read the managed settings file from the remote host they run on. See <a href="/docs/en/desktop#managed-settings">Desktop managed settings</a>.</li>
-<li>The model pickers on claude.ai and in the Desktop app hide or grey out models excluded by your organization's allowlist. The picker state is a convenience for users; enforcement happens in the session.</li>
+<li>The model pickers on claude.ai and in the Desktop app hide or grey out models excluded by your organization's allowlist. The picker state is a convenience for users; it doesn't enforce the allowlist.</li>
 </ul>
 <h3 id="default-model-behavior">Default model behavior</h3>
 <p>On its own, <code>availableModels</code> leaves the Default option on the system's <a href="#default-model-setting">runtime default</a> for the account until you also set <a href="#enforce-the-allowlist-for-the-default-model"><code>enforceAvailableModels</code></a>. If that default is a model you intend to restrict, set <code>enforceAvailableModels</code> as well.</p>
@@ -6818,7 +6845,7 @@ This example starts users on Sonnet 4.5, limits the picker to Sonnet and Haiku, 
 <h3 id="organization-model-restrictions">Organization model restrictions</h3>
 <p>Organization admins on Claude Enterprise plans restrict which models members can run by disabling individual models in the claude.ai admin console. This restriction is delivered with the account's entitlements when Claude Code authenticates, separate from any <code>availableModels</code> list in settings, and the server enforces the same restriction independently when a session is created. Requires Claude Code v2.1.187 or later.</p>
 <p>The restriction applies when a member signs in or uses their own API key. Organization-scoped credentials, such as organization service keys, are not tied to a user, so the restriction does not apply to them.</p>
-<p>The Claude Console has no model restriction control. Organizations without a Claude Enterprise plan, including those whose members authenticate through the Anthropic API, restrict models with <a href="#restrict-model-selection"><code>availableModels</code></a> in <a href="/docs/en/managed-settings">managed settings</a> instead, adding <a href="#enforce-the-allowlist-for-the-default-model"><code>enforceAvailableModels</code></a> to cover the Default option. These settings are enforced by Claude Code itself, not by the server.</p>
+<p>The Claude Console has no model restriction control. Organizations without a Claude Enterprise plan, including those whose members authenticate through the Anthropic API, restrict models with <a href="#restrict-model-selection"><code>availableModels</code></a> in <a href="/docs/en/managed-settings">managed settings</a> instead, adding <a href="#enforce-the-allowlist-for-the-default-model"><code>enforceAvailableModels</code></a> to cover the Default option. <a href="#surface-coverage">Surface coverage</a> says how each surface receives and enforces these settings.</p>
 <p>A restricted model is hidden from the <code>/model</code> picker. Selecting it by name with <code>--model</code>, the <code>ANTHROPIC_MODEL</code> environment variable, or the <code>model</code> setting shows the notice <code>Model "&lt;name&gt;" is restricted by your organization's settings. Using &lt;model&gt; instead.</code> and the session starts on an allowed model. Typing <code>/model &lt;name&gt;</code> for a restricted model is rejected with <code>Model '&lt;name&gt;' is restricted by your organization's settings. Run /model to choose a different model.</code> and the session keeps its current model.</p>
 <p>A <a href="#restrict-model-selection">model family alias</a> such as <code>opus</code> resolves to its usual model when the organization permits it. When the organization restricts that model, Claude Code substitutes the newest version of the family that the organization permits, with the same substitution notice. <code>/model &lt;alias&gt;</code> is rejected only when every version of its family is restricted; an alias set with <code>--model</code>, <code>ANTHROPIC_MODEL</code>, or the <code>model</code> setting is still replaced at startup in that case. Before v2.1.205, a family alias was substituted or rejected based on its newest released version alone, even when an older version was allowed.</p>
 <p>Restrictions apply org-wide or per role:</p>
@@ -6919,7 +6946,7 @@ claude --fallback-model sonnet,haiku
 <ul>
 <li>When the flagged category has no fallback model, such as a biology flag on Opus 5, Claude Code doesn't show the prompt and the request ends with the refusal.</li>
 <li>If both models flag the same request, you can edit the prompt and retry, or start a new session.</li>
-<li>On mobile <a href="/docs/en/claude-code-on-the-web">Claude Code on the web</a> sessions, editing and retrying is not supported. Switch models, or continue the session from a desktop browser or the desktop app.</li>
+<li>In <a href="/docs/en/claude-code-on-the-web">cloud sessions</a> on the mobile app, editing and retrying is not supported. Switch models, or continue the session from a desktop browser or the desktop app.</li>
 <li>In <a href="/docs/en/cli-reference#cli-flags">non-interactive mode</a> and SDK integrations that can't show the prompt, a flagged request ends the turn with a refusal instead.</li>
 <li>When the fallback target is blocked by <a href="#restrict-model-selection"><code>availableModels</code></a>, Claude Code doesn't show the prompt. The flagged request ends with the refusal, the same as automatic fallback when the target is blocked.</li>
 </ul>

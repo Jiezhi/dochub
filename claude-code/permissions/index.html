@@ -360,6 +360,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../agent-sdk__configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent sdk  configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../agent-sdk__cost-tracking/" class="md-nav__link">
         
   
@@ -6425,7 +6452,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Deny</strong> rules prevent Claude Code from using the specified tool.</li>
 </ul>
 <p>Rules are evaluated in order: deny, then ask, then allow. The first match in that order determines the outcome, and rule specificity doesn't change the order.</p>
-<p>A broad deny rule like <code>Bash(aws *)</code> blocks every matching call, including calls that also match a narrower allow rule like <code>Bash(aws s3 ls)</code>, so a deny rule can't carry allowlist exceptions. The same precedence applies between ask and allow: a matching ask rule prompts even when a more specific allow rule also matches the same call.</p>
+<p>A broad deny rule like <code>Bash(aws *)</code> blocks every matching call, including calls that also match a narrower allow rule like <code>Bash(aws s3 ls)</code>. An allow rule can't carve an exception out of a deny rule. The same precedence applies between ask and allow: a matching ask rule prompts even when a more specific allow rule also matches the same call.</p>
 <p>Deny rules behave differently depending on whether they name a tool or scope a pattern within one. A bare tool name like <code>Bash</code> removes the tool from Claude's context entirely, so Claude never sees it. If you add such a rule mid-session, Claude can't call the tool from its next tool call on; <a href="/docs/en/prompt-caching#denying-an-entire-tool">Denying an entire tool</a> covers what happens to a definition Claude has already seen. A scoped rule like <code>Bash(rm *)</code> leaves the tool available and blocks matching calls when Claude attempts them.</p>
 <p>Bare-name removal applies to every tool except <a href="/docs/en/tools-reference#endconversation-tool-behavior"><code>EndConversation</code></a>: a deny rule can't remove it while any other tool remains, and an ask rule never prompts for it.</p>
 <p><Note>
@@ -6708,6 +6735,7 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 <li><strong>Input redirects</strong>: for <code>&lt; file</code>, the check covers your <code>Read</code> allow and deny rules and the working directories. A target outside the working directories needs your approval unless an allow rule covers it. A target that contains a glob pattern, or a relative path that follows a <code>cd</code> in the same command, needs your approval even when an allow rule covers it. Claude Code checks input targets in v2.1.257 and later.</li>
 </ul>
 <p>Targets with no file behind them aren't checked: <code>/dev/null</code>, file-descriptor forms such as <code>2&gt;&amp;1</code> and <code>&lt;&amp;3</code>, and here-docs and here-strings.</p>
+<p>Claude Code also checks the files a <code>tee</code> command writes, including in a pipeline such as <code>make | tee build.log</code>. The check covers your <code>Edit</code> allow and deny rules, <a href="/docs/en/permission-modes#protected-paths">protected paths</a>, and the <a href="#working-directories">working directories</a>. An allow rule such as <code>Bash(tee *)</code> doesn't cover a destination outside the working directories. Claude Code checks <code>tee</code> targets in v2.1.269 and later.</p>
 <h3 id="powershell">PowerShell</h3>
 <p>PowerShell permission rules use the same shape as Bash rules. Wildcards with <code>*</code> match at any position, the <code>:*</code> suffix is equivalent to a trailing <code>*</code>, and a bare <code>PowerShell</code> or <code>PowerShell(*)</code> matches every command. This configuration allows <code>Get-ChildItem</code> and <code>git commit</code> commands while blocking <code>Remove-Item</code>:</p>
 <p>```json theme={null}
@@ -6737,7 +6765,7 @@ A `Read` deny rule also blocks the [Edit and Write tools](/docs/en/errors#file-i
 Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only. If you write a path rule for `Write`, `NotebookEdit`, `Glob`, or the legacy `MultiEdit` tool instead, Claude Code accepts the rule but never consults it, and [warns at startup](/docs/en/errors#is-not-matched-by-file-permission-checks), except for a `Glob` rule passed in `--allowedTools`. Use `Edit(docs/**)` in place of `Write(docs/**)`, `NotebookEdit(docs/**)`, or `MultiEdit(docs/**)`, and `Read(docs/**)` in place of `Glob(docs/**)`. Claude Code doesn't warn about a tool-name rule with no path, such as a deny rule for `Write`; it matches that rule at the tool level everywhere. Requires Claude Code v2.1.210 or later.
 
 &lt;Warning&gt;
-  Read and Edit deny rules apply to Claude's built-in file tools, to file commands Claude Code recognizes in Bash, such as `cat`, `head`, `tail`, and `sed`, and to the targets of Bash [redirections](#redirections) such as `&gt; file` and `&lt; file`. They don't apply to a command that reads files without naming them, such as `grep -r pattern .` run from the directory that holds the file, or to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, [enable the sandbox](/docs/en/sandboxing).
+  Read and Edit deny rules apply to Claude's built-in file tools, to file commands Claude Code recognizes in Bash, such as `cat`, `head`, `tail`, `sed`, and `tee`, and to the targets of Bash [redirections](#redirections) such as `&gt; file` and `&lt; file`. They don't apply to a command that reads files without naming them, such as `grep -r pattern .` run from the directory that holds the file, or to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself. For OS-level enforcement that blocks all processes from accessing a path, [enable the sandbox](/docs/en/sandboxing).
 &lt;/Warning&gt;
 
 Read and Edit rules both use [gitignore](https://git-scm.com/docs/gitignore) pattern syntax with four distinct pattern types; for single-segment directory patterns, the matching depth also depends on the rule type, described later in this section:
@@ -6840,6 +6868,13 @@ The following example shows each pattern shape against a project with a top-leve
 <p>When you approve a file path with "Yes, and don't ask again", Claude Code escapes gitignore pattern characters in that path, such as <code>[</code>, <code>]</code>, and <code>*</code>, so the generated rule matches only the literal path you approved. Rules you write yourself aren't escaped. Before v2.1.202, Claude Code saved the path unescaped, so a generated rule for a directory named <code>[2024-06] Reports</code> could fail to match its own path or match unintended sibling directories.</p>
 <p>You don't need to escape parentheses in a path, so <code>Edit(./Finance (2024)/**)</code> matches the <code>Finance (2024)</code> folder as spelled.</p>
 <p>A deny or ask rule whose path isn't usable as a gitignore pattern still guards that exact path. An allow rule with an unusable pattern doesn't approve anything.</p>
+<p>A deny or ask pattern that starts with <code>!</code> is a gitignore negation. It carves the paths it matches out of the <code>path</code> or <code>./path</code> rules listed before it. In one settings file's <code>deny</code> list, <code>Read(*.env)</code> followed by <code>Read(!sample.env)</code> blocks every file whose name ends in <code>.env</code> at any depth, except files named <code>sample.env</code>. A <code>!</code> rule listed first carves nothing out.</p>
+<p>The carve-out reaches only rules from the same source. A <code>Read(!.env)</code> in project settings or in <code>--disallowedTools</code> doesn't cancel a <code>Read(./.env)</code> deny from managed settings or any other settings file.</p>
+<p>Two limits narrow what a <code>!</code> pattern can carve out:</p>
+<ul>
+<li>Claude Code reads a <code>!</code> pattern relative to the current directory even when <code>/</code>, <code>~/</code>, or <code>//</code> follows the <code>!</code>, so the pattern can't reach a rule anchored with one of those prefixes. <code>Read(!~/notes/public/**)</code> carves nothing out of <code>Read(~/notes/**)</code>.</li>
+<li>A carve-out can't reopen a file inside a directory that a rule blocks as a whole. With <code>Read(secrets/**)</code> and <code>Read(!secrets/public/**)</code>, Claude Code still blocks <code>secrets/public</code> along with the rest of <code>secrets</code>.</li>
+</ul>
 <p>When Claude accesses a symlink, permission rules check two paths: the symlink itself and the file it resolves to. Allow and deny rules treat that pair differently: allow rules fall back to prompting you, while deny rules block outright.</p>
 <ul>
 <li><strong>Allow rules</strong>: apply only when both the symlink path and its target match. A symlink inside an allowed directory that points outside it still prompts you.</li>
@@ -6890,7 +6925,9 @@ The following example shows each pattern shape against a project with a top-leve
     "allow": ["WebFetch"]
   }
 }
-<div class="highlight"><pre><span></span><code>When you ask Claude to fetch a page, it fetches without a prompt. When you ask it to run a [sandboxed](/docs/en/sandboxing) `curl` against a host outside the sandbox allowlist, Claude Code still prompts you for that host, or in [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode) sends the request to the classifier, because the bare rule didn't add the host to the allowlist.
+<div class="highlight"><pre><span></span><code>When you ask Claude to fetch a page, it fetches without a prompt. When you ask it to run a [sandboxed](/docs/en/sandboxing) `curl` against a host outside the sandbox allowlist, Claude Code still prompts you for that host, because the bare rule didn't add the host to the allowlist.
+
+In [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode), Claude instead names the host in the command's [per-command allowed domains](/docs/en/sandboxing#per-command-allowed-domains-in-auto-mode) for the classifier to review.
 
 ### MCP
 
@@ -7027,7 +7064,7 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <p>Permissions and <a href="/docs/en/sandboxing">sandboxing</a> are complementary security layers:</p>
 <ul>
 <li><strong>Permissions</strong> control which tools Claude Code can use and which files or domains it can access. They apply to Bash, Read, Edit, WebFetch, MCP, and every other tool, except that a deny or ask rule can't block <a href="/docs/en/tools-reference#endconversation-tool-behavior"><code>EndConversation</code></a> while any other tool remains.</li>
-<li><strong>Sandboxing</strong> provides OS-level enforcement that restricts the Bash tool's filesystem and network access. It applies only to Bash commands and their child processes.</li>
+<li><strong>Sandboxing</strong> provides OS-level enforcement that restricts shell commands' filesystem and network access. It applies only to Bash, PowerShell, and <a href="/docs/en/tools-reference#monitor-tool">Monitor</a> commands and their child processes.</li>
 </ul>
 <p>Use both for defense-in-depth, since sandbox restrictions still apply even if a prompt injection bypasses Claude's decision-making. Paths and domains from both sandbox settings and permission rules are <a href="/docs/en/sandboxing#permission-rules">merged into the final sandbox configuration</a>.</p>
 <p>When you enable sandboxing and leave <code>autoAllowBashIfSandboxed</code> at its default of <code>true</code>, sandboxed Bash commands run without prompting even if your permissions include a bare <code>Bash</code> ask rule, or the <a href="#match-all-uses-of-a-tool">equivalent <code>Bash(*)</code> form</a>: the sandbox boundary substitutes for that whole-tool prompt.</p>
