@@ -6584,8 +6584,8 @@ Either way, Claude should respond with a short summary of your edit and a list o
 </tr>
 <tr>
 <td style="text-align: left;">claude.ai account</td>
-<td style="text-align: left;">Skills you enable in your claude.ai settings</td>
-<td style="text-align: left;">Cowork and cloud sessions. See <a href="#how-synced-skills-behave">Skills synced from claude.ai</a> for local sessions</td>
+<td style="text-align: left;">Skills enabled for your claude.ai account</td>
+<td style="text-align: left;">Cowork sessions, cloud sessions, and terminal sessions where you sign in with that account. See <a href="#how-synced-skills-behave">Skills synced from claude.ai</a></td>
 </tr>
 </tbody>
 </table>
@@ -6665,28 +6665,24 @@ Either way, Claude should respond with a short summary of your edit and a list o
   Skills synced from claude.ai
 </h3>
 
-<p>This section applies to you if you enabled skills for your claude.ai account. In Cowork and cloud sessions, Claude Code loads those skills without any setup on your machine. In any other session on your machine, Claude Code loads them only after you turn syncing on with <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_SYNC_SKILLS</code></a> in a non-interactive run, as <a href="#where-synced-skills-load">Where synced skills load</a> describes.</p>
+<p>This section applies to you if you use Cowork or cloud sessions, or sign in to Claude Code in your terminal with a claude.ai account. In those sessions, Claude Code loads the skills enabled for your claude.ai account, with no setup on your part, as <a href="#where-synced-skills-load">Where synced skills load</a> describes. Those skills include the ones you create or turn on in your claude.ai settings, skills your organization provides there, and Anthropic's built-in skills such as <code>pdf</code> and <code>xlsx</code>.</p>
 <p>Claude Code downloads a synced skill from your account rather than reading a file you wrote on the machine where the session runs, so it applies rules to synced skills that don't apply to the skills you store in the <a href="#where-skills-live">skills locations</a>.</p>
 <h4 id="where-synced-skills-load">Where synced skills load</h4>
 <p>In a Cowork or cloud session, Claude Code loads the skills enabled for your claude.ai account, and <a href="#skills-in-cowork-and-cloud-sessions">Skills in Cowork and cloud sessions</a> says how to choose which skills those sessions get.</p>
-<p>In any other session on your machine, Claude Code loads them only after you download them once in a non-interactive run:</p>
-<p><Steps>
-  <Step title="Enable the skills for your claude.ai account">
-    Enable each skill you want for your claude.ai account, as <a href="#skills-in-cowork-and-cloud-sessions">Skills in Cowork and cloud sessions</a> describes. Claude Code downloads only the skills you enabled, and it needs your claude.ai sign-in to download them.
-  </Step></p>
-<p><Step title="Run Claude Code in non-interactive mode with syncing turned on">
-    Claude Code downloads synced skills only when you run it in <a href="/docs/en/headless">non-interactive mode</a> with the <code>-p</code> flag and set <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_SYNC_SKILLS</code></a> to <code>1</code>. The prompt you pass doesn't affect the download.</p>
-<pre><code>```bash theme={null}
-CLAUDE_CODE_SYNC_SKILLS=1 claude -p "List the skills you have available"
-```
-
-Claude Code downloads the skills into `~/.claude/skills/synced/`, answers the prompt, and exits like any other non-interactive run. The downloaded skills stay on disk after it exits, so you don't need to keep the run open. Claude Code downloads skills only during a run with `CLAUDE_CODE_SYNC_SKILLS` set, so after you enable or change a skill on claude.ai, run the command again. To change how long the run waits for the sync before it answers the prompt, set [`CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS`](/docs/en/env-vars#variables).
-</code></pre>
-<p></Step></p>
-<p><Step title="Confirm the skills load in a local session">
-    Start an interactive session, without <code>CLAUDE_CODE_SYNC_SKILLS</code> set, and run <code>/skills</code>. The menu lists the downloaded skills under <code>claude.ai sync</code>. Every local session you start afterwards with the same claude.ai sign-in loads them from <code>~/.claude/skills/synced/</code> too.
-  </Step>
-</Steps></p>
+<p>In your terminal, Claude Code syncs those skills in sessions where you sign in with your claude.ai account. When the session starts, Claude Code downloads your account's skills into <code>~/.claude/skills/synced/</code> in the background, then checks claude.ai for changes about every 10 minutes while the session runs. When a check finds that a skill was added, edited, or turned off on claude.ai, Claude Code adds, updates, or removes it in the running session without a restart. Syncing in terminal sessions requires Claude Code v2.1.273 or later.</p>
+<p>The sync never delays startup, because Claude waits for a skill's download only when it invokes that skill. A short <a href="/docs/en/headless">non-interactive</a> run can therefore finish before a newly added skill downloads, in which case a later session downloads it. To make a non-interactive run download your skills and wait for the list before it answers the prompt, set <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_SYNC_SKILLS</code></a> to <code>1</code>.</p>
+<p>Claude Code syncs only in a session that signs in with your claude.ai account and <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">fetches feature flags from Anthropic</a>. It doesn't sync in these sessions:</p>
+<ul>
+<li>A session that doesn't use a sign-in stored by <code>/login</code>, such as one that authenticates with an API key, or one where <code>ANTHROPIC_AUTH_TOKEN</code>, <code>CLAUDE_CODE_OAUTH_TOKEN</code>, or an <code>apiKeyHelper</code> script supplies the credential</li>
+<li>A session that doesn't fetch feature flags, such as one on Amazon Bedrock or one where you set <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</code></li>
+<li>A session in <a href="/docs/en/headless#start-faster-with-bare-mode">bare mode</a> or one you start with <code>--safe-mode</code></li>
+<li>A session where your organization's managed settings <a href="/docs/en/settings-reference#strictpluginonlycustomization-skills">lock skills to plugin sources</a>, or one you start with a <a href="/docs/en/cli-reference#cli-flags"><code>--setting-sources</code></a> list that leaves out <code>user</code></li>
+</ul>
+<p>If you sign in with <code>/login</code> during a session, restart Claude Code to start syncing.</p>
+<p>Skills that an earlier session synced stay on disk. Claude Code loads them in later sessions signed in to the same account, even when it can't reach claude.ai.</p>
+<p>To see which skills synced, run <code>/skills</code>. The menu lists them under <code>claude.ai sync</code>.</p>
+<p>Some of Anthropic's skills, such as <code>pdf</code> and <code>xlsx</code>, always sync. For the rest, turn a skill on or off in your skills settings on claude.ai to change whether it syncs.</p>
+<p>To stop syncing on a machine, set <a href="/docs/en/settings-reference#syncclaudeaiskills"><code>syncClaudeAiSkills</code></a> to <code>false</code> in your user settings. Claude Code stops downloading, and the next time it starts it moves the skills it already synced to <code>~/.claude/skills/.trash/</code> and no longer loads them. Your organization can turn syncing off for everyone by turning off Skills on claude.ai. To stop syncing while leaving Skills on, it can set the same key in <a href="/docs/en/managed-settings">managed settings</a>.</p>
 <h4 id="when-a-synced-skill-name-matches-another-command">When a synced skill name matches another command</h4>
 <p>You can invoke a synced skill by its full name, <code>/anthropic-skills:&lt;name&gt;</code>, or by its short name, <code>/&lt;name&gt;</code>. When another command uses that short name, <code>/&lt;name&gt;</code> runs the other command, and the synced skill runs only as <code>/anthropic-skills:&lt;name&gt;</code>. With a local <code>deploy</code> skill and a synced <code>deploy</code>, <code>/deploy</code> runs the local skill and <code>/anthropic-skills:deploy</code> runs the synced one. Before v2.1.269, a synced skill had only its short name.</p>
 <p>The other command can be any of these:</p>
@@ -6804,7 +6800,7 @@ Claude Code accepts every field in the table above. Outside Claude Code, you can
 | Claude Code skills at [any level](#where-skills-live), including [plugin](/docs/en/plugins) skills                                                 | Every field in the table above                                                 |
 | claude.ai skill uploads, the Skills API, and packaging with `package_skill.py` from [anthropics/skills](https://github.com/anthropics/skills) | `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` |
 
-When you enable a personal skill for [Cowork and cloud sessions](#skills-in-cowork-and-cloud-sessions), including routines, you upload it to claude.ai, so the same rules apply.
+When you enable a personal skill for your claude.ai account, for example to use it in [Cowork and cloud sessions](#skills-in-cowork-and-cloud-sessions) and routines, you upload it to claude.ai, so the same rules apply.
 
 If you include any field the spec doesn't allow, packaging or upload fails with a hard error instead of ignoring the field:
 </code></pre></div>

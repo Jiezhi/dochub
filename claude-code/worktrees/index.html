@@ -6036,7 +6036,7 @@ and report the results.
 <p>When you <a href="/docs/en/agent-view#send-the-session-to-the-background">background</a> a <code>--worktree</code> session, its worktree becomes a background-session worktree that the sweep can remove. The sweep leaves a worktree in place in these cases:</p>
 <ul>
 <li>The worktree still holds work: changed or untracked files, or unpushed commits.</li>
-<li>Claude Code can't determine which filter drivers the repository config defines, in any of the <a href="#git-lfs-content-is-missing-from-a-worktree-claude-code-created">three cases that also block worktree creation</a>.</li>
+<li>One of the <a href="#git-lfs-content-is-missing-from-a-worktree-claude-code-created">four cases that also block worktree creation</a> applies: Claude Code can't determine which filter drivers the repository config defines, or finds a setting there it can't switch off.</li>
 <li>The worktree belongs to a <code>--worktree</code> session you haven't backgrounded, whatever its age.</li>
 <li>You created the worktree yourself with <code>git worktree add</code>, even if you then ran a <code>--worktree &lt;name&gt;</code> session in it and backgrounded that session.</li>
 </ul>
@@ -6180,11 +6180,12 @@ git worktree remove ../project-feature-a
 <p>If you set up <a href="https://git-lfs.com">Git LFS</a> with <code>git lfs install --local</code>, a worktree that Claude Code creates contains LFS pointer files instead of the real files. The <code>--local</code> flag writes the LFS filter into the repository's own <code>.git/config</code> rather than your global git config. A plain <code>git lfs install</code> writes to your global config and isn't affected. The same applies to any other <a href="https://git-scm.com/docs/gitattributes">filter driver</a> defined in the repository's own config.</p>
 <p>Claude Code skips the repository's own filter drivers when it creates a worktree because a filter driver is a shell command, and anything that can write to the repository, including Claude, could have put one there. Before v2.1.247, Claude Code ran those drivers during worktree creation.</p>
 <p>To get the real files, run <code>git lfs pull</code> inside the worktree.</p>
-<p>In three rare cases, Claude Code can't tell which filter drivers the repository's config defines, and creates no worktree at all. Match the error to its fix:</p>
+<p>In four rare cases, Claude Code creates no worktree at all: it can't tell which filter drivers the repository's config defines, or it finds a setting there it can't switch off. Match the error to its fix:</p>
 <ul>
 <li><strong><code>Could not read the repository git config to neutralize filter drivers</code></strong>: Claude Code couldn't read the repository's <code>.git/config</code>, for example because of its permissions. Fix that and retry.</li>
 <li><strong><code>The repository git config defines a filter driver whose name cannot be neutralized (contains "=" or a newline)</code></strong>: rename or remove that filter driver in <code>.git/config</code> and retry.</li>
 <li><strong><code>The repository git config has a conditional include (includeIf)</code></strong>: move the settings the <code>includeIf</code> in <code>.git/config</code> pulls in directly into that file, remove the <code>includeIf</code>, and retry. An <code>includeIf</code> in your global git config doesn't trigger this.</li>
+<li><strong><code>Git was not run: the repository's own git config sets &lt;key&gt;</code></strong>: the message names a key that points Git LFS at a program to run, such as <code>lfs.customtransfer.&lt;name&gt;.path</code> or <code>lfs.standalonetransferagent</code>. If that setting is yours, move it to your global git config. If you don't recognize it, remove it from the repository's git config, since a tool or checkout you don't trust may have written it. Retry once the key is gone from the repository's config.</li>
 </ul>
 <h3 id="claude-code-refuses-to-use-a-worktree">Claude Code refuses to use a worktree</h3>
 <p>An error starting <code>Refusing to use &lt;path&gt; as an isolation worktree</code> means Claude Code checked the directory's git identity before adopting it as a session's or subagent's isolated checkout, and declined it. The check runs whether Claude Code is creating the worktree, entering an existing one, or reusing one from an earlier run.</p>

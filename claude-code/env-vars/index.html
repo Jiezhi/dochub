@@ -6723,7 +6723,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE</code></td>
-<td style="text-align: left;">Set to <code>1</code> to skip the re-clone attempt and keep using the existing marketplace cache when a <code>git pull</code> fails. Useful in offline or airgapped environments where re-cloning would fail the same way. See <a href="/docs/en/plugin-marketplaces#marketplace-updates-fail-in-offline-environments">Marketplace updates fail in offline environments</a></td>
+<td style="text-align: left;">Set to <code>1</code> to skip the re-clone attempt and keep using the existing marketplace checkout when a marketplace refresh can't reach or authenticate to the remote. Useful in offline or airgapped environments where re-cloning would fail the same way. See <a href="/docs/en/plugin-marketplaces#marketplace-updates-fail-in-offline-environments">Marketplace updates fail in offline environments</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS</code></td>
@@ -6899,11 +6899,11 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SYNC_SKILLS</code></td>
-<td style="text-align: left;">Set to <code>1</code> to download your enabled claude.ai skills into <code>~/.claude/skills/synced/</code> and resync every 10 minutes. Before it runs the first query, Claude Code waits up to <code>CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS</code> for the list of your skills. The downloads themselves finish in the background, and Claude waits for a skill's download when it invokes that skill. The <code>synced</code> folder name is <a href="/docs/en/skills#where-skills-live">reserved for this download</a>. Before v2.1.227, the skills downloaded into <code>~/.claude/skills/</code> directly. Applies only in non-interactive mode with the <code>-p</code> flag. Requires claude.ai authentication. <a href="/docs/en/claude-code-on-the-web">Cloud sessions</a> receive your enabled claude.ai skills automatically; you don't need to set this there. Claude Code applies <a href="/docs/en/skills#how-synced-skills-behave">extra rules to the downloaded skills</a>, such as not running their <code>!</code> commands on your machine</td>
+<td style="text-align: left;">Set to <code>1</code> in non-interactive mode with the <code>-p</code> flag to make Claude Code download the skills enabled for your claude.ai account in that run and wait for the list of them, up to <code>CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS</code>, before it runs the first query. The downloads themselves finish in the background, and Claude waits for a skill's download when it invokes that skill. Requires claude.ai authentication. Terminal sessions where you sign in with your claude.ai account <a href="/docs/en/skills#where-synced-skills-load">download these skills</a> into <code>~/.claude/skills/synced/</code> and resync about every 10 minutes without this variable, so set it only when a <code>-p</code> run needs your current skills on its first query. Before v2.1.273, terminal sessions downloaded them only in a <code>-p</code> run with this variable set. The <code>synced</code> folder name is <a href="/docs/en/skills#where-skills-live">reserved for this download</a>. Before v2.1.227, the skills downloaded into <code>~/.claude/skills/</code> directly. Claude Code applies <a href="/docs/en/skills#how-synced-skills-behave">extra rules to the downloaded skills</a>, such as not running their <code>!</code> commands on your machine</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SYNC_SKILLS_INSTALL_TIMEOUT_MS</code></td>
-<td style="text-align: left;">Timeout in milliseconds for a mid-session skills resync when <code>CLAUDE_CODE_SYNC_SKILLS</code> is set (default: 30000). Bounds the download triggered when the host requests a skill reload during the session. When exceeded, the resync stops and remaining downloads continue in the background</td>
+<td style="text-align: left;">Timeout in milliseconds for the skills resync that runs mid-session when an app built on the <a href="/docs/en/agent-sdk/typescript#query-object">Agent SDK</a> reloads skills (default: 30000). When exceeded, the reload continues with whichever skills have arrived, and the remaining downloads finish in the background</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_SYNC_SKILLS_WAIT_TIMEOUT_MS</code></td>
@@ -7223,7 +7223,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>MCP_PROTOCOL_NEGOTIATION</code></td>
-<td style="text-align: left;">On the <a href="/docs/en/mcp#mcp-client-runtimes">v2 MCP client runtime</a> only, whether Claude Code probes servers for MCP protocol revision 2026-07-28. Set <code>auto</code> to probe HTTP, claude.ai connector, and stdio servers; a server that doesn't answer the probe connects on the earlier protocol instead, as SSE and WebSocket servers always do. Set <code>legacy</code> to skip the probe for every server. Without the variable, Claude Code probes HTTP and claude.ai connector servers on Claude Code v2.1.232 or later, with the exceptions the <a href="/docs/en/mcp#mcp-client-runtimes">MCP client runtimes</a> section lists. Any other value is ignored with a warning in the debug log. Requires Claude Code v2.1.221 or later</td>
+<td style="text-align: left;">On the <a href="/docs/en/mcp#mcp-client-runtimes">v2 MCP client runtime</a> only, whether Claude Code probes servers for MCP protocol revision 2026-07-28. Set <code>auto</code> to probe HTTP, claude.ai connector, and stdio servers; a server that doesn't answer the probe connects on the earlier protocol instead, as SSE and WebSocket servers always do. Set <code>legacy</code> to skip the probe for every server. Without the variable, Claude Code probes HTTP servers, and also probes claude.ai connector servers in sessions where it <a href="#features-that-need-feature-flag-fetching">fetches feature flags</a>. Any other value is ignored with a warning in the debug log. Requires Claude Code v2.1.221 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE</code></td>
@@ -7231,7 +7231,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>MCP_SDK_GENERATION</code></td>
-<td style="text-align: left;">Pin which <a href="/docs/en/mcp#mcp-client-runtimes">MCP client runtime</a> this process connects to MCP servers with: <code>v1</code>, built on MCP TypeScript SDK 1.x, or <code>v2</code>, built on <a href="https://ts.sdk.modelcontextprotocol.io/v2/">MCP TypeScript SDK 2.0</a>. Without the variable, Claude Code uses v2 on Claude Code v2.1.232 or later, except where that section says it uses v1. On Claude Code v2.1.221 or later, the v2 runtime checks the issuer an MCP OAuth server returns in its authorization response and fails the sign-in with an error that begins <code>Issuer mismatch in authorization response</code> when it doesn't match. The v1 runtime doesn't run this check. If you set an unrecognized value, Claude Code ignores it and writes a warning to the debug log. Claude Code reads the value once per process. Requires Claude Code v2.1.218 or later</td>
+<td style="text-align: left;">Pin which <a href="/docs/en/mcp#mcp-client-runtimes">MCP client runtime</a> this process connects to MCP servers with: <code>v1</code>, built on MCP TypeScript SDK 1.x, or <code>v2</code>, built on <a href="https://ts.sdk.modelcontextprotocol.io/v2/">MCP TypeScript SDK 2.0</a>. Without the variable, Claude Code uses v2, starting with the versions listed in that section. On Claude Code v2.1.221 or later, the v2 runtime checks the issuer an MCP OAuth server returns in its authorization response and fails the sign-in with an error that begins <code>Issuer mismatch in authorization response</code> when it doesn't match. The v1 runtime doesn't run this check. If you set an unrecognized value, Claude Code ignores it and writes a warning to the debug log. Claude Code reads the value once per process. Requires Claude Code v2.1.218 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>MCP_SERVER_CONNECTION_BATCH_SIZE</code></td>
@@ -7263,7 +7263,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>OTEL_LOG_TOOL_CONTENT</code></td>
-<td style="text-align: left;">Set to <code>1</code> to include tool input and output content in OpenTelemetry span events. Disabled by default to protect sensitive data. See <a href="/docs/en/monitoring-usage">Monitoring</a></td>
+<td style="text-align: left;">Set to <code>1</code> to include tool content in the <code>tool.output</code> OpenTelemetry span event. Span attributes carry tool content under <a href="/docs/en/monitoring-usage#new-context-gates">their own gates</a>. Requires <a href="/docs/en/monitoring-usage#traces-beta">tracing</a>. Disabled by default to protect sensitive data. See <a href="/docs/en/monitoring-usage#tool-output-span-event">Monitoring</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>OTEL_LOG_TOOL_DETAILS</code></td>
@@ -7396,9 +7396,10 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="/docs/en/cross-session-messaging#message-sessions-on-other-machines">Message sessions beyond this machine</a>; messaging between sessions on this machine works with fetching off</li>
 <li>Run <a href="/docs/en/cli-reference#cli-commands"><code>claude import</code> or the <code>/import</code> command</a></li>
 <li>Run <a href="/docs/en/skills#find-unused-skills"><code>/skill-doctor</code></a> or open its report in the <code>/plugin</code> <strong>Stats</strong> tab</li>
+<li>Sync the <a href="/docs/en/skills#where-synced-skills-load">skills</a> and <a href="/docs/en/plugins-reference#synced-plugins">plugins</a> enabled for your claude.ai account into your terminal sessions</li>
 <li>Use <a href="/docs/en/advisor#requirements">the advisor tool</a></li>
 <li>Read or reply to <a href="/docs/en/artifacts#collect-comments-on-an-artifact">comments on an artifact</a></li>
-<li>Get the <a href="/docs/en/mcp#mcp-client-runtimes">v2 MCP client runtime</a> and its protocol probe without setting <code>MCP_SDK_GENERATION</code> and <code>MCP_PROTOCOL_NEGOTIATION</code>; Claude Code uses the v1 runtime unless you set <code>MCP_SDK_GENERATION=v2</code>, and skips the probe unless you set <code>MCP_PROTOCOL_NEGOTIATION=auto</code></li>
+<li>Have Claude Code probe claude.ai connector servers for <a href="/docs/en/mcp#mcp-client-runtimes">MCP protocol revision 2026-07-28</a> unless you set <code>MCP_PROTOCOL_NEGOTIATION=auto</code></li>
 <li>Get the <a href="/docs/en/tools-reference#powershell-tool">PowerShell tool</a> by default for claude.ai and Console accounts on Windows with Git Bash installed; Claude Code routes shell commands through Git Bash unless you set <code>CLAUDE_CODE_USE_POWERSHELL_TOOL=1</code>. On Windows without Git Bash, the tool stays on</li>
 <li>Get <a href="/docs/en/tools-reference#sendfeedback-tool-behavior">Claude-drafted feedback</a>, which Claude Code turns on through a fetched flag</li>
 <li>Have Claude Code <a href="/docs/en/mcp#tools-with-invalid-input-schemas">exclude MCP tools whose input schema the API would reject</a>; it sends the schema anyway, and a request that includes it fails with <a href="/docs/en/errors#tool-input-schema-is-invalid">a 400 error naming the tool by its position</a></li>

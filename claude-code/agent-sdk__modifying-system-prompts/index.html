@@ -803,6 +803,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Change the prompt of an existing session">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#update-claudes-instructions-mid-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update Claude's instructions mid-session
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#turn-recording-off-while-you-iterate-on-wording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turn recording off while you iterate on wording
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -5902,6 +5930,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Change the prompt of an existing session">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#update-claudes-instructions-mid-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update Claude's instructions mid-session
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#turn-recording-off-while-you-iterate-on-wording" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turn recording off while you iterate on wording
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -6305,7 +6361,7 @@ In Python, load a large custom prompt from a file with `system_prompt={"type": "
 
 #### Cache the static part of a custom prompt
 
-In the TypeScript SDK, you can pass a custom prompt as an array of strings instead of one string, with the `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` marker between the static part and the rest. Use this when your prompt combines instructions that are the same on every request with context that changes per request, such as the customer or ticket the agent is handling. When you pass both parts as one string, a change to the per-request part changes the whole system prompt, so the static instructions miss the cache too. This form isn't available in the Python SDK, whose `system_prompt` option accepts a string, a preset, or a [file](/docs/en/agent-sdk/python#systempromptfile).
+In the TypeScript SDK, you can pass a custom prompt as an array of strings instead of one string, with the `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` marker between the static part and the rest. Use this when your prompt combines instructions that are the same on every request with context that changes per request, such as the customer or ticket the agent is handling. When you pass both parts as one string, a change to the per-request part changes the whole system prompt, so the static instructions miss the cache too. The array form isn't available in the Python SDK; [`ClaudeAgentOptions`](/docs/en/agent-sdk/python#claudeagentoptions) lists the forms `system_prompt` accepts.
 
 &lt;Note&gt;
   The SDK splits the prompt only when it calls the Claude API directly or runs on [Claude Platform on AWS](/docs/en/claude-platform-on-aws). In every other configuration, such as Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or an [LLM gateway](/docs/en/llm-gateway-connect), and whenever you set [`CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1`](/docs/en/llm-gateway-protocol#disable-pre-release-capabilities), the SDK sends the whole prompt as one block, the same as passing one string.
@@ -6339,9 +6395,18 @@ for await (const message of query({
 <li>If you leave the marker out, the SDK joins all the strings into one block, the same as passing one string.</li>
 </ul>
 <h3 id="change-the-prompt-of-an-existing-session">Change the prompt of an existing session</h3>
-<p>By default, Claude Code builds the system prompt once, on a session's first request, with your <code>append</code> text or custom prompt included, and records it in the session. Until the session is compacted, every later request uses that recorded prompt, including after you return to the session with <code>resume</code> or <code>continue</code>. If you pass a different <code>append</code> or custom prompt on that later call, it takes effect once the session is compacted or in a new session.</p>
-<p>If you start Claude Code in <a href="/docs/en/headless#start-faster-with-bare-mode">bare mode</a> by passing <code>--bare</code> through <code>extraArgs</code> or setting <code>CLAUDE_CODE_SIMPLE=1</code>, recording stays off unless you set <code>snapshot: true</code> on the object form of <code>systemPrompt</code>. Recording an <code>append</code> or custom prompt by default requires Claude Code v2.1.265 or later, which the TypeScript Agent SDK bundles from v0.3.265. Before Claude Code v2.1.268, sessions that don't <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">fetch feature flags</a>, including sessions on Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry, rebuilt the prompt on every request and <code>snapshot</code> had no effect.</p>
-<p>To rebuild the prompt on every request instead, set <code>snapshot: false</code> on the object form of <code>systemPrompt</code> in the TypeScript SDK: <code>{ type: "preset", preset: "claude_code", append, snapshot: false }</code> or <code>{ type: "custom", prompt, snapshot: false }</code>. Use this form while you iterate on prompt wording, or when your application changes <code>append</code> between calls that resume the same session. The <code>snapshot</code> field requires <code>@anthropic-ai/claude-agent-sdk</code> v0.3.257 or later.</p>
+<p>By default, if you pass a different <code>append</code> or custom prompt when you return to a session with <code>resume</code> or <code>continue</code>, Claude doesn't see it on the next turn. Claude Code records the system prompt on a session's first request and reuses that record until the session is compacted. The new text takes effect after that compaction, or in a new session.</p>
+<h4 id="update-claudes-instructions-mid-session">Update Claude's instructions mid-session</h4>
+<p>If the instructions you put in the system prompt need to change while a session is running, for example because your user switched the agent to a read-only mode or edited its configuration in your app, send the new instructions in the conversation instead of changing <code>systemPrompt</code>:</p>
+<ul>
+<li><strong>In your next message</strong>: include the new instructions in the next user message you send.</li>
+<li><strong>From a hook</strong>: return <a href="/docs/en/hooks#add-context-for-claude"><code>additionalContext</code></a> from a <code>UserPromptSubmit</code> or <code>PostToolUse</code> <a href="/docs/en/agent-sdk/hooks#outputs">hook callback</a>, written as a factual statement such as "The workspace is now read-only". The SDK inserts the text into the conversation at the point where the hook fired, so the recorded prompt stays unchanged.</li>
+</ul>
+<h4 id="turn-recording-off-while-you-iterate-on-wording">Turn recording off while you iterate on wording</h4>
+<p>While you iterate on prompt wording and want each edit to reach a session you resume, set <code>snapshot</code> to false on the object form of the system prompt. Claude Code then rebuilds the prompt on every request. The field is available on the preset and custom forms of <a href="/docs/en/agent-sdk/typescript#options"><code>systemPrompt</code></a> in TypeScript and of <a href="/docs/en/agent-sdk/python#systempromptpreset"><code>system_prompt</code></a> in Python, and requires <code>@anthropic-ai/claude-agent-sdk</code> v0.3.257 or later, or <code>claude-agent-sdk</code> v0.2.153 or later.</p>
+<p>Keep recording on in production. With recording off, a different <code>append</code> or custom prompt on a resumed session reaches Claude on the next turn, and that request can't reuse the session's <a href="/docs/en/prompt-caching#how-the-cache-is-organized">prompt cache</a>. Where the API enforces <a href="https://platform.claude.com/docs/en/build-with-claude/preserved-thinking">preserved thinking</a>, Claude also loses its thinking from earlier turns.</p>
+<p>Outside of <a href="/docs/en/cloud-environments">cloud sessions</a>, if you start Claude Code in <a href="/docs/en/headless#start-faster-with-bare-mode">bare mode</a> by passing <code>--bare</code> through <code>extraArgs</code> or setting <code>CLAUDE_CODE_SIMPLE=1</code>, recording stays off unless you set <code>snapshot: true</code>.</p>
+<p>Recording an <code>append</code> or custom prompt by default requires Claude Code v2.1.265 or later, which the TypeScript Agent SDK bundles from v0.3.265 and the Python Agent SDK from v0.2.153. Before Claude Code v2.1.268, sessions that don't <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">fetch feature flags</a>, including sessions on Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry, rebuilt the prompt on every request and <code>snapshot</code> had no effect.</p>
 <h2 id="compare-the-four-approaches">Compare the four approaches</h2>
 <p>The four customization methods differ in where they live, how they're shared, and what they preserve from the <code>claude_code</code> preset.</p>
 <table>
