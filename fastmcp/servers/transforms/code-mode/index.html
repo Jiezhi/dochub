@@ -20121,7 +20121,7 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 </tr>
 <tr>
 <td><code>"detailed"</code></td>
-<td>Compact markdown with parameter names, types, and required markers</td>
+<td>Compact markdown with parameter names, types, literal values, defaults, required markers, and the field names one level inside any object-valued parameter or return</td>
 <td>Medium — often enough to write code</td>
 </tr>
 <tr>
@@ -20140,7 +20140,7 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 </code></pre></div>
 <p>If your tools use <a href="/servers/visibility#tags">tags</a>, Search also accepts a <code>tags</code> parameter so the LLM can narrow results to specific categories before searching.</p>
 <h3 id="getschemas">GetSchemas</h3>
-<p><code>GetSchemas</code> returns parameter details for specific tools by name. At its default <code>"detailed"</code> level, it renders compact markdown with parameter names, types, and required markers. At <code>"full"</code>, it returns the complete JSON schema — useful when tools have deeply nested parameters that the compact format doesn't capture.</p>
+<p><code>GetSchemas</code> returns parameter details for specific tools by name. At its default <code>"detailed"</code> level, it renders compact markdown with parameter names, types, literal values, defaults, and required markers. Object-valued parameters and return values also list their own field names one level down, following <code>$ref</code>s into <code>$defs</code>, so a tool returning <code>list[Card]</code> renders as <code>- `items` (object[]): `id`, `url`, `title`, …</code> rather than an opaque <code>object[]</code>. At <code>"full"</code>, it returns the complete JSON schema — useful when tools have deeply nested parameters that the compact format doesn't capture.</p>
 <h3 id="gettags">GetTags</h3>
 <p><code>GetTags</code> lets the LLM browse tools by category using <a href="/servers/visibility#tags">tag</a> metadata. At brief detail, the LLM sees tag names with counts. At full detail, it sees tools listed under each tag:</p>
 <div class="highlight"><pre><span></span><code>- math (3 tools)
@@ -20148,6 +20148,10 @@ Finally, the LLM writes and executes code that chains the tool calls in a Python
 - untagged (1 tool)
 </code></pre></div>
 <p><code>GetTags</code> isn't included in the defaults — add it when browsing by category would help the LLM orient itself in a large catalog. The LLM can browse tags first, then pass specific tags into Search to narrow results.</p>
+<p>For example, a parameter declared as <code>sort: Literal["top", "recent"] = "recent"</code> appears as:</p>
+<div class="highlight"><pre><span></span><code>- `sort` (string, one of "top"/"recent", default "recent")
+</code></pre></div>
+<p>Single-value literals also show their allowed value. Literal value lists are included up to eight values; parameter descriptions and complete constraints remain available at <code>"full"</code> detail.</p>
 <h3 id="listtools">ListTools</h3>
 <p><code>ListTools</code> dumps the entire catalog at whatever detail level the LLM requests. It supports the same three detail levels as <code>Search</code> and <code>GetSchemas</code>, defaulting to <code>"brief"</code>.</p>
 <p><code>ListTools</code> isn't included in the defaults — for large catalogs, search-based discovery is more token-efficient. But for smaller catalogs (under ~20 tools), letting the LLM see everything upfront can be faster than multiple search round-trips:</p>

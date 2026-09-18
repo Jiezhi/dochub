@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -2048,6 +2048,33 @@
     
   
     Claude platform on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude projects
   
 
     
@@ -6368,13 +6395,20 @@ To keep parent settings as close to restriction-only as the filter supports, add
 </code></pre></div></p>
 <p>An OS policy, such as an HKLM registry policy or a managed-preferences plist, outranks this file, so deliver the whole snippet through it instead of the file. The gateway's remote managed settings outrank the OS policy and file sources but reach only connected clients. Mirror the locks, the allowlists, and the merge opt-in into the policy's <a href="/docs/en/claude-apps-gateway-config#managed"><code>cli</code> block</a> and keep this file deployed, because machines that never connect, including ones that only run Claude Desktop, get their policy from the file alone.</p>
 <h4 id="lock-behavior-across-sources">Lock behavior across sources</h4>
-<p>Setting one lock doesn't restrict the others; each key is documented in the <a href="/docs/en/settings-reference#all-settings">settings reference</a>. From an admin source below the winner, the two sandbox locks still apply, and <code>allowManagedPermissionRulesOnly</code> still blocks parent-supplied allow rules and <code>additionalDirectories</code>. The hooks and MCP server locks, and <code>allowManagedPermissionRulesOnly</code>'s effect on the developer's own rules, need the winning source by default; under the <code>managedSourcesBehavior</code> merge opt-in in <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a>, Claude Code applies the strictest value any source sets for every lock. On <a href="/docs/en/settings-reference#policyhelper"><code>policyHelper</code></a> fleets, the locks are read from the helper's output alone.</p>
-<p>Each lock makes Claude Code ignore the developer's own entries for that setting, so include your organization's allowlists next to the locks. Locking network domains with an empty managed domain list blocks all sandboxed outbound traffic, and locking MCP servers with no managed or parent-supplied <code>allowedMcpServers</code> loads every server that <code>deniedMcpServers</code> doesn't block. <code>allowRead</code> entries only re-allow paths inside <code>denyRead</code> regions, so pair them with a managed <code>denyRead</code>.</p>
+<p>Setting one lock doesn't restrict the others; each key is documented in the <a href="/docs/en/settings-reference#all-settings">settings reference</a>.</p>
+<p>From an admin source below the winner, the two sandbox locks still apply, and <code>allowManagedPermissionRulesOnly</code> still blocks parent-supplied allow rules and <code>additionalDirectories</code>. On Claude Code v2.1.273 or later, the MCP server lock also applies from a source below the winner, and while it is on, the managed <code>allowedMcpServers</code> list comes from the highest-priority admin source that sets one.</p>
+<p>The hooks lock and <code>allowManagedPermissionRulesOnly</code>'s effect on the developer's own rules need the winning source by default; under the <code>managedSourcesBehavior</code> merge opt-in in <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a>, Claude Code applies the strictest value any source sets for every lock. On <a href="/docs/en/settings-reference#policyhelper"><code>policyHelper</code></a> fleets, Claude Code reads the locks from the helper's output alone.</p>
+<p>Each lock makes Claude Code ignore the developer's own entries for that setting, so include your organization's allowlists next to the locks:</p>
+<ul>
+<li><strong>Network domains</strong>: locking with an empty managed domain list blocks all sandboxed outbound traffic.</li>
+<li><strong>MCP servers</strong>: locking with no <code>allowedMcpServers</code> in any admin source or in the parent-supplied settings loads every server that <code>deniedMcpServers</code> doesn't block.</li>
+<li><strong>Read paths</strong>: <code>allowRead</code> entries only re-allow paths inside <code>denyRead</code> regions, so pair them with a managed <code>denyRead</code>.</li>
+</ul>
 <h4 id="settings-the-locks-dont-cover">Settings the locks don't cover</h4>
-<p>Four parent-supplied settings pass the filter even with all five locks set. Under the default first-wins setting, the admin value that blocks the parent's is the one in the highest-priority admin source. Under the <code>managedSourcesBehavior</code> merge opt-in, <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a> says which source's value applies instead.</p>
+<p>Four parent-supplied settings pass the filter even with all five locks set. Under the default first-wins setting, the admin value that blocks the parent's is the one in the highest-priority admin source, except for <code>allowedMcpServers</code> while the <a href="#lock-behavior-across-sources">MCP server lock</a> is on. Under the <code>managedSourcesBehavior</code> merge opt-in, <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a> says which source's value applies instead.</p>
 <ul>
 <li><strong><code>forceLoginOrgUUID</code></strong>: Claude Code honors a parent-supplied value when the highest-priority admin source doesn't set an org UUID. Gateway sign-in doesn't check this key, so it matters only for fleets that also use first-party Anthropic logins. An org UUID in the highest-priority admin source blocks the parent's value and is the one Claude Code enforces, so set <code>forceLoginOrgUUID</code> there.</li>
-<li><strong><code>allowedMcpServers</code></strong>: Claude Code honors a parent-supplied allowlist when the highest-priority admin source doesn't set one, and <code>allowManagedMcpServersOnly</code> doesn't block it, because the lock enforces whichever list wins as the managed value, including a parent-supplied list when the highest-priority admin source doesn't set one. A list in the highest-priority admin source blocks the parent's and is the list Claude Code enforces, so set <code>allowedMcpServers</code> there, next to the lock. Before v2.1.223, a value for either key in any admin source blocked the parent's.</li>
+<li><strong><code>allowedMcpServers</code></strong>: Claude Code honors a parent-supplied allowlist when no admin list is in force. <code>allowManagedMcpServersOnly</code> doesn't block it, because the lock enforces whichever list wins as the managed value, including a parent-supplied one when no admin source supplies a list. A list in the highest-priority admin source blocks the parent's and is the list Claude Code enforces, so set <code>allowedMcpServers</code> there, next to the lock. Before v2.1.223, a value for either key in any admin source blocked the parent's.</li>
 <li><strong><code>availableModels</code></strong>: Claude Code honors a parent-supplied model list when the winning managed source doesn't set one. If your fleet restricts models, set <code>availableModels</code> in the winning source.</li>
 <li><strong><code>strictPluginOnlyCustomization</code></strong>: this key passes the filter regardless of any lock, and it makes Claude Code ignore the developer's own customization, including protective hooks. No lock blocks it.</li>
 </ul>

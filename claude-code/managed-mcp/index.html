@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -1799,6 +1799,33 @@
     
   
     Claude platform on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude projects
   
 
     
@@ -6011,12 +6038,12 @@ Any user on the machine can read this file, so don't store API keys or other cre
 
 ### Servers passed with `--mcp-config` or `--strict-mcp-config`
 
-When a session receives servers through `--mcp-config` while `managed-mcp.json` is deployed, what the user sees differs between a workstation and a cloud session:
+When a session receives servers through `--mcp-config` while a `managed-mcp.json` that Claude Code can read and parse is deployed, what the user sees differs between a workstation and a cloud session:
 
 * On a workstation, Claude Code exits at startup with `You cannot dynamically configure MCP servers when an enterprise MCP config is present`.
 * In [cloud sessions](/docs/en/claude-code-on-the-web) on a host where the file is deployed, such as a [self-hosted runner](/docs/en/self-hosted-environments-configuration#mcp-servers), Claude Code starts with the managed servers only and skips the claude.ai connectors and other servers the cloud host delivers through `--mcp-config`. Nothing in the session tells the user which servers were left out. Claude Code names them in a warning on its stderr, which a self-hosted runner records at the `debug` log level.
 
-If a user passes `--strict-mcp-config`, Claude Code exits at startup on a workstation and in a cloud session alike, because that flag asks to replace the managed set.
+The `--strict-mcp-config` flag asks to replace the managed set. If a user passes it while such a file is deployed, Claude Code exits at startup on a workstation and in a cloud session alike.
 
 ### How allowlists and denylists apply to the managed set
 
@@ -6143,7 +6170,13 @@ Servers your organization delivers through `managedMcpServers` load without an a
 
 To deploy servers to users, use [`managed-mcp.json`](#exclusive-control-with-managed-mcp-json) or [`managedMcpServers`](#provide-servers-through-managed-settings). Both lists also filter servers passed with the [`--mcp-config` CLI flag](/docs/en/cli-reference#cli-flags), other than in-process `type: "sdk"` entries; `--strict-mcp-config` limits which configuration files load and doesn't bypass either list.
 
-To make the allowlist authoritative, set `allowedMcpServers` and `allowManagedMcpServersOnly: true` together in a [managed settings source](/docs/en/admin-setup#decide-how-settings-reach-devices), such as server-managed settings or a deployed `managed-settings.json` file. [Restrict the allowlist to managed settings only](#restrict-the-allowlist-to-managed-settings-only) shows the configuration. Without `allowManagedMcpServersOnly`, allowlists from every settings scope merge, including a user's own `~/.claude/settings.json`, so a user can broaden what your allowlist permits. Denylists merge from every scope regardless.
+To make the allowlist authoritative, set `allowedMcpServers` and `allowManagedMcpServersOnly: true` together in a [managed settings source](/docs/en/admin-setup#decide-how-settings-reach-devices), such as server-managed settings or a deployed `managed-settings.json` file.
+
+The lock applies from every admin-controlled managed source, so a lockdown in a deployed file still applies when server-managed settings that don't mention MCP are also in use. While the lock is on, the managed allowlist comes from the highest-ranked admin source that sets one. Reading the lock and the allowlist across sources requires Claude Code v2.1.273 or later.
+
+[Restrict the allowlist to managed settings only](#restrict-the-allowlist-to-managed-settings-only) shows the configuration.
+
+Without `allowManagedMcpServersOnly`, allowlists from every settings scope merge, including a user's own `~/.claude/settings.json`, so a user can broaden what your allowlist permits. Denylists merge from every scope regardless.
 
 &lt;Note&gt;
   `allowManagedMcpServersOnly` is separate from `allowManagedPermissionRulesOnly`, which locks down [permission rules](/docs/en/permissions#managed-settings) only. Setting that flag does not enforce the MCP allowlist.
@@ -6174,7 +6207,7 @@ See [Invalid entries in managed settings](/docs/en/managed-settings#invalid-entr
 
 The `serverName` validation differs between the two lists:
 
-* In `deniedMcpServers`, `serverName` accepts any non-empty string, so you can block [claude.ai connectors](/docs/en/mcp#use-mcp-servers-from-claude-ai) by their display name. For example, `{ "serverName": "claude.ai Slack" }` blocks the Slack connector. Prefer a `serverUrl` entry when you need the deny to be robust to renames, or when a connector name collides and gains a ` (N)` suffix.
+* In `deniedMcpServers`, `serverName` accepts any non-empty string without leading or trailing whitespace, so you can block [claude.ai connectors](/docs/en/mcp#use-mcp-servers-from-claude-ai) by their display name. For example, `{ "serverName": "claude.ai Slack" }` blocks the Slack connector. Prefer a `serverUrl` entry when you need the deny to be robust to renames, or when a connector name collides and gains a ` (N)` suffix.
 * In `allowedMcpServers`, `serverName` is limited to letters, numbers, hyphens, and underscores. Use `serverUrl` to allowlist a claude.ai connector Claude Code fetches itself; for connectors a cloud host delivers to self-hosted sessions, use the entries listed under [Connector traffic leaves your network](/docs/en/self-hosted-environments-deploy#connector-traffic-leaves-your-network) instead.
 
 To turn off all the claude.ai connectors Claude Code fetches itself, see [`disableClaudeAiConnectors`](/docs/en/mcp#disable-claude-ai-connectors).
@@ -6183,7 +6216,7 @@ To turn off all the claude.ai connectors Claude Code fetches itself, see [`disab
 
 Before loading a server, including one from `managed-mcp.json`, Claude Code runs the three checks below in order. It runs them again when a user reconnects a server or turns a disabled one back on in `/mcp`. In-process `type: "sdk"` servers, which the [app that started the session registers](/docs/en/mcp#how-connectors-reach-claude-code), skip all three.
 
-1. **Merge the lists.** Allowlist and denylist entries from every settings scope combine into one allowlist and one denylist, with the managed scope's lists coming from the [managed source or sources Claude Code applies](/docs/en/managed-settings#how-claude-code-combines-managed-sources). When `allowManagedMcpServersOnly` is `true`, only the managed allowlist is kept; the denylist always merges from every scope.
+1. **Merge the lists.** Allowlist and denylist entries from every settings scope combine into one allowlist and one denylist. When `allowManagedMcpServersOnly` is `true`, only the managed allowlist is kept; the denylist always merges from every scope. When more than one managed source is present, [Keys read from every admin source](/docs/en/managed-settings#keys-read-from-every-admin-source) says which of them supply the managed scope's lists.
 2. **Check the denylist.** A server that matches any denylist entry, by URL, command, or name, is blocked. Nothing overrides a denylist match.
 3. **Check the allowlist.** If `allowedMcpServers` isn't set anywhere, every server that passed the denylist loads. If it is set, what the server must match depends on its type, shown in the table below.
 
@@ -6513,19 +6546,19 @@ The configuration below sets up a hard allowlist with a denylist. The highlighte
 <tr>
 <td style="text-align: left;"><code>allowedMcpServers</code></td>
 <td style="text-align: left;">Allowlist of permitted servers</td>
-<td style="text-align: left;">Any <a href="/docs/en/settings#where-settings-live">settings scope</a>; Claude Code merges the lists from every scope unless <code>allowManagedMcpServersOnly</code> is set, and takes the managed scope's list from the one <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">managed source it selects</a> or <a href="/docs/en/managed-settings#compose-every-managed-source">composes</a></td>
+<td style="text-align: left;">Any <a href="/docs/en/settings#where-settings-live">settings scope</a>; <a href="#how-a-server-is-evaluated">How a server is evaluated</a> says how lists from several scopes and managed sources combine</td>
 <td style="text-align: left;">For enforcement, a <a href="/docs/en/admin-setup#decide-how-settings-reach-devices">managed settings source</a>: server-managed settings, <code>managed-settings.json</code>, MDM profile, or registry</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>deniedMcpServers</code></td>
 <td style="text-align: left;">Denylist of blocked servers</td>
-<td style="text-align: left;">Any settings scope; Claude Code merges the lists from every scope, and across managed sources as <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a> describes</td>
+<td style="text-align: left;">Any settings scope; <a href="#how-a-server-is-evaluated">How a server is evaluated</a> says how lists from several scopes and managed sources combine</td>
 <td style="text-align: left;">Same as <code>allowedMcpServers</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>allowManagedMcpServersOnly</code></td>
 <td style="text-align: left;">Locks the allowlist to managed sources only</td>
-<td style="text-align: left;">Managed settings sources only; the setting has no effect elsewhere</td>
+<td style="text-align: left;">Managed settings sources only; <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">Keys read from every admin source</a> says which managed sources can turn it on. The setting has no effect in other scopes</td>
 <td style="text-align: left;">Same as <code>allowedMcpServers</code></td>
 </tr>
 <tr>

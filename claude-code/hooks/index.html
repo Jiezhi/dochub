@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -1799,6 +1799,33 @@
     
   
     Claude platform on aws
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude projects
   
 
     
@@ -8233,7 +8260,7 @@ If the command had been a safer `rm` variant like `rm file.txt`, the script woul
 </tr>
 </tbody>
 </table>
-<p><a href="/docs/en/claude-code-on-the-web">Cloud sessions</a> don't read your local <code>~/.claude/settings.json</code>; hooks there come from the repo and from your organization's server-managed settings. In a <a href="/docs/en/self-hosted-environments-configuration#permissions-and-tool-approval">self-hosted environment</a>, Claude Code also runs the hooks the operator seeded from the runner host's <code>~/.claude/</code>, and it runs the hooks in the runner image's managed settings file when that file is among the <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">managed sources Claude Code applies</a>, which by default means only when neither server-managed settings nor an MDM-delivered Claude Code policy supplies the managed tier. See <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">what carries over from your setup</a> for which files reach a cloud session.</p>
+<p><a href="/docs/en/claude-code-on-the-web">Cloud sessions</a> don't read your local <code>~/.claude/settings.json</code>; hooks there come from the repo, meaning its <code>.claude/settings.json</code> in a session with one repository and the plugins it declares in any session, and from your organization's server-managed settings. In a <a href="/docs/en/self-hosted-environments-configuration#permissions-and-tool-approval">self-hosted environment</a>, Claude Code also runs the hooks the operator seeded from the runner host's <code>~/.claude/</code>, and it runs the hooks in the runner image's managed settings file when that file is among the <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">managed sources Claude Code applies</a>, which by default means only when neither server-managed settings nor an MDM-delivered Claude Code policy supplies the managed tier. See <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">what carries over from your setup</a> for which files reach a cloud session.</p>
 <p>For details on settings file resolution, see <a href="/docs/en/settings">settings</a>.</p>
 <p>Hooks from settings files, managed policy settings, and plugins also run inside <a href="/docs/en/sub-agents">subagents</a>. When a subagent calls a tool, tool events such as <code>PreToolUse</code> and <code>PostToolUse</code> fire the same configured hooks as in the main conversation, and the input carries the <code>agent_id</code> and <code>agent_type</code> <a href="#common-input-fields">common input fields</a> that identify the subagent.</p>
 <p>Enterprise administrators can use <code>allowManagedHooksOnly</code> to restrict which hooks run:</p>
@@ -9895,6 +9922,8 @@ An [Agent SDK callback hook](/docs/en/agent-sdk/hooks) on `PreToolUse` that exce
 
 In addition to the [common input fields](#common-input-fields), PreToolUse hooks receive `tool_name`, `tool_input`, and `tool_use_id`.
 
+For an [MCP tool](#match-mcp-tools), the input also carries `mcp_server`, an object with the server's `name` and a `source` that says where the server's definition came from. The `source` values include `plugin`, `sdk`, and configuration scopes such as `user` and `project`. [`McpServerProvenance`](/docs/en/agent-sdk/typescript#mcpserverprovenance) in the Agent SDK reference lists them all and says how to treat one you don't recognize. Base trust decisions on `source` rather than on `name` or the `mcp__&lt;server&gt;__` tool-name prefix. The `mcp_server` field requires Claude Code v2.1.274 or later.
+
 For the file tools `Write`, `Edit`, and `Read`, `tool_input.file_path` is always absolute:
 
 * Claude Code expands `~` and relative paths before hooks run, so a hook that matches on paths can't be bypassed via `~` or a relative spelling of the same path
@@ -10548,7 +10577,7 @@ Use <a href="#permissionrequest-decision-control">PermissionRequest decision con
 <p>Claude Code doesn't run PermissionRequest hooks for a sandboxed command's <a href="/docs/en/sandboxing#network-isolation">network request</a>. To get a signal for that prompt, use the <code>permission_prompt</code> notification type.</p>
 <p>Matches on tool name, same values as PreToolUse.</p>
 <h4 id="permissionrequest-input">PermissionRequest input</h4>
-<p>PermissionRequest hooks receive <code>tool_name</code> and <code>tool_input</code> fields like PreToolUse hooks, but without <code>tool_use_id</code>. An optional <code>permission_suggestions</code> array contains the <a href="#permission-update-entries">permission updates</a> Claude Code suggests for this request, such as adding an allow rule or changing the permission mode.</p>
+<p>PermissionRequest hooks receive <code>tool_name</code> and <code>tool_input</code> fields like PreToolUse hooks, but without <code>tool_use_id</code>. For an MCP tool, they also receive the <a href="#pretooluse-input"><code>mcp_server</code></a> object. An optional <code>permission_suggestions</code> array contains the <a href="#permission-update-entries">permission updates</a> Claude Code suggests for this request, such as adding an allow rule or changing the permission mode.</p>
 <p>The <code>permission_suggestions</code> array isn't an exact list of the options you see, because each permission dialog builds its own options. Some dialogs, such as the one for file edits, don't read the array at all and derive their options from the request itself. A dialog that does read it can still withhold an option whose suggestion stays in the array, for example when <a href="/docs/en/settings-reference#allowmanagedpermissionrulesonly"><code>allowManagedPermissionRulesOnly</code></a> hides rule-saving options. It can also offer options that have no suggestion entry, such as <a href="/docs/en/permission-modes#switch-permission-modes"><strong>Yes, and switch to auto mode</strong></a>, which changes the permission mode directly rather than through a permission update.</p>
 <p>PreToolUse hooks run before every tool call, whether or not it needs permission. PermissionRequest hooks run only when Claude Code is about to ask you for permission, or when it would otherwise auto-deny a call that can't prompt. Neither event fires for <a href="/docs/en/tools-reference#endconversation-tool-behavior"><code>EndConversation</code></a>.</p>
 <p>```json theme={null}
@@ -10683,7 +10712,7 @@ A hook that exits 2 without a `decision` object leaves the permission flow uncha
 <li>To run a hook when a specific file changes on disk, whatever wrote it, use <a href="#filechanged">FileChanged</a>. Claude Code doesn't run a <code>PostToolUse</code> hook matching <code>Edit|Write</code> when a <code>Bash</code> command or a process outside Claude Code rewrites the same file.</li>
 </ul>
 <h4 id="posttooluse-input">PostToolUse input</h4>
-<p><code>PostToolUse</code> hooks fire after a tool has already executed successfully. The input includes both <code>tool_input</code>, the arguments sent to the tool, and <code>tool_response</code>, the result it returned. The exact schema for both depends on the tool. File-tool <code>tool_input</code> paths arrive in the same format as for <a href="#pretooluse-input">PreToolUse</a>: always absolute, with the platform's native separators, so backslashes on Windows.</p>
+<p><code>PostToolUse</code> hooks fire after a tool has already executed successfully. The input includes both <code>tool_input</code>, the arguments sent to the tool, and <code>tool_response</code>, the result it returned. The exact schema for both depends on the tool. File-tool <code>tool_input</code> paths arrive in the same format as for <a href="#pretooluse-input">PreToolUse</a>: always absolute, with the platform's native separators, so backslashes on Windows. For an MCP tool, the input also carries the <a href="#pretooluse-input"><code>mcp_server</code></a> object.</p>
 <p>```json theme={null}
 {
   "session_id": "abc123",
@@ -10778,7 +10807,7 @@ Matches on tool name, same values as PreToolUse.
 
 #### PostToolUseFailure input
 
-PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as PostToolUse, along with error information as top-level fields. For example, a failed `npm test` command might deliver:
+PostToolUseFailure hooks receive the same `tool_name` and `tool_input` fields as PostToolUse, along with error information as top-level fields. For an MCP tool, they also receive the [`mcp_server`](#pretooluse-input) object. For example, a failed `npm test` command might deliver:
 
 ```json theme={null}
 {
@@ -10917,7 +10946,7 @@ Matches on tool name, same values as PreToolUse.
 
 #### PermissionDenied input
 
-In addition to the [common input fields](#common-input-fields), PermissionDenied hooks receive `tool_name`, `tool_input`, `tool_use_id`, and `reason`.
+In addition to the [common input fields](#common-input-fields), PermissionDenied hooks receive `tool_name`, `tool_input`, `tool_use_id`, and `reason`. For an MCP tool, they also receive the [`mcp_server`](#pretooluse-input) object.
 
 ```json theme={null}
 {

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="How repository automation separates untrusted pull-request validation from credentialed or write-capable jobs. Covers CI, code-sample testing and trace refreshes, GitHub mutations, scheduled maintenance, and Linear escalation boundaries.">
+        <meta name="description" content="How repository automation separates untrusted pull-request validation from credentialed or write-capable jobs. Covers CI, version-claim gates, scheduled version refresh PRs, code-sample testing, and GitHub mutations.">
       
       
       
@@ -551,7 +551,7 @@
   <span class="md-ellipsis">
     
   
-    Source map
+    Source Map
   
 
     
@@ -886,6 +886,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changed-document-package-version-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed-document package-version gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#code-samples-fork-safety-and-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -962,6 +973,17 @@
     <span class="md-ellipsis">
       
         Export and code-sample escalation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#external-version-refresh-privileged-writer-and-review-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External-version refresh: privileged writer and review lifecycle
       
     </span>
   </a>
@@ -7203,7 +7225,7 @@
   <span class="md-ellipsis">
     
   
-    Filter traces
+    Filter traces (ClickHouse)
   
 
     
@@ -38239,6 +38261,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../src/oss/python/integrations/providers/typesafe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TypeSafe integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../src/oss/python/integrations/providers/unstructured/" class="md-nav__link">
         
   
@@ -38415,10 +38465,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_7_14_2_16_100" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_7_14_2_16_101" >
         
           
-          <label class="md-nav__link" for="__nav_6_7_14_2_16_100" id="__nav_6_7_14_2_16_100_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_7_14_2_16_101" id="__nav_6_7_14_2_16_101_label" tabindex="0">
             
   
   
@@ -38436,8 +38486,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="6" aria-labelledby="__nav_6_7_14_2_16_100_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_7_14_2_16_100">
+        <nav class="md-nav" data-md-level="6" aria-labelledby="__nav_6_7_14_2_16_101_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_7_14_2_16_101">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -73561,6 +73611,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changed-document-package-version-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed-document package-version gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#code-samples-fork-safety-and-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -73637,6 +73698,17 @@
     <span class="md-ellipsis">
       
         Export and code-sample escalation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#external-version-refresh-privileged-writer-and-review-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External-version refresh: privileged writer and review lifecycle
       
     </span>
   </a>
@@ -73724,6 +73796,12 @@
 <p><code>ci.yml</code> runs on pull requests, pushes to <code>main</code>, and manual dispatch. It calls reusable test, lint, and documentation-link workflows, then independently checks unresolved merge markers, source cross-references, safe schemes in external integration <code>docs_url</code> values, and whether the generated provider overview is current. Its workflow-and-ref concurrency group cancels an older in-progress run after a newer push, avoiding tests of an obsolete revision.</p>
 <p>The URL gate is deliberately a non-network validation: <code>--check-docs-urls</code> checks every external-listing <code>docs_url</code> and writes nothing. It allows <code>https://</code>, <code>http://</code>, or a single-slash site-relative path, and rejects missing values, <code>javascript:</code>/<code>data:</code>-style schemes, and protocol-relative <code>//host</code> values. The generator repeats this guard before rendering an external link, so a bad listing cannot become an unsafe generated Markdown href.</p>
 <p>The reusable test and lint workflows install the test dependency group and run <code>make test</code> or <code>make lint</code>; the link workflow builds docs and runs <code>make broken-links-with-anchors</code> plus <code>make check-openapi</code>. The generated-file gate reruns <code>pipeline/tools/partner_pkg_table.py</code> and fails if <code>src/oss/python/integrations/providers/overview.mdx</code> differs. Update generator inputs, regenerate, and commit the result rather than editing the overview. The gate skips the expected <code>github-actions[bot]</code> package-download PR title and PRs labeled <code>bypass-auto-check</code>.</p>
+<h3 id="changed-document-package-version-gate">Changed-document package-version gate</h3>
+<p><code>check-version-claims.yml</code> is a separate, read-only <code>pull_request</code> gate. It triggers only when <code>src/**/*.mdx</code>, its checker, its ignore list, or the workflow changes. With a full checkout it computes the merge-base against the PR base branch, selects added, copied, modified, renamed, type-changed, unmerged, or unknown changed <code>.mdx</code> files below <code>src/</code>, and does nothing further when that set is empty. For a nonempty set it installs Python 3.13 and runs <code>scripts/check_version_claims.py --files</code> only on those paths.</p>
+<p>This boundary validates <strong>availability</strong>, not dependency policy. The checker extracts <code>&gt;=</code> and <code>==</code> package specifiers and resolves PyPI versus npm from, in order, npm scope, Python extras, a nearby language label, a <code>:::python</code> or <code>:::js</code> fence, the page path or explicit page override, then a PyPI default. It queries each relevant registry concurrently. An exact release, or a truncated series with a published release in that series, passes; a named version that was never published blocks the PR. Lookup failures, malformed registry responses, and unsafe package names are reported as unresolved notes rather than false unpublished-version failures. Exact reviewed exceptions in <code>scripts/version_claims_ignore.txt</code> are excluded.</p>
+<p>The gate deliberately cannot establish that a floor is sufficient for a feature or should be raised. Keep that compatibility decision with the feature owner. For a focused local reproduction, run:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/check_version_claims.py<span class="w"> </span>--files<span class="w"> </span>src/langsmith/evaluators.mdx
+</code></pre></div>
 <p>Useful local equivalents are:</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span><span class="nb">test</span>
 make<span class="w"> </span>lint
@@ -73782,6 +73860,30 @@ make<span class="w"> </span>update-code-sample-traces<span class="w"> </span><sp
 </code></pre></div>
 <p>This validates external URLs in the offline Mint export, not the internal link-and-anchor gate in CI. <code>htmltest-linear.yml</code> observes completed <strong>Htmltest Mint Export</strong> runs and creates a Linear issue only for failed or cancelled scheduled runs, never a manual run. It attaches the failed run URL and uses <code>LINEAR_API_KEY</code> plus the <code>LINEAR_TEAM_KEY</code> repository variable.</p>
 <p>The separate <code>test-code-samples-linear.yml</code> applies the same escalation boundary to <strong>Test Code Samples</strong>: only a scheduled full-run failure or cancellation creates a Linear ticket with the workflow URL. Manual and PR runs cannot create that ticket; a cancellation is described as a timeout and a failure as one or more failed samples. Keep these <code>workflow_run</code> guards when changing either producer: the consumer is an alerting path, not a general issue creator.</p>
+<h3 id="external-version-refresh-privileged-writer-and-review-lifecycle">External-version refresh: privileged writer and review lifecycle</h3>
+<p><code>refresh-external-versions.yml</code> is a distinct, trusted writer job: it runs Monday at 08:00 UTC or by manual dispatch with <code>contents: write</code> and <code>pull-requests: write</code>. It checks out the base repository, supplies its GitHub token to <code>scripts/check_external_versions.py --write</code>, and may modify only the registered pages below <code>src/</code>. It must never be folded into the pull-request gate: it fetches upstream GitHub sources and can push a branch and create a PR.</p>
+<p>The registry <code>scripts/data/external_versions.yaml</code> is the allowlisted state owner for these mirrored requirements. Each entry identifies one <code>src/</code> page, an exactly-once page regex with a named <code>version</code> capture, and either a GitHub file at <code>HEAD</code> with a source regex or a repository's latest release. Before acting, the script rejects a page outside <code>src/</code>, unsafe repository slug or upstream path, unknown source type, and patterns without the capture. It replaces only the captured digits, so URLs and surrounding requirement prose survive unchanged.</p>
+<div class="highlight"><pre><span></span><code>flowchart TD
+  Registry["Mirrored requirement registry"] --&gt; Validate["Validate page and source inputs"]
+  Validate --&gt; Fetch["Fetch upstream file or latest release"]
+  Fetch --&gt; Compare{"Version differs"}
+  Compare --&gt;|"no"| Summary["No change and no PR write"]
+  Compare --&gt;|"yes"| Rewrite["Replace captured digits only"]
+  Rewrite --&gt; Diff{"src diff exists"}
+  Diff --&gt;|"no"| Summary
+  Diff --&gt;|"yes"| Existing{"Open standing PR exists"}
+  Existing --&gt;|"yes"| Append["Append commit to standing PR"]
+  Existing --&gt;|"no"| Create["Force push branch and open PR"]
+  Fetch --&gt; Unreadable["Report unreadable entry and continue"]
+</code></pre></div>
+<p>This lifecycle shows that a scheduled run publishes only an actual version-only diff, while a standing branch prevents duplicate review requests.</p>
+<p><strong>No change:</strong> if every mirrored value is already equal, <code>--write</code> leaves <code>src/</code> unchanged and the workflow records that outcome in the step summary. It likewise stops after applying its saved patch when there is no remaining <code>src/</code> diff. <strong>Drift:</strong> a resolvable mismatch is rewritten in the checkout. The workflow stashes the <code>src/</code> patch, restores a clean tree, then either checks out the existing open <code>chore/refresh-external-versions</code> PR branch and appends a commit or force-pushes that branch from the current base and creates the PR. Thus there is at most one open refresh PR rather than a weekly series.</p>
+<p><strong>Upstream-read or registry-match failure:</strong> normal check mode exits nonzero on drift or an unreadable entry. Write mode instead reports unreadable entries but exits successfully, so a GitHub outage or one malformed/missing page match does not prevent other resolvable entries from reaching the refresh PR; the committed-registry unit test catches invalid registry/page-pattern structure in ordinary tests. <strong>Human review:</strong> the generated PR explicitly warns that only a version number was changed. Reviewers must verify the upstream requirement as a whole, including flags, peer dependencies, renamed configuration, and other prerequisites that a digit-only rewrite cannot detect.</p>
+<p>Use the same checker locally without repository writes, or scope it to one entry:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/check_external_versions.py
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/check_external_versions.py<span class="w"> </span>--only<span class="w"> </span>codex-cli
+</code></pre></div>
+<p>Focused unit tests cover exact matching, digit-only rewrite behavior, malformed registry inputs, file and release retrieval, ambiguous or missing patterns, and the intentionally different check- and write-mode failure semantics. See <a href="/openwiki/concepts/versioning.md">Language Versioning Strategy</a> for the distinction between package availability claims and upstream-mirrored requirements.</p>
 <h3 id="other-trusted-writers">Other trusted writers</h3>
 <p><code>refresh-langsmith-openapi.yml</code> runs daily at 10:00 UTC or manually, processes the LangSmith public OpenAPI specification, and maintains at most one open <code>chore/refresh-langsmith-openapi</code> PR. <code>openwiki-update.yml</code> runs daily at 08:00 UTC or manually with contents and pull-request write permission. It needs full history for <code>openwiki code --update --print</code>, synchronizes <code>CLAUDE.md</code> from <code>AGENTS.md</code>, and maintains <code>openwiki/update</code>. These jobs run against the trusted base repository and must not be repurposed to execute fork-head code.</p>
 <h2 id="change-checklist">Change checklist</h2>
@@ -73789,7 +73891,9 @@ make<span class="w"> </span>update-code-sample-traces<span class="w"> </span><sp
 <li>Keep changed-code execution in ordinary <code>pull_request</code> validation. For a secret-dependent PR job, explicitly skip forks or redesign the trigger.</li>
 <li>With <code>pull_request_target</code>, use base-ref policy and GitHub API metadata only; never check out or execute a fork head.</li>
 <li>Preserve full-run-only tracing and its test-then-regenerate ordering. Keep trace artifacts restricted to <code>trace-links.json</code> and generated snippet MDX.</li>
-<li>For a scheduled writer, make no-change behavior explicit and keep branch/PR ownership deterministic so runs do not stack duplicate review requests.</li>
+<li>Keep changed-document package validation read-only and scoped to the merge-base diff. Treat an unpublished release as a hard error, but do not make registry unavailability a false failure or let automation choose a feature floor.</li>
+<li>For an upstream-mirrored requirement, register an exact page capture and safe upstream source; preserve digit-only rewrites and require review of the surrounding semantic requirement.</li>
+<li>For a scheduled writer, make no-change and upstream-read failure behavior explicit and keep branch/PR ownership deterministic so runs do not stack duplicate review requests.</li>
 <li>Preserve the scheduled-only <code>workflow_run</code> condition before adding or changing Linear effects.</li>
 <li>Keep agent- or secret-backed workflows behind authorization and let the workflow, not untrusted input or the agent, perform GitHub writes.</li>
 </ol>
