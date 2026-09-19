@@ -11613,34 +11613,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../transforms/namespacing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Namespacing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../transforms/prompts-as-tools/" class="md-nav__link">
         
   
@@ -20506,7 +20478,7 @@ For custom classes that are not JSON-native, return a <code>ResourceResult</code
 <p>While <code>@mcp.resource</code> is ideal for dynamic content, you can directly register pre-defined resources (like static files or simple text) using <code>mcp.add_resource()</code> and concrete <code>Resource</code> subclasses.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileResource</span><span class="p">,</span> <span class="n">TextResource</span><span class="p">,</span> <span class="n">DirectoryResource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">DirectoryResource</span><span class="p">,</span> <span class="n">FileResource</span><span class="p">,</span> <span class="n">HttpResource</span><span class="p">,</span> <span class="n">TextResource</span>
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"DataServer"</span><span class="p">)</span>
 
@@ -20544,13 +20516,23 @@ For custom classes that are not JSON-native, return a <code>ResourceResult</code
         <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span> <span class="c1"># Set to True to list subdirectories</span>
     <span class="p">)</span>
     <span class="n">mcp</span><span class="o">.</span><span class="n">add_resource</span><span class="p">(</span><span class="n">data_listing_resource</span><span class="p">)</span> <span class="c1"># Returns JSON list of files</span>
+
+<span class="c1"># 4. Serving a web page fetched by the server</span>
+<span class="n">page_resource</span> <span class="o">=</span> <span class="n">HttpResource</span><span class="p">(</span>
+    <span class="n">uri</span><span class="o">=</span><span class="s2">"docs://service-public/f23533"</span><span class="p">,</span>
+    <span class="n">url</span><span class="o">=</span><span class="s2">"https://entreprendre.service-public.gouv.fr/vosdroits/F23533"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Service Public F23533"</span><span class="p">,</span>
+    <span class="n">mime_type</span><span class="o">=</span><span class="s2">"text/html"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">mcp</span><span class="o">.</span><span class="n">add_resource</span><span class="p">(</span><span class="n">page_resource</span><span class="p">)</span>
 </code></pre></div>
+<p><code>HttpResource</code> has two addresses. <code>uri</code> is the identity clients see in the resource list, and <code>url</code> is what the server fetches when a client reads it. Keep them different: the MCP specification reserves <code>https://</code> URIs for content the client can fetch on its own, so advertising the fetched URL as the <code>uri</code> tells clients they don't need your server for it. A custom scheme like <code>docs://</code> makes it clear the content comes through the server.</p>
 <p><strong>Common Resource Classes:</strong></p>
 <ul>
 <li><code>TextResource</code>: For simple string content.</li>
 <li><code>BinaryResource</code>: For raw <code>bytes</code> content.</li>
 <li><code>FileResource</code>: Reads content from a local file path. Handles text/binary modes, encoding, and lazy reading.</li>
-<li><code>HttpResource</code>: Fetches content from an HTTP(S) URL (requires <code>httpx2</code>).</li>
+<li><code>HttpResource</code>: Fetches content from an HTTP(S) URL on the server side when a client reads it (requires <code>httpx2</code>).</li>
 <li><code>DirectoryResource</code>: Lists files in a local directory (returns JSON).</li>
 <li>(<code>FunctionResource</code>: Internal class used by <code>@mcp.resource</code>).</li>
 </ul>

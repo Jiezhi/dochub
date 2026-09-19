@@ -3361,6 +3361,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Maintain the gateway">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plan-claude-code-version-upgrades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan Claude Code version upgrades
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5871,6 +5888,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Maintain the gateway">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plan-claude-code-version-upgrades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plan Claude Code version upgrades
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6146,7 +6180,7 @@ Deliver the variables through the `env` block of a [managed settings file](/docs
 <tr>
 <td style="text-align: left;">New Claude Code releases add <code>anthropic-beta</code> values and request body fields</td>
 <td style="text-align: left;">Developers report <code>400</code> errors naming a new field after they update Claude Code; see <a href="/docs/en/llm-gateway-protocol#feature-pass-through">feature pass-through</a></td>
-<td style="text-align: left;">Forward <code>anthropic-*</code> headers and request bodies verbatim rather than allowlisting; test new Claude Code releases against the gateway before they reach developers</td>
+<td style="text-align: left;">Forward <code>anthropic-*</code> headers and request bodies verbatim rather than allowlisting; test new Claude Code releases against the gateway before they reach developers, checking the areas in <a href="#plan-claude-code-version-upgrades">Plan Claude Code version upgrades</a></td>
 </tr>
 <tr>
 <td style="text-align: left;">New Claude models become available</td>
@@ -6161,6 +6195,35 @@ Deliver the variables through the `env` block of a [managed settings file](/docs
 </tbody>
 </table>
 <p>When sizing per-key rate limits, account for the client <a href="/docs/en/errors#automatic-retries">retrying transient failures</a>, including <code>429</code> responses, up to 10 times with backoff, honoring <code>Retry-After</code>. Keep the <a href="/docs/en/llm-gateway-protocol">compatibility guide</a> as the reference for what each Claude Code release sends.</p>
+<h3 id="plan-claude-code-version-upgrades">Plan Claude Code version upgrades</h3>
+<p>Some Claude Code behavior is built into the installed version rather than set at your gateway, so moving developers to a new release can change behavior across your deployment even when the gateway configuration hasn't changed. To control when that happens, pin developers to a tested version with <a href="/docs/en/settings-reference#requiredmaximumversion"><code>requiredMaximumVersion</code></a>, or with <a href="/docs/en/setup#disable-auto-updates"><code>DISABLE_UPDATES</code></a> if you distribute Claude Code through your own channel. Before you raise the pin, read the new release's <a href="/docs/en/changelog">changelog</a> entry and <a href="#test-claude-code-against-the-gateway">test it against the gateway</a>.</p>
+<p>When you test a release, new headers or request fields that the gateway rejects appear as the <code>400</code> errors described in <a href="#maintain-the-gateway">Maintain the gateway</a>. The table below covers version-dependent changes that don't produce an error, with the setting that keeps each one constant across upgrades.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Area</th>
+<th style="text-align: left;">What can change when developers upgrade</th>
+<th style="text-align: left;">Setting that keeps it constant</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Feature-flag defaults</td>
+<td style="text-align: left;">Sessions that <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">don't fetch feature flags from Anthropic</a>, such as sessions on a cloud provider or with telemetry turned off, use the flag defaults built into the installed version. When a release changes one of those defaults, the behavior changes for those developers as soon as they upgrade</td>
+<td style="text-align: left;">The version pin itself, <code>requiredMaximumVersion</code> or <code>DISABLE_UPDATES</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">Model capability assumptions</td>
+<td style="text-align: left;">A model ID that the installed version doesn't recognize, such as the gateway alias <code>prod-opus</code>, runs on default assumptions for <a href="/docs/en/model-config#adaptive-reasoning-and-fixed-thinking-budgets">adaptive reasoning</a>, the effort parameter, and the <a href="/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id">context window</a> until a later version recognizes the ID or you map it</td>
+<td style="text-align: left;">Route Anthropic model IDs at the gateway, or add a <a href="/docs/en/model-config#override-model-ids-per-version"><code>modelOverrides</code></a> entry that maps the Anthropic model ID to your alias. On a cloud provider connection, you can instead <a href="/docs/en/model-config#customize-pinned-model-display-and-capabilities">declare a pinned model's capabilities</a></td>
+</tr>
+<tr>
+<td style="text-align: left;">Default model and aliases</td>
+<td style="text-align: left;">The model that new sessions start on by default, and the models that aliases such as <code>opus</code> and <code>sonnet</code> resolve to, are <a href="/docs/en/model-config#pin-models-for-third-party-deployments">built into each version</a> and can change when developers upgrade</td>
+<td style="text-align: left;"><a href="/docs/en/model-config#set-a-default-model-for-new-sessions"><code>ANTHROPIC_DEFAULT_MODEL</code></a> for the model new sessions start on, and the <a href="/docs/en/model-config#environment-variables"><code>ANTHROPIC_DEFAULT_*_MODEL</code> variables</a>, such as <code>ANTHROPIC_DEFAULT_OPUS_MODEL</code>, for what each alias resolves to. <code>ANTHROPIC_DEFAULT_MODEL</code> requires Claude Code v2.1.236 or later</td>
+</tr>
+</tbody>
+</table>
 <h2 id="related-resources">Related resources</h2>
 <ul>
 <li><a href="/docs/en/llm-gateway-connect">Connect Claude Code to an LLM gateway</a>: the developer-facing setup steps, with per-surface configuration and a troubleshooting table you can hand to developers</li>

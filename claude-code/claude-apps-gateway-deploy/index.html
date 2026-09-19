@@ -1747,6 +1747,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#large-rollouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Large rollouts
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1780,6 +1791,17 @@
     <span class="md-ellipsis">
       
         Health
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrent-upstream-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrent upstream requests
       
     </span>
   </a>
@@ -5933,6 +5955,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#large-rollouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Large rollouts
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5966,6 +5999,17 @@
     <span class="md-ellipsis">
       
         Health
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrent-upstream-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrent upstream requests
       
     </span>
   </a>
@@ -6219,6 +6263,21 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Once the gateway is serving, push <code>forceLoginMethod</code>, <code>forceLoginGatewayUrl</code>, and <code>parentSettingsBehavior: "merge"</code> to each developer's machine through managed settings, via MDM or by writing the per-OS <code>managed-settings.json</code> directly. Without this, <code>/login</code> shows the standard account picker with no gateway option.</p>
 <p>Once you deploy the keys, Claude Code stops using a leftover API key or claude.ai login on the machine, so plan the push together with your sign-in instructions. <a href="/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in">Administrator policy requires a Cloud gateway sign-in</a> describes the messages developers see.</p>
 <p>See <a href="/docs/en/managed-settings#where-each-mechanism-stores-the-policy">where each mechanism stores the policy</a> for the file paths, and <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">Client-side managed settings</a> for the Claude Desktop <code>bootstrapUrl</code> equivalent.</p>
+<h3 id="large-rollouts">Large rollouts</h3>
+<p>Sign-in is rate limited per client IP address, and the defaults suit a small team. Each address gets 30 sign-in starts and 10 code submissions every 10 minutes. A rollout to thousands of developers can reach those limits on the first morning, for one of two reasons:</p>
+<ul>
+<li><strong>The gateway can't see past your load balancer.</strong> Without <a href="/docs/en/claude-apps-gateway-config#listen"><code>listen.trusted_proxies</code></a>, every developer appears to come from the load balancer's address and shares one limit. Set it before anything else. The gateway logs a warning the first time it ignores an <code>X-Forwarded-For</code> header.</li>
+<li><strong>Many developers share a few NAT or VPN egress addresses.</strong> They share those addresses' limits even when <code>trusted_proxies</code> is right. Raise <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>rate_limits</code></a> to fit.</li>
+</ul>
+<p>To size <code>max</code>, divide the developers by the egress addresses they share. Estimate how many of those sign in within one <code>window_seconds</code> period, which is 10 minutes by default. Then double it to cover retries and developers who sign in to both Claude Code and Claude Desktop.</p>
+<p>For example, 10,000 developers behind 4 egress addresses sign in evenly over an hour. That is 2,500 developers per address and about 420 of them in each 10 minutes, which you double and round up to 1,000. The example below sets both limits to 1,000:</p>
+<p><code>yaml theme={null}
+rate_limits:
+  device_authorization: { max: 1000, window_seconds: 600 }
+  device_verify: { max: 1000, window_seconds: 600 }</code></p>
+<p><code>device_verify</code> is what stops someone from guessing another developer's sign-in code, so raise it only as far as your estimate needs. Even at these limits, a code is 8 characters from a 20-character alphabet and expires after 10 minutes, so guessing stays impractical; see <a href="#user-code-brute-force-resistance">User-code brute-force resistance</a>.</p>
+<p>When your IdP issues refresh tokens, Claude Code renews sessions silently, so you can put the limit back after the rollout. Without refresh tokens, developers sign in again every <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a>. Size both limits for that steady rate too and leave them raised.</p>
+<p>When a limit is reached, Claude Code v2.1.274 or later shows <code>The gateway is limiting sign-in attempts right now</code>. A gateway on v2.1.274 or later shows <code>Too many attempts came from your network address</code> on the verification page, with the settings to check. It also writes a <code>sign-in refused</code> log line that names the setting to change.</p>
 <h2 id="operations">Operations</h2>
 <p>Once the gateway is serving traffic, day-to-day operation is reading its logs, probing its health, and rotating its secrets on your schedule. The subsections cover each, plus what Postgres holds and how upgrades and rollbacks behave.</p>
 <h3 id="logs">Logs</h3>
@@ -6243,6 +6302,20 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="health">Health</h3>
 <p>The gateway serves <code>GET /healthz</code> as a liveness probe and <code>GET /readyz</code> as a readiness probe; <code>/readyz</code> verifies the store is reachable. Both are exempt from <code>access_control.allow_cidrs</code>, so probes keep working on a locked-down listener.</p>
 <p>The OAuth discovery document at <code>/.well-known/oauth-authorization-server</code> also returns <code>200</code> only after config load, OIDC discovery, upstream client construction, and Postgres migration all succeed, so it doubles as an end-to-end boot check.</p>
+<h3 id="concurrent-upstream-requests">Concurrent upstream requests</h3>
+<p>By default, each gateway replica sends at most 256 requests upstream at the same time. A streaming response counts against the limit until the stream ends.</p>
+<p>A request that arrives while a replica is at the limit waits inside the gateway for a free slot. The developer sees a response that is slow to start or appears to hang. On a <code>provider: anthropic</code> upstream, a request that waits longer than <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>timeouts.upstream_ttfb_ms</code></a> gives up on that upstream, and fails with a 502 when no later upstream serves it.</p>
+<p>The startup log line that contains <code>upstream requests:</code> shows the limit in effect. While a replica has more requests open than the limit, it also logs a warning that contains <code>client requests are open</code>, at most once a minute.</p>
+<p>To serve more requests at once, you have two options:</p>
+<ul>
+<li>Add replicas.</li>
+<li>Raise the limit on each replica. Set the <code>BUN_CONFIG_MAX_HTTP_REQUESTS</code> environment variable on the gateway container to a whole number from 1 to 65535, then restart the container.</li>
+</ul>
+<p>A replica fills its limit at a request rate of about the limit divided by the average number of seconds a request stays open. For example, if requests stay open for 10 seconds on average, a replica at the default limit of 256 fills it at about 26 requests a second.</p>
+<p>If you autoscale on CPU, a replica at the limit queues requests without triggering a scale-out, so set the target below the CPU level your replicas show when they log the <code>client requests are open</code> warning.</p>
+<p><Warning>
+  Every open request holds memory in the gateway process while it streams and while it waits for a slot. If you keep the limit at 256, memory on an overloaded replica still grows, because waiting requests keep their request bodies. Size the container's memory for the number of requests open at peak, and watch memory when you change the limit. A replica that runs out of memory is killed and drops every stream it holds.
+</Warning></p>
 <h3 id="outage-behavior">Outage behavior</h3>
 <p>If Postgres goes down, the gateway itself keeps serving signed-in developers and new sign-ins fail. Whether developers actually keep working depends on how your orchestrator handles readiness:</p>
 <ul>
@@ -6301,7 +6374,20 @@ Use this file to discover all available pages before exploring further.</p>
 <p>A 30-second loop expires <code>kv</code> rows past their TTL, and an hourly sweep enforces the retention windows on the spend tables, so nothing grows without bound. Without <a href="/docs/en/claude-apps-gateway-spend-limits">spend limits</a> configured, only <code>kv</code> is written. The gateway applies its own schema migrations at boot and on every upgrade, so its database role needs rights to create and alter tables. Point it at a database or schema dedicated to the gateway to keep that grant narrow.</p>
 <p>With spend limits in use, a lost database means lost spend tracking and caps, not only developer re-logins, so run regular backups. To erase one departed developer immediately rather than waiting on retention, run <code>DELETE FROM principal_emails WHERE principal = '&lt;sub&gt;'</code> directly; that removes the only table holding their email, name, and groups. <code>spend</code> and <code>admin_audit</code> rows reference the pseudonymous OIDC <code>sub</code> only.</p>
 <h3 id="upgrades">Upgrades</h3>
-<p>Replicas are stateless, so a rolling restart is safe at any time. The gateway runs schema migrations at boot, which means deploying the new binary self-migrates the database. Concurrent replicas serialize on a Postgres advisory lock, so only one applies each migration.</p>
+<p>Replicas are stateless, so a rolling restart loses no gateway state. The gateway runs schema migrations at boot, which means deploying the new binary self-migrates the database. Concurrent replicas serialize on a Postgres advisory lock, so only one applies each migration.</p>
+<p>When your orchestrator stops a replica with <code>SIGTERM</code>, as in a rolling restart or a scale-in, the gateway stops accepting new connections and lets requests and streams already in flight finish before it exits. It waits up to 25 seconds, called the drain window, then closes whatever is still open. A <code>SIGINT</code>, such as Ctrl+C in a terminal, starts the same drain, and a second signal during the drain closes the open requests and exits right away. Draining requires gateway v2.1.274 or later.</p>
+<p>Long generations can stream for minutes. On Kubernetes and Amazon ECS, raise both of these together to give those streams more time:</p>
+<ul>
+<li><strong>The drain window</strong>: set the <code>CLAUDE_GATEWAY_DRAIN_TIMEOUT_MS</code> environment variable on the gateway container to a positive whole number of milliseconds, such as <code>120000</code>. The gateway ignores a value in any other form, such as <code>120s</code>, and keeps the 25-second default</li>
+<li><strong>Your orchestrator's grace period</strong>: <code>terminationGracePeriodSeconds</code> on Kubernetes, or <code>stopTimeout</code> on Amazon ECS</li>
+</ul>
+<p>The grace period defaults to 30 seconds on both platforms. Keep it at least 5 seconds longer than the drain window, or the orchestrator kills the gateway before the drain finishes. On Kubernetes, add the duration of any <code>preStop</code> hook as well, because the grace period starts counting before the hook runs rather than when the gateway receives <code>SIGTERM</code>.</p>
+<p>Your platform may also cap how long the drain can run:</p>
+<ul>
+<li><strong>Amazon ECS on Fargate</strong>: <code>stopTimeout</code> allows at most 120 seconds</li>
+<li><strong>Cloud Run</strong>: stops an instance 10 seconds after <code>SIGTERM</code>, so open streams get at most 10 seconds there, whatever the drain window is</li>
+</ul>
+<p>When the drain window ends with requests still open, the gateway logs a warning that contains <code>drain window over after</code>, counts the requests it cut, and names both settings to raise.</p>
 <p>Migrations are append-only, so rolling back to a prior binary that knows fewer migrations is safe; it ignores the extra rows. Rollback also re-validates the YAML against the older binary's schema, so a config that adopted a key introduced by the newer release fails boot on the older one. Remove the new key before rolling back.</p>
 <p>Because you pin the gateway's version in your own image, fixes in new Claude Code releases, including security fixes, reach your deployment only when you update the pin and redeploy. Include the gateway in the same patching cadence you use for other services that hold production credentials.</p>
 <h2 id="security">Security</h2>
@@ -6348,8 +6434,10 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li>Developers hold short-lived JWTs instead of raw upstream keys. The CLI-to-gateway leg uses the RFC 8628 device grant, and the gateway's authorization-code exchange with the IdP runs PKCE in the default configuration, so an intercepted IdP authorization code is useless.</li>
 <li>The device-verification page enforces same-origin POST and a per-IP rate limit per RFC 8628 §5.1. See <a href="#user-code-brute-force-resistance">User-code brute-force resistance</a>.</li>
-<li>Outbound requests go through a server-side request forgery (SSRF) guard that resolves DNS, blocks link-local and cloud-metadata addresses plus loopback by default, and pins the connection to the resolved IP, so operator-influenced URLs such as the IdP and OTLP destinations can't be redirected to cloud metadata endpoints. RFC 1918 private ranges are deliberately allowed, because IdPs and OTLP collectors commonly live on private IPs. Set <code>CLAUDE_GATEWAY_ALLOW_LOOPBACK=1</code> in the gateway's environment only when something the gateway must reach legitimately lives on loopback, such as a local-development IdP or a sidecar OTLP collector on <code>localhost</code>. The variable relaxes the loopback block for every operator-configured URL and also skips the boot-time warning that checks whether the pod can reach the cloud metadata endpoint, so prefer giving the collector its own internal address.</li>
+<li>The gateway's requests to your IdP, your OTLP collectors, and <code>provider: anthropic</code> upstreams go through a server-side request forgery (SSRF) guard that resolves DNS, blocks link-local and cloud-metadata addresses plus loopback by default, and pins the connection to the resolved IP, so those operator-influenced URLs can't be redirected to cloud metadata endpoints. RFC 1918 private ranges are deliberately allowed, because IdPs and OTLP collectors commonly live on private IPs. For the other providers, the gateway refuses a <code>base_url</code> that names one of those addresses or a metadata hostname when it loads the config, and the provider's SDK then connects without the DNS check.</li>
 </ul>
+<p>If you turn on <a href="/docs/en/claude-apps-gateway-config#proxy-only-egress">proxy-only egress</a>, that address check moves to your forward proxy: the gateway hands it hostnames and the proxy's allowlist must refuse those destinations.</p>
+<p>Set <code>CLAUDE_GATEWAY_ALLOW_LOOPBACK=1</code> in the gateway's environment only when something the gateway must reach legitimately lives on loopback, such as a local-development IdP or a sidecar OTLP collector on <code>localhost</code>. The variable relaxes the loopback block for every operator-configured URL and also skips the boot-time warning that checks whether the pod can reach the cloud metadata endpoint, so prefer giving the collector its own internal address.</p>
 <p>If you add your own egress controls, the gateway must reach the metadata server whenever it uses instance-metadata credentials such as workload identity.</p>
 <p>Two threats are out of scope because they are your infrastructure to secure:</p>
 <ul>
@@ -6358,7 +6446,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <h3 id="user-code-brute-force-resistance">User-code brute-force resistance</h3>
 <p>The <code>user_code</code> a developer types into the <code>/device</code> verification page is 8 characters drawn from a 20-character alphabet, which yields 20⁸ or about 2.56×10¹⁰ combinations, and it expires after 10 minutes.</p>
-<p>The gateway applies per-IP rate limits on the device-grant endpoints, configurable via <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>rate_limits</code></a>. Raise the limits if many developers sign in from a single shared corporate NAT address. The limits apply only to the sign-in flow, not to inference.</p>
+<p>The gateway applies per-IP rate limits on the device-grant endpoints, configurable via <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>rate_limits</code></a>. Raise the limits if many developers sign in from a single shared corporate NAT address. <a href="#large-rollouts">Large rollouts</a> shows how to size them. The limits apply only to the sign-in flow, not to inference.</p>
 <h3 id="compliance-posture">Compliance posture</h3>
 <ul>
 <li><strong>Data residency</strong>: the gateway's own data plane sends nothing to Anthropic unless the Anthropic API is a configured upstream; when it is, your existing data-handling agreement applies to the inference path. Telemetry, audit, identity, and settings go only to the destinations you configure.</li>
@@ -6420,6 +6508,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Check the audit log for <code>access.denied</code> at the time of the failure and fix the <code>access_control</code> lists or the front end, then have the developer start <code>claude</code> again</td>
 </tr>
 <tr>
+<td>CLI <code>/login</code>: <code>The gateway is limiting sign-in attempts right now</code>, or <code>Request failed with status code 429</code> on older versions. The <code>/device</code> page may show <code>Too many attempts</code> to developers who haven't tried before</td>
+<td>The per-IP sign-in rate limit was reached. Either <code>listen.trusted_proxies</code> doesn't cover the load balancer, so every developer shares its address, or many developers share a NAT or VPN egress address. Audit events with <code>result: rate_limited</code> show the same one or few <code>client_ip</code> values.</td>
+<td>Set <code>listen.trusted_proxies</code> to the load balancer's source ranges first, then raise <code>rate_limits</code> if developers still share addresses. See <a href="#large-rollouts">Large rollouts</a>.</td>
+</tr>
+<tr>
 <td>CLI <code>/login</code>: <code>Gateway hosts must be on your organization's private network; &lt;host&gt; resolves to the public (or unrecognized) address &lt;ip&gt;</code></td>
 <td>The gateway hostname resolves to at least one public IP address. Claude Code checks each resolved address and requires every one to be private. A common cause is a dual-stack name where one family resolves to a public address, including AWS internal dual-stack load balancers, which return public-range AAAA addresses.</td>
 <td>Have the gateway name resolve only to private addresses on developer machines. For a dual-stack name, drop the public-range record or serve a separate internal-only DNS name. See the <a href="/docs/en/claude-apps-gateway#prerequisites">private-network prerequisite</a>. If the address is public space your organization owns and uses internally, <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own">declare that block</a> instead.</td>
@@ -6472,12 +6565,17 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td>Boot exits with an OIDC discovery error after <code>config.load</code></td>
 <td><code>oidc.issuer</code> unreachable, or TLS chain not trusted</td>
-<td>Check the issuer is reachable from the pod and serves <code>/.well-known/openid-configuration</code>. Set <code>ca_cert_pem</code> for private PKI. If the pod reaches the IdP only through a forward proxy, set <a href="/docs/en/claude-apps-gateway-config#idp-requests-through-a-forward-proxy"><code>oidc.use_proxy: true</code></a>; on versions before v2.1.227, give the pod a direct route to each of the IdP's endpoints instead.</td>
+<td>Check the issuer is reachable from the pod and serves <code>/.well-known/openid-configuration</code>. Set <code>ca_cert_pem</code> for private PKI. If the pod reaches the IdP only through a forward proxy, set <a href="/docs/en/claude-apps-gateway-config#idp-requests-through-a-forward-proxy"><code>oidc.use_proxy: true</code></a>; on versions before v2.1.227, give the pod a direct route to each of the IdP's endpoints instead. If the pod also can't resolve the IdP's hostname, or the proxy refuses <code>CONNECT</code> to an IP address, see <a href="/docs/en/claude-apps-gateway-config#proxy-only-egress">Proxy-only egress</a>, which requires v2.1.277 or later.</td>
 </tr>
 <tr>
 <td>Boot exits with a Postgres permission error</td>
 <td>The database role lacks DDL rights on its schema</td>
 <td>Grant the role <code>CREATE</code> on the gateway's schema so it can create and alter its tables at boot</td>
+</tr>
+<tr>
+<td>Log: <code>could not connect to Postgres at boot, attempt 1 of 3</code></td>
+<td>The database wasn't reachable yet when the gateway started, for example on a cold instance whose network is still coming up</td>
+<td>If the gateway then finishes booting, no action is needed. When the database isn't reachable, the gateway tries the connection three times, two seconds apart, before it exits. If it exits with <code>could not connect to Postgres</code>, check <code>store.postgres_url</code> and the network path to the database. If the attempts time out rather than being refused, raise <a href="/docs/en/claude-apps-gateway-config#store"><code>store.connect_timeout_seconds</code></a> to give each one longer.</td>
 </tr>
 <tr>
 <td><code>/oauth/callback</code> shows "Sign-in could not be completed"</td>
@@ -6498,6 +6596,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td>Every Amazon Bedrock request returns 502; log shows <code>Could not load credentials from any providers</code></td>
 <td>On EC2, IMDSv2's default hop limit of 1 blocks the instance-metadata request from inside the container. Boot and <code>/readyz</code> pass anyway because the AWS SDK resolves instance credentials on the first request, not at client construction</td>
 <td>Raise the hop limit with <code>aws ec2 modify-instance-metadata-options --instance-id &lt;id&gt; --http-put-response-hop-limit 2</code>, or set it in the launch template. The change applies to every container on the instance. Prefer ECS task roles where available, which read credentials from the ECS container-credentials endpoint and avoid the change entirely, or apply the change on a dedicated gateway instance to limit the exposure.</td>
+</tr>
+<tr>
+<td>At peak load, responses are slow to start or appear to hang, or fail with a 502 <code>all upstreams failed</code> while the upstream is healthy</td>
+<td>A replica has more requests open than it sends upstream at once, so the extra requests wait inside the gateway. On a <code>provider: anthropic</code> upstream, a request that waits longer than <code>timeouts.upstream_ttfb_ms</code> gives up on that upstream, which produces the 502 when no later upstream serves it. The log shows a warning that contains <code>client requests are open</code>.</td>
+<td>Add replicas, or raise the limit on each replica. See <a href="#concurrent-upstream-requests">Concurrent upstream requests</a>.</td>
 </tr>
 <tr>
 <td>IdP error: unknown or unsupported scope</td>
