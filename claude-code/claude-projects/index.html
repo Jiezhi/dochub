@@ -6527,7 +6527,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Threads</strong>: the workers. Each is a separate <a href="/docs/en/claude-code-on-the-web">cloud session</a> with its own context window that does one piece of work on its own branch, opens a pull request when the work calls for one, and reports back to the conversation when it finishes.</li>
 <li><strong>What every thread starts with</strong>:</li>
 <li>The project's repositories and files, plus its <a href="#give-a-project-standing-context">instructions and memory</a></li>
-<li>The <code>CLAUDE.md</code>, skills, and plugins in <a href="#what-threads-pick-up-from-your-repositories">each of the project's repositories</a>, and in a project with one repository, that repository's permission rules and hooks too</li>
+<li>The <code>CLAUDE.md</code> and skills in <a href="#what-threads-pick-up-from-your-repositories">each of the project's repositories</a>, and in a project with one repository, that repository's permission rules and hooks too</li>
 <li>The <a href="#get-skills-plugins-connectors-and-tools-into-threads">connectors</a> on your claude.ai account</li>
 <li>A <a href="#choose-an-environment-for-threads">cloud environment</a> that sets its network access, environment variables, API credentials, and installed tools</li>
 <li><strong>The Overview pane</strong>: where you <a href="#see-what-needs-you-in-overview">see all the threads at once</a> and which of them need you. Its other tabs are <strong>Library</strong> for the files you added and the files threads produced, <strong>Pull requests</strong> for the ones threads opened, and <strong>Routines</strong> for scheduled work in the project.</li>
@@ -6760,7 +6760,7 @@ This project holds p95 latency for the payments API under 200 ms: profiling, que
 <p>Once the project has repositories, Claude can only add repositories from a GitHub owner the project already uses, whether it adds one to the project or a thread adds one to itself. To bring in a repository from a different owner, add it to the project yourself in <strong>Project settings &gt; Environment</strong>.</p>
 <p>For a project that spans many repositories, such as one feature with server, web, mobile, and desktop code, add the one or two repositories nearly every task touches and name the others in <a href="#write-project-instructions">project instructions</a> so Claude knows where the rest of the code lives. Threads then start small and pull in the other repositories only for the tasks that need them.</p>
 <h3 id="what-threads-pick-up-from-your-repositories">What threads pick up from your repositories</h3>
-<p>Each thread clones every repository in the project and loads <code>CLAUDE.md</code>, skills, and plugins from all of them. Permission rules, hooks, and <code>env</code> come only from the <code>.claude/settings.json</code> in the directory the thread starts in: inside the repository when the project has one, and above the clones when it has several, where no repository's file is read for them.</p>
+<p>Each thread clones every repository in the project and loads <code>CLAUDE.md</code> and skills from all of them. Permission rules, hooks, and <code>env</code> come only from the <code>.claude/settings.json</code> in the directory the thread starts in: inside the repository when the project has one, and above the clones when it has several, where no repository's file is read for them.</p>
 <table>
 <thead>
 <tr>
@@ -6782,8 +6782,8 @@ This project holds p95 latency for the payments API under 200 ms: profiling, que
 </tr>
 <tr>
 <td style="text-align: left;">Plugins enabled in <code>.claude/settings.json</code></td>
-<td style="text-align: left;">Loaded</td>
-<td style="text-align: left;">Loaded from every repository. If two repositories disagree about a plugin, set it in <strong>Project settings &gt; Plugins</strong>, which takes precedence</td>
+<td style="text-align: left;">Not loaded. Add the plugin in <strong>Project settings &gt; Plugins</strong> instead</td>
+<td style="text-align: left;">Not loaded. Add the plugin in <strong>Project settings &gt; Plugins</strong> instead</td>
 </tr>
 <tr>
 <td style="text-align: left;">Permission rules, hooks, and <code>env</code> defined in <code>.claude/settings.json</code></td>
@@ -6792,7 +6792,7 @@ This project holds p95 latency for the payments API under 200 ms: profiling, que
 </tr>
 </tbody>
 </table>
-<p>In a project with several repositories, each clone is attached to the thread as an <a href="/docs/en/memory#load-from-additional-directories">additional directory</a> with <code>CLAUDE.md</code> loading turned on, which is why every repository's <code>CLAUDE.md</code> and skills load at start even though the thread starts above them. In either case, hooks that an enabled plugin provides still run, since plugins load from every repository. In a project with several repositories, put standing rules in project instructions and give threads environment variables through the <a href="#choose-an-environment-for-threads">cloud environment</a>.</p>
+<p>In a project with several repositories, each clone is attached to the thread as an <a href="/docs/en/memory#load-from-additional-directories">additional directory</a> with <code>CLAUDE.md</code> loading turned on, which is why every repository's <code>CLAUDE.md</code> and skills load at start even though the thread starts above them. In such a project, put standing rules in project instructions and give threads environment variables through the <a href="#choose-an-environment-for-threads">cloud environment</a>.</p>
 <h3 id="choose-an-environment-for-threads">Choose an environment for threads</h3>
 <p>Every new thread starts in the project's <a href="/docs/en/cloud-environments">cloud environment</a>. The environment sets which domains threads can reach, which environment variables they have, which API credentials are added to their requests, and what the setup script installs before Claude starts. Threads use a default Anthropic-hosted environment until you pick one in <strong>Project settings &gt; Environment</strong>.</p>
 <p>If threads need to reach an internal API or a private package registry, or need a token your machine normally holds, change the environment rather than the project: see <a href="/docs/en/cloud-environments#network-access">Network access</a>, <a href="/docs/en/cloud-environments#add-api-credentials">Add API credentials</a>, and <a href="/docs/en/cloud-environments#setup-scripts">Setup scripts</a>.</p>
@@ -6800,7 +6800,7 @@ This project holds p95 latency for the payments API under 200 ms: profiling, que
 <p>Threads are cloud sessions, so they don't have the skills, MCP servers, plugins, and tools installed only on your machine. To make each of these available to threads:</p>
 <ul>
 <li>Skills, subagents, and commands: commit them to a repository you added to the project, for example a skill at <code>.claude/skills/&lt;skill-name&gt;/SKILL.md</code>. Each thread clones every repository in the project and loads <code>.claude/skills/</code>, <code>.claude/agents/</code>, and <code>.claude/commands/</code> from each of them, so a skill committed to one repository is available in every new thread. Threads also load the skills you enable for your claude.ai account.</li>
-<li>Plugins: add them in <strong>Project settings &gt; Plugins</strong>; they load into each new thread. Plugins that a repository declares in its <code>.claude/settings.json</code> load too; see <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">What carries over from your setup</a>.</li>
+<li>Plugins: add them in <strong>Project settings &gt; Plugins</strong>; they load into each new thread. Plugins that a repository declares in its <code>.claude/settings.json</code> <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup">don't load in threads</a>, because threads are cloud sessions.</li>
 <li>MCP servers: threads get their MCP tools from the connectors on your claude.ai account, which are MCP servers you connect once at <a href="https://claude.ai/customize/connectors">claude.ai/customize/connectors</a> or through the <strong>Manage connectors</strong> link in <strong>Project settings &gt; Environment</strong>. Every thread can use all of them with no per-project setup. The project conversation itself has no connectors, so send work that needs one as a task for a thread. In a project with one repository, threads also load MCP servers from that repository's <a href="/docs/en/cloud-environments#what-carries-over-from-your-setup"><code>.mcp.json</code></a>. <a href="/docs/en/mcp#how-connectors-reach-claude-code">How connectors reach Claude Code</a> lists the rules for cloud sessions and the settings that turn connectors off.</li>
 <li>Command-line tools and packages: install them in the environment's <a href="/docs/en/cloud-environments#setup-scripts">setup script</a>.</li>
 </ul>

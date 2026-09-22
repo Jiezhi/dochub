@@ -6504,6 +6504,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">When the prompt input contains text, double <code>Esc</code> clears it and saves the draft to history so <code>Up</code> recalls it. When the input is empty, double <code>Esc</code> opens the <a href="/docs/en/checkpointing">rewind menu</a> to restore or summarize code and conversation from a previous point</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>Ctrl+Enter</code> or <code>Ctrl+X Ctrl+S</code></td>
+<td style="text-align: left;">Send queued messages now</td>
+<td style="text-align: left;">Interrupts the current turn so your <a href="#queue-messages-while-claude-works">queued messages</a>, and your draft with them, go out right away instead of when the turn ends. In <a href="#shell-mode-with-prefix">shell mode</a>, the key queues your command without interrupting. In terminals that don't report extended keys, <code>Ctrl+Enter</code> arrives as plain <code>Enter</code>; <code>Ctrl+X Ctrl+S</code> works in any terminal. Requires Claude Code v2.1.275 or later</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>Shift+Tab</code>, or <code>Alt+M</code> on Windows when the Node or Bun runtime doesn't enable VT input mode</td>
 <td style="text-align: left;">Cycle permission modes</td>
 <td style="text-align: left;">Cycle through <code>default</code> (labeled Manual in the mode indicator), <code>acceptEdits</code>, <code>plan</code>, and, when available, <code>bypassPermissions</code> and then <code>auto</code>. From <code>auto</code>, the first press switches to <code>default</code>. See <a href="/docs/en/permission-modes">permission modes</a>. On a file permission prompt, the same key closes an open <a href="/docs/en/permissions#add-a-comment-when-you-answer-a-permission-prompt">comment field</a>. With no field open, it selects the option that allows the action for the rest of the session, when the prompt offers that option</td>
@@ -6964,7 +6969,9 @@ To run commands in the background, you can either:
 * Background tasks are automatically cleaned up when Claude Code exits. On macOS and Linux, when you stop a background task from [`/tasks`](/docs/en/commands) or Claude Code stops it at exit, processes that detached from the task's shell, such as ones started under `setsid` or `timeout`, stop too
 * If you background the session instead of exiting it, your background tasks keep running in the background session. See [background a running session](/docs/en/agent-view#from-inside-a-session)
 * Background tasks are automatically terminated if output exceeds 5GB, with a note in stderr explaining why
-* On macOS and Linux, Claude Code terminates running background tasks when the operating system signals memory pressure, provided the session has been idle for at least 30 minutes and no turn or subagent is running. Set [`CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP`](/docs/en/env-vars) to `1` to turn this off. Requires Claude Code v2.1.193 or later
+* On macOS and Linux, Claude Code stops your running background tasks when the operating system reports critical memory pressure, provided the session has been idle for at least 30 minutes and no turn or subagent is running. Requires Claude Code v2.1.193 or later
+  * The [debug log](/docs/en/debug-your-config) says why tasks were stopped, or why a pressure event left them running
+  * Set [`CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP`](/docs/en/env-vars) to `1` to turn off memory-pressure stops
 * Background commands owned by a [subagent](/docs/en/sub-agents) have no time limit, except that a command owned by a subagent running in the foreground ends when that subagent gives its final response; see [Background commands](/docs/en/tools-reference#background-commands) in the tools reference. Before v2.1.218, neither the memory-pressure reap nor the former 60-minute limit on subagent commands covered commands moved to the background with `Ctrl+B`
 
 To disable all background task functionality, set the `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` environment variable to `1`. See [Environment variables](/docs/en/env-vars) for details.
@@ -7001,13 +7008,16 @@ Run shell commands directly without going through Claude by prefixing your input
 <p>Claude responds to the command output automatically once it lands in the transcript, so you can run <code>! npm test</code> and get an explanation of the failures without a second prompt. The response costs the same as sending a normal prompt. To restore the earlier behavior where the output is added to context without a response, set <a href="/docs/en/settings-reference#respondtobashcommands"><code>respondToBashCommands</code></a> to <code>false</code> in <code>settings.json</code>. Before v2.1.186, shell mode always added output to context without a response.</p>
 <h2 id="queue-messages-while-claude-works">Queue messages while Claude works</h2>
 <p>Type a message and press <code>Enter</code> while Claude is working. Claude Code queues the message instead of interrupting the turn, and lists the queued entries above the input box until it sends them. You can queue <code>!</code> <a href="#shell-mode-with-prefix">shell commands</a> and most <a href="/docs/en/commands">commands</a> the same way, apart from the commands, such as <code>/status</code>, that Claude Code runs as soon as you send them.</p>
+<p>Sent and queued messages show in gray until Claude starts responding to them, so you can tell which messages Claude hasn't started on yet.</p>
 <h3 id="when-claude-code-sends-what-you-queued">When Claude Code sends what you queued</h3>
 <p>When a queued entry reaches Claude depends on what you queued.</p>
 <ul>
-<li>Messages: if you queue a message while Claude is running tool calls, Claude Code passes it to Claude as soon as those tool calls finish, within the same turn. When the turn ends with messages still queued, Claude Code sends only the oldest as the next turn. The rest stay queued and follow the same rule: Claude Code passes them to Claude when that turn's tool calls finish, or sends the next oldest as the turn after</li>
-<li>Commands and shell commands: Claude Code holds them until the turn ends, then runs them one at a time</li>
+<li>Messages: if you queue a message while Claude is running tool calls, Claude Code passes it to Claude as soon as those tool calls finish, within the same turn. When the turn ends with messages still queued, they go out without another key press, in the order you typed them</li>
+<li>Commands and shell commands: Claude Code holds them until the turn ends, then runs them one at a time, keeping the order you queued them in</li>
 </ul>
-<p>Press <code>Esc</code> to interrupt the turn instead. Claude Code keeps what you queued and sends it right away.</p>
+<p>To send what you queued without waiting for the turn to finish, press <code>Ctrl+Enter</code>. Claude Code interrupts the turn, and your queued messages go out right away, with your draft queued behind them if you had typed one. In <a href="#shell-mode-with-prefix">shell mode</a>, the key queues your command without interrupting the turn. Requires Claude Code v2.1.275 or later.</p>
+<p>In terminals that don't report extended keys, <code>Ctrl+Enter</code> arrives as plain <code>Enter</code> and queues the draft instead; <code>Ctrl+X Ctrl+S</code> works in any terminal. Both keys are bindings of the <a href="/docs/en/keybindings#chat-actions"><code>chat:sendNow</code> action</a>.</p>
+<p>Press <code>Esc</code> to interrupt the turn without submitting your draft. Claude Code keeps what you queued and sends it right away.</p>
 <p>Claude Code runs some commands as soon as you send them instead of queueing them, among them <code>/model</code>, <code>/effort</code>, and <code>/fast</code>. Each of the three changes a setting: the model, the effort level, or fast mode. Whether Claude Code applies the new setting to the turn Claude is already working on, or only from your next turn, differs by command:</p>
 <ul>
 <li><a href="/docs/en/model-config#setting-your-model"><code>/model</code></a>: once you confirm the <a href="/docs/en/prompt-caching#switching-models">cache warning</a>, if Claude Code shows one, Claude Code applies your change to the next request it makes in that turn</li>
@@ -7139,6 +7149,14 @@ Claude Code underlines nothing when it can't keep a checker running:
 * The checker takes more than 15 seconds to answer, three times. Each time, Claude Code leaves the words it was waiting on unmarked; after the third, it stops checking until you restart Claude Code
 
 To find out which of these happened, start `claude --debug` with spell checking on and type a word. Then look for the `[spellcheck]` lines in the debug log at `~/.claude/debug/&lt;session-id&gt;.txt`. One line names the program Claude Code started, or lists the ones it looked for and didn't find. Later lines say why it stopped. A missing-dictionary error there means the checker has no dictionary for your `language` value, or no default one when `language` is unset. Install one, or set `language` to a dictionary you have.
+
+## Invisible characters in prompts
+
+Pasted text can carry Unicode characters that a terminal draws as nothing at all, such as tag characters, bidirectional controls, and zero-width spaces, so a prompt can contain text you never see. To keep copied text from carrying instructions your terminal doesn't draw, Claude Code removes those characters when you press Enter, before sending anything. It cleans both the prompt and the contents of any collapsed [pasted-text reference](/docs/en/terminal-config#paste-large-content) the prompt includes. Claude Code keeps the joiners that Persian and Indic scripts write and the selectors inside emoji sequences.
+
+If Claude Code removed anything, that Enter sends nothing. The cleaned prompt goes back into the input box with a notice such as `Removed 3 invisible characters · review and press Enter to send`, and pressing Enter again sends the text as shown.
+
+When you pass a prompt on the command line, as in `claude "fix the login bug"`, or pipe one into an interactive session, Claude Code doesn't wait for a second Enter. It removes the characters, shows a notice, and sends the cleaned prompt. If the cleaned prompt would begin with `/`, Claude Code puts it in the input box for you to review and send instead.
 
 ## Review changes with /diff
 

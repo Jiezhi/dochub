@@ -5992,7 +5992,7 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li><strong><code>query()</code> call:</strong> one invocation of the SDK's <code>query()</code> function. A single call can involve multiple steps: Claude responds, uses tools, gets results, and responds again. Each call produces one <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>result</code></a> message at the end, except in <a href="/docs/en/agent-sdk/streaming-vs-single-mode">streaming input mode</a>, where one <code>query()</code> call carries multiple user turns and each turn emits its own <code>result</code> message.</li>
 <li><strong>Step:</strong> a single request/response cycle within a <code>query()</code> call. Each step produces assistant messages with token usage.</li>
-<li><strong>Session:</strong> a series of <code>query()</code> calls linked by a session ID (using the <code>resume</code> option). Each <code>query()</code> call within a session reports its own cost independently.</li>
+<li><strong>Session:</strong> a series of <code>query()</code> calls linked by a session ID through the <code>resume</code> option. A resumed call's results report the session's whole spend, not just that call's own. See <a href="#accumulate-costs-across-multiple-calls">Accumulate costs across multiple calls</a> for how the totals carry over.</li>
 </ul>
 <p>The following diagram shows the message stream from a single <code>query()</code> call, with token usage reported at each step and the cumulative estimate at the end:</p>
 <p><img src="https://mintcdn.com/claude-code/ikqp3_70mqIahteV/images/agent-sdk/message-usage-flow.svg?fit=max&auto=format&n=ikqp3_70mqIahteV&q=85&s=68497aee338e01cc745323af7aea378e" className="dark:hidden" alt="Diagram showing a query producing two steps of messages. Step 1 has four assistant messages sharing the same ID and usage (count once), Step 2 has one assistant message with a new ID, and the final result message shows the estimated total_cost_usd." width="760" height="520" data-path="images/agent-sdk/message-usage-flow.svg" /></p>
@@ -6002,8 +6002,10 @@ Use this file to discover all available pages before exploring further.</p>
     When Claude responds, it sends one or more assistant messages. In TypeScript, each assistant message contains a nested <code>BetaMessage</code> (accessed via <code>message.message</code>) with an <code>id</code> and a <a href="https://platform.claude.com/docs/en/api/messages"><code>usage</code></a> object with token counts (<code>input_tokens</code>, <code>output_tokens</code>). In Python, the <code>AssistantMessage</code> dataclass exposes the same data directly via <code>message.usage</code> and <code>message.message_id</code>. When Claude uses multiple tools in one turn, all messages in that turn share the same ID, so deduplicate by ID to avoid double-counting.
   </Step></p>
 <p><Step title="The result message provides the cumulative estimate">
-    When the <code>query()</code> call completes, the SDK emits a result message with <code>total_cost_usd</code> and cumulative <code>usage</code>, typed as <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> in TypeScript and <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> in Python. If you make multiple <code>query()</code> calls, for example in a multi-turn session, each result reflects only the cost of that individual call. If you only need the estimated total, you can ignore the per-step usage and read this single value.</p>
-<pre><code>In streaming input mode, each turn emits its own result message. See [Track costs in streaming input mode](#track-costs-in-streaming-input-mode) for how to read call totals in that mode.
+    When the <code>query()</code> call completes, the SDK emits a result message with <code>total_cost_usd</code> and cumulative <code>usage</code>, typed as <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> in TypeScript and <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> in Python. If you only need the estimated total, you can ignore the per-step usage and read this single value.</p>
+<pre><code>If you make multiple independent `query()` calls, each result reflects only the cost of that individual call. A call that resumes a session also counts the session's earlier spend.
+
+In streaming input mode, each turn emits its own result message. See [Track costs in streaming input mode](#track-costs-in-streaming-input-mode) for how to read call totals in that mode.
 </code></pre>
 <p></Step>
 </Steps></p>
@@ -6011,7 +6013,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>In <a href="/docs/en/agent-sdk/streaming-vs-single-mode">streaming input mode</a>, one <code>query()</code> call carries multiple user turns and each turn emits its own result message. The result fields differ in scope:</p>
 <ul>
 <li><strong><code>usage</code></strong>: covers only that turn, and within it only the main agent loop, not any subagents it ran.</li>
-<li><strong><code>total_cost_usd</code> and <code>modelUsage</code>, or <code>model_usage</code> in Python</strong>: carry the running total for the whole call so far.</li>
+<li><strong><code>total_cost_usd</code> and <code>modelUsage</code>, or <code>model_usage</code> in Python</strong>: carry the running total for the whole call so far, plus any spend restored when the call resumed a session.</li>
 </ul>
 <p>In a call where your app never sends <code>/clear</code>, <code>/reset</code>, or <code>/new</code>, read the latest result for call totals rather than summing across results.</p>
 <p>The running totals start over each time your app sends one of those three commands, and inside a <code>query()</code> call nothing else resets them. Three results matter for your accounting:</p>
@@ -6022,10 +6024,14 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>To total the whole call, add the last result from before each <code>/clear</code> to the call's final result. Every other result, including the <code>/clear</code> turn's own, is superseded by a later one.</p>
 <p>In TypeScript, the SDK also emits an <a href="/docs/en/agent-sdk/typescript#sdkconversationresetmessage"><code>SDKConversationResetMessage</code></a> at each reset, so you can detect resets from the stream. In Python, the SDK likewise emits a <code>ConversationResetMessage</code>. Before Python SDK v0.2.137, the Python iterator dropped that message, so on those versions count the resets yourself from the <code>/clear</code> turns your app sends.</p>
-<p><code>maxBudgetUsd</code> (TypeScript) or <code>max_budget_usd</code> (Python) is compared against the same running total, so a <code>/clear</code> also starts the budget over.</p>
+<p><code>maxBudgetUsd</code> (TypeScript) or <code>max_budget_usd</code> (Python) counts only the call's own spend: totals restored from a resumed session don't count against it, and a <code>/clear</code> starts the budget over.</p>
 <h2 id="get-the-total-cost-of-a-query">Get the total cost of a query</h2>
-<p>The result message, typed as <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> in TypeScript and <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> in Python, marks the end of the agent loop for a <code>query()</code> call. It includes <code>total_cost_usd</code>, the cumulative estimated cost across all steps in that call. In Python the field is typed as optional, so check that it isn't <code>None</code> before you read it. Success and error results both carry it, though the final result of a <a href="#recover-totals-after-a-session-crash">session crash</a> may carry it zeroed.</p>
-<p>If you use sessions to make multiple <code>query()</code> calls, each result reflects only the cost of that individual call. In streaming input mode, read call totals as described in <a href="#track-costs-in-streaming-input-mode">Track costs in streaming input mode</a>.</p>
+<p>The result message, typed as <a href="/docs/en/agent-sdk/typescript#sdkresultmessage"><code>SDKResultMessage</code></a> in TypeScript and <a href="/docs/en/agent-sdk/python#resultmessage"><code>ResultMessage</code></a> in Python, marks the end of the agent loop for a <code>query()</code> call. It includes <code>total_cost_usd</code>, the cumulative estimated cost across all steps in that call. A call that resumes a session also counts the session's earlier spend. Two caveats apply when you read the value:</p>
+<ul>
+<li>In Python the field is typed as optional, so check that it isn't <code>None</code> before you read it.</li>
+<li>Success and error results both carry it, though the final result of a <a href="#recover-totals-after-a-session-crash">session crash</a> may carry it zeroed.</li>
+</ul>
+<p>In streaming input mode, read call totals as described in <a href="#track-costs-in-streaming-input-mode">Track costs in streaming input mode</a>.</p>
 <p>The three result-level fields differ in what they count when the agent spawns <a href="/docs/en/agent-sdk/subagents">subagents</a>. Use <code>modelUsage</code>, or <code>model_usage</code> in Python, for whole-tree token accounting; the <code>usage</code> field undercounts as soon as nesting occurs.</p>
 <table>
 <thead>
@@ -6157,7 +6163,12 @@ try {
 }
 </code></pre></div></p>
 <h2 id="accumulate-costs-across-multiple-calls">Accumulate costs across multiple calls</h2>
-<p>Each <code>query()</code> call returns its own <code>total_cost_usd</code>. The SDK doesn't provide a session-level total, so if your application makes multiple <code>query()</code> calls, for example in a multi-turn session or across different users, accumulate the totals yourself. In streaming input mode, read each call's total as described in <a href="#track-costs-in-streaming-input-mode">Track costs in streaming input mode</a>. For a call that ended in a crash, see <a href="#recover-totals-after-a-session-crash">Recover totals after a session crash</a>.</p>
+<p>Each <code>query()</code> call returns <code>total_cost_usd</code> on its results. How you combine the values depends on whether the calls share a session:</p>
+<ul>
+<li><strong>Independent calls, with no <code>resume</code> or <code>continue</code> option</strong>: each result covers only its own call, so add the totals yourself, as the examples below do.</li>
+<li><strong>Calls that resume the same session</strong>: Claude Code saves the session's totals to its <a href="/docs/en/sessions#where-transcripts-are-stored">transcript</a> when the process exits normally and restores them when a later call resumes or forks the session. Each result already includes the session's earlier spend. Read the latest result for the session total; summing results double-counts the restored spend. Before v2.1.277, a session that you resumed through the SDK or <code>claude -p</code> started its totals at zero, so each call's results covered only that call.</li>
+</ul>
+<p>In streaming input mode, read each call's total as described in <a href="#track-costs-in-streaming-input-mode">Track costs in streaming input mode</a>. For a call that ended in a crash, see <a href="#recover-totals-after-a-session-crash">Recover totals after a session crash</a>.</p>
 <p>The following examples run two <code>query()</code> calls sequentially, add each call's <code>total_cost_usd</code> to a running total, and print both the per-call and combined cost:</p>
 <p><CodeGroup>
   ```typescript TypeScript theme={null}
@@ -6236,7 +6247,7 @@ asyncio.run(main())
 <h3 id="recover-totals-after-a-session-crash">Recover totals after a session crash</h3>
 <p>When the Claude Code process crashes, it emits a final <code>error_during_execution</code> result and exits, in single-shot and streaming input mode alike. That result may carry zeroed <code>usage</code>, <code>total_cost_usd</code>, and <code>modelUsage</code>, so recover the call's totals from what arrived before it. Step 1 recovers the full totals whenever an earlier result exists; the fallback in step 2 recovers only the main loop's input and cache tokens.</p>
 <ol>
-<li>Use the result of the turn before the crash. In streaming input mode, it holds the running total since the start of the call or since the last <a href="#track-costs-in-streaming-input-mode"><code>/clear</code></a>. Go to step 2 instead when that result can't help you:</li>
+<li>Use the result of the turn before the crash. In streaming input mode, it holds the running total described in <a href="#track-costs-in-streaming-input-mode">Track costs in streaming input mode</a>. Go to step 2 instead when that result can't help you:</li>
 <li>The call was single-shot, so no earlier result exists.</li>
 <li>The crash happened on the first turn.</li>
 <li>The turn before the crash was the <code>/clear</code> itself, so its result covers only the reset.</li>

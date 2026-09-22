@@ -6573,6 +6573,11 @@ Detailed system prompt for the agent describing its role, expertise, and behavio
 </code></pre></div></p>
 <p>Plugin agents support <code>name</code>, <code>description</code>, <code>model</code>, <code>effort</code>, <code>maxTurns</code>, <code>tools</code>, <code>disallowedTools</code>, <code>skills</code>, <code>memory</code>, <code>background</code>, <a href="/docs/en/sub-agents#supported-frontmatter-fields"><code>omitClaudeMd</code></a>, and <code>isolation</code> frontmatter fields. The only valid <code>isolation</code> value is <code>"worktree"</code>.</p>
 <p>For security reasons, plugin-shipped agents don't support <code>hooks</code>, <code>mcpServers</code>, or <code>permissionMode</code>.</p>
+<p>You can put plugin agent files in subfolders of <code>agents/</code>. Claude Code <a href="/docs/en/sub-agents#choose-the-subagent-scope">loads them recursively</a> and joins the plugin name, each subfolder name, and the file name with colons to form the agent's scoped name. For example, <code>agents/review/security.md</code> in a plugin named <code>my-plugin</code> loads as <code>my-plugin:review:security</code>. Two settings change that name:</p>
+<ul>
+<li>Frontmatter <code>name</code>: it replaces only the file name, so <code>name: audit</code> in <code>agents/review/security.md</code> loads as <code>my-plugin:review:audit</code></li>
+<li>Manifest <a href="#component-path-fields"><code>agents</code></a> field: a file you list there loads without subfolder names, so <code>"agents": "./custom/review/security.md"</code> loads as <code>my-plugin:security</code></li>
+</ul>
 <p>Claude Code loads a plugin agent even when its frontmatter has no <code>name</code> or doesn't parse:</p>
 <ul>
 <li>No <code>name</code>: Claude Code names the agent after the file, so <code>agents/reviewer.md</code> in a plugin named <code>my-plugin</code> loads as <code>my-plugin:reviewer</code></li>
@@ -7311,7 +7316,7 @@ For all path fields:
 * All paths must be relative to the plugin root and start with `./`, except that the `skills` field also accepts `"."`
   * Both `"."` and `"./"` denote the plugin root itself
   * Before v2.1.221, `"."` failed manifest validation and the plugin didn't load, so use `"./"` to support earlier versions
-* Components from custom paths use the same naming and namespacing rules
+* Components from custom paths use the same naming and namespacing rules, except agent files. See [Agents](#agents) for how agent names work
 * Multiple paths can be specified as arrays
 * A skill path can point to a directory that contains a `SKILL.md` directly, for example `"skills": ["."]` for the plugin root
   * Claude Code takes the skill's invocation name from the frontmatter `name` field in `SKILL.md`, so the name stays stable whatever the install directory is named
@@ -7559,7 +7564,9 @@ enterprise-plugin/
 ├── agents/                   # Subagent definitions
 │   ├── security-reviewer.md
 │   ├── performance-tester.md
-│   └── compliance-checker.md
+│   ├── compliance-checker.md
+│   └── review/               # Agents here load as enterprise-plugin:review:<name>
+│       └── accessibility.md
 ├── workflows/                # Workflow scripts
 │   └── release-audit.js
 ├── output-styles/            # Output style definitions
@@ -7595,7 +7602,7 @@ A `CLAUDE.md` file at the plugin root is not loaded as project context. Plugins 
 | **Manifest**      | `.claude-plugin/plugin.json` | Plugin metadata and configuration (optional)                                                                                                                                                                                                                                               |
 | **Skills**        | `skills/`                    | Skills with `&lt;name&gt;/SKILL.md` structure                                                                                                                                                                                                                                                    |
 | **Commands**      | `commands/`                  | Skills as flat Markdown files. Use `skills/` for new plugins                                                                                                                                                                                                                               |
-| **Agents**        | `agents/`                    | Subagent Markdown files                                                                                                                                                                                                                                                                    |
+| **Agents**        | `agents/`                    | Subagent Markdown files. Subfolders are part of the [agent name](#agents)                                                                                                                                                                                                                  |
 | **Workflows**     | `workflows/`                 | [Workflow](/docs/en/workflows) script files                                                                                                                                                                                                                                                     |
 | **Output styles** | `output-styles/`             | Output style definitions                                                                                                                                                                                                                                                                   |
 | **Themes**        | `themes/`                    | Color theme definitions                                                                                                                                                                                                                                                                    |
