@@ -11040,7 +11040,7 @@ scope: "Which settings files can set the key: user (~/.claude/settings.json), pr
 <p>If your account requires the <a href="/docs/en/advisor#fable-advisor-and-usage-credits">usage-credits consent</a>, accept it first by running <code>/model fable</code>. Until you do, picking Fable in <code>/advisor</code> saves nothing and Claude Code tells you to run <code>/model fable</code> first.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Any file</code></a></li>
-<li><strong>Type</strong>: string, one of the aliases <code>"fable"</code>, <code>"opus"</code>, or <code>"sonnet"</code>, which resolve to Claude Code's current default version of that model family, or a full model ID such as <code>"claude-opus-5"</code></li>
+<li><strong>Type</strong>: string, one of the aliases <code>"fable"</code>, <code>"opus"</code>, or <code>"sonnet"</code>, which resolve to Claude Code's current default version of that model family, or a full model ID such as <code>"claude-opus-5-5"</code></li>
 <li><strong>Default</strong>: unset, so the advisor is off</li>
 <li><strong>Per-session overrides</strong>: <code>--advisor</code> takes precedence over this key for one session. <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_ADVISOR_TOOL</code></a> turns the advisor off, and this key can't turn it back on</li>
 </ul>
@@ -11054,7 +11054,7 @@ scope: "Which settings files can set the key: user (~/.claude/settings.json), pr
 
 Turn [extended thinking](/docs/en/model-config#extended-thinking) off for every session by setting this to `false`. Thinking is on by default, so `true` changes nothing. Most people set this through `/config` rather than by editing the file.
 
-On models that always think, such as the Fable models, `false` has no effect. On [third-party providers](/docs/en/third-party-integrations) Claude Code omits the `thinking` parameter instead of turning thinking off, so adaptive-reasoning models may still think. With thinking turned off on the Anthropic API, Claude Code sends effort `high` instead of a higher level to models it knows [don't accept that combination](/docs/en/errors#effort-isnt-available-with-thinking-turned-off), such as Opus 5.
+On models that always think, such as Opus 5.5 and the Fable models, `false` has no effect. On [third-party providers](/docs/en/third-party-integrations) Claude Code omits the `thinking` parameter instead of turning thinking off, so adaptive-reasoning models may still think. With thinking turned off on the Anthropic API, Claude Code sends effort `high` instead of a higher level to models it knows [don't accept that combination](/docs/en/errors#effort-isnt-available-with-thinking-turned-off), such as Opus 5.
 
 * **Scope**: [`Any file`](#scopes)
 * **Type**: Boolean
@@ -11090,7 +11090,7 @@ When you run `/effort low`, `medium`, `high`, or `xhigh` in an interactive sessi
 
 Within the same settings file, Claude Code uses a model's saved level rather than this key. [`modelSettings`](#modelsettings) states the cross-file precedence.
 
-In a session attached to a remote worker, `/effort` applies to that session only. In a `-p` run or the Agent SDK it also applies to that session only, [unless a hold on the model's default effort is in effect](/docs/en/model-config#non-interactive-effort). [Adjust effort level](/docs/en/model-config#adjust-effort-level) lists the interactive picks that also apply to that session only. The message that `/effort` prints says which happened.
+In a session attached to a remote worker, in a `-p` run, and in the Agent SDK, `/effort` applies to that session only. [Adjust effort level](/docs/en/model-config#adjust-effort-level) lists the interactive picks that also apply to that session only. The message that `/effort` prints says which happened.
 
 * **Scope**: [`Any file`](#scopes)
 * **Type**: string, one of:
@@ -11106,7 +11106,7 @@ In a session attached to a remote worker, `/effort` applies to that session only
   "effortLevel": "xhigh"
 }
 </code></pre></div></p>
-<p>On Opus 4.7, Opus 4.8, and Fable 5, Claude Code holds that model's default effort, organization-set or built-in; <a href="/docs/en/model-config#adjust-effort-level">Adjust effort level</a> states which ways of setting a level end the hold and which leave it in place. Once the hold ends, Claude Code resolves effort by the precedence stated at <a href="#modelsettings"><code>modelSettings</code></a>.</p>
+<p>In your user settings file, <code>~/.claude/settings.json</code>, this key is the older form <code>/effort</code> wrote before it saved levels per model, and it keeps applying where it applied before, on Opus 5, Fable 5.1, and earlier models. Opus 5.5 and models released after it ignore it and start at their own default until you save a level for them, which <code>/effort</code> writes under <a href="#modelsettings"><code>modelSettings</code></a>. In project, local, and managed settings, and with <code>--settings</code>, this key applies to every model.</p>
 <h3 id="enforceavailablemodels"><code>enforceAvailableModels</code></h3>
 <p>The <code>/model</code> picker has a <strong>Default</strong> option that resolves to your <a href="/docs/en/model-config#organization-default-model">organization default model</a> when one applies, and otherwise to your account type's default. An <a href="#availablemodels"><code>availableModels</code></a> allowlist limits the models you can name, but on its own it leaves <strong>Default</strong> alone, so <strong>Default</strong> can still resolve to a model outside the list. This key closes that gap. Requires Claude Code v2.1.175 or later.</p>
 <p>When your organization deploys any managed settings, Claude Code reads this key from the managed source alone and ignores it in your other files.</p>
@@ -11145,7 +11145,7 @@ This example tries Sonnet 5 first, then Haiku 4.5, when your primary model fails
 </code></pre></div></p>
 <p>Unlike most array settings, this key doesn't merge across settings files: the highest-precedence file that defines it supplies the whole chain. If your project file sets <code>["claude-sonnet-5"]</code> and your user file sets <code>["claude-haiku-4-5"]</code>, the chain is <code>["claude-sonnet-5"]</code> only. Claude Code keeps at most three distinct allowed models from the list and ignores the rest. See <a href="/docs/en/model-config#fallback-model-chains">Fallback model chains</a>.</p>
 <h3 id="fastmode"><code>fastMode</code></h3>
-<p>Turn <a href="/docs/en/fast-mode">fast mode</a> on for sessions where it's available, for interactive work like rapid iteration or live debugging where you want speed at a higher cost per token. You don't usually edit this key by hand: running <code>/fast</code> writes <code>fastMode: true</code> to <code>~/.claude/settings.json</code>, and running it again to turn fast mode off removes the key. Fast mode runs only on Opus 5 and Opus 4.8: turning it on from another model switches you to Opus, and switching to an unsupported model turns it off. See <a href="/docs/en/fast-mode#switch-models-while-fast-mode-is-on">Switch models while fast mode is on</a>.</p>
+<p>Turn <a href="/docs/en/fast-mode">fast mode</a> on for sessions where it's available, for interactive work like rapid iteration or live debugging where you want speed at a higher cost per token. You don't usually edit this key by hand: running <code>/fast</code> writes <code>fastMode: true</code> to <code>~/.claude/settings.json</code>, and running it again to turn fast mode off removes the key. Fast mode runs only on Opus 5.5, Opus 5, and Opus 4.8: turning it on from another model switches you to Opus, and switching to an unsupported model turns it off. See <a href="/docs/en/fast-mode#switch-models-while-fast-mode-is-on">Switch models while fast mode is on</a>.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Any file</code></a></li>
 <li><strong>Type</strong>: Boolean</li>
@@ -11177,7 +11177,7 @@ Owners on Team or Enterprise plans can deploy it organization-wide through [serv
 </code></pre></div></p>
 <p>See <a href="/docs/en/fast-mode#require-per-session-opt-in">Require per-session opt-in</a>.</p>
 <h3 id="language"><code>language</code></h3>
-<p>Have Claude respond in a language other than English by default. There is no fixed list for responses: Claude Code adds the value verbatim to the system prompt as an instruction to always respond in that language, so any language name Claude can read works. Claude Code doesn't check the value, so a misspelled name reaches Claude as written rather than producing an error. The same value sets the language for <a href="/docs/en/voice-dictation#change-the-dictation-language">voice dictation</a>, which does have a fixed list of <a href="/docs/en/voice-dictation#change-the-dictation-language">supported dictation languages</a>, and for auto-generated session titles.</p>
+<p>Have Claude respond in a language other than English by default. There is no fixed list for responses: Claude Code passes the value verbatim to Claude as an instruction to always respond in that language, so any language name Claude can read works. Claude Code doesn't check the value, so a misspelled name reaches Claude as written rather than producing an error. The same value sets the language for <a href="/docs/en/voice-dictation#change-the-dictation-language">voice dictation</a>, which does have a fixed list of <a href="/docs/en/voice-dictation#change-the-dictation-language">supported dictation languages</a>, and for auto-generated session titles.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Any file</code></a></li>
 <li><strong>Type</strong>: string, any language name, such as <code>"japanese"</code>, <code>"spanish"</code>, or <code>"french"</code>; Claude Code doesn't validate it</li>
@@ -11351,20 +11351,20 @@ This example sets contracted rates for Sonnet 4.6 and then reduces every figure,
 <p>Save an <a href="/docs/en/model-config#adjust-effort-level">effort level</a> for each model you use. Requires Claude Code v2.1.251 or later.</p>
 <p>In an interactive session on your machine, when you save <code>low</code>, <code>medium</code>, <code>high</code>, or <code>xhigh</code> as your default with <code>/effort</code> or the <code>/model</code> picker's effort slider, Claude Code writes that level here under the model you're using, so you rarely edit this key yourself. When you pick one of those levels in the <a href="/docs/en/vs-code#use-the-prompt-box">VS Code extension's model picker</a>, Claude Code saves it here the same way. The <a href="#effortlevel"><code>effortLevel</code></a> entry lists the sessions where <code>/effort</code> applies to that session only.</p>
 <p>Edit the key by hand to change or remove a level you saved.</p>
-<p>A model's <code>effortLevel</code> here takes precedence over the top-level <a href="#effortlevel"><code>effortLevel</code></a> in the same settings file. Across files, Claude Code resolves each model separately: the highest-precedence <a href="/docs/en/settings#settings-precedence">settings file</a> that sets either an <code>effortLevel</code> for that model or the top-level <code>effortLevel</code> decides, so an <code>effortLevel</code> in managed settings outranks a level you saved in user settings. <a href="/docs/en/model-config#adjust-effort-level">Adjust effort level</a> lists what else can override a saved level, such as <code>--effort</code> at launch.</p>
+<p>A model's <code>effortLevel</code> here takes precedence over the top-level <a href="#effortlevel"><code>effortLevel</code></a> in the same settings file. Across files, Claude Code resolves each model separately: the highest-precedence <a href="/docs/en/settings#settings-precedence">settings file</a> that sets either an <code>effortLevel</code> for that model or a top-level <code>effortLevel</code> that <a href="#effortlevel">applies to that model</a> decides, so an <code>effortLevel</code> in managed settings outranks a level you saved in user settings. <a href="/docs/en/model-config#adjust-effort-level">Adjust effort level</a> lists what else can override a saved level, such as <code>--effort</code> at launch.</p>
 <p>To cap one model's effort rather than set its level, add a <a href="#maxeffortlevel"><code>maxEffortLevel</code></a> field to that model's entry. The field requires Claude Code v2.1.267 or later.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Any file</code></a></li>
 <li><strong>Type</strong>: object mapping a model name to an object with an <code>effortLevel</code> field, one of <code>"low"</code>, <code>"medium"</code>, <code>"high"</code>, or <code>"xhigh"</code>, a <a href="#maxeffortlevel"><code>maxEffortLevel</code></a> field, or both</li>
 <li><strong>Default</strong>: unset</li>
 </ul>
-<p>Claude Code writes each entry under the model's canonical name, such as <code>claude-opus-5</code>, and matches that model's alias, date-suffixed, <code>[1m]</code>, and recognized provider-specific IDs to the same entry.</p>
-<p>This example keeps Opus 5 at <code>medium</code> while other models use their own saved or default levels:</p>
+<p>Claude Code writes each entry under the model's canonical name, such as <code>claude-opus-5-5</code>, and matches that model's alias, date-suffixed, <code>[1m]</code>, and recognized provider-specific IDs to the same entry.</p>
+<p>This example keeps Opus 5.5 at <code>high</code> while other models use their own saved or default levels:</p>
 <p>```json settings.json theme={null}
 {
   "modelSettings": {
-    "claude-opus-5": {
-      "effortLevel": "medium"
+    "claude-opus-5-5": {
+      "effortLevel": "high"
     }
   }
 }
@@ -11924,7 +11924,7 @@ This enforces strict sandbox mode for everyone the managed settings cover:
     }
   }
 }
-<div class="highlight"><pre><span></span><code>Claude Code enforces these lists at the OS sandbox boundary, so they apply to every subprocess a sandboxed command starts, such as `kubectl`, `terraform`, or `npm`, not only to Claude's file tools. Claude Code adds your [permission rules](/docs/en/sandboxing#permission-rules) to the same lists: `Edit` allow and deny rules to `allowWrite` and `denyWrite`, `Read` deny rules to `denyRead`, and `WebFetch(domain:...)` allow and deny rules to the [`network`](#sandbox-network) domain lists.
+<div class="highlight"><pre><span></span><code>Claude Code enforces these lists at the OS sandbox boundary, so they apply to every subprocess a sandboxed command starts, such as `kubectl`, `terraform`, or `npm`. Claude Code adds your [permission rules](/docs/en/sandboxing#permission-rules) to the same lists: `Edit` allow and deny rules to `allowWrite` and `denyWrite`, `Read` deny rules to `denyRead`, and `WebFetch(domain:...)` allow and deny rules to the [`network`](#sandbox-network) domain lists.
 
 Unless a managed-only lock is set, Claude Code merges every list across the settings files the session loads. [`allowManagedReadPathsOnly`](#sandbox-filesystem-allowmanagedreadpathsonly) limits `allowRead` to entries from managed settings, and [`allowManagedDomainsOnly`](#sandbox-network-allowmanageddomainsonly) does the same for allowed domains.
 
@@ -14137,11 +14137,6 @@ This example allows two GitHub repositories, one pinned to the `v2.0` ref, and o
 <td style="text-align: left;"><code>url</code></td>
 <td style="text-align: left;"><code>{ "source": "url", "url": "https://plugins.example.com/marketplace.json", "headers": { "Authorization": "Bearer ${TOKEN}" } }</code></td>
 <td style="text-align: left;"><code>url</code> required; <code>headers</code> adds HTTP headers for authenticated access</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>npm</code></td>
-<td style="text-align: left;"><code>{ "source": "npm", "package": "@acme-corp/claude-plugins" }</code></td>
-<td style="text-align: left;"><code>package</code> required, the npm package that contains <code>marketplace.json</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>file</code></td>

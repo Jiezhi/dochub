@@ -4878,6 +4878,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#personal-skills-disappeared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Personal skills disappeared
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6424,6 +6435,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#personal-skills-disappeared" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Personal skills disappeared
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6784,7 +6806,7 @@ Deploy the application:
 </code></pre></div></p>
 <p>Keep the body itself concise. Once a skill loads, its content <a href="#skill-content-lifecycle">stays in context across turns</a>, so every line is a recurring token cost. State what to do rather than narrating how or why, and apply the same conciseness test you would for <a href="/docs/en/best-practices#write-an-effective-claude-md">CLAUDE.md content</a>.</p>
 <h3 id="frontmatter-reference">Frontmatter reference</h3>
-<p>Beyond the markdown content, you can configure skill behavior using YAML frontmatter fields between <code>---</code> markers at the top of your <code>SKILL.md</code> file:</p>
+<p>Configure a skill with YAML <a href="/docs/en/glossary#frontmatter">frontmatter</a> between <code>---</code> markers at the top of <code>SKILL.md</code>, and write the skill's instructions as Markdown after the closing <code>---</code>. Field names use lowercase words separated by hyphens, except <code>when_to_use</code>. A <a href="#where-skills-live">command file</a> in <code>.claude/commands/</code> accepts the same fields except <code>name</code> and <code>paths</code>. This example sets four fields:</p>
 <h2 id="yaml-themenull_1">```yaml theme={null}</h2>
 <p>name: my-skill
 description: What this skill does
@@ -6792,9 +6814,9 @@ disable-model-invocation: true
 allowed-tools: Read Grep</p>
 <hr />
 <p>Your skill instructions here...
-<div class="highlight"><pre><span></span><code>All fields are optional. Only `description` is recommended so Claude knows when to use the skill.
+<div class="highlight"><pre><span></span><code>All fields are optional. Only `description` is recommended so Claude knows when to use the skill. A field name must match the table exactly, hyphens included: Claude Code ignores a field it doesn't recognize without reporting an error.
 
-Claude Code reads the frontmatter only when the opening `---` is the file's first line. Otherwise it treats the whole file, `---` markers included, as skill content.
+Claude Code reads the frontmatter only when the opening `---` is the file's first line. Otherwise it treats the whole file, `---` markers included, as skill content. If the YAML between the markers doesn't parse, the skill still loads with no fields set; see [Skill not triggering](#skill-not-triggering) to find and fix the error.
 
 Boolean fields accept `yes`, `no`, `on`, `off`, `1`, and `0` in any letter case, in addition to `true` and `false`. Before v2.1.218, Claude Code recognized only `true` and `false`.
 
@@ -7173,7 +7195,7 @@ Research $ARGUMENTS thoroughly:
 When this skill runs:
 
 1. A new isolated context is created
-2. The subagent receives the skill content as its prompt ("Research \$ARGUMENTS thoroughly...")
+2. The subagent receives the skill content as its prompt (the "Research \$ARGUMENTS thoroughly" instructions)
 3. The `agent` field determines the execution environment (model, tools, and permissions)
 4. The subagent summarizes its results and returns them to your main conversation when it finishes
 
@@ -7502,7 +7524,11 @@ from collections import Counter</p>
 <p>Claude Code loads a listing of skill names and descriptions into context so Claude knows what's available. The listing always contains every skill name, but if you have many skills, Claude Code shortens descriptions to fit the listing's character budget, which can strip the keywords Claude needs to match your request. The budget scales at 1% of the model's context window. When the listing overflows, Claude Code drops descriptions starting with the skills you invoke least, so the skills you use most keep their full text.</p>
 <p>Run <code>/doctor</code> for an estimate of the listing's context cost and its biggest contributors. To find skills worth turning off, run <a href="#find-unused-skills"><code>/skill-doctor</code></a>. When the listing exceeds its budget, Claude Code also writes a warning to the debug log, visible with <a href="/docs/en/cli-reference#cli-flags"><code>--debug</code></a>.</p>
 <p>The Skills row in <code>/context</code> reports the size of the listing after the budget is applied, so it matches what the model receives. Before v2.1.196, the row counted the full text of every description and could show a value several times larger than the configured budget.</p>
-<p>To raise the budget, set the <a href="/docs/en/settings-reference#skilllistingbudgetfraction"><code>skillListingBudgetFraction</code></a> setting (e.g. <code>0.02</code> = 2%) or the <code>SLASH_COMMAND_TOOL_CHAR_BUDGET</code> environment variable to a fixed character count. To free budget for other skills, set low-priority entries to <code>"name-only"</code> in <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> so they list without a description. You can also trim the <code>description</code> and <code>when_to_use</code> text at the source: put the key use case first, since each entry's combined text is capped at 1,536 characters regardless of budget. The cap is configurable with <a href="/docs/en/settings-reference#skilllistingmaxdescchars"><code>skillListingMaxDescChars</code></a>.</p>
+<p>To raise the budget, set the <a href="/docs/en/settings-reference#skilllistingbudgetfraction"><code>skillListingBudgetFraction</code></a> setting (for example, <code>0.02</code> = 2%) or the <code>SLASH_COMMAND_TOOL_CHAR_BUDGET</code> environment variable to a fixed character count. To free budget for other skills, set low-priority entries to <code>"name-only"</code> in <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> so they list without a description. You can also trim the <code>description</code> and <code>when_to_use</code> text at the source: put the key use case first, since each entry's combined text is capped at 1,536 characters regardless of budget. The cap is configurable with <a href="/docs/en/settings-reference#skilllistingmaxdescchars"><code>skillListingMaxDescChars</code></a>.</p>
+<h3 id="personal-skills-disappeared">Personal skills disappeared</h3>
+<p>If skill folders you created in <code>~/.claude/skills/</code> are gone, look in <code>~/.claude/skills/.trash/</code>. When Claude Code <a href="#how-synced-skills-behave">syncs skills from claude.ai</a>, it downloads them into the separate <code>synced</code> subfolder and doesn't move or delete the folders you create.</p>
+<p>Before v2.1.280, a file named <code>manifest.json</code> in <code>~/.claude/skills/</code> caused Claude Code to move the skill folders that file listed into a timestamped folder under <code>~/.claude/skills/.trash/</code>, and those skills stopped loading.</p>
+<p>To restore a skill, move its folder from the timestamped folder back into <code>~/.claude/skills/</code>. Do this before the <a href="/docs/en/claude-directory#cleaned-up-automatically">retention sweep</a> deletes trash entries, by default 30 days after they were moved to the trash.</p>
 <h2 id="related-resources">Related resources</h2>
 <ul>
 <li><strong><a href="/docs/en/debug-your-config">Debug your configuration</a></strong>: diagnose why a skill isn't appearing or triggering</li>

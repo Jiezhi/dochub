@@ -5485,6 +5485,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../python-sdk/fastmcp-experimental-transforms-jev_search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    jev_search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../python-sdk/fastmcp-mcp_config/" class="md-nav__link">
         
   
@@ -20808,6 +20836,18 @@ Screening rejects the obvious injection shapes, but it does not know your filesy
 - <code>api://users?version=2&amp;limit=50</code> → <code>version=2, limit=50, offset=0</code>
 - <code>files://src/main.py?encoding=ascii&amp;lines=50</code> → Custom encoding and line limit</p>
 <p>FastMCP automatically coerces query parameter string values to the correct types based on your function's type hints (<code>int</code>, <code>float</code>, <code>bool</code>, <code>str</code>).</p>
+<p><strong>Repeatable query parameters:</strong></p>
+<p>A plain <code>{?param}</code> is a single value — if a client repeats the key, only the first value is used. To accept a list, add the RFC 6570 explode modifier <code>*</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@mcp</span><span class="o">.</span><span class="n">resource</span><span class="p">(</span><span class="s2">"items://</span><span class="si">{category}</span><span class="s2">{?tags*}"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="n">category</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"category"</span><span class="p">:</span> <span class="n">category</span><span class="p">,</span> <span class="s2">"tags"</span><span class="p">:</span> <span class="n">tags</span> <span class="ow">or</span> <span class="p">[]}</span>
+</code></pre></div>
+<ul>
+<li><code>items://books</code> → <code>tags=[]</code></li>
+<li><code>items://books?tags=alpha</code> → <code>tags=["alpha"]</code></li>
+<li><code>items://books?tags=alpha&amp;tags=beta</code> → <code>tags=["alpha", "beta"]</code></li>
+</ul>
+<p>A single value still arrives as a one-element list, so the parameter's type is stable. Declaring a parameter that can <em>only</em> be a list without the <code>*</code> raises an error when the template is created. A parameter that also accepts a scalar (<code>str | list[str] | None</code>) is left alone — it still works as a plain <code>{?param}</code>.</p>
 <p><strong>Query parameters vs. hidden defaults:</strong></p>
 <p>Query parameters expose optional configuration to clients. To hide optional parameters from clients entirely (always use defaults), simply omit them from the URI template:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Clients CAN override max_results via query string</span>
@@ -20827,6 +20867,7 @@ Screening rejects the obvious injection shapes, but it does not know your filesy
 <li><strong>Required function parameters</strong> (no default values) must appear in the URI path template</li>
 <li><strong>Query parameters</strong> (specified with <code>{?param}</code> syntax) must be optional function parameters with default values</li>
 <li><strong>All URI template parameters</strong> (path and query) must exist as function parameters</li>
+<li><strong>Query parameters that can only be a list</strong> must use the explode modifier (<code>{?param*}</code>)</li>
 </ol>
 <p>Optional function parameters (those with default values) can be:
 - Included as query parameters (<code>{?param}</code>) - clients can override via query string
