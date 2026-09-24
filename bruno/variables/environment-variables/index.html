@@ -6449,7 +6449,7 @@
   <span class="md-ellipsis">
     
   
-    AWS Secret Manager
+    Overview
   
 
     
@@ -6644,7 +6644,7 @@
   <span class="md-ellipsis">
     
   
-    Azure Key Vault
+    Overview
   
 
     
@@ -6811,7 +6811,7 @@
   <span class="md-ellipsis">
     
   
-    Google Cloud Secret Manager
+    Overview
   
 
     
@@ -7738,6 +7738,34 @@
     
   
     Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../send-requests/grpc/scripting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    gRPC Scripting
   
 
     
@@ -24287,6 +24315,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#inherit-from-a-parent-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inherit from a parent environment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Inherit from a parent environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-a-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set a parent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-values-are-merged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How values are merged
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#searching-environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -24794,6 +24861,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#inherit-from-a-parent-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inherit from a parent environment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Inherit from a parent environment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set-a-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set a parent
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-values-are-merged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How values are merged
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#searching-environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -24910,6 +25016,46 @@
 <h2 id="using-an-environment-variable">Using an Environment Variable</h2>
 <p>Just like other variables you can use the <code>{{varName}}</code> syntax to use an environment variable in a request. On the top-right, you can see which environment you are currently using and select a different one.</p>
 <p><img alt="Environment Variables location" src="/images/screenshots/variables/environment-variables.webp" /></p>
+<h2 id="inherit-from-a-parent-environment">Inherit from a parent environment</h2>
+<p>Use inheritance when DEV, STG, PRD, or role-based environments share most values. Define the common variables once on a parent, then override only what differs on the child.</p>
+<p><Warning>
+  The <code>extends</code> key is written only in <strong>4.2.0 and later</strong>. Opening the same environment in an earlier version drops <code>extends</code>, so the parent link and inherited values disappear.
+</Warning></p>
+<p>An environment can inherit from <strong>one</strong> parent of the <strong>same scope</strong> (collection environments inherit collection environments; global environments inherit global environments). Chains are allowed: <code>STG-GW</code> → <code>STG</code> → <code>base</code>. The child's own values always win.</p>
+<p>Inside the environment tier, Bruno merges <strong>furthest ancestor → ancestors → direct parent → active environment</strong>. Other Bruno scopes are unchanged: global, collection, resolved environment, folder, request, runtime, prompt, process.env, secrets.</p>
+<h3 id="set-a-parent">Set a parent</h3>
+<ol>
+<li>Open the environment.</li>
+<li>In the header, open <strong>Inherits from</strong> and pick one parent.</li>
+<li>Save.</li>
+</ol>
+<p>The picker does not let you choose more than one parent, the environment itself, or any environment that would create a cycle.</p>
+<p><img alt="Environment inheriting from a parent, with a missing-parent warning" src="/images/screenshots/v4/chores/env-inherits.webp" /></p>
+<p>Inherited variables and secrets show as read-only rows (de-emphasized), with the source environment. Add a local variable with the same name to override; that name then leaves the inherited list and becomes editable on this environment.</p>
+<p>If the parent file is missing, Bruno shows a non-blocking warning (for example <strong>Referenced parent environment(s) not found</strong>) and still uses the child's own variables.</p>
+<h3 id="how-values-are-merged">How values are merged</h3>
+<p>Flattening happens <strong>before</strong> interpolation and merges <strong>raw</strong> values only. <code>{{variable}}</code> is then resolved once against the full scope. That means a parent value can reference a variable defined on the child.</p>
+<p>The merged set is computed at read time. It is <strong>never</strong> written back to disk. The <code>extends</code> field on the environment file is the only persistence. Its value is the parent environment name.</p>
+<p><CodeGroup>
+```yaml local.yml
+name: local
+extends: dev
+variables:
+  - name: url
+    value: https://echo.usebruno.com
+  - secret: true
+    name: apikey
+<div class="highlight"><pre><span></span><code>```bru local.bru
+extends: dev
+vars {
+  url: https://echo.usebruno.com
+}
+vars:secret [
+  apikey
+]
+</code></pre></div>
+</CodeGroup></p>
+<p>If a cycle is introduced by editing files by hand, Bruno still notifies you and resolves the chain without looping forever.</p>
 <h2 id="searching-environment-variables">Searching environment variables</h2>
 <p>When working with a large number of environment variables, you can use the search feature to quickly find specific variables.</p>
 <ol>
