@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -9248,7 +9248,7 @@ hooks:
 </tr>
 <tr>
 <td style="text-align: left;"><code>scratchpad_dir</code></td>
-<td style="text-align: left;">Path to the session's scratchpad directory, where Claude keeps temporary working files. Absent when the session has no scratchpad or the temp directory is unavailable. Requires Claude Code v2.1.257 or later</td>
+<td style="text-align: left;">Path to the session's <a href="/docs/en/claude-directory#session-scratchpad-directory">scratchpad directory</a>, where Claude keeps temporary working files. Absent when the session has no scratchpad or the temp directory is unavailable. Requires Claude Code v2.1.257 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>permission_mode</code></td>
@@ -10897,7 +10897,7 @@ The `deferred_tool_use` field carries the tool's `id`, `name`, and `input`. The 
 <p><code>"defer"</code> only works when Claude makes a single tool call in the turn. If Claude makes several tool calls at once, <code>"defer"</code> is ignored with a warning and the tool proceeds through the normal permission flow. The constraint exists because resume can only re-run one tool: there is no way to defer one call from a batch without leaving the others unresolved.</p>
 <p>If the deferred tool is no longer available when you resume, the process exits with <code>stop_reason: "tool_deferred_unavailable"</code> and <code>is_error: true</code> before the hook fires. This happens when an MCP server that provided the tool is not connected for the resumed session. The <code>deferred_tool_use</code> payload is still included so you can identify which tool went missing.</p>
 <p><Note>
-  To resume a deferred session in plan mode, pass <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a> along with <code>--resume</code> so that Claude Code can present the plan for approval. Without it, Claude Code doesn't restore plan mode. Requires Claude Code v2.1.246 or later.</p>
+  To resume a deferred session in plan mode, pass <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a> along with <code>--resume</code> so that Claude Code can present the plan for approval. If you pass certain other launch flags, the resumed run doesn't return to plan mode; see <a href="/docs/en/sessions#resume-in-plan-mode-with-p">Resume in plan mode with <code>-p</code></a>. Requires Claude Code v2.1.246 or later.</p>
 <p>When you resume with <code>-p</code>, Claude Code doesn't restore any other stored permission mode. It starts the run in the permission mode a new <code>claude -p</code> run would start in, so pass <code>--permission-mode</code> or <code>--dangerously-skip-permissions</code> again if the deferred session used one. When you resume with <code>claude --resume &lt;session-id&gt;</code> without <code>-p</code>, Claude Code restores the stored permission mode, with the exceptions listed in <a href="/docs/en/sessions#permission-mode-on-resume">permission mode on resume</a>.
 </Note></p>
 <h3 id="permissionrequest">PermissionRequest</h3>
@@ -11589,7 +11589,7 @@ the stoppage occurred due to a user interrupt. API errors fire
   The <a href="/docs/en/goal"><code>/goal</code></a> command is a built-in shortcut for a session-scoped prompt-based Stop hook. Use it when you want Claude to keep working toward a condition without writing hook configuration.
 </Tip></p>
 <h4 id="stop-input">Stop input</h4>
-<p>In addition to the <a href="#common-input-fields">common input fields</a>, Stop hooks receive <code>stop_hook_active</code>, <code>last_assistant_message</code>, <code>background_tasks</code>, and <code>session_crons</code>. The <code>stop_hook_active</code> field is <code>true</code> when Claude Code is already continuing as a result of a stop hook. Check this value or process the transcript to avoid blocking on a condition that will never resolve. Claude Code overrides the hook and ends the turn after 8 consecutive blocks.</p>
+<p>In addition to the <a href="#common-input-fields">common input fields</a>, Stop hooks receive <code>stop_hook_active</code>, <code>last_assistant_message</code>, <code>background_tasks</code>, and <code>session_crons</code>. The <code>stop_hook_active</code> field is <code>true</code> when Claude Code is already continuing as a result of a stop hook. Check this value or process the transcript to avoid blocking on a condition that will never resolve. Claude Code applies an 8-consecutive-continuation cap: after stop hooks have continued the turn eight times in a row, Claude Code overrides the next block and ends the turn. To raise the cap, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_STOP_HOOK_BLOCK_CAP</code></a>.</p>
 <p>The <code>last_assistant_message</code> field contains the text content of Claude's final response, so hooks can access it without parsing the transcript file. For hooks that act on the just-completed turn, such as read-aloud or notification hooks, use this field rather than reading <code>transcript_path</code>: the transcript file isn't guaranteed to include the final message at Stop time on all versions.</p>
 <p>The <code>background_tasks</code> and <code>session_crons</code> arrays let hooks distinguish "session is done" from "session is paused waiting for background work to wake it back up". Both arrays are present when the task registry is reachable and are empty when nothing is in flight or scheduled.</p>
 <p>Each entry in <code>background_tasks</code> describes one in-flight task and uses these fields:</p>

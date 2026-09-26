@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6627,10 +6627,21 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 <p>When part of a payload fails schema validation, Claude Code surfaces a validation error and applies every remaining valid setting; <a href="/docs/en/managed-settings#invalid-entries-in-managed-settings">Invalid entries in managed settings</a> says what it drops and which keys fall back to a stricter value. Requires Claude Code v2.1.169 or later.</p>
 <p>Server-managed delivery adds these behaviors:</p>
 <ul>
-<li>The cache at <code>~/.claude/remote-settings.json</code> stores the salvaged payload with invalid entries removed, apart from invalid <code>cleanupPeriodDays</code> and <code>desktopSessionCleanupPeriodDays</code> values, which stay in the cached copy and are never applied.</li>
-<li>When no field in the payload can be salvaged and the payload isn't only those retention keys, Claude Code rejects the payload, keeps the last-accepted cached settings, and writes <code>Remote settings: Settings validation failed - no fields could be salvaged</code> to the debug log. With <code>forceRemoteSettingsRefresh</code> set, the CLI exits instead.</li>
-<li>The <a href="#security-approval-dialogs">security approval dialog</a> evaluates the salvaged payload, so a stripped invalid entry is never presented for approval and never executes.</li>
+<li>A startup that runs on the cache at <code>~/.claude/remote-settings.json</code> treats invalid entries the way the fetch that wrote the cache did:</li>
+<li>Entries that failed validation stay dropped.</li>
+<li><a href="/docs/en/managed-settings#keys-that-fail-closed">Keys that fail closed</a> keep their stricter values.</li>
+<li>An invalid <code>cleanupPeriodDays</code> or <code>desktopSessionCleanupPeriodDays</code> value stays in the cached copy and is never applied.</li>
+<li>
+<p>Claude Code applies nothing from a payload and leaves the cache unchanged when all three of these are true:</p>
+</li>
+<li>
+<p>Every setting in the payload fails validation.</p>
+</li>
+<li>None of them falls back to a stricter value.</li>
+<li>The payload holds a key other than those two retention keys.</li>
 </ul>
+<p>The startup notice, <code>/status</code>, and <code>claude doctor</code> then report the <a href="/docs/en/errors#remote-managed-settings-failed-to-load">failed load</a> with the cause <code>no setting in the server response could be applied as written</code>, and that entry says which policy the session runs on. Clients that <a href="#enforce-fail-closed-startup">enforce fail-closed startup</a> exit at startup instead.
+* The <a href="#security-approval-dialogs">security approval dialog</a> evaluates the salvaged payload, so a stripped invalid entry is never presented for approval and never executes.</p>
 <p>To debug delivery issues, run <code>claude --debug-file &lt;path&gt;</code> and search the log for <code>Remote settings</code>. Validate a payload change with <code>claude doctor</code> on a test machine before rolling it out to the organization.</p>
 <h3 id="enforce-fail-closed-startup">Enforce fail-closed startup</h3>
 <p>By default, if the remote settings fetch fails at startup, the CLI continues with the settings cached from the last successful fetch, except for the <a href="#fetch-and-caching-behavior">values Claude Code withholds</a> until a fetch succeeds. On a machine that has never fetched them, the CLI continues without server-managed settings and still applies any <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> on the device.</p>

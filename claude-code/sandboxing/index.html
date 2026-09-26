@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6600,7 +6600,7 @@ If the panel shows only a Dependencies tab, a required package is missing. Insta
     On the Mode tab, select auto-allow or regular permissions. Auto-allow runs sandboxed commands without prompting, and regular permissions keeps the regular permission prompts even when commands are sandboxed. See <a href="#sandbox-modes">Sandbox modes</a> for which commands still prompt in auto-allow mode.
   </Step></p>
 <p><Step title="Run a Bash command">
-    Ask Claude to run a command, such as a build or a test suite. By default, commands inside the sandbox can write to the working directory, the session temp directory, and any <a href="/docs/en/permissions#additional-directories-grant-file-access-not-configuration">directories you've added</a> with <code>--add-dir</code>, <code>/add-dir</code>, or <code>permissions.additionalDirectories</code>.</p>
+    Ask Claude to run a command, such as a build or a test suite. By default, commands inside the sandbox can write to the working directory, a <a href="/docs/en/env-vars">per-user temp directory</a>, and any <a href="/docs/en/permissions#additional-directories-grant-file-access-not-configuration">directories you've added</a> with <code>--add-dir</code>, <code>/add-dir</code>, or <code>permissions.additionalDirectories</code>.</p>
 <pre><code>The first time a command needs a new network domain, Claude Code prompts for approval; in [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode), Claude instead names the hosts a command needs [on the command itself](#per-command-allowed-domains-in-auto-mode) for the classifier to review with it.
 
 Commands that can't run sandboxed fall back to the regular permission flow. Claude Code titles their permission prompt "Bash command (unsandboxed)" instead of "Bash command", so you can tell which commands ran outside the sandbox. To widen or narrow what the sandbox allows, see [Configure sandboxing](#configure-sandboxing).
@@ -6720,7 +6720,7 @@ Before v2.1.260, strict sandbox mode sandboxed shell-mode commands in every sess
 
 #### Temporary directories
 
-The session temp directory is writable inside the sandbox by default, alongside the working directory. Unless you [disable filesystem isolation](#disable-filesystem-isolation), Claude Code sets `$TMPDIR` to this directory for sandboxed commands, so tools that write temporary files work without extra configuration.
+A per-user temp directory is writable inside the sandbox by default, alongside the working directory. Unless you [disable filesystem isolation](#disable-filesystem-isolation), Claude Code sets `$TMPDIR` to this directory for sandboxed commands, so tools that write temporary files work without extra configuration.
 
 Unsandboxed commands inherit your shell's `$TMPDIR` when it is set, so while filesystem isolation is on, sandboxed and unsandboxed commands resolve `$TMPDIR` to different directories. If your shell leaves `$TMPDIR` unset or empty, an unsandboxed command that references `$TMPDIR` receives your [`CLAUDE_CODE_TMPDIR`](/docs/en/env-vars) override, or the operating system's temp directory when you haven't set one or the override is a long path, so the variable doesn't expand to an empty string. To pass temporary files between the two, write them under the working directory instead.
 
@@ -6728,7 +6728,7 @@ Unsandboxed commands inherit your shell's `$TMPDIR` when it is set, so while fil
 
 Customize sandbox behavior through your `settings.json` file. See [Settings](/docs/en/settings-reference#sandbox-settings) for the complete configuration reference.
 
-By default, sandboxed commands can write to the current working directory, the session temp directory, and any [directories you've added](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) with `--add-dir`, `/add-dir`, or `permissions.additionalDirectories`. If subprocess commands like `kubectl`, `terraform`, or `npm` need to write outside those directories, use `sandbox.filesystem.allowWrite` to grant access to specific paths:
+By default, sandboxed commands can write to the current working directory, the per-user temp directory, and any [directories you've added](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) with `--add-dir`, `/add-dir`, or `permissions.additionalDirectories`. If subprocess commands like `kubectl`, `terraform`, or `npm` need to write outside those directories, use `sandbox.filesystem.allowWrite` to grant access to specific paths:
 
 ```json theme={null}
 {
@@ -6898,7 +6898,7 @@ Set `sandbox.filesystem.disabled` to `true` to skip filesystem isolation while k
 </table>
 <p>Two other things change:</p>
 <ul>
-<li>Sandboxed commands inherit your shell's <code>$TMPDIR</code> instead of the session temp directory, because every temp directory is writable and Claude Code no longer redirects commands to the session one.</li>
+<li>Sandboxed commands inherit your shell's <code>$TMPDIR</code> instead of the per-user temp directory, because every temp directory is writable and Claude Code no longer redirects commands to the per-user one.</li>
 </ul>
 <p>On Linux the variable is often unset in the parent shell. The Bash tool guidance tells Claude to create scratch directories with <code>mktemp -d</code> instead of relying on <code>$TMPDIR</code>.
 * <a href="/docs/en/settings-reference#sandbox-autoallowbashifsandboxed"><code>autoAllowBashIfSandboxed</code></a> still defaults to <code>true</code>, so sandboxed commands keep running without prompts. Set it to <code>false</code> to prompt for sandboxed commands.</p>
@@ -7080,9 +7080,9 @@ The example below masks a GitHub token stored in `~/.config/gh/hosts.yml`; the `
 <h3 id="filesystem-isolation">Filesystem isolation</h3>
 <p>The sandboxed Bash tool restricts file system access to specific directories:</p>
 <ul>
-<li><strong>Default write behavior</strong>: read and write access to the current working directory and its subdirectories, any directories you've added with <code>--add-dir</code>, <code>/add-dir</code>, or <a href="/docs/en/settings-reference#permissions-additionaldirectories"><code>permissions.additionalDirectories</code></a>, plus the session temp directory that <code>$TMPDIR</code> points to</li>
+<li><strong>Default write behavior</strong>: read and write access to the current working directory and its subdirectories, any directories you've added with <code>--add-dir</code>, <code>/add-dir</code>, or <a href="/docs/en/settings-reference#permissions-additionaldirectories"><code>permissions.additionalDirectories</code></a>, plus the per-user temp directory that <code>$TMPDIR</code> points to</li>
 <li><strong>Default read behavior</strong>: read access to the entire computer, except certain denied directories. Note that this default still allows reading credential files such as <code>~/.aws/credentials</code> and <code>~/.ssh/</code>. Use <a href="#protect-credentials"><code>sandbox.credentials</code></a> to block reads of these files and unset secret environment variables, or add the paths to <code>denyRead</code>.</li>
-<li><strong>Blocked access</strong>: cannot modify files outside the working directory, added directories, and session temp directory without explicit permission, including shell configuration files such as <code>~/.bashrc</code> and system binaries in <code>/bin/</code></li>
+<li><strong>Blocked access</strong>: cannot modify files outside the working directory, added directories, and the per-user temp directory without explicit permission, including shell configuration files such as <code>~/.bashrc</code> and system binaries in <code>/bin/</code></li>
 <li><strong>Git worktrees</strong>: when the working directory is a <a href="/docs/en/worktrees">linked git worktree</a>, the sandbox also allows writes to the main repository's shared <code>.git</code> directory so commands such as <code>git commit</code> can update refs and the index. Writes to <code>hooks/</code> and <code>config</code> inside that directory remain denied.</li>
 <li><strong>Configurable</strong>: define custom allowed and denied paths through settings</li>
 </ul>

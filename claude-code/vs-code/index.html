@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6748,7 +6748,7 @@ The same actions are available at the cursor from the editor's context menu and 
 <h2 id="use-the-prompt-box">Use the prompt box</h2>
 <p>The prompt box supports several features:</p>
 <ul>
-<li><strong>Permission modes</strong>: click the mode indicator at the bottom of the prompt box to switch permission modes. On Pro, Max, and Team plans, Auto is the built-in starting permission mode. See <a href="/docs/en/permission-modes#switch-permission-modes">how the extension chooses the starting permission mode</a> for what changes that, and every permission mode the indicator offers.</li>
+<li><strong>Permission modes</strong>: click the mode indicator at the bottom of the prompt box to switch permission modes. With Claude Code v2.1.283 or later, Auto is the built-in starting permission mode, and on earlier versions only on Pro, Max, and Team plans. See <a href="/docs/en/permission-modes#switch-permission-modes">how the extension chooses the starting permission mode</a> for what changes that, and every permission mode the indicator offers.</li>
 <li><strong>Auto</strong>: a classifier reviews most actions instead of asking you. See <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a> for what it reviews and blocks.</li>
 <li><strong>Manual</strong>: Claude asks permission before file edits and most shell commands.</li>
 <li>
@@ -6863,13 +6863,19 @@ If you run [cloud sessions](/docs/en/claude-code-on-the-web), you can resume the
   &lt;/Step&gt;
 
   &lt;Step title="Select a session to resume"&gt;
-    Browse or search your cloud sessions. Click any session to download it and continue the conversation locally.
+    Browse or search the sessions. Click one to continue the conversation locally.
   &lt;/Step&gt;
 &lt;/Steps&gt;
 
 &lt;Note&gt;
-  Only cloud sessions started with a GitHub repository appear in the Web tab. Resuming loads the conversation history locally; changes are not synced back to claude.ai.
+  When the folder you have open is a GitHub repository, the Web tab shows only sessions from that repository.
+
+  When you resume a cloud session, the extension downloads a copy of the conversation history; changes don't sync back to claude.ai.
 &lt;/Note&gt;
+
+The Web tab also lists your [Remote Control](/docs/en/remote-control) sessions. If you click one that ran in the folder you have open, the extension opens that local conversation instead of downloading a copy, and focuses the tab already showing it if there is one. If the extension can't rule out that another Claude process has the conversation open, you get a downloaded copy instead.
+
+If any part of a conversation fails to download, an error appears and no copy is saved. Select the session again to retry. If you select a session that has no conversation to download yet, an error tells you where to continue it instead.
 
 ### Check account and usage
 
@@ -7096,7 +7102,7 @@ vscode://anthropic.claude-code/open?prompt=review%20my%20changes
 <p>The extension has two types of settings:</p>
 <ul>
 <li><strong>Extension settings</strong> in VS Code: control the extension's behavior within VS Code. Open with <code>Cmd+,</code> (Mac) or <code>Ctrl+,</code> (Windows/Linux), then go to Extensions → Claude Code. You can also type <code>/</code> and select <strong>General config…</strong> to open settings.</li>
-<li><strong>Claude Code settings</strong> in <code>~/.claude/settings.json</code>: shared between the extension and CLI. Use it for allowed commands, environment variables, hooks, and MCP servers. On Pro, Max, and Team plans, it's also one input to the permission mode conversations start in. <a href="/docs/en/permission-modes#switch-permission-modes">Switch permission modes</a> lists the order. See <a href="/docs/en/settings">Settings</a> for details.</li>
+<li><strong>Claude Code settings</strong> in <code>~/.claude/settings.json</code>: shared between the extension and CLI. Use it for allowed commands, environment variables, hooks, and MCP servers. With Claude Code v2.1.283 or later, it's also one input to the permission mode conversations start in, and on earlier versions only on Pro, Max, and Team plans. <a href="/docs/en/permission-modes#switch-permission-modes">Switch permission modes</a> lists the order. See <a href="/docs/en/settings">Settings</a> for details.</li>
 </ul>
 <p><Tip>
   Add <code>"$schema": "https://json.schemastore.org/claude-code-settings.json"</code> to your <code>settings.json</code> to get autocomplete and inline validation for all available settings directly in VS Code.
@@ -7352,6 +7358,7 @@ These guides cover configuring your provider in `~/.claude/settings.json`, which
 <p>When the extension is active, it runs a local MCP server that the CLI connects to automatically. This is how the CLI opens diffs in VS Code's native diff viewer, reads your current selection for <code>@</code>-mentions, and — when you're working in a Jupyter notebook — asks VS Code to execute cells.</p>
 <p>The server is named <code>ide</code> and is hidden from <code>/mcp</code> because there's nothing to configure. If your organization uses a <code>PreToolUse</code> hook to allowlist MCP tools, though, you'll need to know it exists.</p>
 <p><strong>Selection and open-file context.</strong> While connected, the CLI includes your current editor selection and the path of the active file as context on each prompt you send. The transcript shows a <code>⧉ Selected N lines from &lt;file&gt;</code> line when this happens.</p>
+<p>If you <a href="/docs/en/interactive-mode#queue-messages-while-claude-works">queue a message while Claude works</a>, it keeps the selection you had when you pressed <code>Enter</code>, whatever you select afterward.</p>
 <p>To exclude a sensitive file such as <code>.env</code>, add a <a href="/docs/en/permissions#read-and-edit"><code>Read</code> deny rule</a> for its path. A matching deny rule prevents both the selected text and the open-file notice for that file from reaching Claude.</p>
 <p>If you turn off the <a href="#extension-settings">Attach Open File setting</a>, the CLI receives the active file's path only while you have text selected in it.</p>
 <p><strong>Transport and authentication.</strong> The server binds to <code>127.0.0.1</code> on a random port in the range 10000–65535, and the port is not configurable. The transport is unencrypted <code>ws://</code>; because the socket is loopback-only, any process that could capture the traffic can also read the token from the lock file, so TLS would not add protection. Each extension activation generates a fresh random auth token, writes it to a lock file at <code>~/.claude/ide/&lt;port&gt;.lock</code>, and the CLI must present it as the <code>X-Claude-Code-Ide-Authorization</code> header to connect. The lock file has <code>0600</code> permissions in a <code>0700</code> directory, so only the user running VS Code can read it. If <code>CLAUDE_CONFIG_DIR</code> is set, the lock file is written to <code>$CLAUDE_CONFIG_DIR/ide/</code> instead.</p>

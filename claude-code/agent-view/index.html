@@ -2139,7 +2139,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7694,6 +7694,7 @@ Completed
 <ul>
 <li><code>--mcp-config</code> and <code>--strict-mcp-config</code></li>
 <li><code>--settings</code></li>
+<li><code>--setting-sources</code></li>
 <li><code>--add-dir</code></li>
 <li><code>--plugin-dir</code></li>
 <li><code>--fallback-model</code></li>
@@ -7705,6 +7706,8 @@ Completed
 <p>```bash theme={null}
 claude --bg "investigate the flaky SettingsChangeDetector test"
 <div class="highlight"><pre><span></span><code>The prompt is the positional argument, not a `-p` value. Claude Code rejects `--bg` combined with `-p` or `--print` before any session is created, because `--print` never starts the interactive session that `claude agents` attaches to.
+
+If you run `claude --bg` from a terminal in a directory you haven't [trusted](/docs/en/permissions#project-allow-rules-and-workspace-trust), the workspace trust dialog appears first and the session starts once you accept. If you decline, Claude Code exits without starting a session. Where no dialog can appear, such as in a script, the command exits with a [`Workspace not trusted`](/docs/en/errors#workspace-not-trusted-when-dispatching-a-background-session) error instead.
 
 To run a specific [subagent](/docs/en/sub-agents) you have defined, such as a `code-reviewer`, as the session's main agent, combine `--bg` with `--agent`:
 
@@ -7801,8 +7804,16 @@ What happens to a worktree Claude created for the session:
 * A worktree git no longer recognizes, for example after `git worktree prune`, doesn't block the delete. Claude Code deletes the session and leaves the directory on disk.
 * When git or your [`WorktreeRemove` hook](/docs/en/hooks#worktreeremove) fails to remove the worktree, Claude Code keeps the worktree and the session, and the message names the cause. For a hook, the message says how it ended, such as `exited 1`, and quotes the start of its stderr. The message also tells you which of these to do next:
 
-  * Delete the session again to remove the directory anyway, by pressing `Ctrl+X` twice on its row in agent view or running the `claude rm &lt;id&gt; --force-remove-worktree &lt;worktree-id&gt;` command that the `claude rm` refusal printed. Claude Code offers this only when it can confirm the directory is one of the repository's linked worktrees under `.claude/worktrees/` with no uncommitted changes to tracked files, no nested repository inside it, and no other session's record naming it. The worktree's branch stays in the repository.
-  * Fix what stands in the way, such as committing or stashing the uncommitted changes, closing whatever is using the directory, or fixing the hook, then delete the session again.
+  * Delete the session again to remove the directory anyway, by pressing `Ctrl+X` twice on its row in agent view or running the `claude rm &lt;id&gt; --force-remove-worktree &lt;worktree-id&gt;` command that the `claude rm` refusal printed. The worktree's branch stays in the repository.
+
+    Claude Code offers this only when it can confirm all of the following:
+
+    * The directory is one of the repository's linked worktrees under `.claude/worktrees/`
+    * Neither the worktree nor a checked-out submodule has uncommitted changes to tracked files
+    * No other session's record names it
+
+    When Claude Code can't verify a submodule checkout's state, such as one replaced by a separate git repository, it doesn't offer this either.
+  * Fix what stands in the way, such as committing or stashing the uncommitted changes, moving a separate git repository out of the worktree, closing whatever is using the directory, or fixing the hook, then delete the session again.
   * Remove the directory yourself, then delete the session again.
 
 A worktree you created yourself and started the session inside is left in place either way.
@@ -7837,7 +7848,7 @@ run the test suite
 <h3 id="permission-mode-model-and-effort">Permission mode, model, and effort</h3>
 <p>A background session takes its settings, provider, permission mode, model, and effort from where and how you dispatched it. The subsections below cover each source, and what persists when the supervisor restarts the session.</p>
 <h4 id="settings-and-provider">Settings and provider</h4>
-<p>A background session reads its <a href="/docs/en/settings">settings</a> from the directory it runs in, the same as if you had started <code>claude</code> there. This includes <a href="/docs/en/settings-reference#env"><code>env</code> values</a> in project settings, so an <code>ANTHROPIC_MODEL</code> or provider variable set there applies to every background session in that directory.</p>
+<p>A background session reads its <a href="/docs/en/settings">settings</a> from the directory it runs in, the same as if you had started <code>claude</code> there with the <a href="#what-carries-over-when-you-background">configuration flags it carried over</a>. This includes <a href="/docs/en/settings-reference#env"><code>env</code> values</a> in project settings, so an <code>ANTHROPIC_MODEL</code> or provider variable set there applies to every background session in that directory.</p>
 <p>A background session also runs with the <code>PATH</code> of the shell you dispatched it from, so the commands it runs find the same tools your terminal does. It keeps that shell's cloud provider selection too, such as <code>CLAUDE_CODE_USE_BEDROCK</code> or <code>CLAUDE_CODE_USE_VERTEX</code>, along with its <code>ANTHROPIC_DEFAULT_*_MODEL</code> aliases and any <a href="/docs/en/env-vars"><code>CLAUDE_CODE_EXTRA_BODY</code></a> override you exported there.</p>
 <h4 id="llm-gateway">LLM gateway</h4>
 <p>If you route Claude Code through an <a href="/docs/en/llm-gateway">LLM gateway</a>, put the gateway variables in a settings file's <code>env</code> block rather than exporting them in your shell, and background sessions read them with the rest of their settings. <a href="/docs/en/llm-gateway-connect#set-in-a-settings-file">Set in a settings file</a> shows the block and which settings file to use for the credential.</p>
@@ -7893,11 +7904,12 @@ A prompt you stashed with [`Ctrl+S`](/docs/en/interactive-mode#general-controls)
 
 ### Settings, plugins, and MCP servers
 
-Agent view accepts the same configuration flags as `claude` for loading settings, plugins, MCP servers, and additional directories. Agent view applies `--settings` and `--plugin-dir` to itself and passes every configuration flag through to the sessions you dispatch from it, so a plugin or MCP server you load this way is available in those sessions.
+Agent view accepts the same configuration flags as `claude` for loading settings, plugins, MCP servers, and additional directories. Agent view applies `--settings`, `--setting-sources`, and `--plugin-dir` to itself and passes every configuration flag through to the sessions you dispatch from it, so a plugin or MCP server you load this way is available in those sessions.
 
 | Flag                                                                                             | Effect                                                                                                                                                                                                                                 |
 | :----------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`--settings &lt;file-or-json&gt;`](/docs/en/settings)                                                      | Override settings for agent view and dispatched sessions                                                                                                                                                                               |
+| [`--setting-sources &lt;sources&gt;`](/docs/en/cli-reference#cli-flags)                                     | Load only the named settings sources, in agent view and dispatched sessions                                                                                                                                                            |
 | [`--add-dir &lt;path&gt;`](/docs/en/permissions#additional-directories-grant-file-access-not-configuration) | Grant file access to an additional directory                                                                                                                                                                                           |
 | [`--plugin-dir &lt;path&gt;`](/docs/en/plugins/create#load-a-directory-or-archive-for-one-session)          | Load a plugin from a local directory                                                                                                                                                                                                   |
 | [`--mcp-config &lt;file-or-json&gt;`](/docs/en/mcp)                                                         | Load MCP servers from a config file or JSON string                                                                                                                                                                                     |
@@ -7905,7 +7917,7 @@ Agent view accepts the same configuration flags as `claude` for loading settings
 
 Repeat `--add-dir`, `--plugin-dir`, or `--mcp-config` once per value. `claude agents` doesn't support the space-separated form, such as `--add-dir a b c`.
 
-You can place `--settings` and `--plugin-dir` before or after `agents`. Keep `--add-dir` and `--mcp-config` after `agents`: if you place either before `agents`, [`claude agents --json`](#manage-sessions-from-the-shell) fails with an `unknown option` error.
+You can place `--settings`, `--setting-sources`, and `--plugin-dir` before or after `agents`. Keep `--add-dir` and `--mcp-config` after `agents`: if you place either before `agents`, [`claude agents --json`](#manage-sessions-from-the-shell) fails with an `unknown option` error.
 
 The following example opens agent view with a settings override and one extra directory:
 
@@ -8215,6 +8227,22 @@ claude daemon stop --any --keep-workers
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>v2.1.281</td>
+<td>A <a href="/docs/en/cli-reference#cli-flags"><code>--setting-sources</code></a> restriction <a href="#what-carries-over-when-you-background">carries over</a> to a session you background with <code>←</code> or <code>/bg</code> and to the sessions you dispatch from agent view. Before this release, the spawned session loaded every settings source.</td>
+</tr>
+<tr>
+<td>v2.1.281</td>
+<td><code>claude --bg</code>, and the commands that restart a session, check workspace trust for the session's directory first. From a terminal in that directory, <a href="#from-your-shell">the trust dialog appears</a> if you haven't accepted it; where no dialog can appear, such as in a script, the command exits with a <a href="/docs/en/errors#workspace-not-trusted-when-dispatching-a-background-session"><code>Workspace not trusted</code></a> error.</td>
+</tr>
+<tr>
+<td>v2.1.274</td>
+<td>After an auto-update, an agent view you've been away from for about an hour can relaunch itself onto the new build. When it does, it keeps the <a href="#dispatch-defaults">dispatch defaults</a> you opened it with: <code>--model</code>, <code>--effort</code>, <code>--permission-mode</code>, <code>--allow-dangerously-skip-permissions</code>, and <code>--agent</code>. Before this release, the relaunched view kept only <code>--cwd</code> and configuration flags such as <code>--settings</code> and <code>--mcp-config</code>, so sessions you dispatched afterward started without those defaults.</td>
+</tr>
+<tr>
+<td>v2.1.274</td>
+<td>When a <a href="#what-deleting-a-session-removes">delete is refused</a> because git or your <code>WorktreeRemove</code> hook couldn't remove the worktree, a checked-out submodule that Claude Code verifies has no uncommitted changes to tracked files doesn't block the offer to delete again and remove the directory anyway. Uncommitted work inside a checked-out submodule counts as uncommitted changes, and the message names the submodule. Before this release, any submodule checkout in the worktree blocked the offer, with a message saying the worktree contains a nested repository.</td>
+</tr>
 <tr>
 <td>v2.1.268</td>
 <td>When a <a href="#what-deleting-a-session-removes">delete is refused</a> because git or your <code>WorktreeRemove</code> hook couldn't remove the worktree, the message names the cause, including how a hook ended and the start of its stderr. For a linked worktree under the repository's <code>.claude/worktrees/</code> with no uncommitted changes to tracked files, no nested repository inside it, and no other session's record naming it, deleting the session again removes the directory anyway, from agent view or with <code>claude rm &lt;id&gt; --force-remove-worktree &lt;worktree-id&gt;</code>. Before this release, the row showed only <code>worktree could not be removed (WorktreeRemove hook failed)</code> or git's error, the hook's stderr went only to the debug log, and deleting again was refused the same way.</td>

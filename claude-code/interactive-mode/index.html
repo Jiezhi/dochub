@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6805,7 +6805,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>Left/Right arrows</code></td>
 <td style="text-align: left;">Cycle through dialog tabs</td>
-<td style="text-align: left;">Navigate between tabs in permission dialogs and menus</td>
+<td style="text-align: left;">Navigate between tabs in permission dialogs and menus. In a tabbed dialog, the keys switch tabs while the tab row has focus. See <a href="/docs/en/keybindings#tabs-actions">Tabs actions</a> for how focus moves</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Tab</code></td>
@@ -6820,7 +6820,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>Esc</code></td>
 <td style="text-align: left;">Interrupt Claude, or close a dialog</td>
-<td style="text-align: left;">Stop the current response or tool call mid-turn so you can redirect. Claude keeps the work done so far. If you have <a href="#queue-messages-while-claude-works">messages queued</a>, Claude Code sends them next. When a dialog is open, <code>Esc</code> closes the dialog. On a permission prompt, <code>Esc</code> declines the action, the same as <a href="/docs/en/permissions#add-a-comment-when-you-answer-a-permission-prompt"><strong>No</strong> without a comment</a></td>
+<td style="text-align: left;">Stop the current response or tool call mid-turn so you can redirect. Claude keeps the work done so far. If you have <a href="#queue-messages-while-claude-works">messages queued</a>, Claude Code sends them next. When a dialog is open, <code>Esc</code> closes the dialog. While a footer item is selected, such as a row in the <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">subagent panel</a> below the prompt, <code>Esc</code> <a href="/docs/en/keybindings#footer-actions">deselects it</a> instead of interrupting. On a permission prompt, <code>Esc</code> declines the action, the same as <a href="/docs/en/permissions#add-a-comment-when-you-answer-a-permission-prompt"><strong>No</strong> without a comment</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Esc</code> + <code>Esc</code></td>
@@ -7191,10 +7191,14 @@ Claude Code reads this setting from your user settings file, the `--settings` fl
 | Command               | Action                                                                                                                    |
 | :-------------------- | :------------------------------------------------------------------------------------------------------------------------ |
 | `x`                   | Delete character                                                                                                          |
+| `r{char}`             | Replace character under cursor with `{char}`                                                                              |
 | `dd`                  | Delete line                                                                                                               |
 | `D`                   | Delete to end of line                                                                                                     |
 | `dw`/`de`/`db`        | Delete word/to end/back                                                                                                   |
 | `df{char}`/`dt{char}` | Delete to and including, or up to, the next occurrence of a character                                                     |
+| `dj`/`dk`             | Delete the current line and the line below or above                                                                       |
+| `dgg`/`dG`            | Delete from the current line to the first or last line                                                                    |
+| `d0`/`c0`/`y0`        | Delete, change, or yank from the cursor back to the beginning of the line. Requires Claude Code v2.1.281 or later         |
 | `cc`                  | Change line                                                                                                               |
 | `C`                   | Change to end of line                                                                                                     |
 | `cw`/`ce`/`cb`        | Change word/to end/back                                                                                                   |
@@ -7286,6 +7290,8 @@ To run commands in the background, you can either:
 * Prompt Claude Code to run a command in the background
 * Press `Ctrl+B` to move a regular Bash tool invocation to the background. Tmux users must press `Ctrl+B` twice due to tmux's prefix key.
 
+When a command reaches its timeout before it finishes, Claude Code automatically [moves it to the background](/docs/en/tools-reference#background-commands) instead of stopping it, unless the command starts with `sleep`. To change how long commands run before that happens, set the [Bash timeout environment variables](/docs/en/tools-reference#timeout-and-output-limits).
+
 **Key features:**
 
 * Output is written to a file and Claude can retrieve it using the Read tool
@@ -7331,8 +7337,9 @@ Run shell commands directly without going through Claude by prefixing your input
 <p>Unless your session is one of those listed under <a href="/docs/en/sandboxing#the-unsandboxed-retry-escape-hatch">strict sandbox mode</a>, commands you type in shell mode run outside the <a href="/docs/en/sandboxing">sandbox</a> even when you've enabled sandboxing, because the sandbox applies to the commands Claude runs.</p>
 <p>Claude responds to the command output automatically once it lands in the transcript, so you can run <code>! npm test</code> and get an explanation of the failures without a second prompt. The response costs the same as sending a normal prompt. To restore the earlier behavior where the output is added to context without a response, set <a href="/docs/en/settings-reference#respondtobashcommands"><code>respondToBashCommands</code></a> to <code>false</code> in <code>settings.json</code>. Before v2.1.186, shell mode always added output to context without a response.</p>
 <h2 id="queue-messages-while-claude-works">Queue messages while Claude works</h2>
-<p>Type a message and press <code>Enter</code> while Claude is working. Claude Code queues the message instead of interrupting the turn, and lists the queued entries above the input box until it sends them. You can queue <code>!</code> <a href="#shell-mode-with-prefix">shell commands</a> and most <a href="/docs/en/commands">commands</a> the same way, apart from the commands, such as <code>/status</code>, that Claude Code runs as soon as you send them.</p>
+<p>Type a message and press <code>Enter</code> while Claude is working. Claude Code queues the message instead of interrupting the turn, and lists the queued entries in the conversation until it sends them. You can queue <code>!</code> <a href="#shell-mode-with-prefix">shell commands</a> and most <a href="/docs/en/commands">commands</a> the same way, apart from the commands, such as <code>/status</code>, that Claude Code runs as soon as you send them.</p>
 <p>Sent and queued messages show in gray until Claude starts responding to them, so you can tell which messages Claude hasn't started on yet.</p>
+<p>If you queue a message with a selection attached from a <a href="/docs/en/vs-code#the-built-in-ide-mcp-server">connected IDE</a> or the <a href="#diff-panel">diff panel</a>, it keeps the selection you had when you pressed <code>Enter</code>, whatever you select afterward.</p>
 <h3 id="when-claude-code-sends-what-you-queued">When Claude Code sends what you queued</h3>
 <p>When a queued entry reaches Claude depends on what you queued.</p>
 <ul>

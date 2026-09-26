@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6525,6 +6525,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#npm-enotempty-during-update-or-reinstall">Remove the leftover package directory</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>'claude' is not recognized</code> right after an update on Windows</td>
+<td style="text-align: left;"><a href="#claude-exe-missing-after-an-update-on-windows">Restore <code>claude.exe</code> from its backup</a></td>
+</tr>
+<tr>
 <td style="text-align: left;">On Windows, the install command prints script text and nothing installs</td>
 <td style="text-align: left;"><a href="#wrong-install-command-on-windows">Run the complete install command</a></td>
 </tr>
@@ -6539,6 +6543,10 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>OAuth error</code> or <code>403 Forbidden</code></td>
 <td style="text-align: left;"><a href="#login-and-authentication">Fix authentication</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Claude Code access has not been granted for this account</code></td>
+<td style="text-align: left;"><a href="#claude-code-access-has-not-been-granted-for-this-account">Get a role that includes Claude Code</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Unable to connect to Anthropic services</code> during setup</td>
@@ -6622,11 +6630,18 @@ For Zsh, the default on macOS:
 echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.zshrc
 source ~/.zshrc
 </code></pre></div></p>
-<pre><code>For Bash, the default on most Linux distributions:
+<pre><code>For Bash on Linux, where it's the default on most distributions:
 
 ```bash theme={null}
 echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.bashrc
 source ~/.bashrc
+```
+
+For Bash on macOS, add the line to `~/.bash_profile` instead. Terminal on macOS starts Bash as a login shell, which ignores `~/.bashrc` and reads only the first of `~/.bash_profile`, `~/.bash_login`, or `~/.profile` that exists. If you already have a `~/.bash_login` or `~/.profile` and no `~/.bash_profile`, put the line in that file rather than creating `~/.bash_profile`:
+
+```bash theme={null}
+echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.bash_profile
+source ~/.bash_profile
 ```
 
 Alternatively, close and reopen your terminal.
@@ -7012,7 +7027,24 @@ npm : File C:\Program Files\nodejs\npm.ps1 cannot be loaded because running scri
 <p>```powershell theme={null}
 Remove-Item -Recurse -Force "$env:USERPROFILE.claude\downloads"
 irm https://claude.ai/install.ps1 | iex
-<div class="highlight"><pre><span></span><code>### Install killed on low-memory Linux servers
+<div class="highlight"><pre><span></span><code>&lt;h3 id="claude-exe-missing-after-an-update-on-windows"&gt;
+  `claude.exe` missing after an update on Windows
+&lt;/h3&gt;
+
+If your terminal reports `'claude' is not recognized` right after Claude Code updated on Windows, check whether `%USERPROFILE%\.local\bin` still contains `claude.exe`. If that directory isn't on your PATH at all, see [Fix your PATH](#command-not-found-claude-after-installation) instead. To update on Windows, Claude Code renames the existing `claude.exe` aside to a backup and moves the new version into its place. If moving the new version into place fails and Claude Code can't rename the backup back either, the directory keeps the backup but has no `claude.exe`.
+
+The backup is a file in the same directory whose name begins with `claude.exe.old.` followed by a numeric timestamp. Run the following in PowerShell to rename the newest backup back to `claude.exe`:
+
+```powershell theme={null}
+Get-ChildItem "$env:USERPROFILE\.local\bin\claude.exe.old.*" | Sort-Object Name | Select-Object -Last 1 | Rename-Item -NewName claude.exe
+</code></pre></div></p>
+<p>Then run <code>claude --version</code> to confirm the fix. A restored <code>claude.exe</code> prints a version number.</p>
+<p>If there's no <code>claude.exe.old.*</code> file, or <code>claude</code> still fails after the rename, reinstall instead:</p>
+<p>```powershell theme={null}
+irm https://claude.ai/install.ps1 | iex
+<div class="highlight"><pre><span></span><code>Before v2.1.281, Claude Code could delete the backup while `claude.exe` was still missing.
+
+### Install killed on low-memory Linux servers
 
 A `Killed` message during install usually means the Linux out-of-memory (OOM) killer terminated the `claude install` step because the system ran out of free memory. This is common on small VPS and cloud instances. The install script reports the cause and exits with code 137. In this example, the line number and process ID vary by release and run:
 
@@ -7304,6 +7336,15 @@ If you see `API Error: 403 {"error":{"type":"forbidden","message":"Request not a
 * **Claude Pro/Max users**: verify your subscription is active at [claude.ai/settings](https://claude.ai/settings)
 * **Anthropic Console users**: confirm your account has the "Claude Code" or "Developer" role. Admins assign this in the Anthropic Console under Settings → Members.
 * **Behind a proxy**: corporate proxies can interfere with API requests. See [network configuration](/docs/en/network-config) for proxy setup.
+
+### Claude Code access has not been granted for this account
+
+If the sign-in page shows `Authorization failed` with the message `Claude Code access has not been granted for this account. Contact your administrator.` after you log in from Claude Code, your Claude Enterprise organization has set your role to Custom and none of the [custom roles](https://support.claude.com/en/articles/13930452) assigned to your groups grants Claude Code. On the Custom role, you get access only from those custom roles, so nothing you change in Claude Code resolves this error.
+
+To get access:
+
+1. Ask an Owner of your Claude organization to assign a custom role that grants Claude Code access to one of your groups, or to change your role from Custom to a standard role such as User. Owners manage roles in the organization's [role settings](https://claude.ai/admin-settings/roles).
+2. After the Owner makes the change, run `claude` and log in again.
 
 ### This organization has been disabled with an active subscription
 
