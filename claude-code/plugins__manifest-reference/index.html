@@ -6587,6 +6587,11 @@ claude plugin validate ./my-plugin
 <li><strong><code>Validation passed with warnings</code></strong>: the manifest loads, but the validator found something to fix, such as an unknown top-level field that Claude Code strips, a <code>name</code> that isn't kebab-case, or a missing <code>version</code>, <code>description</code>, or <code>author</code>. Pass <code>--strict</code> to turn warnings into failures in CI</li>
 <li><strong><code>Validation failed</code></strong>: the manifest has a type mismatch, a path that is missing or escapes the plugin root, or an unknown key inside a <code>userConfig</code> option, <code>channels</code> entry, <code>lspServers</code> config, or <code>monitors</code> entry. Claude Code reports the same problem when it loads the plugin</li>
 </ul>
+<p>The command also checks each MCP server entry the plugin declares in <code>.mcp.json</code>, in a <code>.json</code> file that <a href="#mcpservers"><code>mcpServers</code></a> names, or inline in <code>plugin.json</code>. These MCP checks require Claude Code v2.1.281 or later and include:</p>
+<ul>
+<li><strong>Errors</strong>: an entry Claude Code would drop when it loads the plugin, a <code>${user_config.KEY}</code> reference to an option the manifest doesn't declare, and a remote <code>url</code> that isn't a valid absolute URL</li>
+<li><strong>Warnings</strong>: an <code>http://</code> or <code>ws://</code> URL to a non-loopback host, and a header value that looks like a literal credential</li>
+</ul>
 <h2 id="fields">Fields</h2>
 <p>The table lists the top-level keys in <code>plugin.json</code>. <code>name</code> is the only required key. Where a field name is a link, the linked section has its full rules.</p>
 <p>For component keys such as <code>commands</code> and <code>hooks</code>, <a href="#component-path-forms">Component path forms</a> shows each accepted shape with an example, and every path follows the <a href="#path-rules">path rules</a> for the <code>./</code> prefix, extensions, and containment.</p>
@@ -6775,14 +6780,14 @@ claude plugin validate ./my-plugin
 
 Each value sets exactly one of `source` or `content`, and an entry that sets both or neither fails validation. The other fields in this table are optional:
 
-| Field          | Type             | Description                                                      |
-| :------------- | :--------------- | :--------------------------------------------------------------- |
-| `source`       | string           | Path to the command's Markdown file, relative to the plugin root |
-| `content`      | string           | Inline Markdown for the command body, instead of `source`        |
-| `description`  | string           | Description shown for the command                                |
-| `argumentHint` | string           | Argument hint shown after the command name, such as `[file]`     |
-| `model`        | string           | Default model for the command                                    |
-| `allowedTools` | array of strings | Tools the command may use without prompting                      |
+| Field | Type | Description |
+| :- | :- | :- |
+| `source` | string | Path to the command's Markdown file, relative to the plugin root |
+| `content` | string | Inline Markdown for the command body, instead of `source` |
+| `description` | string | Description shown for the command |
+| `argumentHint` | string | Argument hint shown after the command name, such as `[file]` |
+| `model` | string | Default model for the command |
+| `allowedTools` | array of strings | Tools the command may use without prompting |
 
 This map declares one command from a file and one from inline content:
 
@@ -6821,12 +6826,12 @@ Claude Code loads `.mcp.json` at the plugin root first, then each declared shape
 
 An `mcpServers` value takes one of these shapes:
 
-| Shape             | Example value                                                                          | What Claude Code does                                                                                       |
-| :---------------- | :------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
-| `.json` file path | `"./mcp/servers.json"`                                                                 | Reads the file as an `mcpServers` map                                                                       |
-| MCP bundle path   | `"./bundle.mcpb"`                                                                      | Extracts the `.mcpb` or `.dxt` bundle into `.mcpb-cache/` under the plugin root and reads its server config |
-| MCP bundle URL    | `"https://example.com/server.mcpb"`                                                    | Downloads the bundle into `.mcpb-cache/`, then reads it                                                     |
-| Inline map        | `{ "deploy-api": { "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/server.js"] } }` | Uses the map as server configs keyed by name                                                                |
+| Shape | Example value | What Claude Code does |
+| :- | :- | :- |
+| `.json` file path | `"./mcp/servers.json"` | Reads the file as an `mcpServers` map |
+| MCP bundle path | `"./bundle.mcpb"` | Extracts the `.mcpb` or `.dxt` bundle into `.mcpb-cache/` under the plugin root and reads its server config |
+| MCP bundle URL | `"https://example.com/server.mcpb"` | Downloads the bundle into `.mcpb-cache/`, then reads it |
+| Inline map | `{ "deploy-api": { "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/server.js"] } }` | Uses the map as server configs keyed by name |
 
 A bundle path or URL must end in `.mcpb` or `.dxt`. Any other extension fails validation.
 
@@ -6838,21 +6843,21 @@ Claude Code loads `.lsp.json` at the plugin root first, then each declared confi
 
 Each server config is a strict object with these fields. An unknown key fails validation.
 
-| Field                   | Required | Description                                                                                                                                                              |
-| :---------------------- | :------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `command`               | Yes      | Language server binary. No spaces unless the value starts with `/`; put arguments in `args`                                                                              |
-| `extensionToLanguage`   | Yes      | Map of file extension to LSP language ID, at least one entry. Keys start with a dot, such as `".go"`                                                                     |
-| `args`                  | No       | Arguments passed to the server                                                                                                                                           |
-| `transport`             | No       | Communication transport: `stdio` (default) or `socket`. Claude Code accepts `socket` but runs every server over stdio, so the stdout protocol rules apply to all servers |
-| `env`                   | No       | Environment variables for the server process                                                                                                                             |
-| `initializationOptions` | No       | Options sent in the initialize request                                                                                                                                   |
-| `settings`              | No       | Settings sent by `workspace/didChangeConfiguration`                                                                                                                      |
-| `workspaceFolder`       | No       | Workspace folder path for the server                                                                                                                                     |
-| `startupTimeout`        | No       | Milliseconds to wait for startup, a positive integer                                                                                                                     |
-| `shutdownTimeout`       | No       | Milliseconds to wait for a graceful shutdown, a positive integer. When the timeout elapses, Claude Code terminates the server process. When unset, no timeout applies    |
-| `restartOnCrash`        | No       | Whether to restart the server after it crashes. Defaults to `true`. Set to `false` to leave a crashed server stopped instead of restarting it                            |
-| `maxRestarts`           | No       | Restart attempts before giving up, zero or more                                                                                                                          |
-| `diagnostics`           | No       | Whether to push diagnostics into context after edits. Defaults to `true`                                                                                                 |
+| Field | Required | Description |
+| :- | :- | :- |
+| `command` | Yes | Language server binary. No spaces unless the value starts with `/`; put arguments in `args` |
+| `extensionToLanguage` | Yes | Map of file extension to LSP language ID, at least one entry. Keys start with a dot, such as `".go"` |
+| `args` | No | Arguments passed to the server |
+| `transport` | No | Communication transport: `stdio` (default) or `socket`. Claude Code accepts `socket` but runs every server over stdio, so the stdout protocol rules apply to all servers |
+| `env` | No | Environment variables for the server process |
+| `initializationOptions` | No | Options sent in the initialize request |
+| `settings` | No | Settings sent by `workspace/didChangeConfiguration` |
+| `workspaceFolder` | No | Workspace folder path for the server |
+| `startupTimeout` | No | Milliseconds to wait for startup, a positive integer |
+| `shutdownTimeout` | No | Milliseconds to wait for a graceful shutdown, a positive integer. When the timeout elapses, Claude Code terminates the server process. When unset, no timeout applies |
+| `restartOnCrash` | No | Whether to restart the server after it crashes. Defaults to `true`. Set to `false` to leave a crashed server stopped instead of restarting it |
+| `maxRestarts` | No | Restart attempts before giving up, zero or more |
+| `diagnostics` | No | Whether to push diagnostics into context after edits. Defaults to `true` |
 
 This inline config runs `gopls` for `.go` files:
 
@@ -6954,17 +6959,17 @@ Keys are identifiers made of letters, digits, and underscores, and can't start w
 
 Each value is a strict object with these fields. An unknown key fails validation.
 
-| Field         | Required | Description                                                                                                                                                                               |
-| :------------ | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`        | Yes      | One of `string`, `number`, `boolean`, `directory`, or `file`                                                                                                                              |
-| `title`       | Yes      | Label shown in the configuration dialog                                                                                                                                                   |
-| `description` | Yes      | Help text shown beneath the field                                                                                                                                                         |
-| `required`    | No       | If `true`, the configuration dialog doesn't accept an empty value                                                                                                                         |
-| `default`     | No       | Value used when the user provides nothing: a string, number, boolean, or array of strings                                                                                                 |
-| `options`     | No       | For `string`, the values the field accepts, shown as a picker in `/config`. See [Limit a field to fixed options](#limit-a-field-to-fixed-options). Requires Claude Code v2.1.271 or later |
-| `multiple`    | No       | For `string`, allows an array of strings                                                                                                                                                  |
-| `sensitive`   | No       | If `true`, masks input and stores the value in secure storage instead of `settings.json`                                                                                                  |
-| `min` / `max` | No       | Bounds for `number`                                                                                                                                                                       |
+| Field | Required | Description |
+| :- | :- | :- |
+| `type` | Yes | One of `string`, `number`, `boolean`, `directory`, or `file` |
+| `title` | Yes | Label shown in the configuration dialog |
+| `description` | Yes | Help text shown beneath the field |
+| `required` | No | If `true`, the configuration dialog doesn't accept an empty value |
+| `default` | No | Value used when the user provides nothing: a string, number, boolean, or array of strings |
+| `options` | No | For `string`, the values the field accepts, shown as a picker in `/config`. See [Limit a field to fixed options](#limit-a-field-to-fixed-options). Requires Claude Code v2.1.271 or later |
+| `multiple` | No | For `string`, allows an array of strings |
+| `sensitive` | No | If `true`, masks input and stores the value in secure storage instead of `settings.json` |
+| `min` / `max` | No | Bounds for `number` |
 
 Each option of each enabled plugin also appears as a row in the `/config` panel, except `sensitive` options and `multiple` lists. The `/config` rows require Claude Code v2.1.269 or later.
 
@@ -7023,11 +7028,11 @@ Shell-form hook commands, monitor commands, and MCP [`headersHelper`](/docs/en/m
 
 The table shows how the value can reach each of these fields instead.
 
-| Field                    | How the value can reach it                                                                                                                                                                                                    |
-| :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell-form hook commands | Use [exec form](/docs/en/hooks#exec-form-and-shell-form) with `args`, or read `CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;` from the hook's environment                                                                                             |
-| Monitor commands         | Not through Claude Code. Monitor processes don't receive `CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;`, so the monitor script has to obtain the value on its own                                                                               |
-| MCP `headersHelper`      | Not through Claude Code. The helper's environment carries `CLAUDE_PLUGIN_ROOT`, `CLAUDE_CODE_MCP_SERVER_NAME`, and `CLAUDE_CODE_MCP_SERVER_URL` but no option values, so the helper script has to obtain the value on its own |
+| Field | How the value can reach it |
+| :- | :- |
+| Shell-form hook commands | Use [exec form](/docs/en/hooks#exec-form-and-shell-form) with `args`, or read `CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;` from the hook's environment |
+| Monitor commands | Not through Claude Code. Monitor processes don't receive `CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;`, so the monitor script has to obtain the value on its own |
+| MCP `headersHelper` | Not through Claude Code. The helper's environment carries `CLAUDE_PLUGIN_ROOT`, `CLAUDE_CODE_MCP_SERVER_NAME`, and `CLAUDE_CODE_MCP_SERVER_URL` but no option values, so the helper script has to obtain the value on its own |
 
 ## Channels
 
@@ -7035,11 +7040,11 @@ The table shows how the value can reach each of these fields instead.
 
 Each entry is a strict object bound to one of the plugin's MCP servers, with these fields:
 
-| Field         | Required | Description                                                                                                                                                                   |
-| :------------ | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server`      | Yes      | Key of the MCP server in this plugin's `mcpServers` that the channel binds to                                                                                                 |
-| `displayName` | No       | Name shown in the configuration dialog title. Defaults to the server name                                                                                                     |
-| `userConfig`  | No       | Options to prompt for, in the same shape as [top-level `userConfig`](#user-configuration). Saved values substitute into `${user_config.KEY}` references in the server's `env` |
+| Field | Required | Description |
+| :- | :- | :- |
+| `server` | Yes | Key of the MCP server in this plugin's `mcpServers` that the channel binds to |
+| `displayName` | No | Name shown in the configuration dialog title. Defaults to the server name |
+| `userConfig` | No | Options to prompt for, in the same shape as [top-level `userConfig`](#user-configuration). Saved values substitute into `${user_config.KEY}` references in the server's `env` |
 
 This manifest binds a channel to the plugin's `telegram` MCP server and prompts for a bot token that substitutes into the server's `env`:
 
@@ -7097,7 +7102,7 @@ This manifest binds a channel to the plugin's `telegram` MCP server and prompts 
 </tbody>
 </table>
 <p><code>${CLAUDE_PLUGIN_ROOT}</code> changes when the plugin updates, so don't write state there. For where the root moves and when the old directory is cleaned up, see the <a href="/docs/en/plugins/loading">loading page</a>.</p>
-<p>When you uninstall the plugin from the last place it's installed, the <code>${CLAUDE_PLUGIN_DATA}</code> directory is deleted unless you pass <a href="/docs/en/plugins/cli-reference"><code>--keep-data</code></a>.</p>
+<p>By default, Claude Code deletes the <code>${CLAUDE_PLUGIN_DATA}</code> directory when you uninstall the plugin from the last place it's installed. For <code>--keep-data</code> and the other cases where it stays, see <a href="/docs/en/plugins/cli-reference#plugin-uninstall">plugin uninstall</a>.</p>
 <h3 id="where-each-variable-resolves">Where each variable resolves</h3>
 <p>In each plugin component, <code>${...}</code> references resolve inline in specific fields, and some components also receive the variables in their process environment:</p>
 <table>
@@ -7148,6 +7153,7 @@ This manifest binds a channel to the plugin's `telegram` MCP server and prompts 
 <li><strong>Hook commands</strong>: use <a href="/docs/en/hooks#exec-form-and-shell-form">exec form</a> with <code>args</code> so each path is one argument with no quoting</li>
 <li><strong>Shell-form hooks and monitor commands</strong>: wrap the variable in double quotes so a path with spaces stays one word</li>
 </ul>
+<p>If you leave one of these variables outside quotes in a shell-form command in a hooks file, <code>claude plugin validate</code> warns about it unless the hook sets <a href="/docs/en/hooks#command-hook-fields"><code>shell</code></a> to <code>"powershell"</code>.</p>
 <p>This shell-form hook runs a script bundled with the plugin:</p>
 <p>```json theme={null}
 {
@@ -7170,21 +7176,21 @@ This manifest binds a channel to the plugin's `telegram` MCP server and prompts 
 
 Each component type has a default location under the plugin root, used when the manifest doesn't point elsewhere.
 
-| Component     | Default location             | Contents                                                                                                                                                                                                                                                                                                                                              |
-| :------------ | :--------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest      | `.claude-plugin/plugin.json` | Plugin metadata and configuration. Optional                                                                                                                                                                                                                                                                                                           |
-| Skills        | `skills/`                    | One `&lt;name&gt;/SKILL.md` per skill. A plugin with `SKILL.md` at its root, no `skills/`, and no `skills` key loads as a single skill                                                                                                                                                                                                                      |
-| Commands      | `commands/`                  | Flat Markdown command files. Prefer `skills/` for new plugins                                                                                                                                                                                                                                                                                         |
-| Agents        | `agents/`                    | Agent Markdown files. Subfolders are part of the [agent name](/docs/en/plugins/components#agents)                                                                                                                                                                                                                                                          |
-| Hooks         | `hooks/hooks.json`           | Hook configuration                                                                                                                                                                                                                                                                                                                                    |
-| MCP servers   | `.mcp.json`                  | MCP server definitions                                                                                                                                                                                                                                                                                                                                |
-| LSP servers   | `.lsp.json`                  | LSP server configurations                                                                                                                                                                                                                                                                                                                             |
-| Output styles | `output-styles/`             | Output style Markdown files                                                                                                                                                                                                                                                                                                                           |
-| Workflows     | `workflows/`                 | Workflow `.js` files                                                                                                                                                                                                                                                                                                                                  |
-| Themes        | `themes/`                    | Theme JSON files                                                                                                                                                                                                                                                                                                                                      |
-| Monitors      | `monitors/monitors.json`     | The monitors array                                                                                                                                                                                                                                                                                                                                    |
-| Executables   | `bin/`                       | Files here are on the Bash tool's `PATH` while the plugin is enabled, so Claude runs them as bare commands. claude.ai and Cowork don't install a plugin that has this directory, including one you [distribute through claude.ai organization settings](https://claude.com/docs/plugins/org-sync#keep-executables-out-of-the-top-level-bin-directory) |
-| Settings      | `settings.json`              | `agent` and `subagentStatusLine` defaults applied while the plugin is enabled                                                                                                                                                                                                                                                                         |
+| Component | Default location | Contents |
+| :- | :- | :- |
+| Manifest | `.claude-plugin/plugin.json` | Plugin metadata and configuration. Optional |
+| Skills | `skills/` | One `&lt;name&gt;/SKILL.md` per skill. A plugin with `SKILL.md` at its root, no `skills/`, and no `skills` key loads as a single skill |
+| Commands | `commands/` | Flat Markdown command files. Prefer `skills/` for new plugins |
+| Agents | `agents/` | Agent Markdown files. Subfolders are part of the [agent name](/docs/en/plugins/components#agents) |
+| Hooks | `hooks/hooks.json` | Hook configuration |
+| MCP servers | `.mcp.json` | MCP server definitions |
+| LSP servers | `.lsp.json` | LSP server configurations |
+| Output styles | `output-styles/` | Output style Markdown files |
+| Workflows | `workflows/` | Workflow `.js` files |
+| Themes | `themes/` | Theme JSON files |
+| Monitors | `monitors/monitors.json` | The monitors array |
+| Executables | `bin/` | Files here are on the Bash tool's `PATH` while the plugin is enabled, so Claude runs them as bare commands. claude.ai and Cowork don't install a plugin that has this directory, including one you [distribute through claude.ai organization settings](https://claude.com/docs/plugins/org-sync#keep-executables-out-of-the-top-level-bin-directory) |
+| Settings | `settings.json` | `agent` and `subagentStatusLine` defaults applied while the plugin is enabled |
 
 A plugin that uses every default location, plus a `scripts/` folder that its hooks call, is laid out like this:
 

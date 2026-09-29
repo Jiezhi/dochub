@@ -1817,6 +1817,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Outage behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#readiness-grace-period" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Readiness grace period
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6349,6 +6366,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Outage behavior">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#readiness-grace-period" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Readiness grace period
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6624,7 +6658,8 @@ rate_limits:
 <li><strong>Operational logs</strong>: human-readable <code>[gateway]</code>-prefixed lines for boot, warnings, and upstream errors. The <code>CLAUDE_GATEWAY_LOG_LEVEL</code> environment variable controls verbosity and accepts <code>debug</code>, <code>info</code>, <code>warn</code>, or <code>error</code>, with <code>info</code> as the default. At <code>debug</code>, each sign-in and refresh also logs the names, not the values, of the claims in the id_token, plus the names of the userinfo claims when <code>userinfo_fallback</code> supplied any, so you can diagnose <code>email_claim</code> and <code>groups_claim</code> settings without logging PII. It doesn't affect audit events, which are always emitted.</li>
 </ul>
 <h3 id="health">Health</h3>
-<p>The gateway serves <code>GET /healthz</code> as a liveness probe and <code>GET /readyz</code> as a readiness probe; <code>/readyz</code> verifies the store is reachable. Both are exempt from <code>access_control.allow_cidrs</code>, so probes keep working on a locked-down listener.</p>
+<p>The gateway serves <code>GET /healthz</code> as a liveness probe and <code>GET /readyz</code> as a readiness probe. <code>/readyz</code> verifies the store is reachable. If you set <a href="/docs/en/claude-apps-gateway-config#store"><code>store.readiness_grace_seconds</code></a>, <code>/readyz</code> keeps reporting ready for up to that many seconds after the store stops answering.</p>
+<p>Both endpoints are exempt from <code>access_control.allow_cidrs</code>, so probes keep working on a locked-down listener.</p>
 <p>The OAuth discovery document at <code>/.well-known/oauth-authorization-server</code> also returns <code>200</code> only after config load, OIDC discovery, upstream client construction, and Postgres migration all succeed, so it doubles as an end-to-end boot check.</p>
 <h3 id="concurrent-upstream-requests">Concurrent upstream requests</h3>
 <p>By default, each gateway replica sends at most 256 requests upstream at the same time. A streaming response counts against the limit until the stream ends.</p>
@@ -6646,9 +6681,13 @@ rate_limits:
 <li><strong>Existing sessions</strong>: bearer tokens validate locally with the JWT secret, session refreshes don't touch the store, and the gateway process can still serve inference</li>
 <li><strong>New sign-ins</strong>: fail until Postgres recovers, because the device flow and its rate-limit counters live in Postgres</li>
 <li><strong><a href="/docs/en/claude-apps-gateway-spend-limits#postgres-availability">Spend-limit enforcement</a></strong>: fails open by default during the outage, so inference still flows; flip it to fail closed if you'd rather block than run unmetered</li>
-<li><strong>Readiness</strong>: <code>/readyz</code> reports not-ready during the outage, so orchestrators that gate traffic on readiness remove every replica from rotation at once. In that topology all traffic, including inference the gateway could still serve, fails at the load balancer until Postgres recovers. The liveness probe on <code>/healthz</code> keeps passing, so replicas aren't restarted. Point the readiness probe at <code>/healthz</code> instead if you'd rather signed-in developers keep working through a store outage; the cost is that new sign-ins fail against a replica that still reports ready.</li>
+<li><strong>Readiness</strong>: by default <code>/readyz</code> reports not-ready as soon as Postgres is unreachable, so every replica fails its readiness check at once. Where traffic only reaches replicas that pass the check, all traffic, including inference the gateway could still serve, fails until Postgres recovers. The liveness probe on <code>/healthz</code> keeps passing throughout.</li>
 </ul>
 <p>If your IdP goes down, existing sessions work until <code>ttl_hours</code> and new logins fail. A session refresh gets a try-again answer and succeeds once the IdP is back. Set a longer <code>ttl_hours</code> if your IdP has frequent maintenance windows.</p>
+<h4 id="readiness-grace-period">Readiness grace period</h4>
+<p>To keep signed-in developers working through a short Postgres outage such as a database failover, set <a href="/docs/en/claude-apps-gateway-config#store"><code>store.readiness_grace_seconds</code></a> to longer than the failover takes, for example <code>300</code>. With spend limits on and the default fail-open behavior, requests through a replica that stays ready are unmetered until Postgres recovers, so keep the value as low as covers your failover. If you set <a href="/docs/en/claude-apps-gateway-config#enforcement"><code>enforcement.fail_closed_on_error: true</code></a>, the gateway refuses signed-in developers' inference with the <code>429</code> <code>spend limit unavailable</code> message until Postgres recovers, even while replicas still pass their readiness check.</p>
+<p>The setting requires Claude Code v2.1.282 or later on the gateway server. An earlier gateway refuses to start when it finds the key, so upgrade every replica before you add it. <a href="#upgrades">Upgrades</a> covers rolling back.</p>
+<p>If you point the readiness probe at <code>/healthz</code> instead, replicas also keep passing it through an outage, but <code>/healthz</code> never reports not-ready, so a replica whose Postgres connection doesn't recover keeps passing too.</p>
 <h3 id="jwt-secret-rotation">JWT secret rotation</h3>
 <p>Rotate the signing secret in stages so existing sessions stay valid:</p>
 <ol>
@@ -6824,7 +6863,7 @@ rate_limits:
 <tr>
 <td>Startup exits with <code>Administrator policy requires a Cloud gateway sign-in on this machine</code></td>
 <td>The developer's environment sets <code>ANTHROPIC_API_KEY</code> or <code>ANTHROPIC_AUTH_TOKEN</code>, their settings configure an <a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a>, or an API key from an earlier Claude Console login is still saved</td>
-<td>Have the developer clear each that applies: unset the variable, remove the <code>apiKeyHelper</code> entry, or run <code>claude auth logout</code> to remove the saved key. Then have them start <code>claude</code> and sign in with <code>/login</code>. See also <a href="/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in">Administrator policy requires a Cloud gateway sign-in</a>.</td>
+<td>Have the developer clear each that applies: unset the variable, remove the <code>apiKeyHelper</code> entry, or run <code>claude auth logout</code> to remove the saved key. A session that selects a cloud provider with <code>CLAUDE_CODE_USE_*</code> then starts with no sign-in; for every other session, have them start <code>claude</code> and sign in with <code>/login</code>. See also <a href="/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in">Administrator policy requires a Cloud gateway sign-in</a>.</td>
 </tr>
 <tr>
 <td>Startup or <code>/login</code> reports <code>Claude Code may not be enabled for your organization</code> after a 403 on the managed settings load</td>

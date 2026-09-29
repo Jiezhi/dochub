@@ -6580,15 +6580,15 @@ A plugin that declares dependencies can fail to install, or install and stay dis
 
 The table lists each message and its fix. To declare dependencies as an author, see [Plugin dependencies](/docs/en/plugins/dependencies).
 
-| Message                                                                                         | Meaning                                                                                           | How to resolve                                                                                                                                                                                                                                                      |
-| :---------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Dependency "&lt;dep&gt;" is not installed`                                                           | A declared dependency isn't installed.                                                            | Install it in your shell with `claude plugin install &lt;dep&gt;@&lt;marketplace&gt;`, or uninstall the plugin. If the dependency's marketplace isn't registered yet, add it and run `/reload-plugins` in your session, which installs the missing dependencies it can resolve. |
-| `Dependency "&lt;dep&gt;" is disabled`                                                                | The dependency is installed but turned off.                                                       | Enable the dependency, or uninstall the plugin that needs it.                                                                                                                                                                                                       |
-| `Requires "&lt;dep&gt;" &lt;range&gt;, installed &lt;version&gt;`                                                 | The installed dependency's version is outside the plugin's declared range.                        | Update the dependency to a version in the range, or uninstall the plugin.                                                                                                                                                                                           |
-| `&lt;Plugin or Dependency&gt; "&lt;name&gt;" has conflicting version requirements`                          | No version satisfies every range that pins it. The message lists the ranges.                      | Uninstall or update one of the conflicting plugins, or ask the upstream author to widen its constraint.                                                                                                                                                             |
-| `... has version requirements too complex to intersect` or `has an invalid version requirement` | A range isn't valid semver, or the combined ranges can't be intersected.                          | Fix the invalid range or simplify long `\|\|` chains.                                                                                                                                                                                                               |
-| `... has no git tag satisfying &lt;range&gt;`                                                         | The dependency's repository has no `&lt;name&gt;--v*` tag in the range.                                 | Check that the upstream tags releases with that convention, or relax the range.                                                                                                                                                                                     |
-| `Dependency "&lt;dep&gt;" (required by &lt;plugin&gt;) is in &lt;marketplace&gt;, which is not in the allowlist`  | The dependency is in a different marketplace, and cross-marketplace resolution is off by default. | Install the dependency yourself at the same scope, in your shell with `claude plugin install &lt;dep&gt;@&lt;marketplace&gt;` plus the `--scope` you're installing the plugin at, then retry.                                                                                   |
+| Message | Meaning | How to resolve |
+| :- | :- | :- |
+| `Dependency "&lt;dep&gt;" is not installed` | A declared dependency isn't installed. | Install it in your shell with `claude plugin install &lt;dep&gt;@&lt;marketplace&gt;`, or uninstall the plugin. If the dependency's marketplace isn't registered yet, add it and run `/reload-plugins` in your session, which installs the missing dependencies it can resolve. |
+| `Dependency "&lt;dep&gt;" is disabled` | The dependency is installed but turned off. | Enable the dependency, or uninstall the plugin that needs it. |
+| `Requires "&lt;dep&gt;" &lt;range&gt;, installed &lt;version&gt;` | The installed dependency's version is outside the plugin's declared range. | Update the dependency to a version in the range, or uninstall the plugin. |
+| `&lt;Plugin or Dependency&gt; "&lt;name&gt;" has conflicting version requirements` | No version satisfies every range that pins it. The message lists the ranges. | Uninstall or update one of the conflicting plugins, or ask the upstream author to widen its constraint. |
+| `... has version requirements too complex to intersect` or `has an invalid version requirement` | A range isn't valid semver, or the combined ranges can't be intersected. | Fix the invalid range or simplify long `\|\|` chains. |
+| `... has no git tag satisfying &lt;range&gt;` | The dependency's repository has no `&lt;name&gt;--v*` tag in the range. | Check that the upstream tags releases with that convention, or relax the range. |
+| `Dependency "&lt;dep&gt;" (required by &lt;plugin&gt;) is in &lt;marketplace&gt;, which is not in the allowlist` | The dependency is in a different marketplace, and cross-marketplace resolution is off by default. | Install the dependency yourself at the same scope, in your shell with `claude plugin install &lt;dep&gt;@&lt;marketplace&gt;` plus the `--scope` you're installing the plugin at, then retry. |
 
 To see these programmatically, run `claude plugin list --json` in your shell. Plugins with problems carry an `errors` field with the messages and an `errorDetails` field with a `type` for each: the first two rows are `dependency-unsatisfied` and the third is `dependency-version-unsatisfied`.
 
@@ -6677,7 +6677,7 @@ If your organization pre-installs plugins for you, it does so through managed se
   `Failed to load hooks from &lt;path&gt;` and hooks that don't fire
 &lt;/h3&gt;
 
-A plugin's hooks don't run. Either the **Errors** tab shows a load failure for them, the hooks load and you see `&lt;Event&gt; hook error` notices in the transcript, or a hook loads without error and never fires.
+A plugin's hooks don't run, or one blocks an action. Either the **Errors** tab shows a load failure for them, the hooks load and you see `&lt;Event&gt; hook error` notices or a blocking error in the transcript, or a hook loads without error and never fires.
 
 #### Hooks fail to load
 
@@ -6690,7 +6690,15 @@ The **Errors** tab shows one of these messages:
 
 A notice of the form `... hook error: Failed with non-blocking status code: &lt;stderr&gt;` means the hook ran and its command failed. For example, `Stop hook error: Failed with non-blocking status code: /bin/sh: node: command not found` means the shell Claude Code spawned couldn't find `node`. Install it, or make sure it's on the `PATH` of the terminal you start `claude` from.
 
+If the stderr shows the plugin's path cut off at a space, the hook's shell-form command uses `${CLAUDE_PLUGIN_ROOT}` outside quotes and the install path contains a space. Wrap the variable in double quotes or use [exec form](/docs/en/hooks#exec-form-and-shell-form). To find the unquoted variable, run `claude plugin validate` on the plugin's directory and look for its [quoting warning](/docs/en/plugins/manifest-reference#quoting-and-path-separators).
+
 For any other error, run the hook's command yourself from the plugin directory to see the full output, or capture the full stderr with [debug logging](/docs/en/hooks#debug-hooks).
+
+#### A plugin hook blocks a tool call or prompt
+
+A hook that exits with code 2 [blocks the action it ran for](/docs/en/hooks#exit-code-2). When a plugin's hook blocks this way and its stderr is the blocking message, the error ends with `This hook comes from the &lt;plugin&gt; plugin.` so that you know which plugin to disable or fix. Before v2.1.281, the error didn't name the plugin.
+
+If that message shows the plugin's path cut off at a space, apply the [unquoted `${CLAUDE_PLUGIN_ROOT}` fix](#hook-error-notices-in-the-transcript).
 
 #### Hook loads but never fires
 
@@ -6868,16 +6876,16 @@ The validator reads the manifest at the path you give it: `.claude-plugin/plugin
 
 The table covers the messages that stop validation and two warnings, `No frontmatter block found` and `Unknown field '&lt;key&gt;'`, which stop it only when you pass `--strict`. Other warnings, such as a missing description, aren't listed.
 
-| Message                                                                                                  | Cause                                                                    | Fix                                                                                                        |
-| :------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-| `File not found: &lt;path&gt;`                                                                                 | The path has no manifest, or doesn't exist.                              | Run the command against the plugin or marketplace root, the directory that contains `.claude-plugin/`.     |
-| `No manifest found in directory. Expected .claude-plugin/marketplace.json or .claude-plugin/plugin.json` | The directory has no `.claude-plugin/` manifest.                         | Create the manifest, or point at the right directory.                                                      |
-| `Invalid JSON syntax: &lt;parse error&gt;`                                                                     | The manifest, or `hooks/hooks.json`, isn't valid JSON.                   | Fix the JSON. Until you fix `hooks/hooks.json`, a session loads the plugin without the hooks in that file. |
-| `Path not found: &lt;path&gt;. The runtime loader will report this as a load failure.`                         | A component path in the manifest doesn't exist.                          | Fix the path or create the directory.                                                                      |
-| `Path contains ".." which could be a path traversal attempt: &lt;path&gt;`                                     | A component path escapes the plugin directory.                           | Use paths inside the plugin root.                                                                          |
-| `Path is a file; skills entries must be directories containing SKILL.md`                                 | A `skills` entry points at `SKILL.md` instead of its directory.          | Point at the parent directory, or `.` for a root-level `SKILL.md`.                                         |
-| `No frontmatter block found` or `YAML frontmatter failed to parse: &lt;error&gt;`                              | A skill, agent, or command file has missing or invalid YAML frontmatter. | Add or fix the frontmatter between `---` delimiters. Reported when validating a plugin directory.          |
-| `Unknown field '&lt;key&gt;'`                                                                                  | The manifest has a field the schema doesn't define.                      | Remove it, or use the name the message suggests. Claude Code ignores unknown fields at load time.          |
+| Message | Cause | Fix |
+| :- | :- | :- |
+| `File not found: &lt;path&gt;` | The path has no manifest, or doesn't exist. | Run the command against the plugin or marketplace root, the directory that contains `.claude-plugin/`. |
+| `No manifest found in directory. Expected .claude-plugin/marketplace.json or .claude-plugin/plugin.json` | The directory has no `.claude-plugin/` manifest. | Create the manifest, or point at the right directory. |
+| `Invalid JSON syntax: &lt;parse error&gt;` | The manifest, or `hooks/hooks.json`, isn't valid JSON. | Fix the JSON. Until you fix `hooks/hooks.json`, a session loads the plugin without the hooks in that file. |
+| `Path not found: &lt;path&gt;. The runtime loader will report this as a load failure.` | A component path in the manifest doesn't exist. | Fix the path or create the directory. |
+| `Path contains ".." which could be a path traversal attempt: &lt;path&gt;` | A component path escapes the plugin directory. | Use paths inside the plugin root. |
+| `Path is a file; skills entries must be directories containing SKILL.md` | A `skills` entry points at `SKILL.md` instead of its directory. | Point at the parent directory, or `.` for a root-level `SKILL.md`. |
+| `No frontmatter block found` or `YAML frontmatter failed to parse: &lt;error&gt;` | A skill, agent, or command file has missing or invalid YAML frontmatter. | Add or fix the frontmatter between `---` delimiters. Reported when validating a plugin directory. |
+| `Unknown field '&lt;key&gt;'` | The manifest has a field the schema doesn't define. | Remove it, or use the name the message suggests. Claude Code ignores unknown fields at load time. |
 
 Run the command again after each fix until it prints no errors.
 
