@@ -6444,7 +6444,7 @@ Use this file to discover all available pages before exploring further.</p>
 NODE_ENV=development
 LOG_LEVEL=debug
 DATABASE_URL=postgres://localhost:5432/myapp
-<div class="highlight"><pre><span></span><code>Each session copies the environment's values once, at startup, into ordinary environment variables that any command Claude runs can read. Because running sessions don't re-read the configuration, editing or adding variables affects sessions you start afterward; sessions already running keep the values they started with.
+<div class="highlight"><pre><span></span><code>Each session copies the environment's values once, at startup, into ordinary environment variables that any command Claude runs can read, except `OTEL_*` variables. Claude Code uses those for its own [telemetry export](/docs/en/monitoring-usage#telemetry-from-cloud-sessions-and-claude-tag) and doesn't pass them to the commands it runs. Because running sessions don't re-read the configuration, editing or adding variables affects sessions you start afterward; sessions already running keep the values they started with.
 
 A cloud session also sets some variables itself when it starts. For [`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`](/docs/en/claude-code-on-the-web#manage-context), the value the session sets overrides one you add here, so adding that key here has no effect.
 
@@ -6505,6 +6505,7 @@ The agent proxy never attaches a credential you add to these requests:
 * **GitHub**: the [GitHub proxy](#github-proxy) authenticates requests to GitHub instead, so you don't need an API credential for it
 * **The Anthropic API and public package registries**: `api.anthropic.com`, `registry.npmjs.org`, `jsr.io`, `npm.jsr.io`, `pypi.org`, `files.pythonhosted.org`, `index.crates.io`, and `proxy.golang.org`
 * **Setup script requests**: Claude Code connects to the agent proxy when it launches, after the [setup script](#setup-scripts) has run
+* **Claude Code's telemetry export**: Claude Code sends its [telemetry export](/docs/en/monitoring-usage#telemetry-from-cloud-sessions-and-claude-tag) itself rather than through a command it runs, and that request doesn't go through the agent proxy
 
 ### Select an environment from the CLI
 
@@ -6590,7 +6591,7 @@ registry.example.com
 <li><strong>Sessions in this environment open another organization's public artifacts</strong>: Claude Code fetches those from the host directly, so add it to this list.</li>
 <li><strong>You're configuring the local CLI or a self-hosted runner</strong>: keep the host in that allowlist. See <a href="/docs/en/network-config#network-access-requirements">network access requirements</a> and the self-hosted <a href="/docs/en/self-hosted-environments-deploy#network-requirements">network requirements</a>.</li>
 </ul>
-<p>Each environment has its own allowed-domains list; there's no organization-level allowlist that admins can push to every member's environments. <a href="/docs/en/server-managed-settings">Server-managed settings</a> still apply inside cloud sessions, but none of them adds domains to the environment's network allowlist. To give a team one standard list, an Owner can create an <a href="#organization-shared-environments">organization-shared environment</a> with <strong>Custom</strong> network access and that list.</p>
+<p>Each environment has its own allowed-domains list; there's no organization-level allowlist that admins can push to every member's environments. No <a href="/docs/en/server-managed-settings">server-managed setting</a> adds domains to an environment's network allowlist either. To give a team one standard list, an Owner can create an <a href="#organization-shared-environments">organization-shared environment</a> with <strong>Custom</strong> network access and that list.</p>
 <h3 id="github-proxy">GitHub proxy</h3>
 <p>In Anthropic-hosted environments, all GitHub operations go through a dedicated proxy that keeps your real GitHub credentials outside the session's VM, independent of the environment's <a href="#access-levels">access level</a>. Sessions in a self-hosted environment authenticate git operations with credentials your deployment provides; <a href="/docs/en/self-hosted-environments-deploy#configure-git">Configure git</a> covers the options, including per-session minted credentials and an opt-in to this same proxy. The proxy provides:</p>
 <ul>
@@ -6657,7 +6658,7 @@ registry.example.com
 </tr>
 <tr>
 <td style="text-align: left;">Your organization's <a href="/docs/en/server-managed-settings">server-managed settings</a></td>
-<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">Yes, except in <a href="https://claude.com/docs/claude-tag/overview">Claude Tag</a> sessions</td>
 <td style="text-align: left;">Fetched from Anthropic's servers when the session starts. See <a href="/docs/en/model-config#surface-coverage">Surface coverage</a> for how <code>availableModels</code> is enforced in cloud sessions. Settings deployed to your device through MDM or managed settings files don't apply, because the session runs on an Anthropic-managed VM; in a <a href="/docs/en/self-hosted-environments">self-hosted environment</a>, sessions also read the managed settings file in the runner image, per <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a></td>
 </tr>
 <tr>
@@ -6878,7 +6879,7 @@ apt update &amp;&amp; apt install -y shellcheck
 </table>
 <p>If you have SessionStart hooks in your user-level <code>~/.claude/settings.json</code>, don't expect them in the cloud. User-level settings stay on your machine. Which other hooks run depends on where the session runs:</p>
 <ul>
-<li><strong>Anthropic-hosted environment</strong>: Claude Code runs hooks from the repository and from your organization's <a href="/docs/en/server-managed-settings">server-managed settings</a>.</li>
+<li><strong>Anthropic-hosted environment</strong>: Claude Code runs hooks from the repository and from your organization's <a href="/docs/en/server-managed-settings">server-managed settings</a>. <a href="https://claude.com/docs/claude-tag/overview">Claude Tag</a> sessions don't receive server-managed settings, so hooks from server-managed settings don't run there.</li>
 <li><strong><a href="/docs/en/self-hosted-environments-configuration#permissions-and-tool-approval">Self-hosted environment</a></strong>: Claude Code also runs the hooks the operator seeded from the runner host's <code>~/.claude/</code>, and the hooks in the runner image's managed settings file when that file is one of the <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">managed sources Claude Code applies</a>.</li>
 </ul>
 <h3 id="install-dependencies-with-a-sessionstart-hook">Install dependencies with a SessionStart hook</h3>
@@ -6936,6 +6937,10 @@ exit 0
     * platform.claude.com
     * code.claude.com
     * claude.ai
+    * claude.com
+    * support.claude.com
+    * anthropic.com
+    * <a href="http://www.anthropic.com">www.anthropic.com</a>
   </Accordion></p>
 <p><Accordion title="Version control">
     * github.com
@@ -6964,6 +6969,7 @@ exit 0
     * hub.docker.com
     * <a href="http://www.docker.com">www.docker.com</a>
     * production.cloudflare.docker.com
+    * production.cloudfront.docker.com
     * download.docker.com
     * gcr.io
     * *.gcr.io
@@ -7173,7 +7179,7 @@ exit 0
 <li><a href="/docs/en/remote-control">Remote Control</a>: run sessions on your own machine's network and files instead</li>
 <li><a href="/docs/en/self-hosted-environments">Self-hosted environments</a>: run cloud sessions on your organization's own infrastructure</li>
 <li><a href="/docs/en/hooks#sessionstart">SessionStart hooks</a>: repo-committed setup that runs in local and cloud sessions</li>
-<li><a href="/docs/en/server-managed-settings">Server-managed settings</a>: organization policy that reaches cloud sessions</li>
+<li><a href="/docs/en/server-managed-settings">Server-managed settings</a>: organization policy delivered from the admin console</li>
 </ul>
 
 

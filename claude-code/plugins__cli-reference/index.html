@@ -6456,6 +6456,8 @@ claude plugin install <plugin> [options]
 | `--accept-command &lt;sha256&gt;` | Accept the displayed install command whose `sha256` a previous [`--json` run](#plugin-json-result) reported in `shownCommand`, in place of `-y`. Can't be combined with `-y`. See [Accept a displayed install command](#accept-a-displayed-install-command). Requires Claude Code v2.1.271 or later |
 | `--json` | Print the result as one JSON object on the last line of stdout instead of the human-readable message, for use in scripts. See [JSON result format](#plugin-json-result). Requires Claude Code v2.1.268 or later |
 
+Run `claude plugin install --help` in your shell to see every option your version supports.
+
 Pass `-y` from your own terminal to accept the displayed command without the prompt. Here's what happens without a TTY and when Claude runs the command:
 
 * **stdin or stdout isn't a TTY, and you pass neither `-y` nor `--accept-command`**: the install is refused. The output says the command was only displayed, and the exit code is `1`
@@ -6509,7 +6511,7 @@ Uninstall a plugin from project scope:
 claude plugin uninstall formatter@my-marketplace --scope project
 </code></pre></div></p>
 <p>Claude Code prints <code>Successfully uninstalled plugin: formatter (scope: project)</code>. When the plugin isn't installed at that scope, the command prints a line that starts <code>Failed to uninstall plugin "formatter@my-marketplace":</code> and exits <code>1</code>.</p>
-<p>If the failure line continues with <code>"formatter" was not uninstalled:</code>, Claude Code couldn't confirm that the scope's settings no longer switch the plugin on, so the plugin stays installed with everything it saved. With <code>--json</code>, the result carries <code>failureCode: "settings_still_on"</code>. This settings check requires Claude Code v2.1.282 or later.</p>
+<p>If the failure line continues with <code>"formatter" was not uninstalled:</code> and names a settings file, Claude Code couldn't confirm that the scope's settings no longer switch the plugin on, so the plugin stays installed with everything it saved. With <code>--json</code>, the result carries <code>failureCode: "settings_still_on"</code>. This settings check requires Claude Code v2.1.282 or later.</p>
 <h4 id="what-an-uninstall-deletes-and-keeps">What an uninstall deletes and keeps</h4>
 <p>When you uninstall a plugin from the last scope it's installed at, Claude Code also deletes the plugin's stored <a href="/docs/en/plugins/manifest-reference#user-configuration">options and secrets</a> and its data directory, <code>~/.claude/plugins/data/&lt;id&gt;/</code>. There are three exceptions:</p>
 <ul>
@@ -6767,8 +6769,8 @@ claude plugin eval [target] [options]
 </tr>
 <tr>
 <td style="text-align: left;"><code>--ablation &lt;mode&gt;</code></td>
-<td style="text-align: left;"><code>none</code> or <code>with-without</code>. See <a href="/docs/en/plugin-evals#compare-against-a-no-plugin-baseline">Compare against a no-plugin baseline</a></td>
-<td style="text-align: left;"><code>with-without</code> when a plugin resolves, else <code>none</code></td>
+<td style="text-align: left;"><code>none</code> or <code>with-without</code>. See <a href="/docs/en/plugin-evals#compare-against-a-no-plugin-baseline">Score against the no-plugin baseline</a></td>
+<td style="text-align: left;">Decided per case, as that section describes</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--threshold &lt;0..1&gt;</code></td>
@@ -6852,7 +6854,9 @@ claude plugin eval [target] [options]
 <p>Create an eval suite for the plugin in the current directory. Requires Claude Code v2.1.269 or later. See <a href="/docs/en/plugin-evals#create-your-first-eval-suite">Create your first eval suite</a>.</p>
 <p>```bash theme={null}
 claude plugin eval init [name] [options]
-<div class="highlight"><pre><span></span><code>In a terminal, the command opens an interactive Claude Code session for an authoring interview. In the interview, Claude does the following:
+<div class="highlight"><pre><span></span><code>Run the command from the plugin's root folder, the directory that holds `.claude-plugin/plugin.json` or the skill's `SKILL.md`. To scaffold the suite in another directory on purpose, pass `--eval-dir`.
+
+In a terminal, the command opens an interactive Claude Code session for an authoring interview. In the interview, Claude does the following:
 
 1. Reads the plugin
 2. Asks you what it should do well
@@ -6862,7 +6866,7 @@ claude plugin eval init [name] [options]
 
 With `--bare`, or without a terminal, the command writes a blank single-case template instead. When Claude runs the command from inside a Claude Code session, the command prints the interview instructions for that session to follow rather than writing a template.
 
-The optional `name` is a case name. It's required with `--bare` or without a terminal, because the command writes the blank template for that case. The interview doesn't need one.
+The optional `name` is a case name. It's required with `--bare` or without a terminal, because the command writes the blank template for that case. A case name starts with a letter or digit and contains only letters, digits, `.`, `_`, and `-`. On every platform, the command also refuses names that Windows can't store, such as `con` or a name ending in `.`.
 
 The command accepts these options:
 
@@ -7063,14 +7067,14 @@ claude plugin marketplace add &lt;source&gt; [options]
 <td style="text-align: left;">Clones over SSH</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>https://example.com/repo.git[#ref]</code>, or a URL containing <code>/_git/</code></td>
+<td style="text-align: left;">An <code>http://</code> or <code>https://</code> URL that ends in <code>.git[#ref]</code> or contains <code>/_git/</code>, such as <code>https://example.com/repo.git</code></td>
 <td style="text-align: left;"><code>git</code></td>
-<td style="text-align: left;">Clones over HTTPS, including Azure DevOps URLs</td>
+<td style="text-align: left;">Clones the URL, including Azure DevOps URLs</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>https://github.com/owner/repo</code> or <code>https://gitlab.com/namespace/project</code></td>
+<td style="text-align: left;"><code>https://github.com/owner/repo</code> or <code>https://gitlab.com/namespace/project</code>, or the same over <code>http://</code></td>
 <td style="text-align: left;"><code>git</code></td>
-<td style="text-align: left;">Clones over HTTPS after appending <code>.git</code></td>
+<td style="text-align: left;">Clones the URL after appending <code>.git</code></td>
 </tr>
 <tr>
 <td style="text-align: left;">Any other <code>http://</code> or <code>https://</code> URL, including a self-hosted git host without <code>.git</code></td>
@@ -7141,7 +7145,9 @@ The `--json` output covers configured marketplaces only and leaves the section o
 Remove a marketplace's declaration from your settings. `rm` is an alias for `remove`.
 
 &lt;Warning&gt;
-  When you remove a marketplace from the last scope that declares it, Claude Code also deletes its cache and uninstalls every plugin you installed from it. Without `--scope`, the command removes the declaration from every scope. To refresh a marketplace without losing its plugins, run `plugin marketplace update` instead.
+  When you remove a marketplace from the last scope that declares it, Claude Code also deletes its cache and uninstalls every plugin you installed from it. It also deletes their saved [options and secrets](/docs/en/plugins/manifest-reference#user-configuration) and [data](/docs/en/plugins/components#path-variables-and-persistent-data) where it can.
+
+  To refresh a marketplace without losing its plugins, run `plugin marketplace update` instead.
 &lt;/Warning&gt;
 
 ```bash theme={null}
@@ -7165,7 +7171,9 @@ claude plugin marketplace remove &lt;name&gt; [options]
 <p>Remove a marketplace from every scope:</p>
 <p>```bash theme={null}
 claude plugin marketplace remove your-marketplace
-<div class="highlight"><pre><span></span><code>Claude Code prints `Successfully removed marketplace: your-marketplace`, adding `(from project settings)` when you scoped it. If you scope to a settings file that doesn't declare the marketplace, the command fails with `Marketplace 'your-marketplace' is not declared in project settings. Omit --scope to remove it from all scopes.`
+<div class="highlight"><pre><span></span><code>Claude Code prints `Successfully removed marketplace: your-marketplace`. When the command uninstalls plugins, the output lists them under a line such as `Also uninstalled 2 plugins from this marketplace:`. To use one of them again, add the marketplace back and reinstall the plugin.
+
+If you scope to a settings file that doesn't declare the marketplace, the command fails with `Marketplace 'your-marketplace' is not declared in project settings. Omit --scope to remove it from all scopes.`
 
 ### plugin marketplace update
 
@@ -7201,6 +7209,7 @@ The table below lists every session form. The shell subcommands `init`, `update`
 | `/plugin list [--enabled\|--disabled]` | `ls` | Prints your marketplace-installed plugins inline, with version, scope, and status. A filter flag shows only that state. A plugin whose enable state hasn't been applied yet is marked `— run /reload-plugins to apply`. Requires Claude Code v2.1.163 or later |
 | `/plugin install` | `i` | Opens the **Discover** tab |
 | `/plugin install &lt;plugin&gt;` | `i` | Opens the plugin's details in the **Discover** tab. With `name@marketplace`, opens them in that marketplace's list |
+| `/plugin install &lt;source&gt;` | `i` | Reports a [marketplace not found](/docs/en/plugins/troubleshooting#marketplace-not-found) error and installs nothing when the target is a path, URL, or `owner/repo`, even a source you've already added. To install from a source, see [Add a marketplace and install in one command](/docs/en/plugins/install#add-a-marketplace-and-install-in-one-command) |
 | `/plugin install &lt;plugin&gt; --marketplace &lt;source&gt;` | `i` | Adds the marketplace at `&lt;source&gt;` when you haven't added it yet, asking you to confirm first, then opens the plugin's details. See [Add a marketplace and install in one command](/docs/en/plugins/install#add-a-marketplace-and-install-in-one-command). Requires Claude Code v2.1.275 or later |
 | `/plugin manage` | | Opens the **Installed** tab |
 | `/plugin stats` | | Opens the **Stats** tab, in sessions where [`/skill-doctor`](/docs/en/skills#find-unused-skills) is available. Anywhere else it opens the panel on the **Discover** tab |
@@ -7277,7 +7286,7 @@ When you close the `/plugin` panel with pending changes you made in it, Claude C
 </tr>
 </tbody>
 </table>
-<p>A plugin that either flag loads is a session-only plugin. <code>claude plugin list</code> shows it as <code>&lt;name&gt;@inline</code> with scope <code>session</code>, but only when the same flag precedes the subcommand. For example, run <code>claude --plugin-dir ./my-plugin plugin list</code>.</p>
+<p>A plugin that either flag loads is a session-only plugin. <a href="#plugin-list"><code>claude plugin list</code></a> shows it only when the same flag precedes the subcommand, as in <code>claude --plugin-dir ./my-plugin plugin list</code>. The plugin appears as <code>&lt;name&gt;@inline</code> under a heading that begins <code>Session-only plugins</code>, and <code>--json</code> reports its <code>scope</code> as <code>session</code>.</p>
 <p>When a session-only plugin shares a name with an installed plugin, Claude Code loads the session-only copy for that session and skips the installed one. The installed copy loads instead if you disabled the session-only copy with <code>claude plugin disable &lt;name&gt;@inline</code>, or if managed settings lock that plugin name. For the precedence, see <a href="/docs/en/plugins/loading">Plugin loading reference</a>.</p>
 <p>An administrator can reject both flags, and folders named in the <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_PLUGIN_DIRS</code></a> variable, with the managed <a href="/docs/en/settings-reference#disablesideloadflags"><code>disableSideloadFlags</code></a> setting. Claude Code then prints that the flag is disabled by your organization's managed settings and exits <code>1</code> without starting.</p>
 <p>From the Agent SDK, the <a href="/docs/en/agent-sdk/plugins"><code>plugins</code></a> option is the equivalent of <code>--plugin-dir</code>.</p>

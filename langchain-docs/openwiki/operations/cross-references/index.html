@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Author, resolve, and validate semantic @[ref] API-reference links. Covers language scopes, link-map ownership, failure behavior, and the distinction from Mintlify rendered-link checking.">
+        <meta name="description" content="Author, resolve, and validate semantic @[ref] API-reference links. Covers language scopes, link-map ownership, route and snippet rewriting, failure behavior, and the distinction from Mintlify rendered-link checking.">
       
       
       
@@ -496,7 +496,7 @@
   <span class="md-ellipsis">
     
   
-    Build system architecture
+    Build System Architecture
   
 
     
@@ -830,7 +830,7 @@
   <span class="md-ellipsis">
     
   
-    npm Snippet Components
+    NPM Snippet Components
   
 
     
@@ -1027,7 +1027,7 @@
   <span class="md-ellipsis">
     
   
-    CLI Tools and Make Targets
+    CLI Tools
   
 
     
@@ -1151,6 +1151,17 @@
     <span class="md-ellipsis">
       
         Link-map ownership
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-time-route-rewriting-and-snippets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build-time route rewriting and snippets
       
     </span>
   </a>
@@ -1358,7 +1369,7 @@
   <span class="md-ellipsis">
     
   
-    Testing overview
+    Testing Overview
   
 
     
@@ -1525,7 +1536,7 @@
   <span class="md-ellipsis">
     
   
-    Local Development Workflow
+    Local Development
   
 
     
@@ -34355,7 +34366,7 @@
   <span class="md-ellipsis">
     
   
-    Sentence Transformers on Hugging Face integration
+    HuggingFaceEmbeddings (Sentence Transformers) integration
   
 
     
@@ -74078,6 +74089,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#build-time-route-rewriting-and-snippets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build-time route rewriting and snippets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#missing-references-and-the-authoring-gate" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -74194,6 +74216,9 @@ Pass @[`StateGraph`] to make code formatting part of the link text.
 <li>Run the validator and focused tests below.</li>
 </ol>
 <p>Lookup is an exact dictionary lookup, so spelling and case must match the map key. Different scope maps may intentionally associate one name with different URLs. Repair a moved API destination in the map rather than replacing semantic references across consumer pages.</p>
+<h2 id="build-time-route-rewriting-and-snippets">Build-time route rewriting and snippets</h2>
+<p>Cross-reference resolution produces an API-reference URL; it is separate from the builder's rewriting of authored site routes. After markdown preprocessing, a language-targeted build rewrites Markdown and HTML links to ordinary absolute <code>/oss/...</code> routes as <code>/oss/python/...</code> or <code>/oss/javascript/...</code>. It does not add a second language segment to an already-prefixed route, and it keeps <code>/oss/deepagents/code/...</code> and <code>/oss/openwiki/...</code> language-agnostic. Thus, use <code>@[Name]</code> for a mapped API destination and ordinary Markdown links for documentation routes; do not expect the link map to version an <code>/oss/</code> URL.</p>
+<p>Shared MDX snippets are a special integration boundary. The builder preprocesses each snippet once per target language, rewrites its <code>/oss/</code> links to absolute language-prefixed routes, and writes copies under <code>build/snippets/python/</code> and <code>build/snippets/javascript/</code>. When a versioned page imports a <code>.md</code> or <code>.mdx</code> snippet from <code>/snippets/</code>, the builder redirects that import to the matching language copy, unless it is already language-prefixed. It also writes the original snippet path using Python-targeted content for unversioned importers. This avoids relative-link failures when a shared snippet is consumed at different nesting depths.</p>
 <h2 id="missing-references-and-the-authoring-gate">Missing references and the authoring gate</h2>
 <p>An unresolved reference does not stop preprocessing. <code>_transform_link()</code> writes an info-level log containing the file path, line, name, and active scope, then leaves the original marker unchanged. This makes the build inspectable but is not a successful documentation change.</p>
 <p>Use the strict source check before merge:</p>
@@ -74231,11 +74256,11 @@ Pass @[`StateGraph`] to make code formatting part of the link text.
 <p>A <code>:::python</code> or <code>:::js</code> fence narrows checking to that supported scope. A closing or unsupported conditional fence restores the file's default scopes. Shared unfenced OSS content must resolve in <strong>all</strong> of its applicable maps—not merely one—because it is built for both variants.</p>
 <p>The checker reuses the resolver's reference and code-fence patterns. It ignores escaped markers and content inside recognized regular code fences, skips <code>snippets/code-samples/</code> and paths containing <code>node_modules</code>, and warns then skips files that are not valid UTF-8. An unclosed recognized code fence therefore excludes the rest of that file from validation as well. Put deliberately unknown example markers in a code fence or escape them.</p>
 <h2 id="focused-checks-and-troubleshooting">Focused checks and troubleshooting</h2>
-<p>When changing the resolver, map, fence behavior, or validator, run:</p>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/unit_tests/test_handle_auto_links.py<span class="w"> </span>tests/unit_tests/test_check_cross_refs.py<span class="w"> </span>-vv
+<p>When changing the resolver, map, fence behavior, route rewriting, snippets, or validator, run:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/unit_tests/test_handle_auto_links.py<span class="w"> </span>tests/unit_tests/test_check_cross_refs.py<span class="w"> </span>tests/unit_tests/test_builder.py<span class="w"> </span>-vv
 make<span class="w"> </span>check-cross-refs
 </code></pre></div>
-<p>The resolver tests exercise replacement outside fences, preservation inside backtick and tilde fences, conditional-looking text in code, escapes, and the unclosed-fence behavior. The checker tests cover path and fenced scope selection, shared-OSS all-scope checking, titled and backticked syntax, multiple references on one line, and exclusions.</p>
+<p>The resolver tests exercise replacement outside fences, preservation inside backtick and tilde fences, conditional-looking text in code, escapes, and the unclosed-fence behavior. The checker tests cover path and fenced scope selection, shared-OSS all-scope checking, titled and backticked syntax, multiple references on one line, and exclusions. Builder tests cover language route insertion, preserved language-agnostic and already-prefixed routes, and language-specific snippet copies and imports.</p>
 <table>
 <thead>
 <tr>
@@ -74265,12 +74290,16 @@ make<span class="w"> </span>check-cross-refs
 <td>Correct the scoped <code>LINK_MAPS</code> entry; do not hard-code URLs in consuming pages.</td>
 </tr>
 <tr>
+<td>A shared snippet routes to the wrong language</td>
+<td>Import it through an unprefixed <code>/snippets/...</code> <code>.md</code> or <code>.mdx</code> path and let the versioned build select its copy.</td>
+</tr>
+<tr>
 <td>Mintlify passes but a symbolic name fails</td>
 <td>Run <code>make check-cross-refs</code>; rendered-link checking and map validation are separate gates.</td>
 </tr>
 </tbody>
 </table>
-<p>For pipeline ordering and conditional-content semantics, see <a href="/openwiki/concepts/preprocessing.md">Documentation Preprocessing</a>. For authoring workflow, see <a href="/openwiki/operations/adding-pages.md">Adding and Modifying Documentation Pages</a>. For the complete test strategy, see <a href="/openwiki/testing/test-overview.md">Test Overview</a>.</p>
+<p>For pipeline ordering and conditional-content semantics, see <a href="/openwiki/concepts/preprocessing.md">Documentation Preprocessing</a>. For versioned route behavior, see <a href="/openwiki/concepts/versioning.md">Versioning</a>. For authoring workflow, see <a href="/openwiki/operations/adding-pages.md">Adding and Modifying Documentation Pages</a>. For the complete test strategy, see <a href="/openwiki/testing/test-overview.md">Test Overview</a>.</p>
 
 
 

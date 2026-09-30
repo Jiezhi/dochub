@@ -6227,7 +6227,10 @@ The same string also appears in the `/plugin` **Errors** tab, the panel's list o
   `Marketplace "&lt;name&gt;" not found`
 &lt;/h3&gt;
 
-You ran `/plugin install &lt;plugin&gt;@&lt;name&gt;` in a session, often from an install line someone sent you, and Claude Code reported that it has no marketplace by that name.
+You ran `/plugin install` in a session and Claude Code reported that it has no marketplace by that name. Two forms of the command reach this message:
+
+* **`/plugin install &lt;plugin&gt;@&lt;name&gt;`**: the install line, often one someone sent you, names a marketplace you haven't added. The rest of this entry covers finding and adding it.
+* **`/plugin install &lt;source&gt;` with a path, URL, or `owner/repo`**: this form reports the message instead of installing, even for a source you've already added. To install from a source in one command, see [Add a marketplace and install in one command](/docs/en/plugins/install#add-a-marketplace-and-install-in-one-command).
 
 If the name starts with `claudeai-`, the marketplace is hosted on claude.ai, and you add it by name from your shell with `claude plugin marketplace add --claudeai &lt;name&gt;`. See [Add a marketplace from claude.ai](/docs/en/plugins/install#add-from-claude-ai).
 
@@ -6654,6 +6657,40 @@ Reinstall the plugin from your shell. `claude plugin install &lt;name&gt;@&lt;ma
 claude plugin install &lt;name&gt;@&lt;marketplace&gt;
 </code></pre></div></p>
 <p>Then run <code>/reload-plugins</code> in your session. The <strong>Errors</strong> tab entry disappears and the plugin is back under <strong>Installed</strong>.</p>
+<h3 id="installed-plugins-json-holds-a-record-this-version-cannot-read">
+  `installed_plugins.json holds a record under "<id>" that this version of Claude Code cannot read`
+</h3>
+
+<p>The message surfaces in these forms:</p>
+<ul>
+<li><strong><code>claude plugin list</code></strong>: prints it as a <code>Note:</code></li>
+<li><strong><code>claude plugin install</code>, <code>uninstall</code>, and <code>update</code></strong>: refuse with <code>Plugin "&lt;name&gt;" was not installed:</code>, <code>Plugin "&lt;name&gt;" was not uninstalled:</code>, or <code>Plugin "&lt;name&gt;" was not updated:</code>, followed by the same text</li>
+<li><strong><code>--json</code> on any of those three commands</strong>: the result line carries the same <code>message</code> and <code>failureCode: "install_records_unreadable"</code></li>
+<li><strong>Several such records</strong>: the message reads <code>holds records under</code></li>
+<li><strong>The whole file declares a format this version doesn't know</strong>: the message reads <code>installed_plugins.json is in a format (version &lt;N&gt;) that this version of Claude Code does not know</code> instead</li>
+</ul>
+<p>The named record in <code>installed_plugins.json</code> is valid JSON under a valid plugin id, but its fields don't parse for this version. Most likely another version of Claude Code wrote it, perhaps a newer one.</p>
+<p>While the record is there, this version doesn't rewrite the file, so the record isn't lost.</p>
+<p>Take the message's options in order:</p>
+<ol>
+<li>Update Claude Code with <code>claude update</code>.</li>
+<li>If you can't update, uninstall the named plugin with the version of Claude Code that wrote the record.</li>
+<li>If neither helps, delete the record from <code>installed_plugins.json</code> by hand, then restart Claude Code or run <code>/reload-plugins</code>.</li>
+</ol>
+<h3 id="installed-plugins-json-could-not-be-read-and-was-rebuilt">
+  `installed_plugins.json could not be read and was rebuilt`
+</h3>
+
+<p><code>claude plugin list</code> prints this note, with the path of a kept file named <code>installed_plugins.unreadable.&lt;date&gt;.&lt;hash&gt;.kept</code>, for as long as that file sits beside <code>installed_plugins.json</code>.</p>
+<p>An <code>installed_plugins.json</code> that isn't valid JSON, or isn't a list of plugins, can't say what you installed.</p>
+<p>Open the <code>.kept</code> file to see what the old file recorded, and reinstall the plugins you're missing. Claude Code never reads the file back, and the file ages out on the <a href="/docs/en/settings-reference#cleanupperioddays"><code>cleanupPeriodDays</code></a> schedule.</p>
+<h3 id="install-records-under-names-that-no-version-can-use">
+  `install records under names that no version of Claude Code can use were removed from installed_plugins.json`
+</h3>
+
+<p><code>claude plugin list</code> prints this note, with the path of a copy named <code>installed_plugins.set-aside.&lt;date&gt;.&lt;hash&gt;.json</code>, for as long as that copy sits beside <code>installed_plugins.json</code>. The note ends <code>Nothing needs doing about these copies.</code></p>
+<p>A record in <code>installed_plugins.json</code> sat under a key that isn't a valid plugin id, so no version of Claude Code can use it. The rest of the file loads normally.</p>
+<p>Claude Code copies the unusable records into the <code>.set-aside</code> file and drops them from the list. Claude Code never reads the copies back, and the copies age out on the <a href="/docs/en/settings-reference#cleanupperioddays"><code>cleanupPeriodDays</code></a> schedule.</p>
 <h3 id="a-plugin-you-disabled-still-loads">
   `Disabled in ~/.claude/settings.json but still loads`
 </h3>
@@ -6960,6 +6997,16 @@ When a user adds a URL-based marketplace, Claude Code downloads only the `market
 <td style="text-align: left;">Remove the character from the plugin <code>name</code>.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>Claude Code cannot install plugins from marketplace "&lt;name&gt;". Each part of a plugin id (plugin@marketplace) may use only the letters a-z and A-Z, digits, ".", "_" and "-", and must start with a letter or digit. Change the marketplace's "name".</code></td>
+<td style="text-align: left;">Error</td>
+<td style="text-align: left;">Rename the marketplace to fit the rule the message states.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Claude Code cannot install plugin "&lt;name&gt;". Each part of a plugin id (plugin@marketplace) may use only the letters a-z and A-Z, digits, ".", "_" and "-", and must start with a letter or digit. Change this entry's "name".</code></td>
+<td style="text-align: left;">Error</td>
+<td style="text-align: left;">Rename the entry to fit the rule the message states.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>Marketplace has no plugins defined</code></td>
 <td style="text-align: left;">Warning</td>
 <td style="text-align: left;">Add at least one entry to <code>plugins</code>.</td>
@@ -6972,7 +7019,7 @@ When a user adds a URL-based marketplace, Claude Code downloads only the `market
 <tr>
 <td style="text-align: left;"><code>Plugin name "&lt;name&gt;" is not kebab-case</code> under <code>plugins[N] plugin.json → name</code></td>
 <td style="text-align: left;">Warning</td>
-<td style="text-align: left;">Rename to lowercase letters, digits, and hyphens. Claude Code accepts other forms, but the claude.ai marketplace sync rejects them.</td>
+<td style="text-align: left;">Rename to lowercase letters, digits, and hyphens; the claude.ai marketplace sync requires that form.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Entry declares version "&lt;a&gt;" but &lt;path&gt;/plugin.json says "&lt;b&gt;"</code></td>

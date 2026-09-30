@@ -492,7 +492,7 @@
   <span class="md-ellipsis">
     
   
-    Build system architecture
+    Build System Architecture
   
 
     
@@ -826,7 +826,7 @@
   <span class="md-ellipsis">
     
   
-    npm Snippet Components
+    NPM Snippet Components
   
 
     
@@ -1021,7 +1021,7 @@
   <span class="md-ellipsis">
     
   
-    CLI Tools and Make Targets
+    CLI Tools
   
 
     
@@ -1216,7 +1216,7 @@
   <span class="md-ellipsis">
     
   
-    Testing overview
+    Testing Overview
   
 
     
@@ -1383,7 +1383,7 @@
   <span class="md-ellipsis">
     
   
-    Local Development Workflow
+    Local Development
   
 
     
@@ -2924,6 +2924,17 @@
   
     <nav class="md-nav" aria-label="Graphs">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#define-multiple-graphs-in-one-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Define multiple graphs in one deployment
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#use-any-framework-with-langsmith-deployment" class="md-nav__link">
@@ -34360,7 +34371,7 @@
   <span class="md-ellipsis">
     
   
-    Sentence Transformers on Hugging Face integration
+    HuggingFaceEmbeddings (Sentence Transformers) integration
   
 
     
@@ -74104,6 +74115,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#define-multiple-graphs-in-one-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Define multiple graphs in one deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#use-any-framework-with-langsmith-deployment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -74271,6 +74293,19 @@ The <a href="/langsmith/cli">LangGraph CLI</a> defaults to using the configurati
 <h2 id="graphs">Graphs</h2>
 <p>Use the <code>graphs</code> key in the <a href="#configuration-file-concepts">configuration file</a> to specify which graphs will be available in the deployed application.</p>
 <p>You can specify one or more graphs in the configuration file. Each graph is identified by a unique name and a path to either (1) a compiled graph or (2) a function that defines a graph.</p>
+<h3 id="define-multiple-graphs-in-one-deployment">Define multiple graphs in one deployment</h3>
+<p>A single <code>langgraph.json</code> can define several graphs, so one deployment can serve several agents. Add one entry to <code>graphs</code> for each agent:</p>
+<p><code>json theme={"theme":{"light":"catppuccin-latte","dark":"catppuccin-mocha"}}
+{
+    "dependencies": ["."],
+    "graphs": {
+        "support_agent": "./my_agent/support.py:agent",
+        "research_agent": "./my_agent/research.py:agent"
+    },
+    "env": "./.env"
+}</code></p>
+<p>Each key is a graph ID. All graphs in the file share the deployment's <code>dependencies</code>, <code>env</code>, and image. <a href="/langsmith/agent-server">Agent Server</a> creates a default assistant for each graph, so clients choose a graph by passing its graph ID as the <code>assistant_id</code>. For more information, see <a href="/langsmith/assistants#how-assistants-work-with-deployments">How assistants work with deployments</a>.</p>
+<p>Running several agents on one deployment also reduces cost. See <a href="/langsmith/cloud-platform-features#run-multiple-agents-on-one-deployment">Run multiple agents on one deployment</a>.</p>
 <h3 id="use-any-framework-with-langsmith-deployment">Use any framework with LangSmith Deployment</h3>
 <p>While LangSmith Deployment requires applications to be structured as a LangGraph graph, individual nodes within that graph can contain arbitrary code. This means you can use any framework or library within your nodes while still benefiting from LangSmith's deployment infrastructure.</p>
 <p>The graph structure serves as a deployment interface, but your core application logic can use whichever tools and frameworks best suit your needs.</p>
@@ -74283,33 +74318,29 @@ The <a href="/langsmith/cli">LangGraph CLI</a> defaults to using the configurati
 
 The following example shows how to wrap your existing application logic within a minimal LangGraph structure:
 </code></pre>
-<p><div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">langgraph.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateGraph</span><span class="p">,</span> <span class="n">START</span><span class="p">,</span> <span class="n">END</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypedDict</span>
-
-<span class="c1"># Your existing application logic using any framework</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">app_logic</span><span class="w"> </span><span class="kn">import</span> <span class="n">process_data</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">app_logic</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_data</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">State</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">):</span>
-    <span class="nb">input</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">result</span><span class="p">:</span> <span class="nb">str</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">my_app_node</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">State</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Node containing arbitrary framework code."""</span>
-    <span class="c1"># Use any framework or library here</span>
-    <span class="n">raw_data</span> <span class="o">=</span> <span class="n">fetch_data</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">"input"</span><span class="p">])</span>
-    <span class="n">processed</span> <span class="o">=</span> <span class="n">process_data</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">"result"</span><span class="p">:</span> <span class="n">processed</span><span class="p">}</span>
-
-<span class="c1"># Define the graph structure</span>
-<span class="n">graph</span> <span class="o">=</span> <span class="n">StateGraph</span><span class="p">(</span><span class="n">State</span><span class="p">)</span>
-<span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"process"</span><span class="p">,</span> <span class="n">my_app_node</span><span class="p">)</span>  <span class="c1"># Add node with your logic</span>
-<span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">START</span><span class="p">,</span> <span class="s2">"process"</span><span class="p">)</span>  <span class="c1"># Connect start to your node</span>
-<span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s2">"process"</span><span class="p">,</span> <span class="n">END</span><span class="p">)</span>  <span class="c1"># Connect your node to end</span>
-
-<span class="c1"># Compile for deployment</span>
-<span class="n">app</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">compile</span><span class="p">()</span>
-</code></pre></div>
+<p>```python
+  from langgraph.graph import StateGraph, START, END
+  from typing import TypedDict</p>
+<p># Your existing application logic using any framework
+  from app_logic import process_data
+  from app_logic import fetch_data</p>
+<p>class State(TypedDict):
+      input: str
+      result: str</p>
+<p>def my_app_node(state: State) -&gt; State:
+      """Node containing arbitrary framework code."""
+      # Use any framework or library here
+      raw_data = fetch_data(state["input"])
+      processed = process_data(raw_data)
+      return {"result": processed}</p>
+<p># Define the graph structure
+  graph = StateGraph(State)
+  graph.add_node("process", my_app_node)  # Add node with your logic
+  graph.add_edge(START, "process")  # Connect start to your node
+  graph.add_edge("process", END)  # Connect your node to end</p>
+<p># Compile for deployment
+  app = graph.compile()
+  ```
   </Tab>
   <Tab title="JavaScript"></p>
 <pre><code>1. **A LangGraph graph structure**: Define a graph using [`StateGraph`](https://reference.langchain.com/javascript/classes/_langchain_langgraph.index.StateGraph.html) with [`addNode`](https://reference.langchain.com/javascript/classes/_langchain_langgraph.index.StateGraph.html#addnode) and [`addEdge`](https://reference.langchain.com/javascript/classes/_langchain_langgraph.index.StateGraph.html#addedge).
@@ -74318,34 +74349,30 @@ The following example shows how to wrap your existing application logic within a
 
 The following example shows how to wrap your existing application logic within a minimal LangGraph structure:
 </code></pre>
-<p><div class="highlight"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">StateGraph</span><span class="p">,</span><span class="w"> </span><span class="nx">START</span><span class="p">,</span><span class="w"> </span><span class="nx">END</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"@langchain/langgraph"</span><span class="p">;</span>
-<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Annotation</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"@langchain/langgraph"</span><span class="p">;</span>
-
-<span class="c1">// Your existing application logic using any framework</span>
-<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">processData</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"./app-logic"</span><span class="p">;</span>
-<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">fetchData</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"./app-logic"</span><span class="p">;</span>
-
-<span class="kd">const</span><span class="w"> </span><span class="nx">State</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Annotation</span><span class="p">.</span><span class="nx">Root</span><span class="p">({</span>
-<span class="w">  </span><span class="nx">input</span><span class="o">:</span><span class="w"> </span><span class="kt">Annotation</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="w">  </span><span class="nx">result</span><span class="o">:</span><span class="w"> </span><span class="kt">Annotation</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span>
-<span class="p">});</span>
-
-<span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">myAppNode</span><span class="p">(</span><span class="nx">state</span><span class="o">:</span><span class="w"> </span><span class="kt">typeof</span><span class="w"> </span><span class="nx">State</span><span class="p">.</span><span class="nx">State</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="c1">// Use any framework or library here</span>
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">rawData</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetchData</span><span class="p">(</span><span class="nx">state</span><span class="p">.</span><span class="nx">input</span><span class="p">);</span>
-<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">processed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">processData</span><span class="p">(</span><span class="nx">rawData</span><span class="p">);</span>
-<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">result</span><span class="o">:</span><span class="w"> </span><span class="kt">processed</span><span class="w"> </span><span class="p">};</span>
-<span class="p">}</span>
-
-<span class="c1">// Define the graph structure</span>
-<span class="kd">const</span><span class="w"> </span><span class="nx">graph</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">StateGraph</span><span class="p">(</span><span class="nx">State</span><span class="p">)</span>
-<span class="w">  </span><span class="p">.</span><span class="nx">addNode</span><span class="p">(</span><span class="s2">"process"</span><span class="p">,</span><span class="w"> </span><span class="nx">myAppNode</span><span class="p">)</span><span class="w">  </span><span class="c1">// Add node with your logic</span>
-<span class="w">  </span><span class="p">.</span><span class="nx">addEdge</span><span class="p">(</span><span class="nx">START</span><span class="p">,</span><span class="w"> </span><span class="s2">"process"</span><span class="p">)</span><span class="w">  </span><span class="c1">// Connect start to your node</span>
-<span class="w">  </span><span class="p">.</span><span class="nx">addEdge</span><span class="p">(</span><span class="s2">"process"</span><span class="p">,</span><span class="w"> </span><span class="nx">END</span><span class="p">);</span><span class="w">  </span><span class="c1">// Connect your node to end</span>
-
-<span class="c1">// Compile for deployment</span>
-<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">app</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">graph</span><span class="p">.</span><span class="nx">compile</span><span class="p">();</span>
-</code></pre></div>
+<p>```typescript
+  import { StateGraph, START, END } from "@langchain/langgraph";
+  import { Annotation } from "@langchain/langgraph";</p>
+<p>// Your existing application logic using any framework
+  import { processData } from "./app-logic";
+  import { fetchData } from "./app-logic";</p>
+<p>const State = Annotation.Root({
+    input: Annotation<string>,
+    result: Annotation<string>
+  });</p>
+<p>async function myAppNode(state: typeof State.State) {
+    // Use any framework or library here
+    const rawData = await fetchData(state.input);
+    const processed = await processData(rawData);
+    return { result: processed };
+  }</p>
+<p>// Define the graph structure
+  const graph = new StateGraph(State)
+    .addNode("process", myAppNode)  // Add node with your logic
+    .addEdge(START, "process")  // Connect start to your node
+    .addEdge("process", END);  // Connect your node to end</p>
+<p>// Compile for deployment
+  export const app = graph.compile();
+  ```
   </Tab>
 </Tabs></p>
 <p>In this example, the node functions (<code>my_app_node</code> for Python and <code>myAppNode</code> for JavaScript) can contain calls to any framework or library. The LangGraph structure simply provides the deployment interface and orchestration layer.</p>
