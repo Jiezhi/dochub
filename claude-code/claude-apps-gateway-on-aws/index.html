@@ -1841,6 +1841,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cost-attribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost attribution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cost attribution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-developer-with-assume_role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per developer with assume_role
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6230,6 +6258,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#cost-attribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost attribution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cost attribution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#per-developer-with-assume_role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per developer with assume_role
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6790,7 +6846,60 @@ docker push "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/claude-gateway:&l
 <h3 id="container-metrics">Container metrics</h3>
 <p>Enable Container Insights on the cluster with <code>aws ecs update-cluster-settings --cluster claude-gateway --settings name=containerInsights,value=enabled</code> for per-task CPU, memory, and network. On EKS, install the Amazon CloudWatch Observability add-on.</p>
 <h3 id="spend">Spend</h3>
-<p>Telemetry shows usage after the fact; <a href="/docs/en/claude-apps-gateway-spend-limits">spend limits</a> are the gateway's live per-developer view and enforcement on top of the shared upstream credential.</p>
+<p>Telemetry shows usage after the fact; <a href="/docs/en/claude-apps-gateway-spend-limits">spend limits</a> are the gateway's live per-developer view and enforcement.</p>
+<h2 id="cost-attribution">Cost attribution</h2>
+<p>The gateway signs every Bedrock request with its own principal, the ECS task role or EKS IRSA role, so by default AWS sees all of that spend under one IAM principal. There are two ways to split it in AWS's own billing data, and they combine.</p>
+<h3 id="per-developer-with-assume_role">Per developer with <code>assume_role</code></h3>
+<p>Create a second IAM role that holds the Bedrock permissions and trusts the gateway's principal, grant that principal <code>sts:AssumeRole</code> on it, and set <a href="/docs/en/claude-apps-gateway-config#per-developer-aws-cost-attribution"><code>assume_role</code></a> with <code>session_name: email</code> on the Bedrock upstream. The gateway then assumes that role once per developer per hour with the session name set to their email and signs their requests with the result. Requires a gateway running Claude Code v2.1.281 or later. The role can also be in another AWS account: see <a href="/docs/en/claude-apps-gateway-config#bedrock-in-another-aws-account">Bedrock in another AWS account</a>. In Terraform, next to the task role in the <a href="#terraform-reference">Terraform bundle</a>:</p>
+<p>```hcl theme={null}
+resource "aws_iam_role" "bedrock_user" {
+  name = "claude-gateway-bedrock-user"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Principal = { AWS = aws_iam_role.task.arn } }]
+  })
+}
+resource "aws_iam_role_policy" "bedrock_user_invoke" {   # same Bedrock policy as the task role's
+  role   = aws_iam_role.bedrock_user.id
+  policy = aws_iam_role_policy.bedrock_invoke.policy
+}
+resource "aws_iam_role_policy" "task_assume_bedrock_user" {
+  role   = aws_iam_role.task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.bedrock_user.arn }]
+  })
+}
+<div class="highlight"><pre><span></span><code>With `assume_role` set the gateway signs every Bedrock call, the free `CountTokens` call for spend metering included, with the assumed role's credentials, so the gateway's principal needs a Bedrock policy of its own only for an upstream without `assume_role`.
+
+Because the gateway calls STS at request time, the private subnets need a path to `sts.&lt;region&gt;.amazonaws.com`. The NAT gateway from the prerequisites provides one, and so does an STS interface VPC endpoint that answers for that hostname. Each active developer costs one STS call per hour per gateway replica.
+
+Each developer's requests reach AWS as the principal `arn:aws:sts::&lt;account&gt;:assumed-role/&lt;role&gt;/&lt;email&gt;`. To see spend per principal, use a billing export that includes IAM principal data; AWS's [IAM principal cost allocation](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/iam-principal-cost-allocation.html) page covers how to enable it and which billing tools show it.
+
+### Per team with application inference profiles
+
+This route uses only the [`models`](/docs/en/claude-apps-gateway-config#models) and [`managed`](/docs/en/claude-apps-gateway-config#managed) sections. Create one Bedrock [application inference profile](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-create.html) per team and model, tag each profile with the team, and activate that tag as a cost allocation tag. Then give each team its own model id in `gateway.yaml` and pin each IdP group to its team's ids:
+
+```yaml theme={null}
+models:
+  - id: platform-claude-opus-4-8
+    upstream_model:
+      bedrock: arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123
+  - id: data-claude-opus-4-8
+    upstream_model:
+      bedrock: arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/def456
+managed:
+  policies:
+    - match: {groups: [team-platform]}
+      cli: {availableModels: [platform-claude-opus-4-8], enforceAvailableModels: true}
+    - match: {groups: [team-data]}
+      cli: {availableModels: [data-claude-opus-4-8], enforceAvailableModels: true}
+    - match: {}
+      cli: {availableModels: [claude-opus-4-8, claude-sonnet-4-6], enforceAvailableModels: true}
+</code></pre></div></p>
+<p>Tell developers in a pinned team to start Claude Code with <code>--model platform-claude-opus-4-8</code>, using their team's id, because a session started without it runs the default model, which the gateway refuses for them.</p>
+<p>The gateway enforces <code>availableModels</code> on every request, not only in the model picker, and AWS billing groups the spend by the tag you activated. Without the <code>match: {}</code> catch-all, a developer who matches no policy gets every model in the catalog and can bill either team's profile.</p>
+<p>The costs: the config grows with teams times models, and the role that signs this upstream's Bedrock requests must also be allowed to invoke the <code>application-inference-profile/*</code> ARNs. That role is the gateway's principal, or with <code>assume_role</code> the role it assumes. See <a href="/docs/en/claude-apps-gateway-config#pricing"><code>pricing</code></a> for how the gateway's own spend meter prices these ids.</p>
 <h2 id="next-steps">Next steps</h2>
 <ul>
 <li><a href="/docs/en/claude-apps-gateway-config">Configuration reference</a>: every <code>gateway.yaml</code> option, including <code>managed.policies</code> and <code>telemetry</code></li>

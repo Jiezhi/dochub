@@ -1438,6 +1438,73 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#credential-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credential management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Credential management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#renew-an-expiring-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renew an expiring login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authentication-precedence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication precedence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication precedence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#anthropic-profiles-and-federation-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anthropic profiles and federation credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-long-lived-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a long-lived token
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6008,6 +6075,73 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#credential-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credential management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Credential management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#renew-an-expiring-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renew an expiring login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authentication-precedence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication precedence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication precedence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#anthropic-profiles-and-federation-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anthropic profiles and federation credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-long-lived-token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a long-lived token
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6198,92 +6332,104 @@ The keys also decide whether a session that doesn't use a login credential can s
 * **Cloud provider sessions such as Amazon Bedrock**: blocked only while an `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or `apiKeyHelper` credential, or an API key saved by an earlier Claude Console login, is still present on the machine. Remove it and the session starts. These sessions authenticate against your cloud provider, whose access policies govern them
 * **[Anthropic profile or federation credentials](#anthropic-profiles-and-federation-credentials)**: not blocked unless an `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or `apiKeyHelper` credential, or an API key saved by an earlier Claude Console login, is also present on the machine. The keys don't check which organization the profile belongs to
 
-## Credential management
+### Restrict which API providers a machine may use
 
-Claude Code securely manages your authentication credentials:
+[`allowedProviders`](/docs/en/settings-reference#allowedproviders) in [managed settings](/docs/en/managed-settings) lists which services a managed machine may reach Claude through, such as the Anthropic API, Amazon Bedrock, or an LLM gateway. It complements `forceLoginMethod` and `forceLoginOrgUUID`, which govern which account a session uses when it talks to Anthropic. Requires Claude Code v2.1.285 or later.
 
-* **Storage location**:
-  * On macOS, credentials are stored in the encrypted macOS Keychain. When the Keychain rejects the write, such as when it's locked in an SSH session, Claude Code stores your login in `~/.claude/.credentials.json` with file mode `0600` instead, the same storage it uses on Linux. A Console login that creates an API key fails until the Keychain is writable. To move your login back into the Keychain, follow [the recovery steps](/docs/en/troubleshoot-install#not-logged-in-or-token-expired).
-  * On Linux, credentials are stored in `~/.claude/.credentials.json` with file mode `0600`.
-  * On Windows, credentials are stored in `%USERPROFILE%\.claude\.credentials.json` and inherit the access controls of your user profile directory, which restricts the file to your user account by default.
-  * If you've set the `CLAUDE_CONFIG_DIR` environment variable, Claude Code keeps the `.credentials.json` file under that directory instead, including the file the macOS fallback writes, and keys the macOS Keychain entry to that directory too, so a session with a different `CLAUDE_CONFIG_DIR` reads a different entry.
-  * Claude Code manages `.credentials.json` through `/login` and `/logout`. To route requests through a custom API endpoint, set the [`ANTHROPIC_BASE_URL`](/docs/en/env-vars) environment variable instead.
-* **Supported authentication types**: claude.ai credentials, Claude API credentials, Microsoft Foundry Auth, Bedrock Auth, Vertex Auth, Anthropic profile and [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation) credentials, and [Claude apps gateway](/docs/en/claude-apps-gateway) session tokens.
-* **Custom credential scripts**: configure the [`apiKeyHelper`](/docs/en/settings-reference#apikeyhelper) setting to run a shell script that returns an API key.
-* **Refresh intervals**: see [`apiKeyHelper`](/docs/en/settings-reference#apikeyhelper) for the cases in which Claude Code re-runs the helper.
-* **Slow helper notice**: if `apiKeyHelper` takes longer than 10 seconds to return a key, Claude Code displays a warning notice in the prompt bar showing the elapsed time. If you see this notice regularly, check whether your credential script can be optimized.
-* **Helper failures**: when the script exits with an error, times out, or prints nothing, requests fail with [`Your apiKeyHelper script is failing`](/docs/en/errors#your-apikeyhelper-script-is-failing) within three attempts.
-
-`apiKeyHelper`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_AUTH_TOKEN` apply to the CLI and the surfaces that wrap it, including the VS Code extension, the Agent SDK, and GitHub Actions. Claude Desktop and cloud sessions do not call `apiKeyHelper` or read these environment variables: they use OAuth, except desktop sessions running a [third-party inference configuration](/docs/en/llm-gateway-connect#desktop-app), which authenticate with that configuration's credential.
-
-### Renew an expiring login
-
-When the login you created with `/login` is within three days of expiring, Claude Code shows a warning at startup: `Your login expires in 3 days · run /login to renew`.
-
-Run `/login` to renew. The warning is informational and never blocks a request: authentication keeps working until the login actually expires.
-
-Once the stored login expires and can't be refreshed, each model request fails with [`Login expired · Please run /login`](/docs/en/errors#login-expired) until you sign in again.
-
-You can check for this state before a request fails: [`/status`](/docs/en/commands) shows a `Login` row reading `Expired — log in again`, plus the organization and email it has saved for the expired login. The row appears only when the saved claude.ai login is the active credential. The row requires Claude Code v2.1.210 or later.
-
-The warning appears only when a claude.ai login is the active credential, and not when a cloud provider, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, or `apiKeyHelper` supplies the credential.
-
-Renewing early matters most for sessions that run unattended. A [background session in agent view](/docs/en/agent-view) or a [Remote Control](/docs/en/remote-control) session that outlives the login stops making progress once the credential expires and can't recover until you sign in again.
-
-### Authentication precedence
-
-When multiple credentials are present, Claude Code chooses one in this order:
-
-1. Cloud provider credentials, when `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, or `CLAUDE_CODE_USE_FOUNDRY` is set. See [third-party integrations](/docs/en/third-party-integrations) for setup.
-2. `ANTHROPIC_AUTH_TOKEN` environment variable. Sent as the `Authorization: Bearer` header. Use this when routing through an [LLM gateway or proxy](/docs/en/llm-gateway) that authenticates with bearer tokens rather than Anthropic API keys.
-3. `ANTHROPIC_API_KEY` environment variable. Sent as the `X-Api-Key` header. Use this for direct Anthropic API access with a key from the [Claude Console](https://platform.claude.com). In interactive mode, you are prompted once to approve or decline the key, and your choice is remembered. To change it later, use the "Use custom API key" toggle in `/config`. The toggle only appears while `ANTHROPIC_API_KEY` is set in your environment. In non-interactive mode (`-p`), the key is always used when present.
-4. [`apiKeyHelper`](/docs/en/settings-reference#apikeyhelper) script output. Use this for dynamic or rotating credentials, such as short-lived tokens fetched from a vault.
-5. `CLAUDE_CODE_OAUTH_TOKEN` environment variable. A long-lived OAuth token generated by [`claude setup-token`](#generate-a-long-lived-token). Use this for CI pipelines and scripts where browser login isn't available. If you run `/login` while the variable is set, Claude Code switches the current session to the new login, but reads the variable again in every new session until you remove it from your shell profile or the `env` block of a [settings file](/docs/en/settings).
-6. Anthropic profile and federation credentials, the credentials that the `ant` CLI and Workload Identity Federation use. A profile that `ant auth login` wrote ranks here only when you name it in `ANTHROPIC_PROFILE`; otherwise it ranks below `/login`. See [Anthropic profiles and federation credentials](#anthropic-profiles-and-federation-credentials).
-7. Subscription OAuth credentials from `/login`. This is the default for Claude Pro, Max, Team, and Enterprise users.
-
-A signed-in [Claude apps gateway](/docs/en/claude-apps-gateway) session sits outside this list: it is a provider selection like Amazon Bedrock or Google Cloud's Agent Platform, and it outranks them. When a gateway session exists, the CLI authenticates with the gateway token even if `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, or `CLAUDE_CODE_USE_FOUNDRY` is set, and credential sources above such as the bearer token, API key, `apiKeyHelper`, and profiles are not used.
-
-If your machine's [managed settings](/docs/en/managed-settings) set [`forceLoginMethod`](/docs/en/settings-reference#forceloginmethod) to `"gateway"` or set [`forceLoginGatewayUrl`](/docs/en/settings-reference#forcelogingatewayurl), and you don't select a cloud provider through a variable such as `CLAUDE_CODE_USE_BEDROCK` or `CLAUDE_CODE_USE_VERTEX`, your session uses only the gateway sign-in. Claude Code skips the other credential sources and asks you to sign in with `/login`. See [Administrator policy requires a Cloud gateway sign-in](/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in) for what you see with each leftover credential. Requires Claude Code v2.1.261 or later, or v2.1.265 or later on a machine that sets only `forceLoginGatewayUrl`.
-
-If you have an active Claude subscription but also have `ANTHROPIC_API_KEY` set in your environment, Claude Code uses the API key once you approve it. This can cause authentication failures if the key belongs to a disabled or expired organization.
-
-Run `unset ANTHROPIC_API_KEY` to fall back to your subscription, and check `/status` to confirm which method is active. When a login and an API key are both configured, `/status` marks the credential that isn't in use.
-
-[Cloud sessions](/docs/en/claude-code-on-the-web) always use your subscription credentials. If you set `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in the cloud environment, it doesn't override your subscription credentials.
-
-#### Anthropic profiles and federation credentials
-
-A profile is a named credential configuration file in your [Anthropic configuration directory](https://platform.claude.com/docs/en/manage-claude/wif-reference#configuration-directory), by default `~/.config/anthropic` on macOS and Linux or `%APPDATA%\Anthropic` on Windows. A profile's auth mode is `oidc_federation` when you set it up for [Workload Identity Federation (WIF)](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation) or `user_oauth` when [`ant auth login`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/authentication) wrote it or you [signed in to a Console account without an API key](#sign-in-without-an-api-key).
-
-Claude Code doesn't read profiles or federation variables in [bare mode](/docs/en/headless#start-faster-with-bare-mode), in Claude Desktop, or in cloud sessions. In those sessions, `/status` shows no `Profile` row.
-
-Claude Code checks three sources in this order and stops at the first one that is set. The table shows what sets each source and where it ranks against your `/login` credential.
-
-| Source | Set by | Rank against `/login` |
-| :- | :- | :- |
-| Named profile | `ANTHROPIC_PROFILE` | Above, whichever auth mode the profile has |
-| Federation variables | `ANTHROPIC_FEDERATION_RULE_ID` and `ANTHROPIC_ORGANIZATION_ID`, both set | Above |
-| Active profile | The [`active_config` file](https://platform.claude.com/docs/en/manage-claude/wif-reference#active-profile) in your configuration directory, or a profile named `default` | Above when its auth mode is `oidc_federation`; below a working `/login` credential when its auth mode is `user_oauth` |
-
-For the federation variables, Claude Code also reads the other variables in the [WIF reference](https://platform.claude.com/docs/en/manage-claude/wif-reference#environment-variables), such as `ANTHROPIC_IDENTITY_TOKEN_FILE`, when it exchanges your identity token. For the profile file format, see the [WIF reference](https://platform.claude.com/docs/en/manage-claude/wif-reference#profile-configuration-file).
-
-To confirm which source Claude Code chose, run `/status`. A `Profile` row names the source in place of the `Login method` row. When the profile is the credential in use, `Organization` and `Email` rows show its account.
-
-When a `user_oauth` profile's login has expired and Claude Code can't renew it, requests fail with [Anthropic profile login expired](/docs/en/errors#anthropic-profile-login-expired).
-
-Features that need your claude.ai login, such as [claude.ai connectors](/docs/en/mcp#use-mcp-servers-from-claude-ai) and [`/schedule`](/docs/en/routines), aren't available while one of these sources is selected. To stop Claude Code from selecting a source:
-
-* **Named profile or federation variables**: unset `ANTHROPIC_PROFILE`, or unset either federation variable
-* **Active profile**: run `/logout` for a `user_oauth` profile whose current credential you wrote by [signing in to a Console account without an API key](#sign-in-without-an-api-key), run `ant auth logout` for one whose current credential `ant auth login` wrote, or delete the profile's file from `configs/` in your configuration directory for either auth mode
-
-### Generate a long-lived token
-
-For CI pipelines, scripts, or other environments where interactive browser login isn't available, generate a one-year OAuth token with `claude setup-token`:
-
-```bash theme={null}
-claude setup-token
+```json managed-settings.json theme={null}
+{
+  "forceLoginMethod": "claudeai",
+  "forceLoginOrgUUID": ["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"],
+  "allowedProviders": ["anthropic", "bedrock"]
+}
 </code></pre></div></p>
+<p>With this file, a developer signed in to your claude.ai organization or configured for Amazon Bedrock starts normally. A session set up for any other provider is refused at startup, and a running session that switches to one is refused on its next request. <a href="/docs/en/errors#managed-settings-dont-allow-this-api-provider">Managed settings don't allow this API provider</a> shows each message.</p>
+<ul>
+<li><strong>Allow an LLM gateway or proxy</strong>: list <code>"customEndpoint"</code> and set the gateway's URL in the managed <code>env</code> block of the same source. The <a href="/docs/en/settings-reference#allowedproviders">settings reference</a> lists every value and says which endpoint variables need a managed <code>env</code> pin.</li>
+<li><strong>Deploy on managed machines</strong>: put the list in the managed source that carries the rest of your policy. The entry's <a href="/docs/en/settings-reference#allowedproviders">Scope note</a> says how a server-managed list combines with it.</li>
+<li><strong>Server-managed settings only</strong>: a list you set only in <a href="/docs/en/server-managed-settings">server-managed settings</a> reaches only sessions that fetch your organization's settings, so treat it as a convenience for machines you can't reach with device management, not as enforcement. <a href="/docs/en/server-managed-settings#platform-availability">Platform availability</a> lists which sessions fetch them.</li>
+</ul>
+<h2 id="credential-management">Credential management</h2>
+<p>Claude Code securely manages your authentication credentials:</p>
+<ul>
+<li><strong>Storage location</strong>:</li>
+<li>On macOS, credentials are stored in the encrypted macOS Keychain. When the Keychain rejects the write, such as when it's locked in an SSH session, Claude Code stores your login in <code>~/.claude/.credentials.json</code> with file mode <code>0600</code> instead, the same storage it uses on Linux. A Console login that creates an API key fails until the Keychain is writable. To move your login back into the Keychain, follow <a href="/docs/en/troubleshoot-install#not-logged-in-or-token-expired">the recovery steps</a>.</li>
+<li>On Linux, credentials are stored in <code>~/.claude/.credentials.json</code> with file mode <code>0600</code>.</li>
+<li>On Windows, credentials are stored in <code>%USERPROFILE%\.claude\.credentials.json</code> and inherit the access controls of your user profile directory, which restricts the file to your user account by default.</li>
+<li>If you've set the <code>CLAUDE_CONFIG_DIR</code> environment variable, Claude Code keeps the <code>.credentials.json</code> file under that directory instead, including the file the macOS fallback writes, and keys the macOS Keychain entry to that directory too, so a session with a different <code>CLAUDE_CONFIG_DIR</code> reads a different entry.</li>
+<li>Claude Code manages <code>.credentials.json</code> through <code>/login</code> and <code>/logout</code>. To route requests through a custom API endpoint, set the <a href="/docs/en/env-vars"><code>ANTHROPIC_BASE_URL</code></a> environment variable instead.</li>
+<li><strong>Supported authentication types</strong>: claude.ai credentials, Claude API credentials, Microsoft Foundry Auth, Bedrock Auth, Vertex Auth, Anthropic profile and <a href="https://platform.claude.com/docs/en/manage-claude/workload-identity-federation">Workload Identity Federation</a> credentials, and <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a> session tokens.</li>
+<li><strong>Custom credential scripts</strong>: configure the <a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a> setting to run a shell script that returns an API key.</li>
+<li><strong>Refresh intervals</strong>: see <a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a> for the cases in which Claude Code re-runs the helper.</li>
+<li><strong>Slow helper notice</strong>: if <code>apiKeyHelper</code> takes longer than 10 seconds to return a key, Claude Code displays a warning notice in the prompt bar showing the elapsed time. If you see this notice regularly, check whether your credential script can be optimized.</li>
+<li><strong>Helper failures</strong>: when the script exits with an error, times out, or prints nothing, requests fail with <a href="/docs/en/errors#your-apikeyhelper-script-is-failing"><code>Your apiKeyHelper script is failing</code></a> within three attempts.</li>
+</ul>
+<p><code>apiKeyHelper</code>, <code>ANTHROPIC_API_KEY</code>, and <code>ANTHROPIC_AUTH_TOKEN</code> apply to the CLI and the surfaces that wrap it, including the VS Code extension, the Agent SDK, and GitHub Actions. Claude Desktop and cloud sessions do not call <code>apiKeyHelper</code> or read these environment variables: they use OAuth, except desktop sessions running a <a href="/docs/en/llm-gateway-connect#desktop-app">third-party inference configuration</a>, which authenticate with that configuration's credential.</p>
+<h3 id="renew-an-expiring-login">Renew an expiring login</h3>
+<p>When the login you created with <code>/login</code> is within three days of expiring, Claude Code shows a warning at startup: <code>Your login expires in 3 days · run /login to renew</code>.</p>
+<p>Run <code>/login</code> to renew. The warning is informational and never blocks a request: authentication keeps working until the login actually expires.</p>
+<p>Once the stored login expires and can't be refreshed, each model request fails with <a href="/docs/en/errors#login-expired"><code>Login expired · Please run /login</code></a> until you sign in again.</p>
+<p>You can check for this state before a request fails: <a href="/docs/en/commands"><code>/status</code></a> shows a <code>Login</code> row reading <code>Expired — log in again</code>, plus the organization and email it has saved for the expired login. The row appears only when the saved claude.ai login is the active credential. The row requires Claude Code v2.1.210 or later.</p>
+<p>The warning appears only when a claude.ai login is the active credential, and not when a cloud provider, <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code>, or <code>apiKeyHelper</code> supplies the credential.</p>
+<p>Renewing early matters most for sessions that run unattended. A <a href="/docs/en/agent-view">background session in agent view</a> or a <a href="/docs/en/remote-control">Remote Control</a> session that outlives the login stops making progress once the credential expires and can't recover until you sign in again.</p>
+<h3 id="authentication-precedence">Authentication precedence</h3>
+<p>When multiple credentials are present, Claude Code chooses one in this order:</p>
+<ol>
+<li>Cloud provider credentials, when <code>CLAUDE_CODE_USE_BEDROCK</code>, <code>CLAUDE_CODE_USE_VERTEX</code>, or <code>CLAUDE_CODE_USE_FOUNDRY</code> is set. See <a href="/docs/en/third-party-integrations">third-party integrations</a> for setup.</li>
+<li><code>ANTHROPIC_AUTH_TOKEN</code> environment variable. Sent as the <code>Authorization: Bearer</code> header. Use this when routing through an <a href="/docs/en/llm-gateway">LLM gateway or proxy</a> that authenticates with bearer tokens rather than Anthropic API keys.</li>
+<li><code>ANTHROPIC_API_KEY</code> environment variable. Sent as the <code>X-Api-Key</code> header. Use this for direct Anthropic API access with a key from the <a href="https://platform.claude.com">Claude Console</a>. In interactive mode, you are prompted once to approve or decline the key, and your choice is remembered. To change it later, use the "Use custom API key" toggle in <code>/config</code>. The toggle only appears while <code>ANTHROPIC_API_KEY</code> is set in your environment. In non-interactive mode (<code>-p</code>), the key is always used when present.</li>
+<li><a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a> script output. Use this for dynamic or rotating credentials, such as short-lived tokens fetched from a vault.</li>
+<li><code>CLAUDE_CODE_OAUTH_TOKEN</code> environment variable. A long-lived OAuth token generated by <a href="#generate-a-long-lived-token"><code>claude setup-token</code></a>. Use this for CI pipelines and scripts where browser login isn't available. If you run <code>/login</code> while the variable is set, Claude Code switches the current session to the new login, but reads the variable again in every new session until you remove it from your shell profile or the <code>env</code> block of a <a href="/docs/en/settings">settings file</a>.</li>
+<li>Anthropic profile and federation credentials, the credentials that the <code>ant</code> CLI and Workload Identity Federation use. A profile that <code>ant auth login</code> wrote ranks here only when you name it in <code>ANTHROPIC_PROFILE</code>; otherwise it ranks below <code>/login</code>. See <a href="#anthropic-profiles-and-federation-credentials">Anthropic profiles and federation credentials</a>.</li>
+<li>Subscription OAuth credentials from <code>/login</code>. This is the default for Claude Pro, Max, Team, and Enterprise users.</li>
+</ol>
+<p>A signed-in <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a> session sits outside this list: it is a provider selection like Amazon Bedrock or Google Cloud's Agent Platform, and it outranks them. When a gateway session exists, the CLI authenticates with the gateway token even if <code>CLAUDE_CODE_USE_BEDROCK</code>, <code>CLAUDE_CODE_USE_VERTEX</code>, or <code>CLAUDE_CODE_USE_FOUNDRY</code> is set, and credential sources above such as the bearer token, API key, <code>apiKeyHelper</code>, and profiles are not used.</p>
+<p>If your machine's <a href="/docs/en/managed-settings">managed settings</a> set <a href="/docs/en/settings-reference#forceloginmethod"><code>forceLoginMethod</code></a> to <code>"gateway"</code> or set <a href="/docs/en/settings-reference#forcelogingatewayurl"><code>forceLoginGatewayUrl</code></a>, and you don't select a cloud provider through a variable such as <code>CLAUDE_CODE_USE_BEDROCK</code> or <code>CLAUDE_CODE_USE_VERTEX</code>, your session uses only the gateway sign-in. Claude Code skips the other credential sources and asks you to sign in with <code>/login</code>. See <a href="/docs/en/errors#administrator-policy-requires-a-cloud-gateway-sign-in">Administrator policy requires a Cloud gateway sign-in</a> for what you see with each leftover credential. Requires Claude Code v2.1.261 or later, or v2.1.265 or later on a machine that sets only <code>forceLoginGatewayUrl</code>.</p>
+<p>If you have an active Claude subscription but also have <code>ANTHROPIC_API_KEY</code> set in your environment, Claude Code uses the API key once you approve it. This can cause authentication failures if the key belongs to a disabled or expired organization.</p>
+<p>Run <code>unset ANTHROPIC_API_KEY</code> to fall back to your subscription, and check <code>/status</code> to confirm which method is active. When a login and an API key are both configured, <code>/status</code> marks the credential that isn't in use.</p>
+<p><a href="/docs/en/claude-code-on-the-web">Cloud sessions</a> always use your subscription credentials. If you set <code>ANTHROPIC_API_KEY</code> or <code>ANTHROPIC_AUTH_TOKEN</code> in the cloud environment, it doesn't override your subscription credentials.</p>
+<h4 id="anthropic-profiles-and-federation-credentials">Anthropic profiles and federation credentials</h4>
+<p>A profile is a named credential configuration file in your <a href="https://platform.claude.com/docs/en/manage-claude/wif-reference#configuration-directory">Anthropic configuration directory</a>, by default <code>~/.config/anthropic</code> on macOS and Linux or <code>%APPDATA%\Anthropic</code> on Windows. A profile's auth mode is <code>oidc_federation</code> when you set it up for <a href="https://platform.claude.com/docs/en/manage-claude/workload-identity-federation">Workload Identity Federation (WIF)</a> or <code>user_oauth</code> when <a href="https://platform.claude.com/docs/en/cli-sdks-libraries/cli/authentication"><code>ant auth login</code></a> wrote it or you <a href="#sign-in-without-an-api-key">signed in to a Console account without an API key</a>.</p>
+<p>Claude Code doesn't read profiles or federation variables in <a href="/docs/en/headless#start-faster-with-bare-mode">bare mode</a>, in Claude Desktop, or in cloud sessions. In those sessions, <code>/status</code> shows no <code>Profile</code> row.</p>
+<p>Claude Code checks three sources in this order and stops at the first one that is set. The table shows what sets each source and where it ranks against your <code>/login</code> credential.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Source</th>
+<th style="text-align: left;">Set by</th>
+<th style="text-align: left;">Rank against <code>/login</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Named profile</td>
+<td style="text-align: left;"><code>ANTHROPIC_PROFILE</code></td>
+<td style="text-align: left;">Above, whichever auth mode the profile has</td>
+</tr>
+<tr>
+<td style="text-align: left;">Federation variables</td>
+<td style="text-align: left;"><code>ANTHROPIC_FEDERATION_RULE_ID</code> and <code>ANTHROPIC_ORGANIZATION_ID</code>, both set</td>
+<td style="text-align: left;">Above</td>
+</tr>
+<tr>
+<td style="text-align: left;">Active profile</td>
+<td style="text-align: left;">The <a href="https://platform.claude.com/docs/en/manage-claude/wif-reference#active-profile"><code>active_config</code> file</a> in your configuration directory, or a profile named <code>default</code></td>
+<td style="text-align: left;">Above when its auth mode is <code>oidc_federation</code>; below a working <code>/login</code> credential when its auth mode is <code>user_oauth</code></td>
+</tr>
+</tbody>
+</table>
+<p>For the federation variables, Claude Code also reads the other variables in the <a href="https://platform.claude.com/docs/en/manage-claude/wif-reference#environment-variables">WIF reference</a>, such as <code>ANTHROPIC_IDENTITY_TOKEN_FILE</code>, when it exchanges your identity token. For the profile file format, see the <a href="https://platform.claude.com/docs/en/manage-claude/wif-reference#profile-configuration-file">WIF reference</a>.</p>
+<p>To confirm which source Claude Code chose, run <code>/status</code>. A <code>Profile</code> row names the source in place of the <code>Login method</code> row. When the profile is the credential in use, <code>Organization</code> and <code>Email</code> rows show its account.</p>
+<p>When a <code>user_oauth</code> profile's login has expired and Claude Code can't renew it, requests fail with <a href="/docs/en/errors#anthropic-profile-login-expired">Anthropic profile login expired</a>.</p>
+<p>Features that need your claude.ai login, such as <a href="/docs/en/mcp#use-mcp-servers-from-claude-ai">claude.ai connectors</a> and <a href="/docs/en/routines"><code>/schedule</code></a>, aren't available while one of these sources is selected. To stop Claude Code from selecting a source:</p>
+<ul>
+<li><strong>Named profile or federation variables</strong>: unset <code>ANTHROPIC_PROFILE</code>, or unset either federation variable</li>
+<li><strong>Active profile</strong>: run <code>/logout</code> for a <code>user_oauth</code> profile whose current credential you wrote by <a href="#sign-in-without-an-api-key">signing in to a Console account without an API key</a>, run <code>ant auth logout</code> for one whose current credential <code>ant auth login</code> wrote, or delete the profile's file from <code>configs/</code> in your configuration directory for either auth mode</li>
+</ul>
+<h3 id="generate-a-long-lived-token">Generate a long-lived token</h3>
+<p>For CI pipelines, scripts, or other environments where interactive browser login isn't available, generate a one-year OAuth token with <code>claude setup-token</code>:</p>
+<p><code>bash theme={null}
+claude setup-token</code></p>
 <p>The command opens the same browser authorization flow as <code>/login</code>, and the token prints to the terminal after you approve access in the browser. It does not save the token anywhere; copy it and set it as the <code>CLAUDE_CODE_OAUTH_TOKEN</code> environment variable wherever you want to authenticate:</p>
 <p><Tabs>
   <Tab title="macOS, Linux, WSL">

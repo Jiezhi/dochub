@@ -10211,6 +10211,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#provider-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Provider extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-request-methods" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -19686,6 +19736,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#provider-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Provider extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-request-methods" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -19752,9 +19852,10 @@
 <p>An MCP extension is a protocol feature that lives outside the core spec, named by a reverse-DNS identifier and negotiated as a capability. A server advertises the extensions it implements, and a client advertises the ones it understands. That negotiation is per request: a client repeats its extension capabilities in every request's <code>_meta</code>, so a handler can always tell whether the caller opted in to this particular call.</p>
 <p>Honoring that opt-in is the extension's job, not the framework's. FastMCP advertises your capability and routes your methods, but it does not filter callers for you, so an extension that changes behavior must check before it acts. The <a href="#intercepting-tool-calls">tool-call interceptor</a> below shows the check.</p>
 <p>FastMCP 4 makes extensions a first-class surface. <code>FastMCP.add_extension()</code> takes an object that can advertise a capability, serve new request methods, wrap every <code>tools/call</code>, and own resources for the life of the server. <a href="/servers/tasks">Background tasks</a> are built this way, on the same public interface available to you, so a cross-cutting protocol feature becomes a plugin rather than a change to FastMCP itself.</p>
+<p><a href="/servers/providers/overview">Providers</a> can also bundle the extensions their components need. Adding or mounting the provider registers those extensions automatically when they opt into that behavior, so the protocol support travels with the components that use it.</p>
 <h2 id="writing-an-extension">Writing an extension</h2>
 <p>Subclass <code>ServerExtension</code> and set an <code>identifier</code>. The identifier must carry a reverse-DNS prefix in <code>vendor-prefix/name</code> form, which FastMCP validates when the class is defined, so a malformed one fails immediately rather than at connection time. Everything else is optional: each contribution method has a working default, and a useful extension often overrides just one.</p>
-<p>Registering the extension binds it to the server and advertises its capability. The capability is advertised only while the extension is registered, and registering two extensions with the same identifier is an error.</p>
+<p>Registering the extension binds it to the server and advertises its capability. The capability is advertised only while the extension is registered. Two explicit registrations with the same identifier are an error; an explicit registration can replace a <a href="#provider-extensions">provider-bundled extension</a>.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ServerExtension</span>
 
@@ -19790,6 +19891,51 @@
 <span class="n">mcp</span><span class="o">.</span><span class="n">add_extension</span><span class="p">(</span><span class="n">UploadExtension</span><span class="p">())</span>
 </code></pre></div>
 <p>A client reads these alongside the capability itself, so it can adapt before making a single call.</p>
+<h2 id="provider-extensions">Provider extensions</h2>
+<p><VersionBadge version="4.1.0" /></p>
+<p>A provider can bundle the extensions its components need, so adding the provider also enables the protocol methods clients use to access those components. The bundles follow providers through aggregates, namespaces, transforms, and mounted servers. You can compose a provider without knowing which extensions it needs.</p>
+<p>An extension opts into this behavior with <code>auto_register = True</code>; the default is <code>False</code>. Choose this for extensions whose behavior can safely apply to the receiving server's entire component registry. Extensions that change unrelated tools or start infrastructure, such as the <a href="/servers/tasks">tasks extension</a>, stay explicitly registered by default.</p>
+<p>A provider bundles extension instances by returning them from <code>required_extensions()</code>. Each receiving server registers its own copy, and you can configure that copy with <code>add_extension()</code>. An explicit registration with the same identifier takes precedence whether it happens before or after adding the provider.</p>
+<p>In this example, mounting the catalog server automatically registers its extension on the parent. The parent advertises <code>includeDetails=False</code>, while the child keeps <code>includeDetails=True</code> for clients that connect to it directly.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ServerExtension</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.providers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Provider</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CatalogExtension</span><span class="p">(</span><span class="n">ServerExtension</span><span class="p">):</span>
+    <span class="n">identifier</span> <span class="o">=</span> <span class="s2">"com.example/catalog"</span>
+    <span class="n">auto_register</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">include_details</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">include_details</span> <span class="o">=</span> <span class="n">include_details</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">settings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"includeDetails"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">include_details</span><span class="p">}</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CatalogProvider</span><span class="p">(</span><span class="n">Provider</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">required_extensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ServerExtension</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">CatalogExtension</span><span class="p">()]</span>
+
+
+<span class="n">child</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Catalog"</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">CatalogProvider</span><span class="p">()])</span>
+<span class="n">parent</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Application"</span><span class="p">)</span>
+<span class="n">parent</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+
+<span class="n">parent</span><span class="o">.</span><span class="n">add_extension</span><span class="p">(</span><span class="n">CatalogExtension</span><span class="p">(</span><span class="n">include_details</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</code></pre></div>
+<h3 id="configuration">Configuration</h3>
+<p>Extensions are identified by their protocol identifier, so several providers can share one registration. An explicit registration on the receiving server controls the extension's configuration for all of those providers. Otherwise the first bundled instance wins. FastMCP warns once per identifier when bundles have different extension types or advertise different settings; configure the extension explicitly to choose the settings you want. Automatic registrations and explicit precedence are logged at the debug level.</p>
+<h3 id="server-ownership">Server ownership</h3>
+<p>The receiving server owns the advertised capability and request handlers. When you mount a child, the parent's extension sees the parent's full component registry, including the mounted components. Mounted servers contribute both provider bundles and their explicitly registered extensions that allow automatic registration. Custom composite providers should return their children's bundles in provider order; <code>AggregateProvider</code>, <code>FastMCPProvider</code>, and transform wrappers already forward them.</p>
+<p>For propagated extensions, a tool call through the parent runs the parent's interceptor once. Mounted children use their own interceptor for standalone requests and separate programmatic calls. Extension lifespans run at the root of the runtime tree.</p>
+<p>Extensions use <code>clone()</code> to create an independent, unbound instance for each receiving server. The default deep-copies instance attributes and clears the server binding. Override <code>clone()</code> to reconstruct configuration if your extension holds objects that cannot be copied or runtime state that should start fresh. Use a separate instance for each explicit registration as well.</p>
+<h3 id="startup">Startup</h3>
+<p>Finish composing providers that need new extensions before serving. FastMCP registers bundles when you add a provider and checks again at startup, after the root's user lifespan and before extension lifespans begin. This discovers bundles added to mounted children or aggregates during that setup.</p>
+<p>Provider lifespans run after extension lifespans. During provider lifespans and after startup, you can add providers whose extensions are already registered on the root, or providers that need no extensions. Introducing a new extension raises <code>RuntimeError</code>, including through nested mounts and aggregates. An aggregate shared by several running servers can accept a bundle only when every server already has its extensions.</p>
+<p>If a bundled extension has not opted into automatic registration, register it explicitly on the receiving server before adding the provider.</p>
 <h2 id="adding-request-methods">Adding request methods</h2>
 <p>An extension can serve request methods the core spec does not define. Return a <code>MethodBinding</code> from <code>methods()</code> naming the wire method, the Pydantic model its params validate against, and the handler to run.</p>
 <p>Extension methods are strictly additive. Binding a spec-defined method like <code>tools/call</code> raises at construction, because doing so would silently shadow the server's own handler. To change how a core method behaves, use <a href="/servers/middleware">middleware</a> or the tool-call interceptor below.</p>
@@ -19825,7 +19971,7 @@
 <p>Setting <code>protocol_versions</code> on a binding restricts the method to specific wire versions, and a request at any other version is rejected as <code>METHOD_NOT_FOUND</code>. Leaving it unset, the default, serves the method on every version.</p>
 <h2 id="intercepting-tool-calls">Intercepting tool calls</h2>
 <p>Override <code>intercept_tool_call()</code> to wrap every <code>tools/call</code> the server handles. The interceptor runs after the FastMCP middleware chain and immediately before the tool body, making it the last gate before execution. Await <code>call_next()</code> to let the call proceed, or return a result without awaiting it to short-circuit.</p>
-<p>Every registered interceptor runs on every tool call, including calls from clients that never advertised your extension. FastMCP does not gate this for you, so an interceptor that changes what the caller gets back must first confirm the caller opted in. <code>context.client_extension_settings(identifier)</code> returns the settings the client declared for this request, or <code>None</code> when it declared nothing.</p>
+<p>Interceptors run for clients that never advertised your extension as well. FastMCP does not gate this for you, so an interceptor that changes what the caller gets back must first confirm the caller opted in. <code>context.client_extension_settings(identifier)</code> returns the settings the client declared for this request, or <code>None</code> when it declared nothing.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ServerExtension</span>
 
@@ -19851,7 +19997,7 @@
 <p>Reach for middleware when you want to observe or modify requests generally; reach for an interceptor when the behavior belongs to a negotiated capability and should exist only while that extension is registered.</p>
 <h2 id="owning-resources">Owning resources</h2>
 <p>An extension that owns something with a lifecycle, such as a connection pool or a background worker, overrides <code>lifespan()</code> to return an async context manager. FastMCP enters it with the server's own <a href="/servers/lifespan">lifespan</a> and exits it on shutdown, so setup and teardown stay with the extension that needs them rather than leaking into the application's startup code.</p>
-<p>The lifespan is entered once per runtime tree, at the root. This matters when you compose servers: extensions are served by the server they are registered on, and a mounted child's extensions do not propagate upward. The root server owns the wire, so only root-registered extensions advertise capabilities and answer methods. Register extensions on the server you actually run.</p>
+<p>The lifespan is entered once per runtime tree, at the root. The root server owns the wire, so its registered extensions advertise capabilities and answer methods. <a href="#provider-extensions">Auto-registerable extensions</a> propagate through mounts as separate instances on the root; register other extensions on the server you actually run.</p>
 <h2 id="client-extensions">Client extensions</h2>
 <p>The client half of an extension is what makes negotiation two-sided. Pass <code>ClientExtension</code> instances to <code>Client(extensions=...)</code> and each contributes its capability advertisement, its result claims, and its notification bindings to the underlying session. A claimed <code>call_tool</code> result is then resolved transparently through the extension that owns it.</p>
 <p>When a client needs only to say it understands an extension, without implementing behavior for it, <code>advertise()</code> produces an advertise-only entry.</p>

@@ -7232,6 +7232,7 @@ const asyncHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
   };
   ```
 </CodeGroup></p>
+<p>To confirm the block, register the callback under <code>PreToolUse</code> with a <code>Write|Edit</code> matcher and ask the agent to create a file under <code>/etc</code>: the Write tool's result in the message stream contains <code>Writing to /etc is not allowed</code>, and no file is created.</p>
 <h3 id="auto-approve-specific-tools">Auto-approve specific tools</h3>
 <p>By default, the agent may prompt for permission before using certain tools. This example auto-approves read-only filesystem tools (Read, Glob, Grep) by returning <code>permissionDecision: 'allow'</code>, letting them run without user confirmation while leaving all other tools subject to normal permission checks:</p>
 <p><CodeGroup>
@@ -7271,7 +7272,7 @@ const asyncHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
 </CodeGroup></p>
 <h3 id="register-multiple-hooks">Register multiple hooks</h3>
 <p>When an event fires, all matching hooks run in parallel. For permission decisions, the most restrictive result applies: a single <code>deny</code> blocks the tool call regardless of what the other hooks return. Because completion order is non-deterministic, write each hook to act independently rather than relying on another hook having run first.</p>
-<p>The example below registers three independent checks for every tool call:</p>
+<p>The example below registers three independent checks for every tool call. The hook names in it, such as <code>audit_logger</code> in Python or <code>auditLogger</code> in TypeScript, stand in for callbacks you define:</p>
 <p><CodeGroup>
   ```python Python theme={null}
   options = ClaudeAgentOptions(
@@ -7296,7 +7297,7 @@ const options = {
 </code></pre></div>
 </CodeGroup></p>
 <h3 id="filter-with-multi-tool-matchers">Filter with multi-tool matchers</h3>
-<p>Use multi-tool matchers to share one callback across related tools. This example registers three matchers with different scopes:</p>
+<p>Use multi-tool matchers to share one callback across related tools. This example registers three matchers with different scopes, and each hook it names stands in for a callback you define:</p>
 <ul>
 <li>A pipe-separated exact list (<code>Write|Edit|NotebookEdit</code>) triggers <code>file_security_hook</code> only for file modification tools.</li>
 <li>A regex (<code>^mcp__</code>) triggers <code>mcp_audit_hook</code> for any MCP tool whose name starts with <code>mcp__</code>.</li>
@@ -7369,6 +7370,7 @@ const options = {
 };
 </code></pre></div>
 </CodeGroup></p>
+<p>To confirm the hook fires, register the callback and ask the agent to delegate a small task to a subagent, such as listing the files in the current directory: when the subagent finishes, the callback prints the <code>[SUBAGENT] Completed:</code> lines with the subagent's ID and transcript path.</p>
 <h3 id="make-http-requests-from-hooks">Make HTTP requests from hooks</h3>
 <p>Hooks can perform asynchronous operations like HTTP requests. Catch errors inside your hook instead of letting them propagate.</p>
 <p>This example sends a webhook after each tool completes, logging which tool ran and when. The hook catches errors from a failed webhook:</p>
