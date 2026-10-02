@@ -151,8 +151,8 @@ Linting requires [shellcheck](https://github.com/koalaman/shellcheck) and [hawk]
 
 ```
 # Rust
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo +1.98.1 hawk check --target-dir target/hawk -D warnings
+CARGO_BUILD_WARNINGS=deny cargo clippy --workspace --all-targets --all-features --locked
+cargo +1.99.0 hawk check --target-dir target/hawk -D warnings
 
 # Python
 uv run --only-group=check ruff check .
@@ -185,7 +185,7 @@ To run clippy for a Windows target from Linux or macOS, you can use `cargo-xwin`
 rustup target add x86_64-pc-windows-msvc
 
 # Run clippy for Windows
-uv run --only-dev cargo xwin clippy --workspace --all-targets --all-features --locked -- -D warnings
+CARGO_BUILD_WARNINGS=deny uv run --only-dev cargo xwin clippy --workspace --all-targets --all-features --locked
 ```
 
 ## [Crate structure](#crate-structure)
