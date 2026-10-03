@@ -1711,6 +1711,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#certificate-client-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate client authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rotate-the-client-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rotate the client certificate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#idp-requests-through-a-forward-proxy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1894,6 +1916,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#context-window-in-terminal-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context window in terminal sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mcp-servers-in-a-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1912,6 +1945,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Claude Desktop overlay">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remove-the-1m-option" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remove the 1M option
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -6641,6 +6691,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#certificate-client-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate client authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rotate-the-client-certificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rotate the client certificate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#idp-requests-through-a-forward-proxy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6824,6 +6896,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#context-window-in-terminal-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context window in terminal sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mcp-servers-in-a-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6842,6 +6925,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Claude Desktop overlay">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remove-the-1m-option" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remove the 1M option
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -7080,9 +7180,14 @@ Use this file to discover all available pages before exploring further.</p>
 <td>OIDC discovery base. Must serve discovery at <code>/.well-known/openid-configuration</code>. Use HTTPS in production; the gateway accepts an <code>http://</code> issuer. A loopback issuer such as <code>http://localhost:8081</code> is rejected by the <a href="/docs/en/claude-apps-gateway-deploy#threat-model-summary">SSRF guard</a> unless <code>CLAUDE_GATEWAY_ALLOW_LOOPBACK=1</code> is set in the gateway's environment.</td>
 </tr>
 <tr>
-<td><code>client_id</code> / <code>client_secret</code></td>
+<td><code>client_id</code></td>
 <td>Yes</td>
 <td>From your OAuth client registration</td>
+</tr>
+<tr>
+<td><code>client_secret</code></td>
+<td>Unless <code>token_endpoint_auth_method</code> is <code>private_key_jwt</code></td>
+<td>From your OAuth client registration. Leave it out when you use <a href="#certificate-client-authentication">certificate client authentication</a>.</td>
 </tr>
 <tr>
 <td><code>allowed_email_domains</code></td>
@@ -7142,7 +7247,12 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td><code>token_endpoint_auth_method</code></td>
 <td>No</td>
-<td>Override the token-endpoint auth method. Accepts <code>client_secret_basic</code> or <code>client_secret_post</code>. Auto-negotiated by default.</td>
+<td>How the gateway authenticates to the IdP's token endpoint: <code>client_secret_basic</code>, <code>client_secret_post</code>, or <code>private_key_jwt</code> for <a href="#certificate-client-authentication">certificate client authentication</a>. By default the gateway picks one of the two <code>client_secret</code> methods from what the IdP advertises.</td>
+</tr>
+<tr>
+<td><code>client_assertion</code></td>
+<td>With <code>private_key_jwt</code></td>
+<td>A block with <code>private_key_pem</code> and <code>certificate_pem</code>: the private key and certificate for <a href="#certificate-client-authentication">certificate client authentication</a>. Requires v2.1.284 or later.</td>
 </tr>
 <tr>
 <td><code>id_token_signed_response_alg</code></td>
@@ -7176,6 +7286,54 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
+<h4 id="certificate-client-authentication">Certificate client authentication</h4>
+<p>If your identity provider authenticates OAuth clients with a certificate instead of a client secret, as Microsoft Entra does with certificate credentials, set <code>token_endpoint_auth_method: private_key_jwt</code>. Requires Claude Code v2.1.284 or later on the gateway server.</p>
+<p>With this configuration the gateway sends no secret. It authenticates to the IdP's token endpoint with a short-lived JWT signed with the certificate's private key when a developer signs in and each time the gateway refreshes their session. The JWT is signed with RS256 and identifies the certificate by <code>x5t</code> and <code>x5t#S256</code> thumbprint headers rather than a <code>kid</code>. Your IdP must be able to find the registered certificate by thumbprint.</p>
+<p><Steps>
+  <Step title="Create the key and certificate">
+    Create an unencrypted RSA private key of at least 2048 bits, in PKCS#8 or PKCS#1 PEM form, and a certificate for it. The gateway refuses to start with any key that doesn't meet these conditions. This <code>openssl</code> command creates such a key with a self-signed certificate that is valid for one year:</p>
+<pre><code>```bash theme={null}
+openssl req -x509 -newkey rsa:2048 -nodes -keyout idp-client.key -out idp-client.crt -days 365 -subj "/CN=claude-gateway"
+```
+
+It writes `idp-client.key` and `idp-client.crt` to the current directory. Copy or mount both files where the gateway can read them. The example in step 3 uses `/etc/gateway/`.
+</code></pre>
+<p></Step></p>
+<p><Step title="Upload the certificate to the IdP">
+    Upload the certificate, not the private key, to the gateway's app registration at the IdP.
+  </Step></p>
+<p><Step title="Add the key and certificate to gateway.yaml">
+    Give the gateway the private key and the certificate in a <code>client_assertion</code> block. Leave <code>client_secret</code> out, because the gateway refuses to start when one is set together with <code>private_key_jwt</code>. This <code>oidc</code> block authenticates the gateway to a Microsoft Entra tenant with a certificate:</p>
+<pre><code>```yaml theme={null}
+oidc:
+  issuer: https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0
+  client_id: &lt;application-id&gt;
+  token_endpoint_auth_method: private_key_jwt
+  client_assertion:
+    private_key_pem: ${file:/etc/gateway/idp-client.key}
+    certificate_pem: ${file:/etc/gateway/idp-client.crt}
+```
+
+Both values are the PEM contents, not file paths, so load mounted files with `${file:/path}` as the example does. The gateway refuses to start unless `certificate_pem` is a single PEM certificate, without the rest of its chain, whose public key matches `private_key_pem`.
+</code></pre>
+<p></Step></p>
+<p><Step title="Restart the gateway and check the boot log">
+    Restart the gateway and find this line in the boot log:</p>
+<pre><code>```text theme={null}
+[gateway] 2026-10-01T23:07:40.512Z info oidc: client authentication private_key_jwt; certificate CN=claude-gateway, SHA-1 thumbprint DE92821854EE8BAA1D98C758FAA04AABE80B9F57, expires Oct  1 23:07:31 2027 GMT
+```
+
+Compare the SHA-1 thumbprint with the one the IdP shows for the certificate you uploaded. If the certificate has expired or isn't valid yet, the gateway still starts but logs a warning that sign-ins and refreshes will fail until you replace it. To confirm that the IdP accepts the certificate, have one developer sign in through the gateway.
+</code></pre>
+<p></Step>
+</Steps></p>
+<h4 id="rotate-the-client-certificate">Rotate the client certificate</h4>
+<p>The gateway reads the key and certificate once at boot, so a changed file takes effect only after a restart. Rotate in this order so that no token request presents a certificate the IdP doesn't have:</p>
+<ol>
+<li>Upload the new certificate to the IdP alongside the old one.</li>
+<li>Replace the key and certificate files that <code>gateway.yaml</code> loads, then restart the gateway.</li>
+<li>Remove the old certificate from the IdP.</li>
+</ol>
 <h4 id="idp-requests-through-a-forward-proxy">IdP requests through a forward proxy</h4>
 <p>The inference upstreams honor <code>HTTPS_PROXY</code> and <code>HTTP_PROXY</code> on every version. The gateway's own requests to the IdP, discovery, JWKS, token, and userinfo, go direct unless you set <code>oidc.use_proxy: true</code>, which requires v2.1.227 or later. When a proxy variable is set, <code>use_proxy</code> is unset, and the issuer isn't covered by <code>NO_PROXY</code>, the gateway keeps those requests direct and logs a notice at boot asking you to choose; <code>use_proxy: false</code> keeps them direct and silences the notice.</p>
 <p>With <code>use_proxy: true</code>, the pod resolves each IdP endpoint's hostname itself and asks the proxy to <code>CONNECT</code> to the resolved IP address, so the proxy must accept <code>CONNECT</code> to the IP address of every host the discovery document names, not only the issuer. Use an <code>http://</code> proxy URL. <code>ca_cert_pem</code> and the <a href="/docs/en/claude-apps-gateway-deploy#threat-model-summary">SSRF guard</a> apply on the proxied path as well.</p>
@@ -7965,38 +8123,42 @@ If a developer declines, Claude Code exits that session rather than applying the
 
 The</code>cli<code>key was named</code>settings<code>in earlier releases. That spelling is still accepted as an alias, but new deployments should use</code>cli`.
 </p>
-<h4 id="mcp-servers-in-a-policy">MCP servers in a policy</h4>
-<p>To provide MCP servers to the Claude Code clients a policy matches, set <a href="/docs/en/managed-mcp#provide-servers-through-managed-settings"><code>managedMcpServers</code></a> in that policy's <code>cli</code> block. You need Claude Code v2.1.259 or later on the gateway server and on clients.
+<h4 id="context-window-in-terminal-sessions">Context window in terminal sessions</h4>
+<p>Terminal sessions signed in through <code>/login</code> use the 1M context window for Opus 4.7 and later, Sonnet 5 and later, and the Fable models. The model ID needs no <code>[1m]</code> suffix, and sessions compact at about 967K tokens. Before Claude Code v2.1.287 on the developer's machine, Claude Code treated the Opus and Fable models as having a 200K window unless the model ID ended in <code>[1m]</code>.
 
-The gateway checks each entry at boot with <a href="/docs/en/managed-mcp#what-an-entry-can-contain">the same rules Claude Code applies on the client</a>, and if an entry fails a check, the gateway refuses to start and names the entry.
-
-If you write a <code>${VAR}</code> reference in <code>gateway.yaml</code>, the gateway resolves it from its environment at boot through <a href="#secret-expansion">secret expansion</a> before it runs the entry checks, so every matching client receives the literal value and can read it. The <a href="/docs/en/managed-mcp#provide-servers-through-managed-settings">header guidance for provided servers</a> applies to the expanded value.
-
-The gateway rejects the <code>.mcp.json</code> spelling <code>mcpServers</code> in a <code>cli</code> block, and its boot error names <code>managedMcpServers</code> as the key to use. Before v2.1.259, the gateway rejected any MCP server definition in a <code>cli</code> block.
-</p>
-<h4 id="claude-desktop-overlay">Claude Desktop overlay</h4>
-<p>If your organization also deploys <a href="/docs/en/desktop">Claude Desktop</a>, the same gateway serves both clients. Point <code>bootstrapUrl</code>, in Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration</a>, at <code>&lt;listen.public_url&gt;/user/bootstrap</code>. Claude Desktop derives the OAuth issuer from that URL, runs the same device-code sign-in against this gateway, and fetches its configuration from the response.
-
-<Note>
-  Requires Claude Code v2.1.203 or later on the gateway server, and an explicit opt-in: <code>/user/bootstrap</code> returns 404 unless the policy matching the user carries a <code>desktop</code> key. An empty <code>desktop: {}</code> opts a policy in, and a <code>desktop</code> key on the <code>match: {}</code> base layer opts in every policy that inherits it. The audit log records each request as <code>desktop_bootstrap.serve</code> or <code>desktop_bootstrap.denied</code>.
-</Note>
-
-The gateway derives much of the response from the matched policy's <code>cli</code> block and from top-level gateway config:
-
-* The model list, from <code>availableModels</code>
-* Disabled tools, from bare tool-name <code>permissions.deny</code> entries. If you set <code>disabledBuiltinTools</code> in the policy's <code>desktop</code> block, the gateway serves the union of your value and the derived list, so you can disable more tools this way but can't re-enable one you disabled through <code>permissions.deny</code>
-* The egress allowlist, from <code>sandbox.network.allowedDomains</code>. If you set <code>coworkEgressAllowedHosts</code> in the policy's <code>desktop</code> block, the gateway uses that value instead of the derived list
-* An OTLP endpoint that points at the gateway itself, and the signed-in user's identity attributes. The gateway relays the exports it receives at that endpoint to your <code>forward_to</code> destinations. It includes the endpoint and the attributes when you set both <a href="#telemetry"><code>telemetry.forward_to</code></a> and <code>listen.public_url</code>.
-
-  Claude Desktop exports every signal with one encoding: <code>http/protobuf</code>, or <code>http/json</code> when you set <code>OTEL_EXPORTER_OTLP_PROTOCOL</code> or one of its per-signal variants to <code>http/json</code> in the policy's <code>env</code>. Before Claude Code v2.1.261 on the gateway server, the response set <code>http/json</code> regardless, so a collector that accepts only protobuf rejected Claude Desktop's exports
-
-To set <code>disabledBuiltinTools</code>, <code>coworkEgressAllowedHosts</code>, or Claude Desktop's own <code>managedMcpServers</code> setting in a policy's <code>desktop</code> block, you need Claude Code v2.1.232 or later on the gateway server. Claude Desktop's <code>managedMcpServers</code> takes an array value rather than an object.
-
-The gateway omits keys with no Claude Desktop equivalent, such as <code>hooks</code> and scoped permission rules like <code>Bash(npm *)</code>, from the bootstrap response.
-
-Add the optional <code>desktop</code> block alongside <code>cli</code> to set Claude Desktop settings directly. Write settings from Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration reference</a> as flat key names. Leave out keys Claude Desktop reads only from MDM or local files, such as <code>bootstrapUrl</code>; the gateway rejects them at boot. Before v2.1.232, the gateway accepted a fixed list of 11 feature-gate keys, such as <code>chatTabEnabled</code> and <code>disableAutoUpdates</code>, and rejected every other key at boot. Before v2.1.227, the gateway also rejected <code>chatTabEnabled</code> and <code>chatAdvancedFileAnalysisEnabled</code> at boot.
+To have terminal sessions compact at the 200K boundary instead, set the <a href="/docs/en/model-config#set-the-auto-compact-window">auto-compact window</a> in the policy's <code>env</code>:
 
 <code>yaml theme={null}
+managed:
+  policies:
+    - match: {}
+      cli:
+        env:
+          CLAUDE_CODE_AUTO_COMPACT_WINDOW: "200000"</code></p>
+<p>Claude Code applies this variable without showing the developer the approval dialog. The variable applies to every model, including model IDs that end in <code>[1m]</code>.</p>
+<p>To turn off 1M context instead, set <a href="/docs/en/model-config#extended-context"><code>CLAUDE_CODE_DISABLE_1M_CONTEXT: "1"</code></a> in the same <code>env</code> block. Claude Code then treats every model as having a 200K window. In interactive sessions, each developer approves this variable in the <a href="#what-goes-in-cli">approval dialog</a> before it takes effect.</p>
+<h4 id="mcp-servers-in-a-policy">MCP servers in a policy</h4>
+<p>To provide MCP servers to the Claude Code clients a policy matches, set <a href="/docs/en/managed-mcp#provide-servers-through-managed-settings"><code>managedMcpServers</code></a> in that policy's <code>cli</code> block. You need Claude Code v2.1.259 or later on the gateway server and on clients.</p>
+<p>The gateway checks each entry at boot with <a href="/docs/en/managed-mcp#what-an-entry-can-contain">the same rules Claude Code applies on the client</a>, and if an entry fails a check, the gateway refuses to start and names the entry.</p>
+<p>If you write a <code>${VAR}</code> reference in <code>gateway.yaml</code>, the gateway resolves it from its environment at boot through <a href="#secret-expansion">secret expansion</a> before it runs the entry checks, so every matching client receives the literal value and can read it. The <a href="/docs/en/managed-mcp#provide-servers-through-managed-settings">header guidance for provided servers</a> applies to the expanded value.</p>
+<p>The gateway rejects the <code>.mcp.json</code> spelling <code>mcpServers</code> in a <code>cli</code> block, and its boot error names <code>managedMcpServers</code> as the key to use. Before v2.1.259, the gateway rejected any MCP server definition in a <code>cli</code> block.</p>
+<h4 id="claude-desktop-overlay">Claude Desktop overlay</h4>
+<p>If your organization also deploys <a href="/docs/en/desktop">Claude Desktop</a>, the same gateway serves both clients. Point <code>bootstrapUrl</code>, in Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration</a>, at <code>&lt;listen.public_url&gt;/user/bootstrap</code>. Claude Desktop derives the OAuth issuer from that URL, runs the same device-code sign-in against this gateway, and fetches its configuration from the response.</p>
+<p><Note>
+  Requires Claude Code v2.1.203 or later on the gateway server, and an explicit opt-in: <code>/user/bootstrap</code> returns 404 unless the policy matching the user carries a <code>desktop</code> key. An empty <code>desktop: {}</code> opts a policy in, and a <code>desktop</code> key on the <code>match: {}</code> base layer opts in every policy that inherits it. The audit log records each request as <code>desktop_bootstrap.serve</code> or <code>desktop_bootstrap.denied</code>.
+</Note></p>
+<p>The gateway derives much of the response from the matched policy's <code>cli</code> block and from top-level gateway config:</p>
+<ul>
+<li>The model list, from <code>availableModels</code>. <a href="#extended-context-in-claude-desktop">Extended context in Claude Desktop</a> covers each model's 1M context option</li>
+<li>Disabled tools, from bare tool-name <code>permissions.deny</code> entries. If you set <code>disabledBuiltinTools</code> in the policy's <code>desktop</code> block, the gateway serves the union of your value and the derived list, so you can disable more tools this way but can't re-enable one you disabled through <code>permissions.deny</code></li>
+<li>The egress allowlist, from <code>sandbox.network.allowedDomains</code>. If you set <code>coworkEgressAllowedHosts</code> in the policy's <code>desktop</code> block, the gateway uses that value instead of the derived list</li>
+<li>An OTLP endpoint that points at the gateway itself, and the signed-in user's identity attributes. The gateway relays the exports it receives at that endpoint to your <code>forward_to</code> destinations. It includes the endpoint and the attributes when you set both <a href="#telemetry"><code>telemetry.forward_to</code></a> and <code>listen.public_url</code>.</li>
+</ul>
+<p>Claude Desktop exports every signal with one encoding: <code>http/protobuf</code>, or <code>http/json</code> when you set <code>OTEL_EXPORTER_OTLP_PROTOCOL</code> or one of its per-signal variants to <code>http/json</code> in the policy's <code>env</code>. Before Claude Code v2.1.261 on the gateway server, the response set <code>http/json</code> regardless, so a collector that accepts only protobuf rejected Claude Desktop's exports</p>
+<p>To set <code>disabledBuiltinTools</code>, <code>coworkEgressAllowedHosts</code>, or Claude Desktop's own <code>managedMcpServers</code> setting in a policy's <code>desktop</code> block, you need Claude Code v2.1.232 or later on the gateway server. Claude Desktop's <code>managedMcpServers</code> takes an array value rather than an object.</p>
+<p>The gateway omits keys with no Claude Desktop equivalent, such as <code>hooks</code> and scoped permission rules like <code>Bash(npm *)</code>, from the bootstrap response.</p>
+<p>Add the optional <code>desktop</code> block alongside <code>cli</code> to set Claude Desktop settings directly. Write settings from Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration reference</a> as flat key names. Leave out keys Claude Desktop reads only from MDM or local files, such as <code>bootstrapUrl</code>; the gateway rejects them at boot. Before v2.1.232, the gateway accepted a fixed list of 11 feature-gate keys, such as <code>chatTabEnabled</code> and <code>disableAutoUpdates</code>, and rejected every other key at boot. Before v2.1.227, the gateway also rejected <code>chatTabEnabled</code> and <code>chatAdvancedFileAnalysisEnabled</code> at boot.</p>
+<p>```yaml theme={null}
 managed:
   policies:
     - match: { groups: [eng-contractors] }
@@ -8005,25 +8167,65 @@ managed:
       desktop:
         isLocalDevMcpEnabled: false
         disableAutoUpdates: true
-        banner: { text: "Contractor build: internal use only" }</code></p>
-<p>Every key is optional; Claude Desktop applies its own default for any key you omit. The gateway validates each <code>desktop</code> block at boot against the configuration schema Claude Desktop itself uses, so a mistake surfaces at gateway start as an error naming the key rather than reaching every connected desktop. The gateway fails at boot when a block contains:</p>
-<ul>
-<li>An unknown key</li>
-<li>A recognized key whose value Claude Desktop would reject or silently drop, such as an empty value or a misspelled sub-key inside a nested entry. Before v2.1.260, the gateway silently dropped a misspelled field inside a nested object of a <code>managedMcpServers</code> or <code>orgPluginSettings</code> entry instead of failing at boot.</li>
-<li>A key the gateway computes itself: the inference connection, the model list, and the OTLP relay. Configure those through <a href="#upstreams"><code>upstreams</code></a>, <a href="#models"><code>models</code></a>, and the <a href="#telemetry"><code>telemetry</code></a> section's <code>forward_to</code>.</li>
-<li>A legacy alias of a current key. In the boot error, the gateway names the canonical key to write.</li>
-</ul>
-<p>If you use a deprecated value or entry shape, such as a <code>managedMcpServers</code> entry without <code>transport</code>, the gateway starts and logs a warning that names the replacement.</p>
-<p>The gateway validates a <code>desktop</code> block against the schema bundled with its installed version, as it does the <code>cli</code> block. To deliver a setting introduced by a newer Claude Desktop release, upgrade the gateway first. For example, <code>userPluginMarketplacesEnabled</code> and <code>userPluginUploadsEnabled</code> need Claude Code v2.1.260 or later on the gateway server and Claude Desktop 1.37937.0 or later on members' machines.</p>
-<p><code>blockReadsOutsideWorkingDirectories</code>, <code>disableBypassPermissionsMode</code>, <code>configRecheckIntervalMinutes</code>, and <code>sshClientPath</code> need Claude Code v2.1.281 or later on the gateway server. So do the <code>required</code> value of <code>microsoftAuthBroker</code> and the <code>continuousAccessEvaluation</code> field of a Microsoft 365 <code>managedMcpServers</code> entry. Claude Desktop releases that predate the <code>required</code> value read it as <code>disabled</code>, so set <code>required</code> only after every member's Claude Desktop supports it. Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration reference</a> lists the release that first reads each key.</p>
-<p>If you set <code>orgPluginSettings</code> in a policy's <code>desktop</code> block, the gateway serves it in the array form that Claude Desktop 1.15200.0 and later reads. Older desktops ignore the array and enforce no plugin tool policy, so update members to 1.15200.0 or later before you rely on it.</p>
-<p>The gateway fills in keys a policy's <code>desktop</code> block doesn't set from the <code>match: {}</code> catch-all's <code>desktop</code> block, the same way it fills in a policy's <code>cli</code> block from the base. If you set <code>disabledBuiltinTools</code> or <code>builtinToolPolicy</code> in both the base and a role policy, the gateway keeps the base's restriction:</p>
-<ul>
-<li><code>disabledBuiltinTools</code>: the gateway uses the union of the base's list and the policy's list</li>
-<li><code>builtinToolPolicy</code>: if you set a tool to a value other than <code>allow</code> in the base, the gateway keeps that value even if you set <code>allow</code> for the same tool in a role policy</li>
-</ul>
-<p>For every other key, if you set it in the role policy, the gateway uses the role policy's value. The gateway replaces an array or a nested object such as <code>banner</code> whole, so if you set <code>banner.text</code> in a role policy, the gateway drops the base's <code>banner.backgroundColor</code>.</p>
-<p>If you don't deploy Claude Desktop, leave <code>desktop</code> out of your policies entirely; the gateway then returns 404 from <code>/user/bootstrap</code> for every user.</p>
+        banner: { text: "Contractor build: internal use only" }
+<div class="highlight"><pre><span></span><code>Every key is optional; Claude Desktop applies its own default for any key you omit. The gateway validates each `desktop` block at boot against the configuration schema Claude Desktop itself uses, so a mistake surfaces at gateway start as an error naming the key rather than reaching every connected desktop. The gateway fails at boot when a block contains:
+
+* An unknown key
+* A recognized key whose value Claude Desktop would reject or silently drop, such as an empty value or a misspelled sub-key inside a nested entry. Before v2.1.260, the gateway silently dropped a misspelled field inside a nested object of a `managedMcpServers` or `orgPluginSettings` entry instead of failing at boot.
+* A key the gateway computes itself: the inference connection, the model list, and the OTLP relay. Configure those through [`upstreams`](#upstreams), [`models`](#models), and the [`telemetry`](#telemetry) section's `forward_to`.
+* A legacy alias of a current key. In the boot error, the gateway names the canonical key to write.
+
+If you use a deprecated value or entry shape, such as a `managedMcpServers` entry without `transport`, the gateway starts and logs a warning that names the replacement.
+
+The gateway validates a `desktop` block against the schema bundled with its installed version, as it does the `cli` block. To deliver a setting introduced by a newer Claude Desktop release, upgrade the gateway first. For example, `userPluginMarketplacesEnabled` and `userPluginUploadsEnabled` need Claude Code v2.1.260 or later on the gateway server and Claude Desktop 1.37937.0 or later on members' machines.
+
+`blockReadsOutsideWorkingDirectories`, `disableBypassPermissionsMode`, `configRecheckIntervalMinutes`, and `sshClientPath` need Claude Code v2.1.281 or later on the gateway server. So do the `required` value of `microsoftAuthBroker` and the `continuousAccessEvaluation` field of a Microsoft 365 `managedMcpServers` entry. Claude Desktop releases that predate the `required` value read it as `disabled`, so set `required` only after every member's Claude Desktop supports it. Claude Desktop's [managed configuration reference](https://claude.com/docs/third-party/claude-desktop/configuration) lists the release that first reads each key.
+
+If you set `orgPluginSettings` in a policy's `desktop` block, the gateway serves it in the array form that Claude Desktop 1.15200.0 and later reads. Older desktops ignore the array and enforce no plugin tool policy, so update members to 1.15200.0 or later before you rely on it.
+
+The gateway fills in keys a policy's `desktop` block doesn't set from the `match: {}` catch-all's `desktop` block, the same way it fills in a policy's `cli` block from the base. If you set `disabledBuiltinTools` or `builtinToolPolicy` in both the base and a role policy, the gateway keeps the base's restriction:
+
+* `disabledBuiltinTools`: the gateway uses the union of the base's list and the policy's list
+* `builtinToolPolicy`: if you set a tool to a value other than `allow` in the base, the gateway keeps that value even if you set `allow` for the same tool in a role policy
+
+For every other key, if you set it in the role policy, the gateway uses the role policy's value. The gateway replaces an array or a nested object such as `banner` whole, so if you set `banner.text` in a role policy, the gateway drops the base's `banner.backgroundColor`.
+
+If you don't deploy Claude Desktop, leave `desktop` out of your policies entirely; the gateway then returns 404 from `/user/bootstrap` for every user.
+
+#### Extended context in Claude Desktop
+
+If you serve [Claude Desktop](#claude-desktop-overlay) from the gateway, its model picker offers a 1M context option for each listed model that can run with a 1M context window. These include Claude Opus 4.6 and later, Claude Sonnet 4.6 and later, and the Fable models. The option is the model's `[1m]` variant, which [Extended context](/docs/en/model-config#extended-context) describes. You need Claude Code v2.1.284 or later on the gateway server.
+
+A [`models`](#models) entry gets no 1M option when:
+
+* An upstream that can serve the entry maps it to a model without 1M support, including an upstream the gateway reaches only on failover
+* Neither its `id` nor any of its `upstream_model` values names a Claude model, such as a custom alias routed to an application inference profile ARN
+
+To change what the picker offers, use one of these:
+
+* **Start users on the 1M option**: set `modelPrefer1mContext: true` in the policy's `desktop` block. Users who haven't yet chosen a model start on the 1M option when the first listed model has one. Users who already chose a model keep their choice.
+* **Offer the option by hand**: do this if your gateway server runs a version older than v2.1.284, or an entry names no Claude model. List the model twice in `models`, once with its plain ID and once with `[1m]` appended, both with the same `upstream_model` map. Claude Desktop shows the pair as one model with a 1M option. The gateway serves a `[1m]` entry without checking it, so add one only for a model your upstreams serve at 1M.
+
+This example offers the option by hand for a custom alias routed to an application inference profile, and starts new users on it:
+
+```yaml theme={null}
+models:
+  - id: corp-sonnet
+    upstream_model:
+      bedrock: arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/sonnet-5-prod
+  - id: corp-sonnet[1m]
+    upstream_model:
+      bedrock: arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/sonnet-5-prod
+
+managed:
+  policies:
+    - match: {}
+      desktop:
+        modelPrefer1mContext: true
+</code></pre></div></p>
+<h5 id="remove-the-1m-option">Remove the 1M option</h5>
+<p>To remove the option from the picker, set <code>CLAUDE_CODE_DISABLE_1M_CONTEXT: "1"</code> in the <code>env</code> block under the policy's <code>cli</code> key. If you also listed an entry whose <code>id</code> ends in <code>[1m]</code>, the gateway still serves it, so delete that entry too.</p>
+<p>The variable also reaches the terminal sessions of developers the policy matches. For what it changes there, see <a href="/docs/en/model-config#extended-context">Extended context</a>.</p>
 <h4 id="precedence-with-other-managed-sources">Precedence with other managed sources</h4>
 <p>If a device also has an MDM-delivered policy or a local <code>managed-settings.json</code>, gateway-delivered settings rank first. <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">Precedence within the managed tier</a> on the managed settings page says when the local sources apply, and has the <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">keys Claude Code reads from every admin source</a> regardless of which source it selected, such as the sandbox lock keys, <code>forceRemoteSettingsRefresh</code>, and the per-variable <code>env</code> merge. A <a href="/docs/en/settings-reference#policyhelper"><code>policyHelper</code></a> configured in an MDM profile or the managed settings file runs only when the gateway delivers no settings; the entry says what its output replaces.</p>
 <p>Embedding hosts such as <a href="/docs/en/desktop">Claude Desktop</a> can supply policy through the SDK <code>managedSettings</code> option. <a href="/docs/en/managed-settings#parent-settings-from-embedding-hosts">Parent settings from embedding hosts</a> says when Claude Code applies it, and <a href="/docs/en/claude-apps-gateway#restrict-parent-settings">Restrict parent settings</a> lists which allow-direction settings still apply without the <code>allowManaged*Only</code> locks.</p>
@@ -8175,7 +8377,7 @@ telemetry:
 <td><code>limits</code></td>
 <td><code>max_request_header_bytes</code></td>
 <td>unset</td>
-<td>When set, oversize headers return <code>431</code></td>
+<td>Lowers the gateway's 256 KiB limit on a request's total headers. A request over the limit returns <code>431</code>, and a value above 256 KiB has no effect. If developers get <code>431</code> after signing in, see <a href="/docs/en/claude-apps-gateway-deploy#request-headers-too-large-after-sign-in">Request headers too large after sign-in</a>.</td>
 </tr>
 <tr>
 <td><code>limits</code></td>

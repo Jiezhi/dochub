@@ -10500,7 +10500,7 @@ scope: "Which settings files can set the key: user (~/.claude/settings.json), pr
 </tr>
 <tr>
 <td style="text-align: left;"><a href="#claudeinchromedefaultenabled"><code>claudeInChromeDefaultEnabled</code></a></td>
-<td style="text-align: left;">Turn on <a href="/docs/en/chrome">Chrome integration</a> in every interactive CLI session without passing <code>--chrome</code></td>
+<td style="text-align: left;">Turn on <a href="/docs/en/chrome">Chrome integration</a> when a session starts, in the interactive CLI and the VS Code extension</td>
 <td style="text-align: left;">Global config settings</td>
 <td style="text-align: left;">Global config</td>
 </tr>
@@ -10950,7 +10950,7 @@ scope: "Which settings files can set the key: user (~/.claude/settings.json), pr
 </tr>
 <tr>
 <td style="text-align: left;"><a href="#modelsettings"><code>modelSettings</code></a></td>
-<td style="text-align: left;">Keep a saved <a href="/docs/en/model-config#adjust-effort-level">effort level</a> per model, or cap one model's effort</td>
+<td style="text-align: left;">Keep a saved <a href="/docs/en/model-config#adjust-effort-level">effort level</a> or <a href="/docs/en/model-config#set-the-auto-compact-window">auto-compact window</a> per model, or cap one model's effort</td>
 <td style="text-align: left;">Model and responses</td>
 <td style="text-align: left;">Any file</td>
 </tr>
@@ -12068,7 +12068,10 @@ This example sets contracted rates for Sonnet 4.6 and then reduces every figure,
 <p>To cap one model's effort rather than set its level, add a <a href="#maxeffortlevel"><code>maxEffortLevel</code></a> field to that model's entry. The field requires Claude Code v2.1.267 or later.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Any file</code></a></li>
-<li><strong>Type</strong>: object mapping a model name to an object with an <code>effortLevel</code> field, one of <code>"low"</code>, <code>"medium"</code>, <code>"high"</code>, or <code>"xhigh"</code>, a <a href="#maxeffortlevel"><code>maxEffortLevel</code></a> field, or both</li>
+<li><strong>Type</strong>: object mapping a model name to an object with any of these fields:</li>
+<li><code>effortLevel</code>: one of <code>"low"</code>, <code>"medium"</code>, <code>"high"</code>, or <code>"xhigh"</code></li>
+<li><a href="#maxeffortlevel"><code>maxEffortLevel</code></a>: the highest effort level the model may run at</li>
+<li><code>autoCompactWindow</code>: a number of tokens from <code>100000</code> to <code>1000000</code>, or <code>"auto"</code> for the window tuned for the model. <a href="/docs/en/model-config#set-the-auto-compact-window"><code>/autocompact</code></a> saves here. For that model, the value takes precedence over a top-level <a href="#autocompactwindow"><code>autoCompactWindow</code></a> in the same settings file. Requires Claude Code v2.1.288 or later</li>
 <li><strong>Default</strong>: unset</li>
 </ul>
 <p>Claude Code writes each entry under the model's canonical name, such as <code>claude-opus-5-5</code>, and matches that model's alias, date-suffixed, <code>[1m]</code>, and recognized provider-specific IDs to the same entry.</p>
@@ -13066,7 +13069,7 @@ This hides your AWS credentials file and masks the `gh` hosts file, substituting
 }
 <div class="highlight"><pre><span></span><code>### `sandbox.credentials.envVars`
 
-Protect environment variables from sandboxed commands. With `"mode": "deny"`, Claude Code removes the variable from the environment of sandboxed commands. With `"mode": "mask"`, sandboxed commands see a per-session sentinel value, and the sandbox proxy substitutes the real value on outbound requests to that entry's `injectHosts`, so tools such as `gh` and `npm` keep authenticating without ever holding the real credential. `"mode": "mask"` requires Claude Code v2.1.199 or later.
+Protect environment variables from sandboxed commands. With `"mode": "deny"`, Claude Code removes the variable from the environment of sandboxed commands. With `"mode": "mask"`, sandboxed commands see a per-session sentinel value, and the sandbox proxy substitutes the real value on outbound requests to that entry's `injectHosts`, so tools such as `gh` and `npm` keep authenticating without ever holding the real credential.
 
 * **Scope**: [`Any file`](#scopes). Claude Code drops `mask` entries from project `.claude/settings.json` and local `.claude/settings.local.json`.
 * **Type**: array of objects, each with `name` and a `mode` of `"deny"` or `"mask"`, plus the optional [mask fields for environment variables](#mask-fields-for-environment-variables)
@@ -13086,7 +13089,7 @@ This removes `NPM_TOKEN` from sandboxed commands and masks `GITHUB_TOKEN`, subst
   }
 }
 </code></pre></div></p>
-<p>The <code>name</code> must start with a letter or underscore and contain only letters, digits, and underscores. Claude Code merges the arrays from every settings scope the session loads, and applies <code>deny</code> when the same variable appears with both modes. <a href="/docs/en/sandboxing#protect-credentials">Protect credentials</a> covers what still applies from sources you exclude with <code>--setting-sources</code>. <code>mask</code> entries require Claude Code v2.1.199 or later.</p>
+<p>The <code>name</code> must start with a letter or underscore and contain only letters, digits, and underscores. Claude Code merges the arrays from every settings scope the session loads, and applies <code>deny</code> when the same variable appears with both modes. <a href="/docs/en/sandboxing#protect-credentials">Protect credentials</a> covers what still applies from sources you exclude with <code>--setting-sources</code>.</p>
 <p><code>mask</code> substitution runs only through the sandbox proxy, so set <a href="#sandbox-network-tlsterminate"><code>sandbox.network.tlsTerminate</code></a>, or <a href="#sandbox-credentials-allowplaintextinject"><code>allowPlaintextInject</code></a> for plain-HTTP test networks; see <a href="/docs/en/sandboxing#mask-credentials">Mask credentials</a>. Claude Code accepts but ignores the <code>mask</code> fields on a <code>deny</code> entry.</p>
 <p><span id="sandbox-credentials-envvars-extract" /></p>
 <p><span id="sandbox-credentials-envvars-onextractnomatch" /></p>
@@ -13127,7 +13130,7 @@ This removes `NPM_TOKEN` from sandboxed commands and masks `GITHUB_TOKEN`, subst
 <tr>
 <td style="text-align: left;"><code>injectHosts</code></td>
 <td style="text-align: left;">array of strings, each a host that <a href="#sandbox-network-alloweddomains"><code>sandbox.network.allowedDomains</code></a> also admits</td>
-<td style="text-align: left;">Narrow the hosts where the sandbox proxy substitutes the real value. When unset, the proxy substitutes it on requests to every host in <code>sandbox.network.allowedDomains</code>. Write an IPv6 destination as the bare compressed address, such as <code>"::1"</code>, not the bracketed form; see <a href="/docs/en/sandboxing#ipv6-destinations-in-injecthosts">IPv6 destinations in <code>injectHosts</code></a>. Requires v2.1.199 or later</td>
+<td style="text-align: left;">Narrow the hosts where the sandbox proxy substitutes the real value. When unset, the proxy substitutes it on requests to every host in <code>sandbox.network.allowedDomains</code>. Write an IPv6 destination as the bare compressed address, such as <code>"::1"</code>, not the bracketed form; see <a href="/docs/en/sandboxing#ipv6-destinations-in-injecthosts">IPv6 destinations in <code>injectHosts</code></a></td>
 </tr>
 </tbody>
 </table>
@@ -13155,7 +13158,7 @@ This removes `NPM_TOKEN` from sandboxed commands and masks `GITHUB_TOKEN`, subst
 }
 <div class="highlight"><pre><span></span><code>### `sandbox.credentials.allowPlaintextInject`
 
-Allow `mask` substitution on plain HTTP requests as well as TLS-terminated HTTPS. On plain HTTP the upstream identity is unverified and the credential travels in cleartext, so leave this off outside trusted test networks. Requires Claude Code v2.1.199 or later.
+Allow `mask` substitution on plain HTTP requests as well as TLS-terminated HTTPS. On plain HTTP the upstream identity is unverified and the credential travels in cleartext, so leave this off outside trusted test networks.
 
 * **Scope**: [`User or managed`](#scopes)
 * **Type**: Boolean
@@ -13172,7 +13175,6 @@ Allow `mask` substitution on plain HTTP requests as well as TLS-terminated HTTPS
   }
 }
 </code></pre></div></p>
-<p>Requires Claude Code v2.1.199 or later.</p>
 <h3 id="sandboxcredentialsawspairs"><code>sandbox.credentials.awsPairs</code></h3>
 <p>Group masked environment variables that form one AWS credential for <a href="/docs/en/sandboxing#re-sign-aws-requests">SigV4 re-signing</a> when your credential lives in variables with non-standard names. Claude Code links the conventional <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, and <code>AWS_SESSION_TOKEN</code> trio automatically when you mask their whole values, so you need this key only for other names. Requires Claude Code v2.1.224 or later.</p>
 <ul>
@@ -13451,7 +13453,7 @@ Make the sandbox proxy terminate TLS so it can read the contents of HTTPS reques
   }
 }
 </code></pre></div></p>
-<p>When more than one honored source sets it, Claude Code uses the value from the highest-precedence source: managed settings, then the <code>--settings</code> flag, then user settings. Requires Claude Code v2.1.199 or later.</p>
+<p>When more than one honored source sets it, Claude Code uses the value from the highest-precedence source: managed settings, then the <code>--settings</code> flag, then user settings.</p>
 <p><span id="context-and-memory" /></p>
 <h2 id="memory-and-context">Memory and context</h2>
 <p>Control what Claude Code loads into context, how it compacts, and where it keeps memory and plans. See <a href="/docs/en/context-window">Manage context</a> and <a href="/docs/en/memory">Memory</a>.</p>
@@ -13485,7 +13487,7 @@ Set how full the context window gets before Claude Code [compacts automatically]
   "autoCompactWindow": 500000
 }
 </code></pre></div></p>
-<p>Set it with the <a href="/docs/en/commands#all-commands"><code>/autocompact</code></a> command, which writes this key to your user settings. <a href="/docs/en/model-config#set-the-auto-compact-window">Set the auto-compact window</a> covers how the command, flag, variable, and setting interact.</p>
+<p>The <a href="/docs/en/commands#all-commands"><code>/autocompact</code></a> command saves a window for the current model under <a href="#modelsettings"><code>modelSettings</code></a>, which takes precedence over this key in the same file for that model. <a href="/docs/en/model-config#set-the-auto-compact-window">Set the auto-compact window</a> covers how the command, flag, variable, and setting interact.</p>
 <h3 id="automemorydirectory"><code>autoMemoryDirectory</code></h3>
 <p>Store <a href="/docs/en/memory#storage-location">auto memory</a> in a directory of your choice instead of the per-project default.</p>
 <ul>
@@ -13600,6 +13602,7 @@ This example turns off automatic compaction and routes API requests through a pr
 <li>
 <p>Variables that choose where Claude Code stores or writes its own files: <code>CLAUDE_CONFIG_DIR</code>, <code>CLAUDE_CODE_TMPDIR</code>, and the operating-system directory variables such as <code>HOME</code>, <code>TMPDIR</code>, <code>TMP</code>, <code>TEMP</code>, and the <code>XDG_*</code> family.</p>
 </li>
+<li>Windows variables that pick the programs and machine-wide configuration for the processes Claude Code starts, such as <code>SystemRoot</code>, <code>ComSpec</code>, <code>ProgramData</code>, <code>LOCALAPPDATA</code>, <code>PATHEXT</code>, <code>PSModulePath</code>, and the <code>ProgramFiles</code> family.</li>
 <li>Variables that export session content: <a href="/docs/en/env-vars#variables"><code>OTEL_LOG_RAW_API_BODIES</code></a> and the detailed beta tracing pair <code>ENABLE_BETA_TRACING_DETAILED</code> and <code>BETA_TRACING_ENDPOINT</code>.</li>
 <li>
 <p>The <a href="/docs/en/monitoring-usage">OpenTelemetry exporter</a> variables that turn telemetry on, choose where it goes, or choose what content it captures:</p>
@@ -13687,7 +13690,7 @@ Each turn, Claude sees a [listing of your skills](/docs/en/skills#skill-descript
 <h2 id="interface-and-terminal">Interface and terminal</h2>
 <p>Change how Claude Code looks and behaves in your terminal: theme, editor mode, status line, spinner, notifications inside the session, and accessibility. See <a href="/docs/en/terminal-config">Terminal configuration</a>.</p>
 <h3 id="askuserquestiontimeout"><code>askUserQuestionTimeout</code></h3>
-<p>Let an unanswered <a href="/docs/en/tools-reference"><code>AskUserQuestion</code></a> dialog auto-continue after a period of idle time, submitting whatever options you had already selected. Set it when you step away and want Claude to continue without you. With the default, questions wait until you answer them. Requires Claude Code v2.1.200 or later.</p>
+<p>Let an unanswered <a href="/docs/en/tools-reference"><code>AskUserQuestion</code></a> dialog auto-continue after a period of idle time, submitting whatever options you had already selected. Set it when you step away and want Claude to continue without you. With the default, questions wait until you answer them. For when the timer pauses or never starts, see <a href="/docs/en/tools-reference#question-auto-continue-timeout">Question auto-continue timeout</a>. Requires Claude Code v2.1.200 or later.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>User or managed</code></a></li>
 <li><strong>Type</strong>: string, one of <code>"60s"</code>, <code>"5m"</code>, <code>"10m"</code>, or <code>"never"</code></li>
@@ -14995,7 +14998,7 @@ This entry allows any marketplace repository in the `acme-corp` organization:
 </tr>
 <tr>
 <td>Owner case</td>
-<td>Case-sensitive, like exact-entry matching</td>
+<td>Case-sensitive</td>
 <td>Case-insensitive</td>
 </tr>
 <tr>
@@ -15653,7 +15656,7 @@ This example symlinks `node_modules` and `.cache` from the main repository into 
 
 ### `worktree.bgIsolation`
 
-Choose how [background sessions](/docs/en/agent-view#how-file-edits-are-isolated) isolate their file edits. With `"worktree"`, Claude Code blocks `Edit` and `Write` in the main checkout until the session calls `EnterWorktree`; with `"none"`, background jobs edit the working copy directly. Set `"none"` for a repository where git worktrees are impractical.
+Choose how [background sessions](/docs/en/agent-view#how-file-edits-are-isolated) isolate their file edits. If you moved a session to the background with `←` or `/background`, that session edits files in place whatever this key says. With `"worktree"`, Claude Code blocks `Edit` and `Write` in the main checkout until the session calls `EnterWorktree`; with `"none"`, background jobs edit the working copy directly. Set `"none"` for a repository where git worktrees are impractical.
 
 * **Scope**: [`Any file`](#scopes)
 * **Type**: string, one of:
@@ -15902,7 +15905,7 @@ List the services a machine may reach Claude through, such as the Anthropic API,
   * `"foundry"`: [Microsoft Foundry](/docs/en/microsoft-foundry)
   * `"anthropicAws"`: [Claude Platform on AWS](/docs/en/claude-platform-on-aws)
   * `"mantle"`: the Amazon Bedrock [Mantle endpoint](/docs/en/amazon-bedrock#use-the-mantle-endpoint). A session that [runs Mantle alongside the Invoke API](/docs/en/amazon-bedrock#run-mantle-alongside-the-invoke-api) uses both providers, so list `"bedrock"` and `"mantle"` together for it
-  * `"customEndpoint"`: the Anthropic API or a cloud provider's API sent to another host, such as an [LLM gateway](/docs/en/llm-gateway) named by `ANTHROPIC_BASE_URL`, a provider's `ANTHROPIC_*_BASE_URL` variable, or an `ANTHROPIC_FOUNDRY_RESOURCE` value that isn't a bare resource name. Claude Code admits it only for the exact value a managed [`env`](#env) block pins
+  * `"customEndpoint"`: the Anthropic API or a cloud provider's API sent to another host, such as an [LLM gateway](/docs/en/llm-gateway) named by `ANTHROPIC_BASE_URL` or by a provider's endpoint variable such as `ANTHROPIC_BEDROCK_BASE_URL`. Claude Code admits it only for the exact value a managed [`env`](#env) block pins
   * `"gateway"`: a [Cloud gateway](/docs/en/claude-apps-gateway) sign-in
 * **Default**: unset, so any provider can be used
 
@@ -16560,12 +16563,14 @@ Connect to a running IDE automatically when you start Claude Code from an extern
 
 ### `claudeInChromeDefaultEnabled`
 
-Start every interactive CLI session with [Chrome integration](/docs/en/chrome) on, without passing `--chrome` each time. If you run [`claude remote-control`](/docs/en/remote-control), a session it starts for one of your [project](/docs/en/claude-projects) threads follows this key too, except in `bypassPermissions` mode. Running `/chrome` and selecting **Enabled by default** sets this key for you, as described in [Enable Chrome by default](/docs/en/chrome#enable-chrome-by-default). Appears in `/config` as **Claude in Chrome enabled by default**.
+Start every interactive CLI session with [Chrome integration](/docs/en/chrome) on, without passing `--chrome` each time. If you run [`claude remote-control`](/docs/en/remote-control), a session it starts for one of your [project](/docs/en/claude-projects) threads follows this key too, except in `bypassPermissions` mode. With Claude Code v2.1.287 or later, this key also applies to sessions in the [VS Code extension](/docs/en/vs-code#automate-browser-tasks-with-chrome): see [Enable Chrome by default](/docs/en/chrome#enable-chrome-by-default).
+
+Running `/chrome` and selecting **Enabled by default** sets this key for you. Appears in `/config` as **Claude in Chrome enabled by default**.
 
 * **Scope**: [`Global config`](#scopes)
 * **Type**: Boolean
-  * `true`: Claude Code turns on Chrome integration when an interactive CLI session starts, as it does when you pass `--chrome`
-  * `false`: interactive CLI sessions start with Chrome integration off, and Claude Code stops [offering to set it up](/docs/en/chrome#install-the-extension-when-claude-asks). Pass `--chrome` to turn it on for one interactive session
+  * `true`: Claude Code turns on Chrome integration when an interactive CLI session starts, as it does when you pass `--chrome`. In the VS Code extension, sessions connect to the browser as they start
+  * `false`: interactive CLI sessions start with Chrome integration off, and Claude Code stops [offering to set it up](/docs/en/chrome#install-the-extension-when-claude-asks). Pass `--chrome` to turn it on for one interactive session. In the VS Code extension, a session connects when you type `@browser`, as when the key is unset
 * **Default**: unset, so Chrome integration is off and Claude Code can still offer to set it up
 * **Per-session overrides**: `--chrome` and [`--no-chrome`](/docs/en/cli-reference) take precedence over this key for one interactive session
 

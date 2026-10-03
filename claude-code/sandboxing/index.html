@@ -7454,7 +7454,7 @@ By default, sandboxed commands can write to the current working directory, the p
 }
 </code></pre></div></p>
 <p>These paths are enforced at the OS level, so all commands running inside the sandbox, including their child processes, respect them. This is the recommended approach when a tool needs write access to a specific location, rather than excluding the tool from the sandbox entirely with <code>excludedCommands</code>.</p>
-<p>When you define the same filesystem array in multiple <a href="/docs/en/settings#settings-precedence">settings scopes</a>, Claude Code merges them, combining paths from every scope rather than replacing one scope's array with another's.</p>
+<p>When you define the same filesystem array in multiple <a href="/docs/en/settings#settings-precedence">settings scopes</a>, Claude Code merges them, combining the paths rather than replacing one scope's array with another's. Claude Code leaves an entry out of the merge when a lock under <a href="#keep-developers-from-widening-the-policy">Keep developers from widening the policy</a> covers it.</p>
 <p>If you exclude a source with <a href="/docs/en/cli-reference"><code>--setting-sources</code></a> on the CLI or <a href="/docs/en/agent-sdk/claude-code-features#control-filesystem-settings-with-settingsources"><code>settingSources</code></a> in the Agent SDK, Claude Code ignores its <code>sandbox.filesystem</code> entries, its <code>Edit</code> permission rules, and its <code>Read</code> deny rules when building the sandbox configuration. Requires Claude Code v2.1.246 or later.</p>
 <p>When you edit these filesystem lists during a session, Claude Code <a href="/docs/en/settings#when-edits-take-effect">applies the change to the running session</a>, so the next sandboxed command runs under the new paths.</p>
 <p>Sandbox filesystem paths use standard conventions: <code>/tmp/build</code> is absolute and <code>~/.kube</code> is relative to your home directory. This differs from <a href="/docs/en/permissions#read-and-edit">Read and Edit permission rules</a>, which use <code>//path</code> for absolute and <code>/path</code> for project-relative. For relative paths, trailing slashes, and wildcards, see <a href="/docs/en/settings-reference#sandbox-path-prefixes">Sandbox path prefixes</a>.</p>
@@ -7481,7 +7481,7 @@ By default, sandboxed commands can write to the current working directory, the p
 </tr>
 </tbody>
 </table>
-<p>The example below blocks reading from the entire home directory while still allowing reads from the current project. Place it in your project's <code>.claude/settings.json</code>, because the relative path <code>.</code> resolves to the project root only when the configuration lives in project settings:</p>
+<p>The example below blocks reading from the entire home directory while still allowing reads from the current project. Place it in your project's <code>.claude/settings.json</code>, because the relative path <code>.</code> resolves to the project root when the configuration lives in project settings:</p>
 <p>```json theme={null}
 {
   "sandbox": {
@@ -7613,8 +7613,7 @@ The example below blocks reads of the AWS credentials file and the SSH directory
 <p>There is no built-in credential deny list, so only the files and variables you list are restricted.</p>
 <p><code>sandbox.credentials</code> affects sandboxed Bash commands only. To strip credentials from all subprocesses regardless of sandboxing, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_SUBPROCESS_ENV_SCRUB</code></a>.</p>
 <h3 id="mask-credentials">Mask credentials</h3>
-<p>When you mask a credential, Claude Code shows sandboxed commands a per-session placeholder called the sentinel, and the <a href="#network-isolation">sandbox proxy</a> substitutes the real value on outbound requests to hosts you allow. A <code>deny</code> entry under <a href="#protect-credentials">Protect credentials</a> blocks the credential instead. For files on macOS, Claude Code <a href="#mask-credential-files">blocks the file instead</a> of masking it.</p>
-<p>Masking environment variables requires Claude Code v2.1.199 or later. The <a href="/docs/en/settings-reference#sandbox-credentials"><code>sandbox.credentials</code></a> reference lists every field.</p>
+<p>When you mask a credential, Claude Code shows sandboxed commands a per-session placeholder called the sentinel, and the <a href="#network-isolation">sandbox proxy</a> substitutes the real value on outbound requests to hosts you allow. A <code>deny</code> entry under <a href="#protect-credentials">Protect credentials</a> blocks the credential instead. For files on macOS, Claude Code <a href="#mask-credential-files">blocks the file instead</a> of masking it. The <a href="/docs/en/settings-reference#sandbox-credentials"><code>sandbox.credentials</code></a> reference lists every field.</p>
 <p>Masking requires the following:</p>
 <ul>
 <li><strong>TLS termination</strong>: the proxy substitutes the real value inside request contents, so it has to see them. Set <a href="/docs/en/settings-reference#sandbox-network-tlsterminate"><code>network.tlsTerminate</code></a> so the proxy terminates TLS itself. Without it, masking fails without exposing anything: the command still sees only the sentinel, but the sentinel reaches the server unchanged and authentication fails. Claude Code reports this misconfiguration at startup.</li>
@@ -7738,7 +7737,7 @@ This example masks a GitHub token stored in `~/.config/gh/hosts.yml`. The `extra
 </ul>
 <p>In a <code>WebFetch(domain:...)</code> rule, the sandbox honors two wildcard forms: a leading <code>*.</code>, such as <code>*.example.com</code>, and a bare <code>*</code>. The bare <code>*</code> form requires Claude Code v2.1.186 or later. A wildcard in any other position, such as <code>WebFetch(domain:example.*)</code>, still matches fetches but has no effect on sandboxed commands.</p>
 <p><Note>
-  The built-in proxy enforces the allowlist based on the requested hostname and, by default, does not terminate or inspect TLS traffic. The experimental <a href="/docs/en/settings-reference#sandbox-network-tlsterminate"><code>network.tlsTerminate</code></a> setting, available in Claude Code v2.1.199 and later, makes the built-in proxy terminate TLS itself, which <a href="#mask-credentials"><code>mask</code> credential entries</a> require. See <a href="#security-limitations">Security limitations</a> for the implications of the default, and <a href="#custom-proxy-configuration">Custom proxy configuration</a> if your threat model requires TLS inspection.
+  The built-in proxy enforces the allowlist based on the requested hostname and, by default, does not terminate or inspect TLS traffic. The experimental <a href="/docs/en/settings-reference#sandbox-network-tlsterminate"><code>network.tlsTerminate</code></a> setting makes the built-in proxy terminate TLS itself, which <a href="#mask-credentials"><code>mask</code> credential entries</a> require. See <a href="#security-limitations">Security limitations</a> for the implications of the default, and <a href="#custom-proxy-configuration">Custom proxy configuration</a> if your threat model requires TLS inspection.
 </Note></p>
 <h4 id="hosts-outside-your-allowed-domains">Hosts outside your allowed domains</h4>
 <p>When a sandboxed command connects to a host that isn't in your allowed domains, the command stays in the sandbox and waits for a decision. In an interactive terminal session, the decision depends on your permission mode:</p>
@@ -7990,7 +7989,7 @@ To direct sandboxed commands to your proxy, set the localhost ports it listens o
 }
 </code></pre></div></p>
 <p>If you set a port and also set <code>HTTPS_PROXY</code> or <code>HTTP_PROXY</code>, Claude Code doesn't forward what sandboxed commands send to your proxy on to the proxy those variables name. To reach a corporate proxy, configure your own proxy to forward to it.</p>
-<p>Which files can set a port depends on your other sandbox settings:</p>
+<p>Which files can set a port depends on your other sandbox settings. The first case that matches applies:</p>
 <ul>
 <li><strong><code>allowManagedDomainsOnly</code> is on</strong>: managed settings only</li>
 <li><strong>The sandbox is <a href="#repository-settings-under-an-admin-required-sandbox">admin-required</a>, or a <a href="#locks-that-apply-without-an-admin-required-sandbox">narrower network lock</a> applies</strong>: managed settings, <code>--settings</code>, and user settings</li>

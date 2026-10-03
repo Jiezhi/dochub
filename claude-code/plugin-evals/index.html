@@ -7175,7 +7175,7 @@ input_match: '"skill"\s*:\s*"(?:[\w-]+:)?your-skill-name"'
 <p>A grader's frontmatter sets its <code>type</code>, and optionally a <code>weight</code> that makes it count for more of the run's score and an <a href="#compare-against-a-no-plugin-baseline"><code>arm</code></a> that controls how it's scored against the baseline. Of the six types, <code>regex</code>, <code>tool_used</code>, <code>tool_order</code>, and <code>file_exists</code> are computed from the transcript and files and cost nothing, while <code>llm</code> and <code>baseline</code> call a judge model and add to the run's cost.</p>
 <p>There are no custom-code graders.</p>
 <p><a href="#grader-types">Grader types</a> lists each type's options and pass condition, and <a href="#what-a-grader-can-look-at">what a grader can look at</a> lists the values <code>target</code> and <code>focus</code> accept.</p>
-<p>The judge for <code>llm</code> and <code>baseline</code> graders is a small fast model by default. Pass <code>--judge-model sonnet</code> or a full model ID to use a stronger one for nuanced rubrics.</p>
+<p>By default, the judge for <code>llm</code> and <code>baseline</code> graders is the model Claude Code uses for background tasks. Pass <code>--judge-model sonnet</code> or a full model ID to choose the judge yourself.</p>
 <h4 id="choose-graders-that-give-a-stable-signal">Choose graders that give a stable signal</h4>
 <p>An <code>llm</code> grader asks a model for a verdict, so its answer can differ between runs, and it differs more the longer the text it has to read. These habits keep a suite's scores steady enough to trust:</p>
 <ul>
@@ -7261,7 +7261,7 @@ Created issue #4821: {{input.title}}
 <li><strong>Substitutions</strong>: insert fields from the call's input with <code>{{input.&lt;field&gt;}}</code>, and the contents of a fixture file beside the mock with <code>{{file:fixtures/{input.&lt;field&gt;}.json}}</code>.</li>
 <li><strong><code>expect:</code></strong>: the <code>expect:</code> block guards the input. If a call violates it, the run aborts with score 0 and records why, so a case can assert what your plugin asked the server to do.</li>
 <li><strong><code>error: true</code></strong>: set <code>error: true</code> to return the body as a tool error instead.</li>
-<li><strong><code>type: agent</code></strong>: set <code>type: agent</code> to have a small model answer as the server from instructions in the body.</li>
+<li><strong><code>type: agent</code></strong>: set <code>type: agent</code> to have the judge model answer as the server from instructions in the body.</li>
 </ul>
 <p>The <a href="#mock-files">mock file reference</a> lists every key and the <code>_server.md</code> and <code>_tools.json</code> files.</p>
 <p>To grade the calls themselves, point a grader at <code>target: mock_calls</code>.</p>
@@ -7327,7 +7327,7 @@ This table covers the options for run count, models, scoring, cost, tool grants,
 | `--runs &lt;n&gt;` | Each case's `runs`, else 3 | Runs per case per arm |
 | `-j`, `--concurrency &lt;n&gt;` | `1` | Run up to this many agent runs at once, from 1 to 8. They share your account's rate limit, so this shortens wall-clock time rather than raising throughput past that limit. Results keep case order |
 | `--model &lt;model&gt;` | Each case's `model`, else `ANTHROPIC_MODEL` if set, else Claude Code's default | Model for the agent under test. Pin it in CI so a model rollout isn't mistaken for a plugin regression |
-| `--judge-model &lt;model&gt;` | A small fast model | Model for `llm` and `baseline` graders |
+| `--judge-model &lt;model&gt;` | The model for [background tasks](#grade-the-result) | Model for `llm` and `baseline` graders |
 | `--ablation &lt;mode&gt;` | Decided per case; see [Score against the no-plugin baseline](#compare-against-a-no-plugin-baseline) | Whether to also run each case without the plugin to measure what it adds. `none` runs one arm; `with-without` adds the no-plugin baseline |
 | `--threshold &lt;0..1&gt;` | `1.0` | A case passes when its with-arm score is at least this. Any case below it makes the command exit 1 |
 | `--max-cost-usd &lt;usd&gt;` | No ceiling | A ceiling on the run's list-price cost estimate, not on plan usage. Checked before each run starts. Once spent, nothing further starts; runs that already started finish, so spend can pass the ceiling by those runs. If any run is left unstarted, the command exits 2 with partial results |
@@ -7600,7 +7600,7 @@ A `&lt;tool&gt;.md` file under `mocks/&lt;server&gt;/` answers one tool. Its bod
 
 | Key | Default | Purpose |
 | :- | :- | :- |
-| `type` | `fixed` | `fixed` returns the body as written. `agent` treats the body as instructions for a small model that acts as the server for the run and sees earlier calls as history |
+| `type` | `fixed` | `fixed` returns the body as written. `agent` treats the body as instructions for the [judge model](#command-options), which acts as the server for the run and sees earlier calls as history |
 | `expect` | unset | A map from dotted input paths to a type name such as `string`, `number`, `boolean`, `array`, or `object`, a `/regex/`, a literal, or a list of allowed literals. A call that violates it aborts the run with score 0 and is reported as `aborted` with the server, tool, and reason |
 | `error` | `false` | `fixed` only. Return the body as a tool error |
 | `abort_when` | unset | `agent` only. Prose listing the only conditions under which the agent may abort the run |

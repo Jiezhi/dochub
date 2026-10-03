@@ -1930,6 +1930,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#plugin-marketplace-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin marketplace requests
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1943,6 +1954,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#request-headers-too-large-after-sign-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request headers too large after sign-in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -6749,6 +6777,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#plugin-marketplace-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin marketplace requests
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6762,6 +6801,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#request-headers-too-large-after-sign-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request headers too large after sign-in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -6820,7 +6876,7 @@ Use this file to discover all available pages before exploring further.</p>
   <strong>Deploy on your private network.</strong> Claude Code only connects to a gateway whose address is private. This is a security guard, because a trusted gateway can push settings that run commands on developer machines. Put the gateway you deploy behind an internal load balancer or VPN and give it a hostname that resolves to private IPs only. If your internal network is numbered from public IPv4 space your organization owns, see <a href="/docs/en/claude-apps-gateway#allow-a-gateway-on-public-address-space-you-own">Allow a gateway on public address space you own</a>.
 </Note></p>
 <h2 id="identity-provider-setup">Identity provider setup</h2>
-<p>Register a confidential OAuth/OpenID Connect (OIDC) web application with a single redirect URI, <code>https://&lt;gateway&gt;/oauth/callback</code>, and assign it to the users or groups who should have gateway access.</p>
+<p>Register a confidential OAuth/OpenID Connect (OIDC) web application with a single redirect URI, <code>https://&lt;gateway&gt;/oauth/callback</code>, and assign it to the users or groups who should have gateway access. The gateway authenticates to the IdP with the registration's client secret, or with a certificate you upload to the registration if your IdP uses <a href="/docs/en/claude-apps-gateway-config#certificate-client-authentication">certificate credentials</a> instead.</p>
 <p>Any OIDC-compliant IdP works: Okta, Microsoft Entra ID, Google Workspace, Keycloak, Dex, PingFederate, and others. The IdP must meet three requirements:</p>
 <ul>
 <li>Serves <code>/.well-known/openid-configuration</code>, over HTTPS in production; the gateway accepts an <a href="/docs/en/claude-apps-gateway-config#oidc"><code>http://</code> issuer</a>, and a loopback issuer additionally requires <code>CLAUDE_GATEWAY_ALLOW_LOOPBACK=1</code></li>
@@ -7086,13 +7142,22 @@ rate_limits:
 <li><strong>Host-process traffic</strong>: the host process is the Claude Code CLI. <code>claude gateway</code> runs under the same third-party rules as Amazon Bedrock and Google Cloud's Agent Platform deployments and sends nothing to Anthropic. Before v2.1.227, the host process sent startup telemetry such as product version and platform, which setting <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> in the container environment turned off. Those releases also sent one <code>HEAD</code> request at boot, with no body or credentials, to <code>/api/hello</code> on <code>https://api.anthropic.com</code>, or on <code>ANTHROPIC_BASE_URL</code> when the environment set it, unless the environment also set a proxy variable such as <code>HTTPS_PROXY</code> or an mTLS client certificate. They ignored the response, so blocking that request at the egress firewall didn't affect the gateway.</li>
 <li><strong>Client analytics</strong>: the CLI disables its own usage analytics and error reporting while signed in to a gateway. Before the first sign-in, the CLI still sends startup events to Anthropic, including on machines whose managed settings force gateway sign-in. To keep those off too, deliver <a href="/docs/en/managed-settings#turn-telemetry-off-for-your-organization"><code>DISABLE_TELEMETRY</code></a> in the same <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">client-side managed settings</a> that force gateway sign-in.</li>
 <li><strong>Error reporting</strong>: the CLI turns error reporting off whenever its model requests go to any endpoint other than Anthropic's first-party API, such as Amazon Bedrock or a custom <code>ANTHROPIC_BASE_URL</code>.</li>
-<li><strong>Client machines</strong>: developers' CLIs still send WebFetch hostname checks and version checks to Anthropic unless <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> and <code>skipWebFetchPreflight: true</code> are set. See <a href="/docs/en/data-usage">data usage</a>.</li>
+<li><strong>Client machines</strong>: developers' CLIs still send WebFetch hostname checks and version checks to Anthropic unless <code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> and <code>skipWebFetchPreflight: true</code> are set. <a href="#plugin-marketplace-requests">Plugin marketplace requests</a> have their own off switches. See <a href="/docs/en/data-usage">data usage</a>.</li>
 <li><strong>Survey ratings</strong>: while signed in to a gateway, the CLI disables the Anthropic-bound rating upload together with the analytics streams, so it doesn't send ratings to Anthropic.</li>
 <li><strong>Transcript sharing</strong>: choosing Yes on a survey's transcript-share prompt writes a local file under <code>~/.claude/feedback-bundles/</code> instead of uploading to Anthropic.</li>
 <li><strong>Client updates</strong>: update checks are separate from gateway traffic. Pin versions through your own distribution and set <code>DISABLE_UPDATES</code> if laptops must not fetch releases. <code>DISABLE_AUTOUPDATER</code> stops only background updates while <code>claude update</code> still works.</li>
 <li><strong>TLS</strong>: serve <code>public_url</code> over HTTPS in production, either from the gateway's own listener via <code>listen.tls</code> or from a TLS-terminating ingress in front of plain-HTTP replicas, with <code>listen.public_url</code> set in both cases. The gateway doesn't refuse plain HTTP. The IdP must serve HTTPS in production, and Postgres supports <code>?sslmode=require</code>. Set <code>Strict-Transport-Security</code> at your ingress.</li>
 <li><strong>Vulnerability disclosure</strong>: follow <a href="/docs/en/security#reporting-security-issues">Reporting security issues</a></li>
 </ul>
+<h3 id="plugin-marketplace-requests">Plugin marketplace requests</h3>
+<p>Claude Code fetches plugin marketplaces directly from each developer's machine, not through the gateway. <a href="/docs/en/network-config#network-access-requirements">Network access requirements</a> lists the hosts.</p>
+<p>The first time a developer starts an interactive terminal session, Claude Code registers the official marketplace, <code>claude-plugins-official</code>. It downloads the catalog from <code>downloads.claude.ai</code> and, if that fails, clones it from <code>github.com</code>. <a href="/docs/en/plugins/loading#which-marketplaces-and-plugins-auto-update">Which marketplaces and plugins auto-update</a> covers later refreshes.</p>
+<p><code>CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</code> doesn't stop the first registration. Either of these managed settings does:</p>
+<ul>
+<li><strong>A marketplace list</strong>: a <a href="/docs/en/plugins/org#allowlist-with-strictknownmarketplaces"><code>strictKnownMarketplaces</code></a> allowlist that leaves the marketplace out, or a <a href="/docs/en/plugins/org#blocklist-with-blockedmarketplaces"><code>blockedMarketplaces</code></a> entry that names it</li>
+<li><strong>An environment variable</strong>: <code>CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL</code> set to <code>"1"</code> in the managed <a href="/docs/en/plugins/org#turn-updates-off-for-the-whole-fleet"><code>env</code> block</a></li>
+</ul>
+<p>The first registration can run before the developer signs in to the gateway, when no gateway policy has arrived. To cover that first start, deliver your choice in <a href="/docs/en/claude-apps-gateway-config#client-side-managed-settings">client-side managed settings</a> as well as in the gateway policy's <a href="/docs/en/claude-apps-gateway-config#what-goes-in-cli"><code>cli</code> block</a>.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>For questions and feedback, use <a href="https://support.claude.com/en/collections/14445694-claude-code">Claude Code support</a>, or open an issue on the <a href="https://github.com/anthropics/claude-code/issues">Claude Code GitHub repository</a>. When reporting a problem, include:</p>
 <ul>
@@ -7226,6 +7291,11 @@ rate_limits:
 <td>Set <a href="/docs/en/claude-apps-gateway-config#oidc"><code>oidc.scope_on_refresh: true</code></a>, available in gateway v2.1.260 or later, so the refresh request asks for <code>openid</code> again. Some IdPs, such as Okta, return an id_token on refresh only when asked. On PingFederate, enable <strong>Return ID Token On Refresh Grant</strong> under <strong>Applications &gt; OAuth &gt; OpenID Connect Policy Management</strong> instead. The key doesn't change PingFederate's behavior. For other IdPs that still omit it, check whether the userinfo endpoint accepts access tokens issued by a refresh. As a stopgap, raise <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a>. See <a href="#identity-provider-setup">Identity provider setup</a> for the deprovisioning tradeoff.</td>
 </tr>
 <tr>
+<td>A developer signs in, then every request from that session fails with a <code>431</code> error</td>
+<td>The session token in every request's <code>Authorization</code> header lists the developer's IdP groups, so for a developer in many groups the headers can total more than the gateway accepts</td>
+<td>See <a href="#request-headers-too-large-after-sign-in">Request headers too large after sign-in</a> for which limit applies and what to change</td>
+</tr>
+<tr>
 <td>Every Amazon Bedrock request returns 502; log shows <code>Could not load credentials from any providers</code></td>
 <td>On EC2, IMDSv2's default hop limit of 1 blocks the instance-metadata request from inside the container. Boot and <code>/readyz</code> pass anyway because the AWS SDK resolves instance credentials on the first request, not at client construction</td>
 <td>Raise the hop limit with <code>aws ec2 modify-instance-metadata-options --instance-id &lt;id&gt; --http-put-response-hop-limit 2</code>, or set it in the launch template. The change applies to every container on the instance. Prefer ECS task roles where available, which read credentials from the ECS container-credentials endpoint and avoid the change entirely, or apply the change on a dedicated gateway instance to limit the exposure.</td>
@@ -7289,6 +7359,15 @@ rate_limits:
 </table>
 <p>The <code>Cloud gateway sign-in was not completed</code> message names the gateway hostname. When Claude Code has both the pinned fingerprint and the presented one, the message also shows the first 16 characters of each.</p>
 <p>If Claude Code reports <code>couldn't load your organization's managed settings</code> after a gateway sign-in, Claude Code names the reason, restarts in place, and resumes the conversation. If Claude Code can't restart, for example in a background session, Claude Code ends the session and keeps the sign-in.</p>
+<h3 id="request-headers-too-large-after-sign-in">Request headers too large after sign-in</h3>
+<p>A developer's requests can fail with a <code>431</code> error after sign-in when the developer belongs to many IdP groups.</p>
+<p>The gateway answers <code>431</code> when a request's headers total more than 256 KiB, or more than <a href="/docs/en/claude-apps-gateway-config#http-tuning"><code>limits.max_request_header_bytes</code></a> if you set it. It writes no log line or audit event for these requests. Gateway versions before v2.1.284 answer <code>431</code> above 16 KiB.</p>
+<p>What to change depends on your gateway's version and configuration:</p>
+<ul>
+<li><strong>Gateway older than v2.1.284</strong>: upgrade the gateway</li>
+<li><strong><code>limits.max_request_header_bytes</code> set</strong>: raise the value or remove the key</li>
+<li><strong>Neither applies, or <code>431</code> continues afterward</strong>: have your IdP emit fewer groups. <a href="#identity-provider-setup">Identity provider setup</a> covers how Okta, Microsoft Entra ID, and Google Workspace supply groups</li>
+</ul>
 <h2 id="related">Related</h2>
 <ul>
 <li><a href="/docs/en/claude-apps-gateway">Claude apps gateway overview</a>: quickstart and developer connection</li>

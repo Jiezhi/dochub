@@ -8043,9 +8043,10 @@ claude --bg --exec 'pytest -x'
 <p>The command runs as a PTY-backed job and appears as a row in agent view, with the most recent line of output as its status. A shell job runs the command in place of Claude, so no model is invoked and the output isn't sent to any session.</p>
 <p>To see the output, attach to the row, press <code>Space</code> to peek without attaching, or run <code>claude logs &lt;id&gt;</code> from your shell. The captured output stays in memory and isn't written to disk. The row and its output clean up automatically about five minutes after the command exits, so read it before then if you need the result.</p>
 <h3 id="how-file-edits-are-isolated">How file edits are isolated</h3>
-<p>Every background session, whether started from agent view, <code>/bg</code>, or <code>claude --bg</code>, starts in your working directory. Before editing files, Claude moves the session into an isolated <a href="/docs/en/worktrees">git worktree</a> under <code>.claude/worktrees/</code>, so parallel sessions can read the same checkout but each writes to its own. Once the session is in its worktree, Claude Code <a href="/docs/en/worktrees#how-claude-code-enforces-isolation">enforces worktree isolation</a> for the session and for any subagents it spawns.</p>
+<p>When you dispatch a background session from agent view or start one with <code>claude --bg</code>, the session starts in your working directory. Before editing files, Claude moves the session into an isolated <a href="/docs/en/worktrees">git worktree</a> under <code>.claude/worktrees/</code>, so parallel sessions can read the same checkout but each writes to its own. Once the session is in its worktree, Claude Code <a href="/docs/en/worktrees#how-claude-code-enforces-isolation">enforces worktree isolation</a> for the session and for any subagents it spawns.</p>
 <p>Claude skips the worktree when:</p>
 <ul>
+<li>You <a href="#from-inside-a-session">moved a session you already had open to the background</a> with <code>←</code> or <code>/background</code>. That session keeps editing files where it was already working</li>
 <li>The session is already inside a linked git worktree, whether Claude created it under <code>.claude/worktrees/</code> or you created it with <code>git worktree add</code> somewhere else</li>
 <li>The file that Claude is editing is inside a linked git worktree, such as one that the session or its subagent created with <code>git worktree add</code></li>
 <li>The working directory isn't a git repository and no <a href="/docs/en/hooks#worktreecreate"><code>WorktreeCreate</code> hook</a> is configured</li>
@@ -8060,11 +8061,11 @@ claude --bg --exec 'pytest -x'
 }
 <div class="highlight"><pre><span></span><code>Outside a git repository, sessions write to the working directory directly and aren't isolated from each other, so avoid dispatching parallel sessions that edit the same files. If you use a different version control system, configure a [`WorktreeCreate` hook](/docs/en/worktrees#non-git-version-control) and Claude isolates edits the same way it does for git.
 
-When the hook fails in a directory that isn't a git repository, Claude skips isolation for that directory and edits the working directory in place. Inside a git repository, Claude Code blocks writes to the shared checkout until Claude moves the session into a worktree.
+When the hook fails in a directory that isn't a git repository, Claude skips isolation for that directory and edits the working directory in place. Inside a git repository, a session that Claude moves into a worktree before editing can't edit files in the shared checkout until that move happens.
 
 To find a session's worktree path, peek the session or attach and check its working directory.
 
-A [subagent](/docs/en/sub-agents) the background session spawns inherits the session's working directory, so its file edits land in the session's worktree rather than your working copy. To give a subagent its own separate worktree instead, set [`isolation: worktree`](/docs/en/sub-agents#supported-frontmatter-fields) in its frontmatter or pass `isolation: "worktree"` when spawning it.
+A [subagent](/docs/en/sub-agents) the background session spawns inherits the session's working directory. Once the session is in a worktree, the subagent's file edits land in that worktree rather than in your working copy. To give a subagent its own separate worktree instead, set [`isolation: worktree`](/docs/en/sub-agents#supported-frontmatter-fields) in its frontmatter or pass `isolation: "worktree"` when spawning it.
 
 When a background session has made code changes in a worktree Claude entered, Claude Code instructs Claude to preserve the work before finishing, so it survives if you delete the session and its worktree:
 
