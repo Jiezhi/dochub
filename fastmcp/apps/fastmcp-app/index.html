@@ -20126,7 +20126,7 @@
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Notes Server"</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">app</span><span class="p">])</span>
 </code></pre></div>
-<p>The model sees one tool: <code>notes_app</code>. Calling it opens the UI. When the user submits the form, <code>CallTool("add_note")</code> fires, the server saves the note, returns the updated list, and <code>SetState("notes", RESULT)</code> writes that list back into state. <code>ForEach("notes")</code> re-renders. The model never sees <code>add_note</code> — it's UI-only.</p>
+<p>With a host that honors app visibility, the model sees one tool: <code>notes_app</code>. Calling it opens the UI. When the user submits the form, <code>CallTool("add_note")</code> fires, the server saves the note, returns the updated list, and <code>SetState("notes", RESULT)</code> writes that list back into state. <code>ForEach("notes")</code> re-renders. <code>add_note</code> is omitted from the model's tool list.</p>
 <h2 id="why-not-just-mcptoolapptrue">Why not just <code>@mcp.tool(app=True)</code>?</h2>
 <p>A fair question. Any <a href="/apps/prefab">Interactive Tool</a> can call a server tool — there's nothing stopping you from putting <code>CallTool("add_note")</code> inside a regular <code>@mcp.tool(app=True)</code>. It works for one or two tools. Things get harder once the app grows:</p>
 <ul>
@@ -20135,11 +20135,12 @@
 <li>How do you keep it all wired correctly as you compose servers?</li>
 </ul>
 <p><code>FastMCPApp</code> owns these concerns. Entry points register as model-visible, backend tools register as UI-only, and hosts act on those declarations to decide what the model sees.</p>
+<p>App tool visibility is not a security boundary. Backend tools remain callable through direct MCP requests by clients that know their names, subject to the server's authentication and authorization checks. Use <a href="/servers/authorization">authorization</a> and server-side validation to enforce access and approval requirements; <a href="/apps/low-level#tool-visibility">visibility metadata</a> only declares the intended audience.</p>
 <p>Composition is handled by never writing the name down. <code>CallTool</code> takes a function reference, and FastMCP resolves it when the UI is serialized — to whatever that tool is actually called by then. Mount the server under a namespace and the button calls <code>notes_add_note</code>; put a gateway in front and it calls whatever the gateway lists. Since you never wrote a name, renaming cannot break it. <a href="/apps/architecture">The architecture page</a> covers how that resolution works.</p>
 <p>The one rule that comes with this: <strong>an app name must be unique within a server.</strong> Composing the same app twice breaks its UI — two copies of <code>FastMCPApp("notes")</code> are indistinguishable no matter what namespaces you mount them under, so FastMCP declines to bind rather than picking one. Name apps for what they serve: <code>FastMCPApp("notes-acme")</code> and <code>FastMCPApp("notes-globex")</code>. <a href="/apps/architecture">The architecture page</a> explains why identity works this way.</p>
 <p>The rest of this page covers each piece in turn.</p>
 <h2 id="appui-entry-points"><code>@app.ui()</code> — entry points</h2>
-<p>Entry points are what the model sees. They return a <code>PrefabApp</code> and default to <code>visibility=["model"]</code>, showing up in the LLM tool list but not callable from within the UI.</p>
+<p>Entry points are what the model sees. They return a <code>PrefabApp</code> and default to <code>visibility=["model"]</code>, asking hosts to include them in the LLM tool list and reject calls to them from the UI.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@app</span><span class="o">.</span><span class="n">ui</span><span class="p">()</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">dashboard</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">PrefabApp</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The model calls this to open the dashboard."""</span>
@@ -20150,7 +20151,7 @@
 </code></pre></div>
 <p><code>@app.ui()</code> supports the same options as <code>@mcp.tool</code>: <code>name</code>, <code>description</code>, <code>title</code>, <code>tags</code>, <code>icons</code>, <code>auth</code>, and <code>timeout</code>.</p>
 <h2 id="apptool-backend-tools"><code>@app.tool()</code> — backend tools</h2>
-<p>Backend tools do the work. By default they're visible only to the UI (<code>visibility=["app"]</code>), not the model.</p>
+<p>Backend tools do the work. By default they declare <code>visibility=["app"]</code>, asking hosts to expose them to the UI and omit them from the model's tool list.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@app</span><span class="o">.</span><span class="n">tool</span><span class="p">()</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">save_contact</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Save a contact and return the updated list."""</span>

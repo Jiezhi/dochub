@@ -19944,22 +19944,29 @@
 <h3 id="tool-visibility">Tool visibility</h3>
 <p>The <code>visibility</code> field controls where a tool appears:</p>
 <ul>
-<li><code>["model"]</code> — visible to the LLM (the default behavior)</li>
+<li><code>["model"]</code> — visible to the LLM</li>
 <li><code>["app"]</code> — callable from within the app UI, kept out of the LLM's tool list</li>
 <li><code>["model", "app"]</code> — both</li>
 </ul>
+<p>Omitting <code>visibility</code> defaults to both audiences.</p>
 <p>This is useful when you have tools that only make sense as part of the app's interactive flow, not as standalone LLM actions.</p>
+<p><strong>App tool visibility is not a security boundary.</strong> <code>visibility=["app"]</code> asks the host to omit a tool from the model's tool list; it does not authorize callers or prevent direct <code>tools/call</code> requests. The server cannot distinguish a model-originated request from an app-originated request on the same MCP connection. Any client that knows the tool's name can call it, subject to the server's <a href="/servers/auth/authentication">authentication</a> and <a href="/servers/authorization">authorization</a> checks. Enforce sensitive operations with those checks and server-side validation, rather than relying on visibility.</p>
 <p>Visibility is a declaration, and on <code>tools/list</code> the host does the filtering — the division the MCP Apps specification defines. Every tool is advertised carrying its <code>visibility</code> metadata, which is also what lets a proxy or gateway forward it: an intermediary can only route to a tool it can see.</p>
-<p>That division assumes a host stands between the server and the model. Where one doesn't, FastMCP applies the declaration itself. <a href="/servers/transforms/tool-search">Tool search</a> and code mode reach the model as ordinary tool output rather than as an advertised listing, and their call-tool proxies execute a name the model supplies — nothing downstream can filter either, so app-only tools are excluded from both. The app's own UI still reaches its backends, because a UI calling by identity is not the model.</p>
-<div class="highlight"><pre><span></span><code><span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span>
+<p>FastMCP also applies the declaration to its own model-facing surfaces. <a href="/servers/transforms/tool-search">Tool search</a> and code mode exclude app-only tools from their results and call-tool proxies. This keeps the model's discovery consistent with the declared audience; direct MCP calls still use the server's authentication and authorization rules.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.apps</span><span class="w"> </span><span class="kn">import</span> <span class="n">AppConfig</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"My App Server"</span><span class="p">)</span>
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span>
     <span class="n">app</span><span class="o">=</span><span class="n">AppConfig</span><span class="p">(</span>
         <span class="n">resource_uri</span><span class="o">=</span><span class="s2">"ui://my-app/view.html"</span><span class="p">,</span>
         <span class="n">visibility</span><span class="o">=</span><span class="p">[</span><span class="s2">"app"</span><span class="p">],</span>
     <span class="p">)</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">refresh_data</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Only callable from the app UI, not by the LLM."""</span>
-    <span class="k">return</span> <span class="n">fetch_latest</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""Refresh data for the app UI."""</span>
+    <span class="k">return</span> <span class="s2">"Latest data"</span>
 </code></pre></div>
 <h3 id="appconfig-fields">AppConfig fields</h3>
 <table>

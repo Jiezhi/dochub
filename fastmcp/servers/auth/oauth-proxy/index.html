@@ -20459,7 +20459,7 @@
 <p><VersionBadge version="2.12.0" /></p>
 <p>The OAuth proxy enables FastMCP servers to authenticate with OAuth providers that <strong>don't support Dynamic Client Registration (DCR)</strong>. This includes virtually all traditional OAuth providers: GitHub, Google, Azure, AWS, Discord, Facebook, and most enterprise identity systems. For providers that do support DCR (like Descope and WorkOS AuthKit), use <a href="/servers/auth/remote-oauth"><code>RemoteAuthProvider</code></a> instead.</p>
 <p>MCP clients expect to register automatically and obtain credentials on the fly, but traditional providers require manual app registration through their developer consoles. The OAuth proxy bridges this gap by presenting a DCR-compliant interface to MCP clients while using your pre-registered credentials with the upstream provider. When a client attempts to register, the proxy returns your fixed credentials. When a client initiates authorization, the proxy handles the complexity of callback forwarding—storing the client's dynamic callback URL, using its own fixed callback with the provider, then forwarding back to the client after token exchange.</p>
-<p>This approach enables any MCP client (whether using random localhost ports or fixed URLs like Claude.ai) to authenticate with any traditional OAuth provider, all while maintaining full OAuth 2.1 and PKCE security.</p>
+<p>This approach enables any MCP client (whether using random localhost ports or fixed URLs like Claude.ai) to authenticate with traditional OAuth providers. By default, the proxy applies consent and browser-binding protections and forwards PKCE upstream. Options that disable these checks reduce the corresponding security protections, as described below.</p>
 <p><Note>
   For providers that support OIDC discovery (Auth0, Google with OIDC
   configuration, Azure AD), consider using <a href="/servers/auth/oidc-proxy"><code>OIDC
@@ -20698,7 +20698,7 @@
   Follows the same authorization path as <code>False</code>: FastMCP skips its consent page and associated browser-binding protections, then redirects directly to the upstream provider. The difference is logging. <code>False</code> emits a security warning, while <code>"external"</code> suppresses that warning as an explicit acknowledgment that the operator is enforcing equivalent consent and transaction-binding protections elsewhere. FastMCP does not provide or verify those external protections.</p>
 <p>Ordinary upstream OAuth consent is generally not equivalent. It typically authorizes FastMCP's shared upstream application without identifying the downstream MCP client or binding approval to that client's transaction. Use <code>"external"</code> only when your surrounding authorization system supplies those protections.</p>
 <p><strong><code>False</code> — disable entirely:</strong>
-  Authorization proceeds directly to the upstream provider without any consent UI. Logs a security warning. Only for local development or testing.</p>
+  Authorization proceeds directly to the upstream provider without FastMCP's consent UI or browser-binding checks. This removes the proxy's protections against confused deputy and AS-in-the-middle attacks. Logs a security warning. Only for local development or testing.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Development/testing only - skip consent screen</span>
 <span class="n">auth</span> <span class="o">=</span> <span class="n">OAuthProxy</span><span class="p">(</span>
     <span class="o">...</span><span class="p">,</span>
@@ -20712,11 +20712,12 @@
 <span class="p">)</span>
 </code></pre></div>
 <p><Warning>
-    Both <code>False</code> and <code>"external"</code> disable FastMCP's consent and browser-binding protections. <code>False</code> warns about this configuration; <code>"external"</code> suppresses the warning because it is an operator acknowledgment that equivalent protections exist elsewhere. Prefer the default <code>True</code> unless you own that external authorization flow.
+    Both <code>False</code> and <code>"external"</code> disable FastMCP's consent and browser-binding protections and reduce security unless equivalent checks are enforced elsewhere. <code>"external"</code> changes logging, not the authorization path: it does not make the flow safe, and FastMCP does not verify the external protections. Without equivalent enforcement, these modes leave the flow exposed to confused deputy and AS-in-the-middle attacks. Prefer the default <code>True</code>.
   </Warning>
 </ParamField></p>
 <p><ParamField body="consent_csp_policy" type="str | None" default="None">
   Content Security Policy for the consent page.</p>
+<p>Setting <code>""</code> removes FastMCP's consent-page CSP, and a custom policy replaces the built-in policy. Disabling or weakening it reduces browser protections against content injection unless your deployment supplies an equivalent CSP header; FastMCP does not verify that header.</p>
 <ul>
 <li><code>None</code> (default): Uses the built-in CSP policy with appropriate directives for form submission</li>
 <li>Empty string <code>""</code>: Disables CSP entirely (no meta tag rendered)</li>
@@ -20824,7 +20825,7 @@ Provider-specific verifiers like <code>GitHubTokenVerifier</code> and <code>Goog
 <li>Shows the user a consent page with the client's details, redirect URI, and requested scopes</li>
 <li>If the user approves (or the client was previously approved), sets a consent binding cookie and redirects to the upstream provider using the fixed callback URL</li>
 </ol>
-<p>This dual-PKCE approach maintains end-to-end security at both the client-to-proxy and proxy-to-provider layers. The consent step protects against confused deputy attacks by ensuring you explicitly approve each client before it can complete authorization, and the consent binding cookie ensures that only the browser that approved consent can complete the callback.</p>
+<p>With the default configuration, this dual-PKCE approach protects both the client-to-proxy and proxy-to-provider layers. The consent step protects against confused deputy attacks by requiring explicit client approval, and the consent binding cookie ensures that only the browser that approved consent can complete the callback. <code>require_authorization_consent=False</code> and <code>"external"</code> skip both consent and cookie verification; <code>"remember"</code> can silently approve return visits and provides weaker protection than <code>True</code>.</p>
 <h3 id="callback-phase">Callback Phase</h3>
 <p>After user authorization, the provider redirects back to the proxy's fixed callback URL. The proxy:</p>
 <ol>
@@ -20879,6 +20880,7 @@ Provider-specific verifiers like <code>GitHubTokenVerifier</code> and <code>Goog
 <p>The proxy issues its own refresh tokens that map to upstream refresh tokens. When a client uses a FastMCP refresh token, the proxy refreshes the upstream token and issues a new FastMCP access token.</p>
 <h3 id="pkce-forwarding">PKCE Forwarding</h3>
 <p>The OAuth proxy automatically handles PKCE (Proof Key for Code Exchange) when working with providers that support or require it. The proxy generates its own PKCE parameters to send upstream while separately validating the client's PKCE, ensuring end-to-end security at both layers.</p>
+<p>Setting <code>forward_pkce=False</code> removes PKCE from the proxy-to-provider exchange, reducing protection against upstream authorization-code interception. Client-to-proxy PKCE remains enforced. Use this override only for an upstream provider that cannot support PKCE.</p>
 <p>This is enabled by default via the <code>forward_pkce</code> parameter and works seamlessly with providers like Google, Azure AD, and GitHub. Only disable it for legacy providers that don't support PKCE:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Disable PKCE forwarding only if upstream doesn't support it</span>
 <span class="n">auth</span> <span class="o">=</span> <span class="n">OAuthProxy</span><span class="p">(</span>
@@ -21054,6 +21056,7 @@ Configure the following parameters together: provide a unique <code>jwt_signing_
 <h3 id="confused-deputy-attacks">Confused Deputy Attacks</h3>
 <p><VersionBadge version="2.13.0" /></p>
 <p>A confused deputy attack allows a malicious client to steal your authorization by tricking you into granting it access under your identity.</p>
+<p>The consent and browser-session protections described here apply when <code>require_authorization_consent</code> is <code>True</code> or <code>"remember"</code>. Setting it to <code>False</code> or <code>"external"</code> disables both protections. Ordinary upstream OAuth consent generally approves FastMCP's shared upstream application, not the downstream MCP client's transaction, so it does not replace these checks.</p>
 <p>The OAuth proxy works by bridging DCR clients to traditional auth providers, which means that multiple MCP clients connect through a single upstream OAuth application. An attacker can exploit this shared application by registering a malicious client with their own redirect URI, then sending you an authorization link. When you click it, your browser goes through the OAuth flow—but since you may have already authorized this OAuth app before, the provider might auto-approve the request. The authorization code then gets sent to the attacker's redirect URI instead of a legitimate client, giving them access under your credentials.</p>
 <h4 id="mitigation">Mitigation</h4>
 <p>FastMCP's OAuth proxy defends against confused deputy attacks with two layers of protection:</p>
