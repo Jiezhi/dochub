@@ -3861,6 +3861,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../python-sdk/fastmcp-cli-apps_dev_security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps_dev_security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../python-sdk/fastmcp-cli-auth/" class="md-nav__link">
         
   
@@ -20143,6 +20171,7 @@ Token verification operates somewhat outside the formal MCP authentication flow,
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Protected API"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">verifier</span><span class="p">)</span>
 </code></pre></div>
 <p>This configuration creates a server that validates JWTs issued by <code>auth.yourcompany.com</code>. The verifier periodically fetches public keys from the JWKS endpoint and validates incoming tokens against those keys. Only tokens with the correct issuer and audience claims will be accepted.</p>
+<p>The verifier caches keys for one hour and shares a refresh among concurrent requests. <code>jwks_refresh_interval</code> sets the minimum time between refresh attempts, including failed attempts, and defaults to 30 seconds. A token with a newly rotated key ID may need to wait until that interval passes. Tokens using a known, fresh key continue to validate during the interval. Set <code>jwks_refresh_interval=0</code> to allow a refresh on every cache miss.</p>
 <p>The <code>issuer</code> parameter ensures tokens come from your trusted authentication system, while <code>audience</code> validation prevents tokens intended for other services from being accepted by your MCP server.</p>
 <p><code>JWTVerifier</code> accepts RSA (<code>RS*</code> and <code>PS*</code>), ECDSA (<code>ES*</code>), and Edwards-curve (<code>Ed25519</code> and <code>Ed448</code>) signatures from JWKS endpoints. Set <code>algorithm</code> when your issuer does not use the default <code>RS256</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="n">verifier</span> <span class="o">=</span> <span class="n">JWTVerifier</span><span class="p">(</span>
@@ -20226,6 +20255,17 @@ The parameter is named <code>public_key</code> for backwards compatibility, but 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Protected API"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">verifier</span><span class="p">)</span>
 </code></pre></div>
 <p>The verifier authenticates to the introspection endpoint using client credentials and queries it whenever a bearer token arrives. FastMCP checks whether the token is active and has sufficient scopes before allowing access.</p>
+<p>If your authorization server returns an <code>aud</code> field, set <code>audience</code> to select tokens for your API. You can provide one audience or a list of allowed audiences. The response must contain a matching string or an array of nonempty strings with at least one match; a missing or malformed <code>aud</code> is rejected when <code>audience</code> is configured.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth.providers.introspection</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntrospectionTokenVerifier</span>
+
+<span class="n">verifier</span> <span class="o">=</span> <span class="n">IntrospectionTokenVerifier</span><span class="p">(</span>
+    <span class="n">introspection_url</span><span class="o">=</span><span class="s2">"https://auth.yourcompany.com/oauth/introspect"</span><span class="p">,</span>
+    <span class="n">client_id</span><span class="o">=</span><span class="s2">"mcp-resource-server"</span><span class="p">,</span>
+    <span class="n">client_secret</span><span class="o">=</span><span class="s2">"your-client-secret"</span><span class="p">,</span>
+    <span class="n">audience</span><span class="o">=</span><span class="s2">"mcp-production-api"</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The default, <code>audience=None</code>, leaves audience selection to your authorization server's introspection policy. The introspection <code>client_id</code> authenticates the request to that server; it does not set the expected token audience.</p>
 <p>Two standard client authentication methods are supported, both defined in RFC 6749:</p>
 <ul>
 <li><strong><code>client_secret_basic</code></strong> (default): Sends credentials via HTTP Basic Auth header</li>

@@ -6728,7 +6728,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p>In your <a href="/docs/en/env-vars#first-session-after-an-install-or-upgrade">first session after an install or upgrade</a>, Claude Code can choose the starting permission mode before its feature flags arrive. That session can start in a different permission mode than the table gives, and your next session matches the table.</p>
+<p>In your <a href="/docs/en/env-vars#first-session-after-an-install-or-upgrade">first session after an install or upgrade</a>, Claude Code can choose the starting permission mode before its feature flags arrive. That session can start in a different permission mode than the table gives.</p>
 <p>When the flag, a settings file, or the built-in default selects <code>auto</code> but auto mode isn't available to the session, Claude Code starts the session in Manual instead. Auto mode is unavailable when the session doesn't meet the <a href="#eliminate-prompts-with-auto-mode">availability requirements</a>, such as a settings file turning it off or a model that doesn't support it, or when Anthropic has temporarily turned it off server-side.</p>
 <p>The first time the built-in default starts one of your sessions in auto mode, Claude Code shows a notice that links to this page:</p>
 <ul>
@@ -7295,7 +7295,7 @@ On Linux and macOS, Claude Code refuses to start in this mode when running as ro
 <li><code>.devcontainer</code></li>
 <li><code>.yarn</code></li>
 <li><code>.mvn</code></li>
-<li><code>.claude</code>, except for <code>.claude/worktrees</code> where Claude stores its own git worktrees</li>
+<li><code>.claude</code>, except for <code>.claude/worktrees</code> where Claude stores its own git worktrees, and except for the markdown files in Claude's own <a href="/docs/en/memory#storage-location">auto memory</a> directory in a session started without <code>--restricted</code></li>
 <li>A directory you loaded with <a href="/docs/en/plugins/mods/create#change-a-mod-with-claude"><code>--plugin-dir</code></a>, because Claude Code reloads and runs a mod's code from it when a file changes</li>
 </ul>
 <p>Protected files:</p>
@@ -7370,6 +7370,11 @@ On Linux and macOS, Claude Code refuses to start in this mode when running as ro
 <td style="text-align: left;"><code>rm -rf "\\"</code></td>
 <td style="text-align: left;">Git Bash on Windows reads a lone backslash as the current drive's root, so the check applies on every platform</td>
 </tr>
+<tr>
+<td style="text-align: left;">Some targets that end in <code>/*</code> or <code>/*/</code></td>
+<td style="text-align: left;"><code>rm -rf logs/*/*</code>, <code>rm -rf logs/*/</code>, <code>cd logs &amp;&amp; rm -rf a/*</code></td>
+<td style="text-align: left;">Claude Code can't tell before the command runs which directories they reach</td>
+</tr>
 </tbody>
 </table>
 <p>To turn off the check on a target that is only command substitution output, set <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_SUBSTITUTION_RM_PROMPT=1</code></a> in the environment that launches Claude Code.</p>
@@ -7377,10 +7382,11 @@ On Linux and macOS, Claude Code refuses to start in this mode when running as ro
 <p>Claude Code also looks inside these constructs:</p>
 <ul>
 <li><strong>Nested commands</strong>: a subshell with <code>(...)</code>, a brace group with <code>{ ...; }</code>, command substitution with <code>$(...)</code> or backticks, or process substitution with <code>&lt;(...)</code>. Claude Code finds a critical-path removal whether it sits inside the nested form, as in <code>(rm -rf ~)</code> or <code>echo "$(rm -rf ~)"</code>, or elsewhere in the same command.</li>
-<li><strong>Inline scripts</strong>: Claude Code checks a script passed to a shell such as <code>sh -c</code> or <code>bash -c</code> for the shell variable and positional parameter <a href="#other-targets-that-count-as-critical-paths">targets</a>.</li>
+<li><strong>Inline scripts</strong>: a script passed to <code>sh</code>, <code>bash</code>, <code>zsh</code>, or a similar POSIX shell with <code>-c</code>, as in <code>bash -c 'rm -rf ~'</code>.</li>
 <li>When the script is double-quoted, the invoking shell expands its variables before the inner shell receives the script. In <code>find . -name '*.tmp' -exec sh -c "rm -rf \"$1\"/*" _ {} \;</code>, the command expands to a removal from the filesystem root once per match, and Claude Code treats it as a critical-path removal.</li>
 <li>A single-quoted script that binds <code>$1</code> to a real value, as <code>sh -c 'rm -rf "$1"/*' _ {}</code> does, isn't flagged.</li>
 </ul>
+<p>To turn off the check on a critical path typed directly in a <code>-c</code> script, such as <code>~</code>, set <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_INLINE_SHELL_RM_PROMPT=1</code></a> in the environment that launches Claude Code.</p>
 <h3 id="rewrite-a-flagged-command">Rewrite a flagged command</h3>
 <p>How to rewrite a command so it passes the check depends on which of the <a href="#other-targets-that-count-as-critical-paths">other targets</a> it uses:</p>
 <ul>

@@ -3861,6 +3861,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../python-sdk/fastmcp-cli-apps_dev_security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps_dev_security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../python-sdk/fastmcp-cli-auth/" class="md-nav__link">
         
   
@@ -20761,6 +20789,34 @@ Provider-specific verifiers like <code>GitHubTokenVerifier</code> and <code>Goog
 <div class="highlight"><pre><span></span><code><span class="n">JWTVerifier</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">required_scopes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"read:user"</span><span class="p">,</span> <span class="s2">"write:data"</span><span class="p">])</span>
 </code></pre></div>
 <p>Dynamic clients created by the proxy will automatically include these scopes in their authorization requests. See the <a href="#token-verification">Token Verification</a> section below for detailed setup.</p>
+<p><code>required_scopes</code> and <code>valid_scopes</code> play different roles. <code>required_scopes</code> is what every token must carry, and it is the set the <code>WWW-Authenticate</code> challenge tells clients to request. <code>valid_scopes</code> is the catalog of scopes clients may request, advertised as <code>scopes_supported</code> in protected resource metadata. MCP clients that follow the challenge request only the required scopes, so a scope that appears only in <code>valid_scopes</code> stays optional.</p>
+<p>When your tools depend on scopes that clients won't know to ask for, you have two options. Adding them to <code>required_scopes</code> makes them mandatory, so token validation rejects any token without them. Overriding <code>get_challenge_scopes</code> asks clients to request them up front while validation stays on the narrower set. FastMCP calls the method with no argument for the server-wide challenge:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth.providers.google</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoogleProvider</span>
+
+<span class="n">GMAIL_READONLY</span> <span class="o">=</span> <span class="s2">"https://www.googleapis.com/auth/gmail.readonly"</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">GmailProvider</span><span class="p">(</span><span class="n">GoogleProvider</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_challenge_scopes</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">required_scopes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">required_scopes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scopes_supported</span>
+        <span class="k">return</span> <span class="n">required_scopes</span>
+
+
+<span class="n">auth</span> <span class="o">=</span> <span class="n">GmailProvider</span><span class="p">(</span>
+    <span class="n">client_id</span><span class="o">=</span><span class="s2">"123456789.apps.googleusercontent.com"</span><span class="p">,</span>
+    <span class="n">client_secret</span><span class="o">=</span><span class="s2">"GOCSPX-abc123..."</span><span class="p">,</span>
+    <span class="n">base_url</span><span class="o">=</span><span class="s2">"http://localhost:8000"</span><span class="p">,</span>
+    <span class="n">required_scopes</span><span class="o">=</span><span class="p">[</span><span class="s2">"openid"</span><span class="p">],</span>
+    <span class="n">valid_scopes</span><span class="o">=</span><span class="p">[</span><span class="s2">"openid"</span><span class="p">,</span> <span class="n">GMAIL_READONLY</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Gmail Server"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
+</code></pre></div>
+<p>The override also sets the default challenge when the provider is wrapped in <code>MultiAuth</code>. Passing <code>required_scopes</code> to <code>MultiAuth</code> replaces it with exactly the scopes you pass.</p>
 <h3 id="custom-parameters">Custom Parameters</h3>
 <p>Some OAuth providers require additional parameters beyond the standard OAuth2 flow. Use <code>extra_authorize_params</code> and <code>extra_token_params</code> to pass provider-specific requirements. For example, Auth0 requires an <code>audience</code> parameter to issue JWT tokens instead of opaque tokens:</p>
 <div class="highlight"><pre><span></span><code><span class="n">auth</span> <span class="o">=</span> <span class="n">OAuthProxy</span><span class="p">(</span>

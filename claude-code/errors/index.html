@@ -3473,6 +3473,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#stale-sandbox-mask-files-left-by-a-killed-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale sandbox mask files left by a killed session
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8107,6 +8118,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#stale-sandbox-mask-files-left-by-a-killed-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale sandbox mask files left by a killed session
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9557,6 +9579,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#has-a-wildcard-before-the-rest-of-the-command">Configuration warnings</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>Denying Bash also turns off the PowerShell tool, so Claude has neither</code></td>
+<td style="text-align: left;"><a href="#denying-bash-also-turns-off-the-powershell-tool">Configuration warnings</a></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>CLAUDE_CODE_DISABLE_1M_CONTEXT is set, but the 200K limit isn't enforced</code></td>
 <td style="text-align: left;"><a href="#the-200k-limit-isnt-enforced">Configuration warnings</a></td>
 </tr>
@@ -9968,7 +9994,7 @@ You've hit your channel's monthly spend limit · an org owner or channel manager
 <p><strong>What to do:</strong></p>
 <ul>
 <li>On Pro and Max, increase your monthly spend limit in <a href="https://claude.ai/settings/usage"><strong>Settings &gt; Usage</strong></a> on claude.ai, or run <code>/usage-credits</code></li>
-<li>On Team and Enterprise, increase the limit in <a href="https://claude.ai/admin-settings/usage"><strong>Admin settings &gt; Usage</strong></a> if you manage billing, or ask an admin to. <code>/usage-credits</code> sends that request to your admin for you</li>
+<li>On Team and Enterprise, increase the limit in <a href="https://claude.ai/admin-settings/usage"><strong>Organization settings &gt; Usage</strong></a> if you manage billing, or ask an admin to. <code>/usage-credits</code> sends that request to your admin for you</li>
 <li>For a channel's limit, ask an org owner or the channel's manager to raise it on claude.ai. See <a href="https://claude.com/docs/claude-tag/admins/set-spend-limit#per-channel-limits">Per-channel limits</a> in the Claude Tag documentation</li>
 <li>If the message names a reset time for your plan's window, you can wait for it instead</li>
 <li>Run <code>/usage</code> to see your plan's windows and when each resets</li>
@@ -13721,106 +13747,116 @@ Permission allow rule (.claude/settings.json): Bash(git -C * status <em>) has a 
 
 In a [background session](/docs/en/agent-view) or with `--output-format json` or `stream-json`, Claude Code writes the warning to the debug log instead of stderr, so machine-read output stays clean. Run with `--debug` to capture it at `~/.claude/debug/&lt;session-id&gt;.txt`. Before v2.1.246, Claude Code accepted these rules without a warning.
 
-&lt;h3 id="crosssessioninbound-must-be-one-of-accept-hold-refuse"&gt;
+### Denying Bash also turns off the PowerShell tool
+
+You removed the whole Bash tool, for example with `--disallowedTools Bash` or with a bare `Bash` or `Bash(*)` [deny rule](/docs/en/permissions#match-all-uses-of-a-tool) in one of your settings files. On Windows with Git Bash installed, [denying Bash also turns the PowerShell tool off](/docs/en/tools-reference#bash-deny-rules-also-turn-off-the-powershell-tool), so the session starts with no shell tool. Claude Code prints this warning at startup:
+
+```text theme={null}
+Denying Bash also turns off the PowerShell tool, so Claude has neither. To use PowerShell, set CLAUDE_CODE_USE_POWERSHELL_TOOL=1.
+</code></pre></div></p>
+<p><strong>What to do:</strong></p>
+<ul>
+<li>To have Claude use PowerShell, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_USE_POWERSHELL_TOOL</code></a> to <code>1</code> in your environment or in the <code>env</code> block of a settings file, as <a href="/docs/en/tools-reference#enable-the-powershell-tool">Enable the PowerShell tool</a> shows. The PowerShell tool then stays on alongside your Bash deny rule.</li>
+<li>To block particular commands instead of the whole tool, replace the bare <code>Bash</code> entry with scoped rules such as <code>Bash(git push *)</code> in the same settings file or flag. Claude keeps the Bash tool, and the PowerShell tool stays off until you also set the variable or add a scoped <a href="/docs/en/permissions#powershell"><code>PowerShell</code> permission rule</a>.</li>
+</ul>
+<p>In a <a href="/docs/en/agent-view">background session</a> or with <code>--output-format json</code> or <code>stream-json</code>, Claude Code writes the warning to the debug log instead of stderr. Run with <code>--debug</code> to capture it at <code>~/.claude/debug/&lt;session-id&gt;.txt</code>. Before v2.1.287, Claude Code turned the PowerShell tool off the same way without printing a warning.</p>
+<h3 id="crosssessioninbound-must-be-one-of-accept-hold-refuse">
   crossSessionInbound must be one of accept, hold, refuse
-&lt;/h3&gt;
+</h3>
 
-A settings file sets [`crossSessionInbound`](/docs/en/settings-reference#crosssessioninbound) to a value Claude Code doesn't recognize, such as the typo `"reject"`. The warning's second sentence depends on which file holds the value; in a user, project, local, or `--settings` file it reads:
-
-```text theme={null}
+<p>A settings file sets <a href="/docs/en/settings-reference#crosssessioninbound"><code>crossSessionInbound</code></a> to a value Claude Code doesn't recognize, such as the typo <code>"reject"</code>. The warning's second sentence depends on which file holds the value; in a user, project, local, or <code>--settings</code> file it reads:</p>
+<p>```text theme={null}
 "crossSessionInbound" must be one of "accept", "hold", "refuse"; received "reject". This value was ignored; while it is present, cross-session messages are held for your approval instead of being delivered. Set it to one of the values above.
-</code></pre></div></p>
-<p>In <a href="/docs/en/managed-settings">managed settings</a>, Claude Code treats the unrecognized value as <code>refuse</code>, the most restrictive value, and the warning says cross-session messages are turned away until an administrator fixes it. For how the hold combines with values in your other settings files, see <a href="/docs/en/settings-reference#crosssessioninbound"><code>crossSessionInbound</code></a>.</p>
-<p><strong>What to do:</strong></p>
-<ul>
-<li>Set the key to <code>"accept"</code>, <code>"hold"</code>, or <code>"refuse"</code>, or remove it</li>
-<li>When the warning names managed settings, ask the administrator to fix the value</li>
-</ul>
-<p>Before v2.1.248, Claude Code ignored an unrecognized value without warning.</p>
-<h3 id="anthropic-foundry-resource-must-be-a-foundry-resource-name">
-  ANTHROPIC\_FOUNDRY\_RESOURCE must be a Foundry resource name
-</h3>
-
-<p>You set <a href="/docs/en/env-vars"><code>ANTHROPIC_FOUNDRY_RESOURCE</code></a> to something other than a bare <a href="/docs/en/microsoft-foundry">Microsoft Foundry</a> resource name, such as the endpoint URL or its host name. Claude Code refused the value before sending a request. The message appears in place of Claude's reply, not as a startup warning:</p>
-<p>```text theme={null}
-API Error: ANTHROPIC_FOUNDRY_RESOURCE must be a Foundry resource name (2-64 letters, digits and hyphens, not starting or ending with a hyphen, such as my-resource), not a URL or host name. To use a full URL, set ANTHROPIC_FOUNDRY_BASE_URL instead.
-<div class="highlight"><pre><span></span><code>**What to do:**
-
-* Set `ANTHROPIC_FOUNDRY_RESOURCE` to the resource name alone and restart Claude Code. For the endpoint `https://my-resource.services.ai.azure.com/anthropic`, the name is `my-resource`.
-* To give the full endpoint URL instead, set [`ANTHROPIC_FOUNDRY_BASE_URL`](/docs/en/env-vars) to the URL and remove `ANTHROPIC_FOUNDRY_RESOURCE`, then restart Claude Code. Claude Code accepts only one of the two variables.
-
-&lt;h3 id="the-200k-limit-isnt-enforced"&gt;
-  The 200K limit isn't enforced
-&lt;/h3&gt;
-
-You set [`CLAUDE_CODE_DISABLE_1M_CONTEXT=1`](/docs/en/env-vars), which normally makes [auto-compaction](/docs/en/model-config#default-auto-compact-thresholds) hold sessions on 1M-context models to a 200K window, but no compaction threshold caps this session at or below 200K, so the conversation can grow past it.
-
-```text theme={null}
-CLAUDE_CODE_DISABLE_1M_CONTEXT is set, but the 200K limit isn't enforced for &lt;model&gt;, so this session can grow past it. To enforce it, set CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 (or the autoCompactWindow setting).
-</code></pre></div></p>
-<p>Claude Code enforces the 200K limit on its own for every model it recognizes as having a native 1M window, and for model IDs it doesn't recognize it compacts at the window it assumes. The warning appears when other configuration defeats that enforcement:</p>
-<ul>
-<li>The model ID isn't one Claude Code recognizes, such as an <a href="/docs/en/llm-gateway">LLM gateway</a> alias, and you set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1</code></a> or raised the assumed window past 200K with <a href="/docs/en/env-vars"><code>CLAUDE_CODE_MAX_CONTEXT_TOKENS</code></a>. In this case the message also offers <code>or update to a Claude Code version that recognizes &lt;model&gt;</code> as a remedy.</li>
-<li>A <code>context-1m</code> beta requested through <a href="/docs/en/env-vars"><code>ANTHROPIC_BETAS</code></a> or the <a href="/docs/en/cli-reference#cli-flags"><code>--betas</code></a> flag still asks the API for the 1M window on a model that accepts that beta, while nothing compacts the session at 200K</li>
-</ul>
-<p><strong>What to do:</strong></p>
-<ul>
-<li>Set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000</code></a>, or the <a href="/docs/en/settings-reference#autocompactwindow"><code>autoCompactWindow</code></a> setting to <code>200000</code>, so auto-compaction compacts at the 200K boundary</li>
-<li>If the message names a model ID this version doesn't recognize, run <code>claude update</code>. A version that recognizes the ID as a 1M-context model enforces the limit without further configuration.</li>
-<li>If you want the session to use the model's full window instead, unset <code>CLAUDE_CODE_DISABLE_1M_CONTEXT</code>; the warning reports only that the 200K limit isn't enforced</li>
-</ul>
-<p>In a <a href="/docs/en/agent-view">background session</a> or with <code>--output-format json</code> or <code>stream-json</code>, Claude Code writes the warning to the debug log instead of stderr.</p>
-<h3 id="unrecognized-model-id-on-a-request">
-  Unrecognized model ID on a request
-</h3>
-
-<p>Claude Code sent a request for a model ID that your Claude Code version doesn't recognize, and found no <a href="/docs/en/model-config#override-model-ids-per-version"><code>modelOverrides</code></a> entry that maps that ID to a model it does recognize. Claude Code still sends the request with the ID as you configured it, and doesn't exit or switch models.</p>
-<p>```text theme={null}
-[claude-code:unrecognized_model] {"model":"my-proxy-model","query_source":"sdk"}
-<div class="highlight"><pre><span></span><code>In a script or harness that reads stderr, match on the `[claude-code:unrecognized_model]` prefix. After the prefix and one space, Claude Code writes a one-line JSON object. Claude Code can add fields to it in a later version, so ignore any field you don't expect. It writes at least these two:
-
-* `model`: the model string as you configured it
-* `query_source`: the request path that used the model. Claude Code reports `sdk` for a `-p` run and a value that starts with `agent:` for a subagent.
-
-Claude Code writes the line to one of two places, depending on how you run it:
-
-* In [non-interactive mode](/docs/en/headless) with `-p`, Claude Code writes it to stderr under every `--output-format`, so you can parse stdout without filtering the line out
-* In an interactive session or a [background session](/docs/en/agent-view), Claude Code writes it to the debug log instead; run with `--debug` to capture it at `~/.claude/debug/&lt;session-id&gt;.txt`
-
-Claude Code writes the line once per model string per process. It writes a separate line for each further unrecognized ID, such as one that a [subagent](/docs/en/sub-agents#choose-a-model) or [background functionality](/docs/en/costs#background-token-usage) uses.
-
-Claude Code doesn't write the line for provider IDs it resolves to a model it recognizes, such as Amazon Bedrock `us.anthropic.claude-...` IDs, Google Cloud's Agent Platform IDs with an `@` version suffix, and Microsoft Foundry deployment names that contain a Claude model ID. Claude Code checks the model behind an Amazon Bedrock [application inference profile ARN](/docs/en/amazon-bedrock#map-each-model-version-to-an-inference-profile) rather than the ARN itself. It writes no line for an ARN it can't resolve, such as a mistyped one.
+<div class="highlight"><pre><span></span><code>In [managed settings](/docs/en/managed-settings), Claude Code treats the unrecognized value as `refuse`, the most restrictive value, and the warning says cross-session messages are turned away until an administrator fixes it. For how the hold combines with values in your other settings files, see [`crossSessionInbound`](/docs/en/settings-reference#crosssessioninbound).
 
 **What to do:**
 
-* If you set the ID on purpose, such as an [LLM gateway](/docs/en/llm-gateway) alias, add a [`modelOverrides`](/docs/en/model-config#override-model-ids-per-version) entry to your [settings file](/docs/en/settings#where-settings-live) with the ID as its value. Use an Anthropic model ID as the key, not a family alias such as `opus`. For `my-proxy-model` from the example line, add this entry:
+* Set the key to `"accept"`, `"hold"`, or `"refuse"`, or remove it
+* When the warning names managed settings, ask the administrator to fix the value
 
-  ```json theme={null}
+Before v2.1.248, Claude Code ignored an unrecognized value without warning.
+
+&lt;h3 id="anthropic-foundry-resource-must-be-a-foundry-resource-name"&gt;
+  ANTHROPIC\_FOUNDRY\_RESOURCE must be a Foundry resource name
+&lt;/h3&gt;
+
+You set [`ANTHROPIC_FOUNDRY_RESOURCE`](/docs/en/env-vars) to something other than a bare [Microsoft Foundry](/docs/en/microsoft-foundry) resource name, such as the endpoint URL or its host name. Claude Code refused the value before sending a request. The message appears in place of Claude's reply, not as a startup warning:
+
+```text theme={null}
+API Error: ANTHROPIC_FOUNDRY_RESOURCE must be a Foundry resource name (2-64 letters, digits and hyphens, not starting or ending with a hyphen, such as my-resource), not a URL or host name. To use a full URL, set ANTHROPIC_FOUNDRY_BASE_URL instead.
+</code></pre></div></p>
+<p><strong>What to do:</strong></p>
+<ul>
+<li>Set <code>ANTHROPIC_FOUNDRY_RESOURCE</code> to the resource name alone and restart Claude Code. For the endpoint <code>https://my-resource.services.ai.azure.com/anthropic</code>, the name is <code>my-resource</code>.</li>
+<li>To give the full endpoint URL instead, set <a href="/docs/en/env-vars"><code>ANTHROPIC_FOUNDRY_BASE_URL</code></a> to the URL and remove <code>ANTHROPIC_FOUNDRY_RESOURCE</code>, then restart Claude Code. Claude Code accepts only one of the two variables.</li>
+</ul>
+<h3 id="the-200k-limit-isnt-enforced">
+  The 200K limit isn't enforced
+</h3>
+
+<p>You set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_DISABLE_1M_CONTEXT=1</code></a>, which normally makes <a href="/docs/en/model-config#default-auto-compact-thresholds">auto-compaction</a> hold sessions on 1M-context models to a 200K window, but no compaction threshold caps this session at or below 200K, so the conversation can grow past it.</p>
+<p>```text theme={null}
+CLAUDE_CODE_DISABLE_1M_CONTEXT is set, but the 200K limit isn't enforced for <model>, so this session can grow past it. To enforce it, set CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000 (or the autoCompactWindow setting).
+<div class="highlight"><pre><span></span><code>Claude Code enforces the 200K limit on its own for every model it recognizes as having a native 1M window, and for model IDs it doesn't recognize it compacts at the window it assumes. The warning appears when other configuration defeats that enforcement:
+
+* The model ID isn't one Claude Code recognizes, such as an [LLM gateway](/docs/en/llm-gateway) alias, and you set [`CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1`](/docs/en/env-vars) or raised the assumed window past 200K with [`CLAUDE_CODE_MAX_CONTEXT_TOKENS`](/docs/en/env-vars). In this case the message also offers `or update to a Claude Code version that recognizes &lt;model&gt;` as a remedy.
+* A `context-1m` beta requested through [`ANTHROPIC_BETAS`](/docs/en/env-vars) or the [`--betas`](/docs/en/cli-reference#cli-flags) flag still asks the API for the 1M window on a model that accepts that beta, while nothing compacts the session at 200K
+
+**What to do:**
+
+* Set [`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`](/docs/en/env-vars), or the [`autoCompactWindow`](/docs/en/settings-reference#autocompactwindow) setting to `200000`, so auto-compaction compacts at the 200K boundary
+* If the message names a model ID this version doesn't recognize, run `claude update`. A version that recognizes the ID as a 1M-context model enforces the limit without further configuration.
+* If you want the session to use the model's full window instead, unset `CLAUDE_CODE_DISABLE_1M_CONTEXT`; the warning reports only that the 200K limit isn't enforced
+
+In a [background session](/docs/en/agent-view) or with `--output-format json` or `stream-json`, Claude Code writes the warning to the debug log instead of stderr.
+
+&lt;h3 id="unrecognized-model-id-on-a-request"&gt;
+  Unrecognized model ID on a request
+&lt;/h3&gt;
+
+Claude Code sent a request for a model ID that your Claude Code version doesn't recognize, and found no [`modelOverrides`](/docs/en/model-config#override-model-ids-per-version) entry that maps that ID to a model it does recognize. Claude Code still sends the request with the ID as you configured it, and doesn't exit or switch models.
+
+```text theme={null}
+[claude-code:unrecognized_model] {"model":"my-proxy-model","query_source":"sdk"}
+</code></pre></div></p>
+<p>In a script or harness that reads stderr, match on the <code>[claude-code:unrecognized_model]</code> prefix. After the prefix and one space, Claude Code writes a one-line JSON object. Claude Code can add fields to it in a later version, so ignore any field you don't expect. It writes at least these two:</p>
+<ul>
+<li><code>model</code>: the model string as you configured it</li>
+<li><code>query_source</code>: the request path that used the model. Claude Code reports <code>sdk</code> for a <code>-p</code> run and a value that starts with <code>agent:</code> for a subagent.</li>
+</ul>
+<p>Claude Code writes the line to one of two places, depending on how you run it:</p>
+<ul>
+<li>In <a href="/docs/en/headless">non-interactive mode</a> with <code>-p</code>, Claude Code writes it to stderr under every <code>--output-format</code>, so you can parse stdout without filtering the line out</li>
+<li>In an interactive session or a <a href="/docs/en/agent-view">background session</a>, Claude Code writes it to the debug log instead; run with <code>--debug</code> to capture it at <code>~/.claude/debug/&lt;session-id&gt;.txt</code></li>
+</ul>
+<p>Claude Code writes the line once per model string per process. It writes a separate line for each further unrecognized ID, such as one that a <a href="/docs/en/sub-agents#choose-a-model">subagent</a> or <a href="/docs/en/costs#background-token-usage">background functionality</a> uses.</p>
+<p>Claude Code doesn't write the line for provider IDs it resolves to a model it recognizes, such as Amazon Bedrock <code>us.anthropic.claude-...</code> IDs, Google Cloud's Agent Platform IDs with an <code>@</code> version suffix, and Microsoft Foundry deployment names that contain a Claude model ID. Claude Code checks the model behind an Amazon Bedrock <a href="/docs/en/amazon-bedrock#map-each-model-version-to-an-inference-profile">application inference profile ARN</a> rather than the ARN itself. It writes no line for an ARN it can't resolve, such as a mistyped one.</p>
+<p><strong>What to do:</strong></p>
+<ul>
+<li>If you set the ID on purpose, such as an <a href="/docs/en/llm-gateway">LLM gateway</a> alias, add a <a href="/docs/en/model-config#override-model-ids-per-version"><code>modelOverrides</code></a> entry to your <a href="/docs/en/settings#where-settings-live">settings file</a> with the ID as its value. Use an Anthropic model ID as the key, not a family alias such as <code>opus</code>. For <code>my-proxy-model</code> from the example line, add this entry:</li>
+</ul>
+<p><code>json theme={null}
   {
     "modelOverrides": {
       "claude-opus-4-6": "my-proxy-model"
     }
-  }
-  ```
-
-  Claude Code then treats `my-proxy-model` as `claude-opus-4-6` and stops writing the line.
-
-* If the ID names a model newer than your Claude Code version, run `claude update`
-
-* If the ID is a typo, fix it in whichever of the [places you can set a model](/docs/en/model-config#setting-your-model) or [alias variables](/docs/en/model-config#environment-variables) holds it. If `query_source` starts with `agent:`, fix it where you set the [subagent's model](/docs/en/sub-agents#choose-a-model) instead.
-
-Before v2.1.233, Claude Code wrote no line when it sent a request for a model ID it didn't recognize.
-
-### Stale sandbox mask files left by a killed session
-
-`claude doctor` prints this warning in its diagnostics, and `/status` lists the same line. It appears on Linux and WSL2 when [sandboxing](/docs/en/sandboxing) is enabled with filesystem isolation on.
-
-While a sandboxed command runs, the sandbox holds a write denial on a file that doesn't exist yet by creating a 0-byte read-only placeholder there, and removes it afterward. A session killed before that cleanup runs, for example by SIGKILL, leaves the placeholders behind. Later sessions bind them read-only again on every start, so a settings write such as saving "Yes, and don't ask again" fails where one sits.
-
-```text theme={null}
+  }</code></p>
+<p>Claude Code then treats <code>my-proxy-model</code> as <code>claude-opus-4-6</code> and stops writing the line.</p>
+<ul>
+<li>
+<p>If the ID names a model newer than your Claude Code version, run <code>claude update</code></p>
+</li>
+<li>
+<p>If the ID is a typo, fix it in whichever of the <a href="/docs/en/model-config#setting-your-model">places you can set a model</a> or <a href="/docs/en/model-config#environment-variables">alias variables</a> holds it. If <code>query_source</code> starts with <code>agent:</code>, fix it where you set the <a href="/docs/en/sub-agents#choose-a-model">subagent's model</a> instead.</p>
+</li>
+</ul>
+<p>Before v2.1.233, Claude Code wrote no line when it sent a request for a model ID it didn't recognize.</p>
+<h3 id="stale-sandbox-mask-files-left-by-a-killed-session">Stale sandbox mask files left by a killed session</h3>
+<p><code>claude doctor</code> prints this warning in its diagnostics, and <code>/status</code> lists the same line. It appears on Linux and WSL2 when <a href="/docs/en/sandboxing">sandboxing</a> is enabled with filesystem isolation on.</p>
+<p>While a sandboxed command runs, the sandbox holds a write denial on a file that doesn't exist yet by creating a 0-byte read-only placeholder there, and removes it afterward. A session killed before that cleanup runs, for example by SIGKILL, leaves the placeholders behind. Later sessions bind them read-only again on every start, so a settings write such as saving "Yes, and don't ask again" fails where one sits.</p>
+<p><code>text theme={null}
 - Stale sandbox mask files left by a killed session: /home/you/project/.claude/settings.local.json
-  Fix: Remove each with `rm &lt;path&gt;` while no other Claude Code session is running in that project — a 0-byte read-only file where a settings file belongs makes "Yes, and don't ask again" fail to save, and the sandbox binds it read-only again on every start
-</code></pre></div></p>
+  Fix: Remove each with `rm &lt;path&gt;` while no other Claude Code session is running in that project — a 0-byte read-only file where a settings file belongs makes "Yes, and don't ask again" fail to save, and the sandbox binds it read-only again on every start</code></p>
 <p><strong>What to do:</strong></p>
 <ul>
 <li>Quit any other Claude Code session running in that project, then delete each listed file with <code>rm</code>. The warning names up to three files and counts the rest, so rerun <code>claude doctor</code> after deleting until the warning no longer appears. A placeholder that another session's sandbox is still using is a live part of that session's write protection</li>

@@ -3861,6 +3861,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../python-sdk/fastmcp-cli-apps_dev_security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps_dev_security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../python-sdk/fastmcp-cli-auth/" class="md-nav__link">
         
   
@@ -10908,6 +10936,17 @@
     <span class="md-ellipsis">
       
         Verifiers Only
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Names
       
     </span>
   </a>
@@ -19722,6 +19761,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#source-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Names
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -19808,7 +19858,7 @@
 <p><code>MultiAuth</code> checks sources in a deterministic order:</p>
 <ol>
 <li><strong>Server</strong> (if provided) — the full auth provider's <code>verify_token</code> runs first</li>
-<li><strong>Verifiers</strong> — each <code>TokenVerifier</code> is tried in list order</li>
+<li><strong>Verifiers</strong> — each <code>TokenVerifier</code> is tried in mapping or list order</li>
 </ol>
 <p>The first source that returns a valid <code>AccessToken</code> wins. If every source returns <code>None</code>, the request receives a 401 response.</p>
 <p>This ordering means the server acts as the "primary" authentication path, with verifiers as fallbacks for tokens the server doesn't recognize.</p>
@@ -19836,6 +19886,19 @@
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Multi-Issuer Server"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
 </code></pre></div>
 <p>Without a server, no OAuth routes or metadata are served. This is appropriate for internal systems where clients already know how to obtain tokens.</p>
+<h2 id="source-names">Source Names</h2>
+<p>Each source has a stable identity for sessions, background tasks, and continued requests. Use an ordered mapping to give verifiers explicit names; pass <code>server_source_id</code> to name the delegated auth server. These names follow the source across restarts and changes to verification order. MultiAuth qualifies the returned token's <code>client_id</code> with this source identity and the verified issuer and subject, when present. Its <code>original_client_id</code> field contains the identifier returned by the verifier; bearer token bytes, claims, subject, and scopes stay the same.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiAuth</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth.providers.jwt</span><span class="w"> </span><span class="kn">import</span> <span class="n">StaticTokenVerifier</span>
+
+<span class="n">company</span> <span class="o">=</span> <span class="n">StaticTokenVerifier</span><span class="p">(</span><span class="n">tokens</span><span class="o">=</span><span class="p">{</span><span class="s2">"company-token"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"client_id"</span><span class="p">:</span> <span class="s2">"service"</span><span class="p">,</span> <span class="s2">"scopes"</span><span class="p">:</span> <span class="p">[]}})</span>
+<span class="n">partner</span> <span class="o">=</span> <span class="n">StaticTokenVerifier</span><span class="p">(</span><span class="n">tokens</span><span class="o">=</span><span class="p">{</span><span class="s2">"partner-token"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"client_id"</span><span class="p">:</span> <span class="s2">"service"</span><span class="p">,</span> <span class="s2">"scopes"</span><span class="p">:</span> <span class="p">[]}})</span>
+<span class="n">auth</span> <span class="o">=</span> <span class="n">MultiAuth</span><span class="p">(</span><span class="n">verifiers</span><span class="o">=</span><span class="p">{</span><span class="s2">"company"</span><span class="p">:</span> <span class="n">company</span><span class="p">,</span> <span class="s2">"partner"</span><span class="p">:</span> <span class="n">partner</span><span class="p">})</span>
+</code></pre></div>
+<p>List and single-verifier forms remain available when their derived source identities are distinct. JWT verifiers derive identities from configured issuers and JWKS URLs; introspection verifiers use their endpoint, remote providers use their wrapped verifier, OAuth proxies use their configured issuer, upstream endpoints, and verifier, other OAuth servers use their configured issuer, and other providers use their Python type. Explicit names are recommended when configuration or provider types may change.</p>
+<p><Note>
+This changes <code>get_access_token().client_id</code> and ownership for existing <code>MultiAuth</code> sessions, tasks, and continued requests. Update authorization checks that compare the verifier's original client ID to read <code>get_access_token().original_client_id</code> instead. Recreate sessions and resubmit tasks after upgrading. Configurations with duplicate derived identities now need explicit names, including multiple static verifiers or custom verifiers of the same type. Changing a source name starts a new ownership scope.
+</Note></p>
 <h2 id="api-reference">API Reference</h2>
 <h3 id="multiauth">MultiAuth</h3>
 <table>
@@ -19854,8 +19917,13 @@
 </tr>
 <tr>
 <td><code>verifiers</code></td>
-<td><code>list[TokenVerifier] \| TokenVerifier</code></td>
-<td>One or more token verifiers tried after the server.</td>
+<td><code>Mapping[str, TokenVerifier] \| list[TokenVerifier] \| TokenVerifier</code></td>
+<td>Named or distinctly configured token verifiers tried after the server.</td>
+</tr>
+<tr>
+<td><code>server_source_id</code></td>
+<td><code>str \| None</code></td>
+<td>Stable name for the delegated server source. Defaults to its derived identity.</td>
 </tr>
 <tr>
 <td><code>base_url</code></td>

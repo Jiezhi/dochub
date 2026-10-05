@@ -3861,6 +3861,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../python-sdk/fastmcp-cli-apps_dev_security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps_dev_security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../python-sdk/fastmcp-cli-auth/" class="md-nav__link">
         
   
@@ -10766,6 +10794,17 @@
     <span class="md-ellipsis">
       
         Modifying Responses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-tool-text-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting Tool Text Results
       
     </span>
   </a>
@@ -20596,6 +20635,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#inspecting-tool-text-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting Tool Text Results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#filtering-lists" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -21437,6 +21487,39 @@ Because truncation can replace structured output with plain text, the middleware
         <span class="k">return</span> <span class="n">result</span>
 </code></pre></div>
 <p>For more complex tool transformations, consider <a href="/servers/transforms/transforms">Transforms</a> instead.</p>
+<h3 id="inspecting-tool-text-results">Inspecting Tool Text Results</h3>
+<p>Use <code>on_call_tool</code> to check text returned by a tool after it runs. This example accepts an asynchronous checker that raises when a text block should be rejected. Check only <code>TextContent</code> blocks and return the original result when every check succeeds:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Callable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.middleware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Middleware</span><span class="p">,</span> <span class="n">MiddlewareContext</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextContent</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TextInspectionMiddleware</span><span class="p">(</span><span class="n">Middleware</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inspect_text</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inspect_text</span> <span class="o">=</span> <span class="n">inspect_text</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_call_tool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">MiddlewareContext</span><span class="p">,</span> <span class="n">call_next</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">call_next</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">ToolResult</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">result</span>
+
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">TextContent</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">inspect_text</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ToolError</span><span class="p">(</span><span class="s2">"Tool text inspection failed"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+        <span class="k">return</span> <span class="n">result</span>
+</code></pre></div>
+<p>The checker does not rewrite or redact the result. A rejected text block or a checker failure stops the tool call; successful checks preserve the original result, including structured content and metadata.</p>
+<p>This checks text blocks only. It does not inspect <code>structured_content</code>, image content, or other non-text blocks. If your policy applies to the entire result, validate those fields separately. For advisory checks, catch failures deliberately, report them through logging or response metadata, and return the original result.</p>
+<p>Server middleware sees only tool calls and results handled by this server. It cannot inspect or control the client's model, the model's conversation, or tools that run on the client.</p>
 <h3 id="filtering-lists">Filtering Lists</h3>
 <p>List operations return FastMCP objects that you can filter before they reach the client. When filtering list results, also block execution in the corresponding operation hook to maintain consistency:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.middleware</span><span class="w"> </span><span class="kn">import</span> <span class="n">Middleware</span><span class="p">,</span> <span class="n">MiddlewareContext</span>

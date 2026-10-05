@@ -2749,6 +2749,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#account-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Account Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#testing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4103,6 +4114,34 @@
     
   
     apps_dev
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python-sdk/fastmcp-cli-apps_dev_security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    apps_dev_security
   
 
     
@@ -19927,6 +19966,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#account-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Account Selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#testing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -20244,12 +20294,34 @@ Using your specific tenant ID is recommended for better security and control.
 OIDC scopes (<code>openid</code>, <code>profile</code>, <code>email</code>, <code>offline_access</code>) are never prefixed and excluded from validation because Azure doesn't include them in access token <code>scp</code> claims.
 </Note>
 </p>
+<h3 id="account-selection">Account Selection</h3>
+<p>By default, <code>AzureProvider</code> sends <code>prompt=select_account</code> to Azure, so Entra shows an account picker rather than reusing whichever session the browser already holds without asking. Users signed in to several Microsoft accounts, or holding a stale session, can then pick the right one.
+
+Pass <code>extra_authorize_params</code> to send different parameters to Azure's authorization endpoint:
+
+<code>python server.py
+from fastmcp import FastMCP
+from fastmcp.server.auth.providers.azure import AzureProvider
+
+auth = AzureProvider(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    tenant_id="your-tenant-id",
+    base_url="http://localhost:8000",
+    required_scopes=["read"],
+    extra_authorize_params={"domain_hint": "contoso.com"},
+)
+
+mcp = FastMCP("My App", auth=auth)</code></p>
+<p>A dict you pass replaces the default rather than merging with it. The example above sends <code>domain_hint</code> and no <code>prompt</code>. To keep the account picker alongside another parameter, name both:</p>
+<div class="highlight"><pre><span></span><code><span class="n">extra_authorize_params</span><span class="o">=</span><span class="p">{</span><span class="s2">"prompt"</span><span class="p">:</span> <span class="s2">"select_account"</span><span class="p">,</span> <span class="s2">"domain_hint"</span><span class="p">:</span> <span class="s2">"contoso.com"</span><span class="p">}</span>
+</code></pre></div>
+<p>Passing <code>{}</code> sends no extra parameters at all, which leaves Azure to its own default of silent single sign-on.</p>
 <h2 id="testing">Testing</h2>
 <h3 id="running-the-server">Running the Server</h3>
-<p>Start your FastMCP server with HTTP transport to enable OAuth flows:
-
-<code>bash
-fastmcp run server.py --transport http --port 8000</code></p>
+<p>Start your FastMCP server with HTTP transport to enable OAuth flows:</p>
+<div class="highlight"><pre><span></span><code>fastmcp<span class="w"> </span>run<span class="w"> </span>server.py<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+</code></pre></div>
 <p>Your server is now running and protected by Azure OAuth authentication.</p>
 <h3 id="testing-with-a-client">Testing with a Client</h3>
 <p>Create a test client that authenticates with your Azure-protected server:</p>
@@ -20500,6 +20572,10 @@ from fastmcp.server.auth.providers.azure import AzureProvider</p>
 | Authorization endpoint | `https://{tenant_name}.b2clogin.com/{tenant_name}.onmicrosoft.com/{policy_name}/oauth2/v2.0/authorize` |
 | Token endpoint | `https://{tenant_name}.b2clogin.com/{tenant_name}.onmicrosoft.com/{policy_name}/oauth2/v2.0/token` |
 | Scope identifier URI | `https://{tenant_name}.onmicrosoft.com/{client_id}` |
+
+&lt;Note&gt;
+B2C user flows accept `prompt=login` and reject `prompt=select_account`. `from_b2c()` therefore sends no `prompt` at all, rather than the account-picker default described under [Account Selection](#account-selection). Pass `extra_authorize_params={"prompt": "login"}` to make B2C users re-enter their credentials.
+&lt;/Note&gt;
 
 ### Token Issuer Validation
 
