@@ -527,6 +527,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#make-a-parameter-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Make a parameter optional
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#call-a-custom-tool" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1701,7 +1712,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -3079,6 +3090,33 @@
     
   
     Headless
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hipaa-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hipaa setup
   
 
     
@@ -6440,6 +6478,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#make-a-parameter-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Make a parameter optional
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#call-a-custom-tool" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6634,6 +6683,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Use <a href="/docs/en/agent-sdk/python#tool"><code>@tool</code></a> (Python) or <a href="/docs/en/agent-sdk/typescript#tool"><code>tool()</code></a> (TypeScript) with a name, description, schema, and handler. See <a href="#create-a-custom-tool">Create a custom tool</a>.</td>
 </tr>
 <tr>
+<td style="text-align: left;">Make a parameter optional</td>
+<td style="text-align: left;">Declare it optional in the schema and apply the default in the handler. See <a href="#make-a-parameter-optional">Make a parameter optional</a>.</td>
+</tr>
+<tr>
 <td style="text-align: left;">Register a tool with Claude</td>
 <td style="text-align: left;">Wrap in <code>create_sdk_mcp_server</code> / <code>createSdkMcpServer</code> and pass to <code>mcpServers</code> in <code>query()</code>. See <a href="#call-a-custom-tool">Call a custom tool</a>.</td>
 </tr>
@@ -6672,25 +6725,41 @@ Use this file to discover all available pages before exploring further.</p>
 <ul>
 <li><strong>Name:</strong> a unique identifier Claude uses to call the tool.</li>
 <li><strong>Description:</strong> what the tool does. Claude reads this to decide when to call it.</li>
-<li><strong>Input schema:</strong> the arguments Claude must provide. In TypeScript this is always a <a href="https://zod.dev/">Zod schema</a>, and the handler's <code>args</code> are typed from it automatically. In Python this is a dict mapping names to types, like <code>{"latitude": float}</code>, which the SDK converts to JSON Schema for you. The Python decorator also accepts a full <a href="https://json-schema.org/understanding-json-schema/about">JSON Schema</a> dict directly when you need enums, ranges, optional fields, or nested objects.</li>
+<li><strong>Input schema:</strong> the arguments the tool accepts, declared per language:</li>
+<li><strong>TypeScript</strong>: a <a href="https://zod.dev/">Zod schema</a>. The handler's <code>args</code> take their types from it. Call <code>.describe()</code> on a field to give it a description Claude sees.</li>
+<li><strong>Python</strong>: a dict mapping names to types, like <code>{"latitude": float}</code>, which the SDK converts to JSON Schema for you. Wrap a type in <code>Annotated</code>, like <code>{"latitude": Annotated[float, "Latitude coordinate"]}</code>, to give the field a description Claude sees. The decorator also accepts a full <a href="https://json-schema.org/understanding-json-schema/about">JSON Schema</a> dict directly when you need enums, ranges, optional fields, or nested objects.</li>
 <li><strong>Handler:</strong> the async function that runs when Claude calls the tool. It receives the validated arguments and must return an object with:</li>
 <li><code>content</code> (required): an array of result blocks, each with a <code>type</code> of <code>"text"</code>, <code>"image"</code>, <code>"audio"</code>, <code>"resource"</code>, or <code>"resource_link"</code>. See <a href="#return-images-and-resources">Return images and resources</a> for non-text blocks.</li>
 <li><code>structuredContent</code> (optional): a JSON object holding the result as machine-readable data, returned alongside <code>content</code>. See <a href="#return-structured-data">Return structured data</a>.</li>
 <li><code>isError</code> (optional): set to <code>true</code> to signal a tool failure so Claude can react to it. See <a href="#handle-errors">Handle errors</a>.</li>
 </ul>
 <p>After defining a tool, wrap it in a server with <a href="/docs/en/agent-sdk/typescript#createsdkmcpserver"><code>createSdkMcpServer</code></a> (TypeScript) or <a href="/docs/en/agent-sdk/python#create_sdk_mcp_server"><code>create_sdk_mcp_server</code></a> (Python). The server runs in-process inside your application, not as a separate process.</p>
+<p>Python examples on this page that make HTTP requests use <a href="https://www.python-httpx.org/">httpx</a>. Add it with the package manager your project uses:</p>
+<p><Tabs>
+  <Tab title="Python (uv)">
+    <code>bash theme={null}
+    uv add httpx</code>
+  </Tab></p>
+<p><Tab title="Python (pip)">
+    <code>bash theme={null}
+    pip install httpx</code>
+  </Tab>
+</Tabs></p>
 <h3 id="weather-tool-example">Weather tool example</h3>
-<p>This example defines a <code>get_temperature</code> tool and wraps it in an MCP server. It only sets up the tool; to pass it to <code>query</code> and run it, see <a href="#call-a-custom-tool">Call a custom tool</a> below.</p>
+<p>This example defines a <code>get_temperature</code> tool and wraps it in an MCP server, without passing the server to <code>query</code>. To run the tool, see <a href="#call-a-custom-tool">Call a custom tool</a> below.</p>
 <p><CodeGroup>
   ```python Python theme={null}
-  from typing import Any
+  from typing import Annotated, Any
   import httpx
   from claude_agent_sdk import tool, create_sdk_mcp_server</p>
 <p># Define a tool: name, description, input schema, handler
   @tool(
       "get_temperature",
       "Get the current temperature at a location",
-      {"latitude": float, "longitude": float},
+      {
+          "latitude": Annotated[float, "Latitude coordinate"],
+          "longitude": Annotated[float, "Longitude coordinate"],
+      },
   )
   async def get_temperature(args: dict[str, Any]) -&gt; dict[str, Any]:
       async with httpx.AsyncClient() as client:
@@ -6755,9 +6824,13 @@ const weatherServer = createSdkMcpServer({
 </code></pre></div>
 </CodeGroup></p>
 <p>See the <a href="/docs/en/agent-sdk/typescript#tool"><code>tool()</code></a> TypeScript reference or the <a href="/docs/en/agent-sdk/python#tool"><code>@tool</code></a> Python reference for full parameter details, including JSON Schema input formats and return value structure.</p>
-<p><Tip>
-  To make a parameter optional: in TypeScript, add <code>.optional()</code> to the Zod field and apply the default in the handler. In Python, the dict schema treats every key as required, so leave the parameter out of the schema, mention it in the description string, and read it with <code>args.get()</code> in the handler. The <a href="#add-more-tools"><code>get_precipitation_chance</code> tool below</a> shows both patterns.
-</Tip></p>
+<h3 id="make-a-parameter-optional">Make a parameter optional</h3>
+<p>To make a parameter optional, declare it optional in the schema and apply the default in the handler:</p>
+<ul>
+<li><strong>TypeScript</strong>: add <code>.optional()</code> to the Zod field.</li>
+<li><strong>Python</strong>: the dict schema requires every key. Use the JSON Schema form, leave the parameter out of <code>required</code>, and read it with <code>args.get()</code>. For a typed schema with optional keys, see <a href="/docs/en/agent-sdk/python#input-schema-options">TypedDict class</a>.</li>
+</ul>
+<p>The <a href="#add-more-tools"><code>get_precipitation_chance</code> tool below</a> shows both patterns.</p>
 <h3 id="call-a-custom-tool">Call a custom tool</h3>
 <p>Pass the MCP server you created to <code>query</code> via the <code>mcpServers</code> option. The key in <code>mcpServers</code> becomes the <code>{server_name}</code> segment in each tool's fully qualified name: <code>mcp__{server_name}__{tool_name}</code>. List that name in <code>allowedTools</code> so the tool runs without a permission prompt.</p>
 <p>These snippets reuse the <code>weatherServer</code> from the <a href="#weather-tool-example">weather tool example</a> to ask Claude what the weather is in a specific location.</p>
@@ -6796,7 +6869,25 @@ for await (const message of query({
 }
 </code></pre></div>
 </CodeGroup></p>
-<p>Combine this snippet with the tool and server definitions from the <a href="#weather-tool-example">weather tool example</a> in one file, then run it with <code>python weather.py</code> for Python or <code>npx tsx weather.ts</code> for TypeScript. Claude calls <code>get_temperature</code> and the script prints a one-line answer with the current temperature in San Francisco.</p>
+<p>Combine this snippet with the tool and server definitions from the <a href="#weather-tool-example">weather tool example</a> in one file, <code>weather.py</code> or <code>weather.ts</code>, then run it from your terminal:</p>
+<p><Tabs>
+  <Tab title="TypeScript">
+    <code>bash theme={null}
+    npx tsx weather.ts</code>
+  </Tab></p>
+<p><Tab title="Python (uv)">
+    <code>bash theme={null}
+    uv run weather.py</code>
+  </Tab></p>
+<p><Tab title="Python (pip)">
+    Activate the virtual environment where you installed the SDK, then run:</p>
+<pre><code>```bash theme={null}
+python weather.py
+```
+</code></pre>
+<p></Tab>
+</Tabs></p>
+<p>Claude calls <code>get_temperature</code> and the script prints a one-line answer with the current temperature in San Francisco.</p>
 <h3 id="add-more-tools">Add more tools</h3>
 <p>A server holds as many tools as you list in its <code>tools</code> array. With more than one tool on a server, you can list each one in <code>allowedTools</code> individually or use the wildcard <code>mcp__weather__*</code> to cover every tool the server exposes.</p>
 <p>The example below defines a second tool, <code>get_precipitation_chance</code>, and replaces the <code>weatherServer</code> definition from the <a href="#weather-tool-example">weather tool example</a> with one that lists both tools in the array.</p>
@@ -6805,12 +6896,25 @@ for await (const message of query({
   # Define a second tool for the same server
   @tool(
       "get_precipitation_chance",
-      "Get the hourly precipitation probability for a location. "
-      "Optionally pass 'hours' (1-24) to control how many hours to return.",
-      {"latitude": float, "longitude": float},
+      "Get the hourly precipitation probability for a location",
+      {
+          "type": "object",
+          "properties": {
+              "latitude": {"type": "number"},
+              "longitude": {"type": "number"},
+              "hours": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 24,
+                  "description": "How many hours of forecast to return",
+              },
+          },
+          # 'hours' is left out of required, so Claude can omit it
+          "required": ["latitude", "longitude"],
+      },
   )
   async def get_precipitation_chance(args: dict[str, Any]) -&gt; dict[str, Any]:
-      # 'hours' isn't in the schema - read it with .get() to make it optional
+      # 'hours' isn't in required - read it with .get() to fall back to a default
       hours = args.get("hours", 12)
       async with httpx.AsyncClient() as client:
           response = await client.get(
