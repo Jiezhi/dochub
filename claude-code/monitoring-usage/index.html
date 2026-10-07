@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -3727,6 +3727,28 @@
     <span class="md-ellipsis">
       
         Map security questions to events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#map-egress-paths-to-managed-controls-and-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Map egress paths to managed controls and events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-the-retention-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check the retention sweep
       
     </span>
   </a>
@@ -6843,6 +6865,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#map-egress-paths-to-managed-controls-and-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Map egress paths to managed controls and events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-the-retention-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check the retention sweep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#send-events-to-a-siem" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8381,7 +8425,7 @@ When Claude Code can't safely determine the retention period, it pauses the swee
 * `session_files_deleted`: Number of artifacts the session-files sweep deleted: transcripts plus per-session companion files such as sidecars, recordings, and tool results
 * `artifacts_deleted`: Total items the sweep deleted across the data directories it covers, including the session files. Some sweeps count a whole removed directory tree as one item and a few cleanup passes don't contribute to the counter, so treat the value as a floor rather than an exact file count
 * `files_retained_fresh`: Files inspected and left in place because they're still within the retention period. Only per-file sweeps count these, so the value is a floor; a nonzero value is the normal steady state
-* `files_past_cutoff`: Files older than the retention period that the sweep failed to delete, for example because of a permission error or a file held open. A value above zero means files outlived the configured retention period; zero isn't proof that none did, because a failed removal of a whole directory counts toward `error_count` instead
+* `files_past_cutoff`: Files older than the retention period that the sweep failed to delete, for example because of a permission error or a file held open. The count also includes each stale folder the sweep finds under `skills/synced/` or `plugins/synced/`, whether or not it moves the folder to the trash. Apart from those folders, a value above zero means files outlived the configured retention period; zero isn't proof that none did, because a failed removal of a whole directory counts toward `error_count` instead
 * `error_count`: Number of errors the sweep encountered while listing or deleting files
 
 #### Managed settings resolved event
@@ -8618,6 +8662,105 @@ export OTEL_RESOURCE_ATTRIBUTES="enduser.id=jdoe@example.com,enduser.directory_i
 </tbody>
 </table>
 <p>Claude Code emits the raw event stream only. Anomaly detection, baselining, correlation across sessions, and alerting are the responsibility of your SIEM or observability backend.</p>
+<h3 id="map-egress-paths-to-managed-controls-and-events">Map egress paths to managed controls and events</h3>
+<p>The table pairs paths that can carry session content off a machine, plus local retention, with the <a href="/docs/en/managed-settings">managed settings</a> keys that restrict them and the events that record them. For what Claude Code itself sends to Anthropic, such as <code>/feedback</code> reports, see <a href="/docs/en/data-usage">Data usage</a>. The names link to their reference entries, which give the values and defaults.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Managed controls</th>
+<th>Events</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bash and PowerShell commands</td>
+<td><a href="/docs/en/settings-reference#sandbox-enabled"><code>sandbox.enabled</code></a>, <a href="/docs/en/settings-reference#sandbox-failifunavailable"><code>sandbox.failIfUnavailable</code></a>, <a href="/docs/en/settings-reference#sandbox-allowunsandboxedcommands"><code>sandbox.allowUnsandboxedCommands</code></a>, <a href="/docs/en/settings-reference#sandbox-network-allowmanageddomainsonly"><code>sandbox.network.allowManagedDomainsOnly</code></a>, <a href="/docs/en/settings-reference#sandbox-network-alloweddomains"><code>sandbox.network.allowedDomains</code></a></td>
+<td><a href="#tool-decision-event"><code>tool_decision</code></a>, <a href="#tool-result-event"><code>tool_result</code></a></td>
+</tr>
+<tr>
+<td>MCP servers</td>
+<td><a href="/docs/en/settings-reference#allowedmcpservers"><code>allowedMcpServers</code></a>, <a href="/docs/en/settings-reference#allowmanagedmcpserversonly"><code>allowManagedMcpServersOnly</code></a>, <a href="/docs/en/settings-reference#deniedmcpservers"><code>deniedMcpServers</code></a>, <a href="/docs/en/managed-mcp"><code>managed-mcp.json</code></a></td>
+<td><a href="#mcp-server-connection-event"><code>mcp_server_connection</code></a>, <code>tool_decision</code>, <code>tool_result</code></td>
+</tr>
+<tr>
+<td>Hooks</td>
+<td><a href="/docs/en/settings-reference#allowmanagedhooksonly"><code>allowManagedHooksOnly</code></a>, <a href="/docs/en/settings-reference#allowedhttphookurls"><code>allowedHttpHookUrls</code></a></td>
+<td><a href="#hook-registered-event"><code>hook_registered</code></a>, <a href="#hook-execution-start-event"><code>hook_execution_start</code></a>, <a href="#hook-execution-complete-event"><code>hook_execution_complete</code></a></td>
+</tr>
+<tr>
+<td>Plugins</td>
+<td><a href="/docs/en/settings-reference#strictknownmarketplaces"><code>strictKnownMarketplaces</code></a>, <a href="/docs/en/settings-reference#disablesideloadflags"><code>disableSideloadFlags</code></a>, <a href="/docs/en/settings-reference#syncclaudeaiplugins"><code>syncClaudeAiPlugins</code></a>, <a href="/docs/en/settings-reference#syncclaudeaiskills"><code>syncClaudeAiSkills</code></a></td>
+<td><a href="#plugin-installed-event"><code>plugin_installed</code></a>, <a href="#plugin-loaded-event"><code>plugin_loaded</code></a></td>
+</tr>
+<tr>
+<td><a href="/docs/en/permissions#webfetch">WebFetch</a></td>
+<td><a href="/docs/en/settings-reference#permissions-deny"><code>permissions.deny</code></a>, <a href="/docs/en/settings-reference#allowmanagedpermissionrulesonly"><code>allowManagedPermissionRulesOnly</code></a></td>
+<td><code>tool_decision</code>, <code>tool_result</code></td>
+</tr>
+<tr>
+<td>Tools that upload to claude.ai, such as Artifact</td>
+<td><code>permissions.deny</code>, <a href="/docs/en/settings-reference#enableartifact"><code>enableArtifact</code></a></td>
+<td><code>tool_decision</code>, <code>tool_result</code></td>
+</tr>
+<tr>
+<td>Remote Control</td>
+<td><a href="/docs/en/settings-reference#disableremotecontrol"><code>disableRemoteControl</code></a></td>
+<td>No dedicated event</td>
+</tr>
+<tr>
+<td>Local transcript retention</td>
+<td><a href="/docs/en/settings-reference#cleanupperioddays"><code>cleanupPeriodDays</code></a></td>
+<td><a href="#retention-sweep-event"><code>retention_sweep</code></a></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>allowedHttpHookUrls</code>, <code>managed-mcp.json</code>, and hook event entries need more than the table shows:</p>
+<ul>
+<li><strong><code>allowedHttpHookUrls</code></strong>: entries merge across settings files, so a developer can add to an empty managed list. <code>allowManagedHooksOnly</code> decides which hooks run</li>
+<li><strong><code>managed-mcp.json</code></strong>: to turn MCP off, see <a href="/docs/en/managed-mcp#disable-mcp-entirely">Disable MCP entirely</a>. To confirm Claude Code reads the file, see <a href="/docs/en/managed-mcp#validate-the-configuration">Validate the configuration</a></li>
+<li><strong>Hook events</strong>: Claude Code logs <code>hook_execution_start</code> and <code>hook_execution_complete</code> once per hook event, covering every matching hook. <code>OTEL_LOG_TOOL_DETAILS=1</code> on its own doesn't record an HTTP hook's URL. The hook configuration appears only in <code>hook_definitions</code>, which also needs detailed beta tracing</li>
+</ul>
+<p><code>OTEL_LOG_TOOL_DETAILS=1</code> adds command strings, server and tool names, and tool input to these events. That detail can contain the same sensitive content as the session itself, so enable it only when your collector is approved to hold that content.</p>
+<h3 id="check-the-retention-sweep">Check the retention sweep</h3>
+<p>To give every machine the same retention period, set <a href="/docs/en/settings-reference#cleanupperioddays"><code>cleanupPeriodDays</code></a> in <a href="/docs/en/managed-settings">managed settings</a>. To check that machines run the sweep with that value, collect the <a href="#retention-sweep-event"><code>retention_sweep</code></a> event. <code>period_days</code> and the counters are strings, so cast them to numbers before you compare them.</p>
+<table>
+<thead>
+<tr>
+<th>What a machine reports</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>result</code> is <code>"skipped"</code></td>
+<td>Claude Code paused the sweep. <code>skip_reason</code> gives the cause</td>
+</tr>
+<tr>
+<td><code>used_default</code> is <code>"true"</code>, or <code>period_days</code> differs from your managed value</td>
+<td>The machine isn't applying your managed <code>cleanupPeriodDays</code></td>
+</tr>
+<tr>
+<td><code>error_count</code> is above zero</td>
+<td>The sweep hit errors while it listed or deleted files, so data past the retention period can remain</td>
+</tr>
+<tr>
+<td><code>files_past_cutoff</code> is above zero</td>
+<td>The sweep failed to delete files past the retention period, or it found stale synced skills and plugins folders. Read it with <code>error_count</code></td>
+</tr>
+<tr>
+<td>No event</td>
+<td>Not a failure on its own</td>
+</tr>
+</tbody>
+</table>
+<p>A machine that works as intended can go without an event for reasons such as these:</p>
+<ul>
+<li><strong>Nobody starts Claude Code</strong>: no sweep runs, and the machine keeps its data until the next launch</li>
+<li><strong>A session stays open</strong>: Claude Code runs the sweep at most once per session</li>
+<li><strong>A session ends early</strong>: a sweep that hasn't finished when the session exits emits nothing, and neither does one that stops on an unexpected error</li>
+</ul>
+<p>The sweep doesn't cover every path. <a href="/docs/en/claude-directory#kept-until-you-delete-them">Kept until you delete them</a> lists what stays, and <a href="/docs/en/claude-directory#clear-local-data">Clear local data</a> shows how to remove it.</p>
 <h3 id="send-events-to-a-siem">Send events to a SIEM</h3>
 <p>Point <code>OTEL_EXPORTER_OTLP_LOGS_ENDPOINT</code> at your SIEM's OTLP receiver, or at an OpenTelemetry Collector that forwards to your SIEM's native ingest API. The following managed-settings example exports events only, with full tool detail enabled for MCP and Bash auditing:</p>
 <p><code>json theme={null}

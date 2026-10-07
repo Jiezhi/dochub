@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7050,6 +7050,11 @@ rate_limits:
 </ol>
 <p>Rotation is also the only way to force sessions out before they expire: bearer tokens validate locally against the JWT secret, so there is no per-session revocation. Replacing the secret outright, without keeping the old one in the array, invalidates every outstanding session at once. For individual offboarding, deprovision the user in your IdP; their session ends within <code>ttl_hours</code>.</p>
 <h3 id="postgres">Postgres</h3>
+<p>The gateway stores its state in a PostgreSQL database:</p>
+<ul>
+<li><strong>Database</strong>: PostgreSQL itself, self-hosted or managed, at the <a href="/docs/en/claude-apps-gateway#prerequisites">minimum version</a> or later. Databases that only implement the Postgres protocol, such as distributed SQL databases, aren't supported.</li>
+<li><strong>Address</strong>: <code>store.postgres_url</code> takes one host. If the database has several nodes, use the address in front of them, such as your managed service's endpoint, a load balancer, or a virtual IP. Set a <a href="#readiness-grace-period">readiness grace period</a> longer than a failover takes.</li>
+</ul>
 <p>The gateway holds five data tables plus a <code>_migrations</code> table, all created by its boot-time migrations:</p>
 <table>
 <thead>
@@ -7283,6 +7288,11 @@ rate_limits:
 <td>Set <code>store.postgres_url</code>. For local development, use a throwaway container: <code>docker run --rm -p 5432:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres</code>.</td>
 </tr>
 <tr>
+<td>Boot exits: <code>store.postgres_url in &lt;path&gt; is not a URL the gateway can read</code>, or before v2.1.290 a bare <code>Invalid URL</code> or <code>URI error</code></td>
+<td>The URL can't be parsed, for example because it lists more than one host or its password has an unencoded <code>/</code>, <code>?</code>, <code>#</code>, or <code>%</code></td>
+<td>Name <a href="#postgres">one host</a>, and move the password into <a href="/docs/en/claude-apps-gateway-config#store"><code>store.password</code></a></td>
+</tr>
+<tr>
 <td>Boot exits: <code>requires the native binary</code></td>
 <td>Running under Node instead of the native binary</td>
 <td>Install Claude Code with one of the <a href="/docs/en/setup">standalone install methods</a></td>
@@ -7300,7 +7310,7 @@ rate_limits:
 <tr>
 <td>Log: <code>could not connect to Postgres at boot, attempt 1 of 3</code></td>
 <td>The database wasn't reachable yet when the gateway started, for example on a cold instance whose network is still coming up</td>
-<td>If the gateway then finishes booting, no action is needed. When the database isn't reachable, the gateway tries the connection three times, two seconds apart, before it exits. If it exits with <code>could not connect to Postgres</code>, check <code>store.postgres_url</code> and the network path to the database. If the attempts time out rather than being refused, raise <a href="/docs/en/claude-apps-gateway-config#store"><code>store.connect_timeout_seconds</code></a> to give each one longer.</td>
+<td>If the gateway then finishes booting, no action is needed. When the database isn't reachable, the gateway tries the connection three times, two seconds apart, before it exits. If it exits with <code>could not connect to Postgres</code>, check <code>store.postgres_url</code>, including that it names one host, and the network path to the database. If the attempts time out rather than being refused, raise <a href="/docs/en/claude-apps-gateway-config#store"><code>store.connect_timeout_seconds</code></a> to give each one longer.</td>
 </tr>
 <tr>
 <td><code>/oauth/callback</code> shows "Sign-in could not be completed"</td>

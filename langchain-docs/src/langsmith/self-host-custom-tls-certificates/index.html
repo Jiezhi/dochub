@@ -854,7 +854,7 @@
   <span class="md-ellipsis">
     
   
-    Reference Documentation Integration
+    Reference Documentation Boundaries
   
 
     
@@ -1300,6 +1300,34 @@
     
   
     Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../openwiki/workflows/changelog-publication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LangSmith Changelog Publication
   
 
     
@@ -3421,6 +3449,34 @@
     
   
     Bring your own VPC on AWS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../byoc-data-plane-cost/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWS data plane cost estimate
   
 
     
@@ -16646,10 +16702,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6_514" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6_515" >
         
           
-          <label class="md-nav__link" for="__nav_5_6_514" id="__nav_5_6_514_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_6_515" id="__nav_5_6_515_label" tabindex="0">
             
   
   
@@ -16667,8 +16723,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_6_514_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_6_514">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_6_515_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6_515">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -75013,8 +75069,10 @@ You must use Helm chart version 0.11.9 or later to mount internal CAs using the 
 </Note></p>
 <p>Use this approach to make internal/public CAs trusted system‑wide by LangSmith (Playground model calls and <a href="/langsmith/self-hosted#storage-services">database/external service connections</a>).</p>
 <ol>
-<li>Create a file containing all CAs required for TLS with databases and external services. If your deployment is communicating directly to <code>beacon.langchain.com</code> without a proxy, make sure to include a public trusted CA. All certs should be concatenated in this file with an empty line in between.
-    <div class="highlight"><pre><span></span><code>-----BEGIN CERTIFICATE-----
+<li>
+<p>Create a file containing all CAs required for TLS with databases and external services. If your deployment is communicating directly to <code>beacon.langchain.com</code> without a proxy, make sure to include a public trusted CA. All certs should be concatenated in this file with an empty line in between.</p>
+<p>Include every root your databases chain to, public ones as well. Once this bundle is mounted, the database migration jobs trust only this file and not the system CA store, so a missing public root fails upgrades even though the application keeps running. If you use <a href="/langsmith/langsmith-managed-clickhouse#tls-certificates">LangSmith-managed ClickHouse</a>, add ISRG Root X1.
+<div class="highlight"><pre><span></span><code>-----BEGIN CERTIFICATE-----
 &lt;PUBLIC_CA&gt;
 -----END CERTIFICATE-----
 
@@ -75023,17 +75081,16 @@ You must use Helm chart version 0.11.9 or later to mount internal CAs using the 
 -----END CERTIFICATE-----
 
 ...
-</code></pre></div></li>
-<li>Create a Kubernetes secret with a key containing the contents of this file.
-    <div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>&lt;SECRET_NAME&gt;<span class="w"> </span>--from-file<span class="o">=</span>&lt;SECRET_KEY&gt;<span class="o">=</span>&lt;CA_BUNDLE_FILE_PATH&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;NAMESPACE&gt;
-</code></pre></div></li>
-<li>
-<p>If using custom CA for TLS with your databases and other external services, provide the following values to your LangSmith helm chart:
-    ```yaml Helm
-    config:
-      customCa:
-        secretName: <SECRET_NAME> # The name of the secret created in step 2.
-        secretKey: <SECRET_KEY> # The key in the secret containing the CA bundle.</p>
+</code></pre></div>
+2. Create a Kubernetes secret with a key containing the contents of this file.
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>&lt;SECRET_NAME&gt;<span class="w"> </span>--from-file<span class="o">=</span>&lt;SECRET_KEY&gt;<span class="o">=</span>&lt;CA_BUNDLE_FILE_PATH&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;NAMESPACE&gt;
+</code></pre></div>
+3. If using custom CA for TLS with your databases and other external services, provide the following values to your LangSmith helm chart:
+```yaml Helm
+config:
+  customCa:
+    secretName: <SECRET_NAME> # The name of the secret created in step 2.
+    secretKey: <SECRET_KEY> # The key in the secret containing the CA bundle.</p>
 <p>clickhouse:
   external:
     tls: true # Only enable if you want TLS for Clickhouse.

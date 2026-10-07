@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7336,8 +7336,8 @@ Compare the SHA-1 thumbprint with the one the IdP shows for the certificate you 
 <p>The gateway reads the key and certificate once at boot, so a changed file takes effect only after a restart. Rotate in this order so that no token request presents a certificate the IdP doesn't have:</p>
 <ol>
 <li>Upload the new certificate to the IdP alongside the old one.</li>
-<li>Replace the key and certificate files that <code>gateway.yaml</code> loads, then restart the gateway.</li>
-<li>Remove the old certificate from the IdP.</li>
+<li>Replace the key and certificate files that <code>gateway.yaml</code> loads, then restart the gateway. If you run several replicas, a <a href="/docs/en/claude-apps-gateway-deploy#upgrades">rolling restart</a> works, because the IdP has both certificates until you remove the old one.</li>
+<li>After every replica has restarted, remove the old certificate from the IdP.</li>
 </ol>
 <h4 id="idp-requests-through-a-forward-proxy">IdP requests through a forward proxy</h4>
 <p>The inference upstreams honor <code>HTTPS_PROXY</code> and <code>HTTP_PROXY</code> on every version. The gateway's own requests to the IdP, discovery, JWKS, token, and userinfo, go direct unless you set <code>oidc.use_proxy: true</code>, which requires v2.1.227 or later. When a proxy variable is set, <code>use_proxy</code> is unset, and the issuer isn't covered by <code>NO_PROXY</code>, the gateway keeps those requests direct and logs a notice at boot asking you to choose; <code>use_proxy: false</code> keeps them direct and silences the notice.</p>
@@ -7389,7 +7389,7 @@ The `store` block points the gateway at its PostgreSQL database, which holds dev
 
 | Field | Required | Description |
 | - | - | - |
-| `postgres_url` | Yes | `postgres://` or `postgresql://` URL. Required: the device-grant rendezvous, where the browser callback writes and the polling CLI reads, needs cross-replica state. The gateway runs its own schema migrations at boot and on upgrade, so the role needs rights to create and alter tables on the target schema. See [Upgrades](/docs/en/claude-apps-gateway-deploy#upgrades) and [Postgres](/docs/en/claude-apps-gateway-deploy#postgres). |
+| `postgres_url` | Yes | `postgres://` or `postgresql://` URL with one host, not a comma-separated list. The gateway runs its own schema migrations at boot and on upgrade, so the role needs rights to create and alter tables on the target schema. See [Upgrades](/docs/en/claude-apps-gateway-deploy#upgrades) and [Postgres](/docs/en/claude-apps-gateway-deploy#postgres). |
 | `username` | No | Overrides the user in `postgres_url` |
 | `password` | No | Database credential. Set it here rather than in `postgres_url` so the credential stays out of the URL. Accepts any characters and takes precedence over URL credentials. |
 | `max_connections` | No | Postgres connection-pool size per replica. Default `5`, which is conservative and friendly to shared databases. With [spend limits](#admin) enabled, the hot path does a few operations per inference request, so raise it for a dedicated database under load, and keep replicas × this below the database's `max_connections`. |
