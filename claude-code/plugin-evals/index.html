@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7118,7 +7118,7 @@ Published: https://claude.ai/... · keep local next time with --no-publish
     Open the <code>Published:</code> URL, or the <code>Report:</code> path when no <code>Published:</code> line appears, to see each grader's verdict and explanation for every run, and for <code>llm</code> graders the judge's votes and the excerpt it judged. The <code>Published:</code> line appears only when your account can <a href="#html-report">publish reports</a>.</p>
 <pre><code>The most common first finding is a `Δ` near zero with the case's `tool_used: Skill` grader failing, which means Claude isn't choosing your skill on natural phrasing. Adjust the skill's [`description`](/docs/en/skills#frontmatter-reference), run `claude plugin eval .` again, and compare.
 
-To iterate on one case cheaply, run a single arm once. A single run is noisy, so confirm any change at the default three runs before you trust it. With one arm the table shows `SCORE` and `PASS%` columns instead of `WITH`, `W/OUT`, and `Δ`:
+To iterate on one case with fewer runs, run a single arm once. A single run is noisy, so confirm any change at the default three runs before you trust it. With one arm the table shows `SCORE` and `PASS%` columns instead of `WITH`, `W/OUT`, and `Δ`:
 
 ```bash theme={null}
 claude plugin eval . --case &lt;case-name&gt; --runs 1 --ablation none
@@ -7288,7 +7288,7 @@ Created issue #4821: {{input.title}}
 <li><strong>Substitutions</strong>: insert fields from the call's input with <code>{{input.&lt;field&gt;}}</code>, and the contents of a fixture file beside the mock with <code>{{file:fixtures/{input.&lt;field&gt;}.json}}</code>.</li>
 <li><strong><code>expect:</code></strong>: the <code>expect:</code> block guards the input. If a call violates it, the run aborts with score 0 and records why, so a case can assert what your plugin asked the server to do.</li>
 <li><strong><code>error: true</code></strong>: set <code>error: true</code> to return the body as a tool error instead.</li>
-<li><strong><code>type: agent</code></strong>: set <code>type: agent</code> to have the judge model answer as the server from instructions in the body.</li>
+<li><strong><code>type: agent</code></strong>: set <code>type: agent</code> to have the judge model answer as the server from instructions in the body. Calls to agent mocks share one <a href="#mock-call-budget-exceeded">budget per run</a> of four times the case's <code>max_turns</code>, and a call past it aborts the run with score 0.</li>
 </ul>
 <p>The <a href="#mock-files">mock file reference</a> lists every key and the <code>_server.md</code> and <code>_tools.json</code> files.</p>
 <p>To grade the calls themselves, point a grader at <code>target: mock_calls</code>.</p>
@@ -7484,7 +7484,7 @@ claude plugin eval . \
 </tr>
 <tr>
 <td style="text-align: left;"><code>cases[].arms.with[].aborted</code></td>
-<td style="text-align: left;">Present when a <a href="#mock-mcp-servers">mock</a>'s <code>expect:</code> or <code>abort_when</code> stopped the run, with <code>server</code>, <code>tool</code>, and <code>reason</code>. The run scores 0 and <code>error</code> stays <code>null</code></td>
+<td style="text-align: left;">Present when a <a href="#mock-mcp-servers">mock</a> stopped the run through <code>expect:</code>, <code>abort_when</code>, or the <a href="#mock-call-budget-exceeded">agent-mock call budget</a>, with <code>server</code>, <code>tool</code>, and <code>reason</code>. The run scores 0 and <code>error</code> stays <code>null</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>cases[].arms.with[].skippedPaidGraders</code></td>
@@ -7628,16 +7628,31 @@ A `&lt;tool&gt;.md` file under `mocks/&lt;server&gt;/` answers one tool. Its bod
 | Key | Default | Purpose |
 | :- | :- | :- |
 | `type` | `fixed` | `fixed` returns the body as written. `agent` treats the body as instructions for the [judge model](#command-options), which acts as the server for the run and sees earlier calls as history |
-| `expect` | unset | A map from dotted input paths to a type name such as `string`, `number`, `boolean`, `array`, or `object`, a `/regex/`, a literal, or a list of allowed literals. A call that violates it aborts the run with score 0 and is reported as `aborted` with the server, tool, and reason |
+| `expect` | unset | A map from dotted input paths to a type name such as `string`, `number`, `boolean`, `array`, or `object`, a [`/regex/`](#expect-patterns), a literal, or a list of allowed literals. A call that violates it aborts the run with score 0 and is reported as `aborted` with the server, tool, and reason |
 | `error` | `false` | `fixed` only. Return the body as a tool error |
 | `abort_when` | unset | `agent` only. Prose listing the only conditions under which the agent may abort the run |
 
 Two optional files sit beside the tool files in a server's directory:
 
-* **`_server.md`**: a single `type: agent` mock that answers several tools, listed in its `tools:` frontmatter key. A `&lt;tool&gt;.md` for the same tool takes precedence. Put an `expect:` guard on the individual `&lt;tool&gt;.md`, not here
+* **`_server.md`**: a single `type: agent` mock that answers several tools, listed in its `tools:` frontmatter key. A `&lt;tool&gt;.md` for the same tool takes precedence. An `expect:` guard here is a load error unless `tools:` lists a single tool, so put the guard on the individual `&lt;tool&gt;.md` instead
 * **`_tools.json`**: a saved `tools/list` response from the real server, so mocked tools carry their real descriptions and input schemas instead of a permissive placeholder
 
 A case's own `mocks/` directory uses the same layout and overrides the suite's mocks file by file.
+
+&lt;h4 id="expect-patterns"&gt;
+  Regex patterns in expect
+&lt;/h4&gt;
+
+A `/regex/` value in `expect:` uses a small dialect that Claude Code checks when it loads the suite:
+
+* Literal characters, `.`, escapes such as `\d`, and character classes such as `[a-z]`
+* The quantifiers `*`, `+`, `?`, and the `{m,n}` forms, each on a single character, escape, or class
+* An optional `^` at the start and `$` at the end
+* The flags `i` and `s` only
+
+A pattern outside the dialect, such as one with a group, alternation, a backreference, lookaround, or another flag, stops the case from loading: the case scores 0 and its error names the pattern. To allow several exact values, write a list of literals instead of an alternation.
+
+Each pattern checks values only up to a maximum length, and a longer value counts as a violation. Quantifiers can lower that length, and a leading `^` raises it, so anchor patterns with `^` and keep quantifiers few.
 
 ## Troubleshooting
 
@@ -7697,6 +7712,11 @@ git 2.30 is too old for claude plugin eval: it ignores the environment configura
 <p>That grader is excluded from the score by design in a two-arm run, and its <code>scored</code> field is <code>false</code>. See <a href="#compare-against-a-no-plugin-baseline">Score against the no-plugin baseline</a>.</p>
 <h3 id="runs-fail-with-a-usage-limit-or-rate-limit-error-partway-through">Runs fail with a usage-limit or rate-limit error partway through</h3>
 <p>If your account reaches its plan's usage limit or an API rate limit while a suite is running, each later run ends with that error, is graded on what it produced, and usually scores 0. The suite still finishes and isn't marked <code>partial</code>, so the result can look like a regression. Check the <code>NOTES</code> column or <code>cases[].arms.with[].error</code> in the JSON for the limit message before trusting the scores, then re-run after the limit resets, with <code>--runs 1</code> or a <code>--case</code> filter if you need to stay under it.</p>
+<h3 id="mock-call-budget-exceeded">
+  "mock call budget exceeded"
+</h3>
+
+<p>Every <code>type: agent</code> <a href="#mock-mcp-servers">mock</a> in a run draws on one call budget of four times the case's <code>max_turns</code>, which is 40 calls at the default of 10. Calls answered from <code>.replay/</code> recordings count too, and the case's <code>mock budget</code> progress line prints the budget. A call past it aborts the run with score 0 and this reason, so raise <code>max_turns</code> in the case for a skill that makes many calls to agent mocks.</p>
 <h3 id="runs-time-out-or-hit-the-turn-cap">Runs time out or hit the turn cap</h3>
 <p>The defaults are 10 turns and 300 seconds. Raise <code>max_turns</code> and <code>timeout_seconds</code> in the case for tasks that need more, and use <code>--max-cost-usd</code> as the cost ceiling rather than tight per-run limits.</p>
 <h2 id="see-also">See also</h2>

@@ -2465,7 +2465,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -8352,7 +8352,7 @@ async def greet(args: dict[str, Any]) -&gt; dict[str, Any]:
     return {"content": [{"type": "text", "text": f"Hello, {args['name']}!"}]}
 <div class="highlight"><pre><span></span><code>#### `ToolAnnotations`
 
-Behavioral hints for a tool, passed as the `annotations` argument of [`tool()`](#tool). `ToolAnnotations` extends the MCP SDK's `mcp.types.ToolAnnotations` with a `maxResultSizeChars` field, and you can write each hint in camelCase or snake\_case: `ToolAnnotations(readOnlyHint=True)` and `ToolAnnotations(read_only_hint=True)` are equivalent. You can also pass a plain `mcp.types.ToolAnnotations` wherever the SDK accepts annotations.
+Behavioral hints for a tool, passed as the `annotations` argument of [`tool()`](#tool). `ToolAnnotations` extends the MCP SDK's `mcp.types.ToolAnnotations` with a `maxResultSizeChars` field, and you can write each hint in camelCase or snake\_case: `ToolAnnotations(readOnlyHint=True)` and `ToolAnnotations(read_only_hint=True)` are equivalent. To read a hint back from the object, use the spelling your installed `mcp` package declares: `.readOnlyHint` on `mcp` 1.x and `.read_only_hint` on 2.x, while `.maxResultSizeChars` works on both. You can also pass a plain `mcp.types.ToolAnnotations` wherever the SDK accepts annotations.
 
 The snake\_case names and the typed `maxResultSizeChars` field require Python Agent SDK 0.2.140 or later. Versions 0.1.31 through 0.2.139 re-export `mcp.types.ToolAnnotations` unchanged. On versions 0.1.55 through 0.2.139 you can still pass `maxResultSizeChars` as a keyword argument: the MCP class accepts extra fields, and the SDK forwards the value to Claude Code.
 
@@ -9003,7 +9003,7 @@ class ClaudeAgentOptions:
 | `user` | `str \| None` | `None` | On POSIX platforms, the OS user account the Claude Code subprocess runs as. Claude Code keeps the parent process's environment, including `HOME`, and runs in `cwd` |
 | `include_partial_messages` | `bool` | `False` | Include partial message streaming events. When enabled, [`StreamEvent`](#streamevent) messages are yielded |
 | `include_hook_events` | `bool` | `False` | Include hook lifecycle events in the message stream as `HookEventMessage` objects |
-| `forward_subagent_text` | `bool` | `False` | Forward subagent text and thinking blocks in the message stream. Without this option, Claude Code emits subagent `tool_use` and `tool_result` blocks but not text or thinking. Requires Python Agent SDK 0.2.140 or later |
+| `forward_subagent_text` | `bool` | `False` | Forward subagent text and thinking blocks in the message stream. Without this option, Claude Code omits the text and thinking blocks of a subagent that runs in the [foreground](/docs/en/sub-agents#run-subagents-in-foreground-or-background). For nested subagents, skills with `context: fork`, and the Claude Code version each needs, see [Follow subagent messages](/docs/en/headless#follow-subagent-messages). Requires Python Agent SDK 0.2.140 or later |
 | `verbatim_prompts` | `bool` | `False` | Deliver every prompt as written. The SDK sends each user message with `client_composed` set to `True`. See [`client_composed`](/docs/en/agent-sdk/typescript#sdkusermessage) for what Claude Code skips on those messages. Use this option when your prompt text includes content the end user didn't type. For per-turn control, leave it off and set `"client_composed": True` on individual streamed messages instead. While the option is on, the SDK overwrites any `client_composed` value you set. Requires Python Agent SDK 0.2.158 or later and Claude Code v2.1.248 or later; the CLI bundled with those SDK versions satisfies the Claude Code requirement |
 | `fork_session` | `bool` | `False` | When resuming with `resume`, fork to a new session ID instead of continuing the original session |
 | `resume_session_at` | `str \| None` | `None` | When resuming, load the conversation only up to and including the message with this UUID. Use with `resume`, and usually `fork_session`, to branch from an earlier point. Requires Python Agent SDK 0.2.137 or later |
@@ -9502,7 +9502,7 @@ ThinkingConfig = ThinkingConfigAdaptive | ThinkingConfigEnabled | ThinkingConfig
 </tr>
 </tbody>
 </table>
-<p>The optional <code>display</code> field controls whether thinking text is returned <code>"summarized"</code> or <code>"omitted"</code>. On Claude Opus 4.7 and later, the API default is <code>"omitted"</code>, so set <code>"summarized"</code> to receive thinking content in <a href="#thinkingblock"><code>ThinkingBlock</code></a> outputs. Claude Code doesn't send <code>display</code> to Amazon Bedrock or Google Cloud's Agent Platform, so on those providers Opus 4.7 and later return empty <code>ThinkingBlock</code> outputs even when you set <code>display</code> to <code>"summarized"</code>.</p>
+<p>The optional <code>display</code> field controls whether thinking text is returned <code>"summarized"</code> or <code>"omitted"</code>. On Claude Opus 4.7 and later, the API default is <code>"omitted"</code>, so set <code>"summarized"</code> to receive thinking content in <a href="#thinkingblock"><code>ThinkingBlock</code></a> outputs. Claude Code doesn't pass your <code>display</code> value to some providers, such as Amazon Bedrock and Google Cloud's Agent Platform. On those providers, Opus 4.7 and later return empty <code>ThinkingBlock</code> outputs even when you set <code>display</code> to <code>"summarized"</code>.</p>
 <p>Because these are <code>TypedDict</code> classes, they're plain dicts at runtime. Either construct them as dict literals or call the class like a constructor; both produce a <code>dict</code>. Access fields with <code>config["budget_tokens"]</code>, not <code>config.budget_tokens</code>:</p>
 <p>```python theme={null}
 from claude_agent_sdk import ClaudeAgentOptions, ThinkingConfigEnabled</p>
@@ -9926,6 +9926,11 @@ class ResultMessage:
 <td><code>str</code></td>
 <td>API provider that served this model, such as <code>firstParty</code>, <code>bedrock</code>, <code>vertex</code>, <code>foundry</code>, <code>anthropicAws</code>, <code>mantle</code>, or <code>gateway</code>. Not always present.</td>
 </tr>
+<tr>
+<td><code>costBasis</code></td>
+<td><code>str</code></td>
+<td>Price table that priced this model's latest request: <code>list</code> for list price, <code>managed</code> for a <a href="/docs/en/settings-reference#modelpricing"><code>modelPricing</code></a> table, or <code>unknown</code> when neither matched the model ID. Not always present, and not declared on the TypedDict, so read it with <code>.get()</code>. Requires Claude Code v2.1.246 or later.</td>
+</tr>
 </tbody>
 </table>
 <h3 id="streamevent"><code>StreamEvent</code></h3>
@@ -10226,7 +10231,7 @@ Base exception class for all SDK errors.
 class ClaudeSDKError(Exception):
     """Base error for Claude SDK."""
 </code></pre></div></p>
-<p>When a single-shot <code>query()</code> ends with an error result, for example a turn-limit error, the SDK raises a <a href="#resulterror"><code>ResultError</code></a> after yielding the final result message. Python Agent SDK versions before 0.2.140 raised a plain <code>Exception</code> that wasn't a <code>ClaudeSDKError</code> subclass.</p>
+<p>When a single-shot <code>query()</code> ends with an error result, for example a turn-limit error, the SDK raises a <a href="#resulterror"><code>ResultError</code></a>.</p>
 <h3 id="clinotfounderror"><code>CLINotFoundError</code></h3>
 <p>Raised when Claude Code CLI is not installed or not found.</p>
 <p>```python theme={null}
@@ -10258,7 +10263,7 @@ class ProcessError(ClaudeSDKError):
         self.stderr = stderr
 <div class="highlight"><pre><span></span><code>### `ResultError`
 
-Raised after the final [`ResultMessage`](#resultmessage) when the Claude Code process exits because the run ended with an error result, such as a turn-limit error or an API error. `ResultError` subclasses `ProcessError`, so an existing `except ProcessError` handler also catches it. Its attributes carry the fields of that result message, so you can branch on why the run failed without parsing the message text. Requires Python Agent SDK 0.2.140 or later.
+Raised when the Claude Code process exits because the run ended with an error [result message](#resultmessage), such as a turn-limit error or an API error. `ResultError` subclasses `ProcessError`, so an existing `except ProcessError` handler also catches it. Its attributes carry the fields of that result message, so you can branch on why the run failed without parsing the message text. Requires Python Agent SDK 0.2.140 or later.
 
 ```python theme={null}
 class ResultError(ProcessError):
@@ -10726,7 +10731,7 @@ class PostToolUseHookSpecificOutput(TypedDict):
     hookEventName: Literal["PostToolUse"]
     additionalContext: NotRequired[str]
     updatedToolOutput: NotRequired[Any]
-    updatedMCPToolOutput: NotRequired[Any]  # Deprecated: use updatedToolOutput, which works for all tools
+    updatedMCPToolOutput: NotRequired[Any]  # MCP tools only. Prefer updatedToolOutput, which works for all tools
 
 
 class PostToolUseFailureHookSpecificOutput(TypedDict):
@@ -10830,7 +10835,7 @@ async def main():
 asyncio.run(main())
 </code></pre></div></p>
 <h2 id="tool-inputoutput-types">Tool Input/Output Types</h2>
-<p>Documentation of input/output schemas for all built-in Claude Code tools. While the Python SDK doesn't export these as types, they represent the structure of tool inputs and outputs in messages.</p>
+<p>Documentation of input/output schemas for built-in Claude Code tools. While the Python SDK doesn't export these as types, they represent the structure of tool inputs and outputs in messages.</p>
 <p>Each output shown is the value you read from <a href="#usermessage"><code>UserMessage.tool_use_result</code></a> for that tool. Key names appear exactly as Claude Code emits them. A key annotated <code>| None</code> with a "present when" or "optional" comment is omitted when it doesn't apply.</p>
 <h3 id="agent">Agent</h3>
 <p><strong>Tool name:</strong> <code>Agent</code>. The previous name <code>Task</code> is still accepted as an alias, and the <code>tools</code> list in the init <a href="#systemmessage"><code>SystemMessage</code></a> reports this tool as <code>Task</code> for backward compatibility.</p>
@@ -10841,6 +10846,7 @@ asyncio.run(main())
     "prompt": str,  # The task for the agent to perform
     "subagent_type": str | None,  # The type of specialized agent to use
     "model": "sonnet" | "opus" | "haiku" | "fable" | None,  # Model override for this agent
+    "effort": "low" | "medium" | "high" | "xhigh" | "max" | None,  # Reasoning effort for this agent
     "run_in_background": bool | None,  # Agents run in the background by default; set to False to run synchronously
     "name": str | None,  # Name for the spawned agent
     "team_name": str | None,  # Deprecated; ignored

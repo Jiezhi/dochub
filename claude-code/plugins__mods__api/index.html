@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6550,6 +6550,9 @@ on('tool.call', { tool: 'mcp__my-mod__ticket' }, async ($, e) =&gt; {
 })
 </code></pre></div></p>
 <p>When you ask about a ticket, Claude can call <code>mcp__my-mod__ticket</code> with its id. The second hook fetches the ticket and returns the response body, which Claude reads as the tool's result. When the server answers with an error status, Claude reads <code>Lookup failed with status</code> and the number.</p>
+<p><Tip>
+  When <a href="/docs/en/mcp#scale-with-mcp-tool-search">MCP tool search</a> defers a registered tool, Claude sees its name but not its description until it searches for it. If Claude should consider the tool on every turn, add <a href="/docs/en/plugins/mods/reference#tools"><code>isDeferred: false</code></a> to the registration to <a href="/docs/en/mcp#exempt-a-server-from-deferral">load the full tool upfront</a>. The field requires Claude Code v2.1.293 or later, and earlier versions ignore it.
+</Tip></p>
 <h2 id="call-a-model">Call a model</h2>
 <p>A mod can ask a model a question of its own, outside the conversation, for a small job such as sorting or summarizing a piece of text. <code>$.model.complete</code> sends one prompt to a model with your session's credentials and resolves to the reply. It has no conversation history.</p>
 <p>This hook answers a <code>/triage</code> command, <a href="#add-a-command">registered as a command</a>, by asking a small model to label the text typed after it:</p>
@@ -6711,6 +6714,11 @@ on('command.run', { command: 'ping' }, async ($, e) =&gt; {
 <li><strong><code>$.process.run</code></strong>: takes an argument list and uses no shell. It resolves to <code>{ exitCode, stdout, stderr }</code> whatever the exit code. It rejects if the program can't start or is still running at the timeout, which is 30 seconds by default, so wrap it in <code>try</code> and <code>catch</code>.</li>
 </ul>
 <p>Every one of these calls is itself an event, named for its namespace and method without the <code>$.</code>, such as <code>fs.read</code> for <code>$.fs.read</code>. A mod <a href="/docs/en/plugins/mods/events#the-order-mods-run-in">earlier in the chain</a> can observe, rewrite, or refuse your call, which is how an organization restricts what mods reach.</p>
+<p>A mod can refuse your <code>$.process.spawn</code> call after the command has produced output or exited, and nothing the command did is undone. The call then rejects with a message that ends with one of these strings and the refusing mod's reason:</p>
+<ul>
+<li><strong><code>$.process.spawn started, and a plugin withheld its result:</code></strong>: the refusing mod hadn't read the command's output to the end. Claude Code stops the command if it's still running.</li>
+<li><strong><code>$.process.spawn ran, and a plugin withheld its result:</code></strong>: the refusing mod had read the command's output to the end, so the command had exited</li>
+</ul>
 <h2 id="next-steps">Next steps</h2>
 <ul>
 <li><a href="/docs/en/plugins/mods/events">React to events</a>: hook tool calls, prompts, and turns</li>

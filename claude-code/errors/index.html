@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -8464,7 +8464,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#the-proxy-refused-the-connection">Network</a></td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>403</code> with <code>This GraphQL query is not enabled for this session</code> in a cloud session</td>
+<td style="text-align: left;"><code>403</code> with <code>GitHub GraphQL is not available from Claude Code sessions</code> in a cloud session</td>
 <td style="text-align: left;"><a href="/docs/en/cloud-environments#github-proxy">GitHub proxy</a></td>
 </tr>
 <tr>
@@ -8730,6 +8730,10 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>Couldn't verify your organization's policy for cloud sessions</code></td>
 <td style="text-align: left;"><a href="#cloud-sessions-are-disabled-by-your-organizations-policy">Command-line errors</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Cloud sessions need a claude.ai sign-in</code></td>
+<td style="text-align: left;"><a href="/docs/en/claude-code-on-the-web#unable-to-get-organization-uuid">Unable to get organization UUID</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Error: --json-schema is not a valid JSON Schema</code></td>
@@ -9443,6 +9447,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>A connection that Claude Code detects was broken by your computer going to sleep partway through a request. Claude Code counts it as a dropped connection under the rules above; once the retry label names the specific reason, it reads <code>Connection lost while your computer was asleep</code>, and if the turn ends after Claude has finished thinking but before any text or tool call, the message reads <code>Your computer went to sleep before a response was produced</code>.</li>
 <li>A stalled response stream, when the response headers have arrived but none of Claude's response has arrived, or when Claude has finished thinking but hasn't started any text or tool call: Claude Code aborts the stalled connection and re-issues the request at most once, outside the 10-attempt budget above. If the response stalls a second time after Claude has finished thinking but before any text or tool call, Claude Code ends the turn with <code>The response stalled before a response was produced</code>.</li>
 <li>A streaming request the API never answers with response headers, on a connection where the <a href="/docs/en/network-config#streaming-idle-watchdogs">first-byte deadline runs</a>: Claude Code aborts it at the deadline and re-sends it at most once per model request, within the retry budget, then ends the turn with <a href="#no-response-from-api">No response from API</a> if that attempt goes unanswered too. On other connections, the request waits out <code>API_TIMEOUT_MS</code>. When you set <code>CLAUDE_CODE_RETRY_WATCHDOG</code>, the one-retry cap doesn't apply.</li>
+<li>A streaming response that the API's output content filter stops before Claude has either finished thinking or started any text or tool call. Claude Code re-sends the request once, within the retry budget, and shows <a href="#output-blocked-by-content-filtering-policy">Output blocked by content filtering policy</a> if the filter stops the second response too.</li>
 <li>Temporary 429 throttles, but not a gateway's spend-limit <code>429</code>, which isn't a throttle; see <a href="#spend-limit-reached">Spend limit reached</a>.</li>
 <li>When you're signed in with a claude.ai subscription, this includes 429 throttles that don't carry your plan's quota headers. Before v2.1.199, Claude Code retried those throttles only for API key and Enterprise sign-ins.</li>
 <li>A request rejected because the input plus <code>max_tokens</code> exceeds the context limit. Re-sending it unchanged would fail the same way, so Claude Code retries with a reduced <code>max_tokens</code>, and stops retrying and compacts instead in two cases:</li>
@@ -9460,7 +9465,6 @@ Use this file to discover all available pages before exploring further.</p>
 <li>An <a href="#bedrock-streaming-response-has-an-unexpected-content-type">Amazon Bedrock streaming response with an unexpected content-type</a>, because the gateway or proxy rewriting the response would rewrite the retry the same way. Requires Claude Code v2.1.208 or later.</li>
 <li>A non-streaming retry of a failed streaming request that gets a success status but <a href="#api-returned-an-empty-or-malformed-response">no Claude API message in the body</a>. Claude Code ends the turn with that error.</li>
 <li>A request that your organization's policy check denied, which surfaces as an <code>API Error:</code> line carrying the denial message. Your organization's administrators set up the check with <a href="https://platform.claude.com/docs/en/manage-claude/inference-hooks">Inference hooks</a>, a Claude Enterprise feature, and the message ends with the instructions they configured, or by default tells you to contact them. Claude Code doesn't re-send the denied request to the same model or to a <a href="/docs/en/model-config#fallback-model-chains">fallback model</a>, because the denial is about the request's content rather than the model. Before v2.1.239, Claude Code could re-send a denied request, without streaming or on a configured fallback model, before showing you the denial.</li>
-<li>A response the API's output content filter blocked. Claude Code shows <a href="#output-blocked-by-content-filtering-policy">Output blocked by content filtering policy</a> at once and doesn't retry or re-send that request.</li>
 </ul>
 <h3 id="what-you-see-while-claude-code-retries-or-waits">What you see while Claude Code retries or waits</h3>
 <p>While retrying, the spinner shows a <code>Retrying in Ns · attempt x/y</code> countdown after an error label. The label names the specific reason from the first attempt for failures you can act on right away: the network is down, a TLS handshake failed, or you hit a rate limit. For other errors it reads <code>API error</code> at first. As of v2.1.198 it switches to the specific reason from the third attempt, or on the final attempt when <code>CLAUDE_CODE_MAX_RETRIES</code> allows fewer than three; earlier versions switch only on the final attempt.</p>
@@ -10929,7 +10933,7 @@ API Error: 400 ... image dimensions exceed max allowed size
 
 **What to do:**
 
-* Resize the image before pasting. The API accepts images up to 8000 pixels on the longest edge for a single image, or 2000 pixels when many images are in context.
+* Resize the image before pasting. The API accepts images up to 8000 pixels on the longest edge for a single image, or 3000 pixels when more than 20 images are in context.
 * Take a tighter screenshot of the relevant region instead of the full screen
 
 ### Unable to resize image
@@ -11405,7 +11409,6 @@ The API's output content filter stopped the response Claude was generating. The 
 ```text theme={null}
 API Error: Output blocked by content filtering policy
 </code></pre></div></p>
-<p>Claude Code shows the error as soon as the block arrives and ends the request there. It doesn't retry the request, re-send it without streaming, or switch to a <a href="/docs/en/model-config#fallback-model-chains">fallback model</a>. Before v2.1.285, Claude Code could re-send and retry a blocked request, sometimes for minutes, before showing you the error.</p>
 <p><strong>What to do:</strong></p>
 <ul>
 <li>Rephrase your last message or take a different approach</li>
