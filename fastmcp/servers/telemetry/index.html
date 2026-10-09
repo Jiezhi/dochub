@@ -10676,6 +10676,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tracing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -19993,6 +20004,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tracing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -20334,6 +20356,41 @@ opentelemetry-instrument<span class="w"> </span>fastmcp<span class="w"> </span>r
 <p><Card title="OpenTelemetry Python Documentation" icon="book" href="https://opentelemetry.io/docs/languages/python/">
   Learn more about the OpenTelemetry Python SDK, auto-instrumentation, and available exporters.
 </Card></p>
+<h2 id="logs">Logs</h2>
+<p>Export Python log records alongside traces with OpenTelemetry's <a href="https://opentelemetry.io/docs/zero-code/python/logs-example/">logging instrumentation</a>. Install it in the same environment as your server:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>opentelemetry-distro<span class="w"> </span>opentelemetry-exporter-otlp<span class="w"> </span>opentelemetry-instrumentation-logging
+</code></pre></div>
+<p>Use Python's standard <code>logging</code> module in your tools. Save this example as <code>server.py</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"inventory"</span><span class="p">)</span>
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Inventory"</span><span class="p">)</span>
+
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">stock_count</span><span class="p">(</span><span class="n">sku</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return the available stock for a product."""</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Checking inventory"</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="s2">"product_sku"</span><span class="p">:</span> <span class="n">sku</span><span class="p">})</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"WIDGET"</span><span class="p">:</span> <span class="mi">12</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sku</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">mcp</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s2">"http"</span><span class="p">)</span>
+</code></pre></div>
+<p>Records from your own loggers, such as <code>inventory</code> above, reach OpenTelemetry without further FastMCP configuration. To export FastMCP's own <code>fastmcp.*</code> records as well, set <code>FASTMCP_LOG_ENABLED=false</code> before starting the process. FastMCP's default console configuration stops its records from propagating to the root logger, where OpenTelemetry installs its handler; disabling that configuration lets them through, and also silences FastMCP's console output. Python logging levels still control which records are emitted.</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">FASTMCP_LOG_ENABLED</span><span class="o">=</span><span class="nb">false</span><span class="w">  </span><span class="c1"># optional, exports fastmcp.* records</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">OTEL_SERVICE_NAME</span><span class="o">=</span>inventory
+<span class="nb">export</span><span class="w"> </span><span class="nv">OTEL_EXPORTER_OTLP_ENDPOINT</span><span class="o">=</span>http://localhost:4317
+<span class="nb">export</span><span class="w"> </span><span class="nv">OTEL_LOGS_EXPORTER</span><span class="o">=</span>otlp
+
+opentelemetry-instrument<span class="w"> </span>python<span class="w"> </span>server.py
+</code></pre></div>
+<p>The endpoint must accept OTLP logs as well as traces. On current OpenTelemetry Python releases, installing <code>opentelemetry-instrumentation-logging</code> enables log export automatically. See the <a href="https://opentelemetry.io/docs/zero-code/python/configuration/#logging">OpenTelemetry agent configuration</a> for version-specific settings.</p>
+<p>When <code>stock_count</code> runs, its log record carries the active FastMCP tool span's trace and span IDs, letting you connect the message to the request. For local inspection without a collector, set <code>OTEL_LOGS_EXPORTER=console</code>, <code>OTEL_TRACES_EXPORTER=console</code>, and <code>OTEL_METRICS_EXPORTER=none</code>. The console exporter writes to stdout, so use it with HTTP servers as above; stdout belongs to the protocol when serving over STDIO.</p>
+<p><code>ctx.info()</code> and related methods send <a href="/servers/logging">MCP log notifications</a> to the client. Their server-side copies are logged at <code>DEBUG</code> on <code>fastmcp.server.context.to_client</code>; they do not become OpenTelemetry <code>INFO</code> records automatically. Use a Python logger when you want to emit a server-side record at its original severity.</p>
 <h2 id="tracing">Tracing</h2>
 <p>FastMCP creates spans for all MCP operations, providing end-to-end visibility into request handling.</p>
 <h3 id="server-spans">Server Spans</h3>

@@ -20177,8 +20177,9 @@
 <p>The <code>v</code> prefix is stripped before comparison, so <code>"v1.0"</code> and <code>"1.0"</code> are treated as equal for sorting purposes.</p>
 <h2 id="retrieving-specific-versions">Retrieving Specific Versions</h2>
 <p>Server-side code can retrieve specific versions rather than just the highest. This is useful during migrations when you need to compare behavior between versions or access legacy implementations.</p>
-<p>The <code>get_tool</code>, <code>get_resource</code>, and <code>get_prompt</code> methods accept an optional <code>version</code> parameter. Without it, they return the highest version. With it, they return exactly that version.</p>
+<p>The <code>get_tool</code>, <code>get_resource</code>, and <code>get_prompt</code> methods accept an optional <code>version</code> parameter. It takes a <code>VersionSpec</code> from <code>fastmcp.utilities.versions</code>. Without it, they return the highest version. With <code>VersionSpec(eq="1.0")</code>, they return exactly that version.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.utilities.versions</span><span class="w"> </span><span class="kn">import</span> <span class="n">VersionSpec</span>
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">()</span>
 
@@ -20196,10 +20197,10 @@
     <span class="nb">print</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>  <span class="c1"># "2.0"</span>
 
     <span class="c1"># Get specific version</span>
-    <span class="n">tool_v1</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mcp</span><span class="o">.</span><span class="n">get_tool</span><span class="p">(</span><span class="s2">"add"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0"</span><span class="p">)</span>
+    <span class="n">tool_v1</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mcp</span><span class="o">.</span><span class="n">get_tool</span><span class="p">(</span><span class="s2">"add"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">VersionSpec</span><span class="p">(</span><span class="n">eq</span><span class="o">=</span><span class="s2">"1.0"</span><span class="p">))</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">tool_v1</span><span class="o">.</span><span class="n">version</span><span class="p">)</span>  <span class="c1"># "1.0"</span>
 </code></pre></div>
-<p>If the requested version doesn't exist, a <code>NotFoundError</code> is raised.</p>
+<p>If the requested version doesn't exist, these methods return <code>None</code> instead of raising an error.</p>
 <h2 id="removing-versions">Removing Versions</h2>
 <p>The <code>remove_tool</code>, <code>remove_resource</code>, and <code>remove_prompt</code> methods on the server's <a href="/servers/providers/local">local provider</a> accept an optional <code>version</code> parameter that controls what gets removed.</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Remove ALL versions of a component</span>
@@ -20226,7 +20227,7 @@
 <span class="w">    </span><span class="sd">"""Updated implementation with new options parameter."""</span>
     <span class="k">return</span> <span class="n">modern_process</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">options</span> <span class="ow">or</span> <span class="p">{})</span>
 </code></pre></div>
-<p>Clients automatically see version 2.0 (the highest). During the transition, your server code can still access the original implementation via <code>get_tool("process_data", version="1.0")</code>.</p>
+<p>Clients automatically see version 2.0 (the highest). During the transition, your server code can still access the original implementation via <code>get_tool("process_data", version=VersionSpec(eq="1.0"))</code>.</p>
 <p>Once the migration is complete, remove the old version.</p>
 <div class="highlight"><pre><span></span><code><span class="n">mcp</span><span class="o">.</span><span class="n">local_provider</span><span class="o">.</span><span class="n">remove_tool</span><span class="p">(</span><span class="s2">"process_data"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0"</span><span class="p">)</span>
 </code></pre></div>

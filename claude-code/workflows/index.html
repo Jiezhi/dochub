@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6375,6 +6375,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#when-an-agent-stalls-and-restarts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When an agent stalls and restarts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#cost" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6770,6 +6781,17 @@
     <span class="md-ellipsis">
       
         When a run hits your usage limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-an-agent-stalls-and-restarts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When an agent stalls and restarts
       
     </span>
   </a>
@@ -7200,7 +7222,7 @@ const audits = await pipeline(found.files, file =&gt;
 return audits.filter(Boolean)
 </code></pre></div></p>
 <p>The body is plain JavaScript with top-level <code>await</code>. <code>agent()</code> spawns one subagent, <code>pipeline()</code> runs one per item in a list, and <code>parallel()</code> runs a set of agent tasks at the same time and waits for all of them.</p>
-<p>An <code>agent()</code> call resolves to <code>null</code> if you stop it mid-run or it hits an unrecoverable API error. <code>pipeline()</code> keeps each <code>null</code> in the results array, which is why the example ends with <code>.filter(Boolean)</code> to drop those entries.</p>
+<p>An <code>agent()</code> call resolves to <code>null</code> if you stop it mid-run or it hits an unrecoverable API error. <code>pipeline()</code> keeps each <code>null</code> in the results array, which is why the example ends with <code>.filter(Boolean)</code> to drop those entries, including the slot of <a href="#when-an-agent-stalls-and-restarts">an agent that stalled on every attempt</a>.</p>
 <p>In <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, the prompt your script passes to <code>agent()</code> doesn't count as a request from you when the classifier reviews that subagent's actions, because Claude Code marks it as text the script computed.</p>
 <p>If you pass a <code>schema</code> on an <code>agent()</code> call, that subagent returns JSON matching the shape instead of prose. Claude Code checks the schema before starting the subagent: when it can prove the schema contradicts itself, the call fails with an error naming the contradiction, and the subagent never starts. One contradiction it can prove is a <code>required</code> key that <code>additionalProperties: false</code> rules out.</p>
 <p>If the subagent's output still fails validation after five attempts, the call fails with an error that includes the last validation failure. To change the attempt count, set <a href="/docs/en/env-vars"><code>MAX_STRUCTURED_OUTPUT_RETRIES</code></a>.</p>
@@ -7293,6 +7315,26 @@ return audits.filter(Boolean)
 <li>The limit resets within 24 hours. A weekly limit can reset further out.</li>
 <li>The run hasn't already waited twice. When it hits the limit a third time, the agent fails.</li>
 </ul>
+<h3 id="when-an-agent-stalls-and-restarts">When an agent stalls and restarts</h3>
+<p>An agent whose output stops arriving for long enough starts over from the same prompt. In <a href="#watch-the-run"><code>/workflows</code></a>, its name gains a <code>(retry 1)</code> suffix and its detail shows <code>attempt 2 (stalled)</code>. The restart is automatic, so you don't need to do anything.</p>
+<p>The new attempt starts without the stalled attempt's transcript. Files the stalled attempt already changed stay changed, and the tokens it spent stay in the run's total. The stall window is how long Claude Code waits for output from an agent before it ends the attempt. Time the agent spends waiting on its own tool calls or on a <a href="#when-a-run-hits-your-usage-limit">usage-limit reset</a> doesn't count toward the stall window.</p>
+<p>An agent restarts at most five times, counting any restart you ask for with <code>r</code>. If the sixth attempt stalls as well, the <code>agent()</code> call fails, and the start of the error says why:</p>
+<ul>
+<li><code>agent stalled on all 6 attempts</code>: every attempt went the whole window without output. If the agent's work keeps it silent that long, lengthen the window</li>
+<li><code>agent lost its reply on all 6 attempts</code>: every attempt's response stream went silent and Claude Code gave up waiting on it. Lengthening the stall window doesn't help, since a <a href="/docs/en/network-config#streaming-idle-watchdogs">streaming idle watchdog</a> ended the response first and <code>CLAUDE_STREAM_IDLE_TIMEOUT_MS</code> sets that watchdog's timeout</li>
+<li><code>agent abandoned after 6 attempts</code>: the attempts ended in different ways, which the error lists in order</li>
+</ul>
+<p>To give an agent more time to produce output before the window ends:</p>
+<ul>
+<li><strong>One agent</strong>: pass <code>stallMs</code> in milliseconds on its <code>agent()</code> call, such as <code>agent(prompt, { stallMs: 1800000 })</code> for 30 minutes</li>
+<li><strong>Every agent</strong>: set <a href="/docs/en/env-vars#variables"><code>CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS</code></a>, which also applies to subagents outside workflows</li>
+</ul>
+<p>Whether the run continues after the failure depends on how your script called the agent:</p>
+<ul>
+<li><strong>Inside <a href="#what-the-saved-script-looks-like"><code>parallel()</code> or <code>pipeline()</code></a></strong>: the run carries on with <code>null</code> in place of the agent's result</li>
+<li><strong>Awaited directly</strong>: the run ends with the error</li>
+</ul>
+<p>To try again, ask Claude to relaunch the workflow. <a href="#resume-after-a-pause">Resume after a pause</a> covers what runs again.</p>
 <h3 id="cost">Cost</h3>
 <p>A workflow spawns many agents, so a single run can use meaningfully more tokens than working through the same task in conversation. Runs count toward your plan's usage and rate limits.</p>
 <p>To gauge the spend before committing to a large task, run the workflow on a small slice first: one directory instead of the whole repo, or a narrow question instead of a broad one. The <code>/workflows</code> view shows each agent's token usage as the run progresses, and you can stop the run there at any time, usually without losing completed work. <a href="#resume-after-a-pause">Resume after a pause</a> covers what a stopped run keeps. The runtime's <a href="#behavior-and-limits">agent caps</a> limit how many agents a single run can spawn, which bounds the cost of a runaway script. To keep runs to fewer agents, choose the <code>small</code> <a href="#set-a-size-guideline">size guideline</a>.</p>

@@ -3011,6 +3011,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#testing-a-mounted-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing a Mounted Server
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -19992,6 +20003,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#testing-a-mounted-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing a Mounted Server
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -20380,6 +20402,52 @@ To learn more about customizing the conversion process, see the <a href="/integr
 
 <span class="c1"># Now: API at /products/*, MCP at /analytics/mcp/</span>
 </code></pre></div>
+<h3 id="testing-a-mounted-server">Testing a Mounted Server</h3>
+<p>To test the mounted HTTP endpoint, connect the FastMCP client through <code>StreamingASGITransport</code>. This sends requests through your FastAPI application in the same process, including its middleware, routing, and authentication, without starting a separate HTTP server. Use <code>run_asgi_lifespan</code> to run the parent application's startup and shutdown.</p>
+<p>The following standalone test uses a test-only bearer token. Configure <code>pytest-asyncio</code> in <code>auto</code> mode as described in the <a href="/servers/testing">testing guide</a>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">httpx2</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.client.transports</span><span class="w"> </span><span class="kn">import</span> <span class="n">StreamableHttpTransport</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth.providers.jwt</span><span class="w"> </span><span class="kn">import</span> <span class="n">StaticTokenVerifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.utilities.asgi_transport</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">StreamingASGITransport</span><span class="p">,</span>
+    <span class="n">run_asgi_lifespan</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_mounted_mcp</span><span class="p">():</span>
+    <span class="n">auth</span> <span class="o">=</span> <span class="n">StaticTokenVerifier</span><span class="p">(</span>
+        <span class="n">tokens</span><span class="o">=</span><span class="p">{</span><span class="s2">"test-token"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"client_id"</span><span class="p">:</span> <span class="s2">"test-client"</span><span class="p">,</span> <span class="s2">"scopes"</span><span class="p">:</span> <span class="p">[]}}</span>
+    <span class="p">)</span>
+    <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Test Tools"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span>
+
+    <span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+
+    <span class="n">mcp_app</span> <span class="o">=</span> <span class="n">mcp</span><span class="o">.</span><span class="n">http_app</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">"/mcp"</span><span class="p">)</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span><span class="n">lifespan</span><span class="o">=</span><span class="n">mcp_app</span><span class="o">.</span><span class="n">lifespan</span><span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="s2">"/analytics"</span><span class="p">,</span> <span class="n">mcp_app</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">http_client_factory</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">httpx2</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span>
+            <span class="n">transport</span><span class="o">=</span><span class="n">StreamingASGITransport</span><span class="p">(</span><span class="n">app</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">transport</span> <span class="o">=</span> <span class="n">StreamableHttpTransport</span><span class="p">(</span>
+        <span class="n">url</span><span class="o">=</span><span class="s2">"http://testserver/analytics/mcp"</span><span class="p">,</span>
+        <span class="n">auth</span><span class="o">=</span><span class="s2">"test-token"</span><span class="p">,</span>
+        <span class="n">httpx_client_factory</span><span class="o">=</span><span class="n">http_client_factory</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">run_asgi_lifespan</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="n">transport</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"add"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"a"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+            <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">data</span> <span class="o">==</span> <span class="mi">3</span>
+</code></pre></div>
+<p>The client URL includes both the mount prefix (<code>/analytics</code>) and the MCP application's path (<code>/mcp</code>). <code>StreamingASGITransport</code> streams responses as they arrive; the standard <code>httpx2.ASGITransport</code> buffers responses and cannot complete a long-lived SSE response. Passing <code>**kwargs</code> through the HTTP client factory preserves the transport's headers, authentication, and timeout settings.</p>
 <h2 id="offering-an-llm-friendly-api">Offering an LLM-Friendly API</h2>
 <p>A common pattern is to generate an MCP server from your FastAPI app and serve both interfaces from the same application. This provides an LLM-optimized interface alongside your regular API:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Assumes the FastAPI app from above is already defined</span>

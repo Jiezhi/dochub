@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6753,6 +6753,7 @@ on('prompt.submit', async ($, e, next) =&gt; {
 })
 </code></pre></div></p>
 <p>When you send a prompt such as <code>open a PR for this change</code>, your message looks the same in the transcript, and Claude also reads a line such as <code>Current branch: feature/auth</code> after it. A prompt that doesn't mention a pull request goes through unchanged, and <code>git</code> doesn't run.</p>
+<p>To stop a prompt, return <code>{ drop: 'the reason' }</code> without calling <code>next</code>. If your hook returns a <code>drop</code> after its <code>next(e)</code> call let the prompt through, the turn still runs, and the hook <a href="#handle-a-hook-that-fails">fails</a> with a message that includes <code>a drop after its next() was answered</code>.</p>
 <p><a href="/docs/en/plugins/mods/reference#prompts-and-what-claude-reads">Other events</a> cover the rest of what Claude reads: <code>prompt.section</code> for each section of the system prompt, <code>prompt.context</code> for the context sent with the first message, and <code>skill.prompt</code> for a skill's text. Text from these hooks that changes between requests <a href="/docs/en/prompt-caching">invalidates the prompt cache</a>.</p>
 <h3 id="follow-a-turn">Follow a turn</h3>
 <p>A turn is everything Claude does in answer to one prompt. Handle <code>turn.start</code>, <code>turn.step</code>, and <code>turn.complete</code> to follow one:</p>
@@ -6799,6 +6800,8 @@ on('turn.step', async function</em> ($, e, next) {
 
 `result.usage` holds the token counts the Claude API reports for a request, plus the `model` that answered: `input_tokens`, `output_tokens`, `cache_read_input_tokens`, and `cache_creation_input_tokens`. The hook runs for subagents' requests too, so check `e.agentId` when you want only the main conversation.
 
+To see the tool calls that the API ran itself during the request, such as calls to the [advisor tool](/docs/en/advisor), read `result.serverToolUses`. Claude Code doesn't run these calls, so no `tool.call` or `tool.check` hook fires for them. The field is absent when the response has no such calls, and it requires Claude Code v2.1.290 or later.
+
 &lt;h3 id="hook-the-settings-hook-events"&gt;
   Handle the settings hook events
 &lt;/h3&gt;
@@ -6842,14 +6845,27 @@ on('classic.Stop', async ($, e, next) =&gt; {
 <li><strong>It failed after <code>next</code> resolved</strong>: that result stands, and nothing runs a second time</li>
 </ul>
 <p>One line names the mod, the event, and the reason, such as <code>my-mod: tool.call hook skipped: threw Error: boom</code>. Where you read it depends on the session, as <a href="/docs/en/plugins/mods/troubleshoot#find-out-why-a-mod-does-nothing">Find out why a mod does nothing</a> lists. A <code>ui.render</code> hook whose drawing doesn't validate is reported differently, as <a href="/docs/en/plugins/mods/interface#build-a-tree-from-elements">Build a tree from elements</a> describes.</p>
-<p>To make a hook that blocks calls fail closed, add a <code>.catch</code> error handler that answers in its place. Here, <code>guard</code> is your hook function:</p>
+<p>To make a hook that blocks calls fail closed, add a <code>.catch</code> error handler that answers in its place. Here, <code>guard</code> is your hook function, and the handler tests <a href="/docs/en/plugins/mods/reference#the-hook-function"><code>next.called</code></a> to tell whether <code>guard</code> had already called <code>next</code> when it failed:</p>
 <p><code>javascript theme={null}
 // on returns a registration, and .catch attaches a handler to that one hook
 on('tool.call', { tool: 'Bash' }, guard).catch(async ($, e, next) =&gt; {
-  // next.error.kind is 'throw' or 'timeout', which says how guard failed
+  // guard had already called next, so return what came back
+  if (next.called) return next(e)
+  // next.error.kind says why the handler was asked, such as 'throw' or 'timeout'
   return { deny: 'The command guard failed, so this command was not run: ' + next.error.kind }
 })</code></p>
-<p>While <code>guard</code> works, the handler never runs. When <code>guard</code> throws or times out on a Bash call, Claude Code calls the handler with the same event. The handler returns <code>{ deny }</code>, so the command doesn't run, and Claude reads the text with <code>throw</code> or <code>timeout</code> at the end. Without the handler, Claude Code would skip <code>guard</code> and run the command. The handler has a shorter <a href="/docs/en/plugins/mods/reference#limits">time limit</a> of its own.</p>
+<p>When <code>guard</code> throws or times out on a Bash call, Claude Code calls the handler with the same event:</p>
+<ul>
+<li><strong><code>guard</code> failed before it called <code>next</code></strong>: the command doesn't run, and Claude reads the <code>deny</code> text with the kind at the end</li>
+<li><strong><code>guard</code> failed after it called <code>next</code></strong>: the handler's <code>next(e)</code> resolves to the result that <code>guard</code>'s call produced without running the command again, and Claude reads that result</li>
+</ul>
+<p>The handler has a shorter <a href="/docs/en/plugins/mods/reference#limits">time limit</a> of its own. If the handler itself throws or times out, Claude Code skips the hook as if it had no handler. When <code>guard</code> hadn't called <code>next</code>, the command then goes on as it would without the mod.</p>
+<p>The same handler shape fits a guard on <code>prompt.submit</code> or <code>config.set</code>. When <code>next.called</code> is false, return the refusal that the <a href="/docs/en/plugins/mods/reference#events">events reference</a> lists for that event: <code>{ drop: 'the reason' }</code> for <code>prompt.submit</code>, <code>{ deny: 'the reason' }</code> for <code>config.set</code>.</p>
+<p>At <code>tool.check</code> and <code>plugin.register</code>, a refusal returned after <code>next</code> resolved still holds, so return it without testing <code>next.called</code>:</p>
+<ul>
+<li><strong><code>tool.check</code></strong>: return <code>{ decision: 'deny', reason: 'the reason' }</code></li>
+<li><strong><code>plugin.register</code></strong>: return <code>{ refuse: 'the reason' }</code>, as <a href="/docs/en/plugins/mods/admin#refuse-mods-when-your-check-fails">Refuse mods when your check fails</a> shows</li>
+</ul>
 <h2 id="next-steps">Next steps</h2>
 <ul>
 <li><a href="/docs/en/plugins/mods/api">Use the mods API</a>: add commands and tools, call a model, and run work on a timer</li>

@@ -2128,7 +2128,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7735,7 +7735,7 @@ Completed
 <li>A permission prompt or another dialog, such as a <a href="/docs/en/sandboxing">sandbox</a> prompt or an MCP server's <a href="/docs/en/mcp#respond-to-mcp-elicitation-requests">request for input</a>: replying doesn't answer it. Your message waits in the queue. To answer the dialog, attach with <code>→</code></li>
 </ul>
 <p>When a <a href="/docs/en/hooks#permissionrequest"><code>PermissionRequest</code></a> or <a href="/docs/en/hooks#pretooluse"><code>PreToolUse</code></a> hook returns output Claude Code can't validate for the call the session is asking about, the row shows the hook event and <code>hook output invalid:</code> with the validation error before the pending request's text. For a hook that fails another way, the row says the hook failed. The session still waits on the same request.</p>
-<p>A reply that can't be delivered, because the background service is unreachable or the send fails, is saved and sent to the session as its next prompt when its process starts again, and the error message says the reply was saved. A reply prefixed with <code>!</code> isn't saved, because the saved text would reach the session as a plain prompt rather than run as a Bash command.</p>
+<p>When a reply can't be delivered, the error message says whether it was saved. A reply prefixed with <code>!</code> or <code>/</code> is never saved. Claude Code sends a saved reply as the session's next prompt the next time you restart the session; send any other reply again.</p>
 <p>With <a href="/docs/en/voice-dictation">voice dictation</a> enabled in <a href="/docs/en/voice-dictation#hold-to-record">hold mode</a>, hold your push-to-talk key while the reply input is focused to dictate a reply instead of typing it. The same works in the dispatch input at the bottom of agent view.</p>
 <p>Use <code>↑</code> and <code>↓</code> to peek at adjacent sessions without closing the panel, or <code>→</code> to attach.</p>
 <h3 id="attach-to-a-session">Attach to a session</h3>
@@ -7767,6 +7767,7 @@ Completed
 <li><strong>Foreground subagents are still running</strong>: Claude Code keeps waiting so the work of the <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">foreground subagents</a> Claude started carries over, and shows <code>Still backgrounding after the current tool</code>. Press <code>←</code> again to background without waiting, which restarts those subagents from the beginning.</li>
 <li><strong>A permission prompt or question is waiting for your answer</strong>: while a permission prompt or a question Claude asked waits, Claude Code keeps waiting and shows <code>Still backgrounding after the current tool — a question is waiting for your answer.</code></li>
 <li><strong>You type into the prompt input</strong>: Claude Code cancels the switch, because unsent text stays in your terminal's input box and wouldn't move to the background session. It shows <code>Backgrounding cancelled — you have unsent text in the input. Send it or clear it, then press ← again.</code></li>
+<li><strong>A queued message can't move</strong>: messages you <a href="/docs/en/interactive-mode#queue-messages-while-claude-works">queued while Claude was working</a> move to the background session with the conversation. When one of them can't, the session stays in the foreground and Claude Code shows a notice such as <code>Cannot open agents — 1 queued message can't move to the background. Press ← again once Claude has read it.</code></li>
 </ul>
 <p>Pressing <code>←</code> creates the session's row even when the conversation has no messages yet, so <code>→</code> still returns to it.</p>
 <p>You can turn this shortcut off for foreground sessions with the <a href="/docs/en/settings-reference#leftarrowopensagents"><code>leftArrowOpensAgents</code></a> setting in <code>/config</code>.</p>
@@ -8100,7 +8101,7 @@ claude --bg --exec 'pytest -x'
 }
 <div class="highlight"><pre><span></span><code>Outside a git repository, sessions write to the working directory directly and aren't isolated from each other, so avoid dispatching parallel sessions that edit the same files. If you use a different version control system, configure a [`WorktreeCreate` hook](/docs/en/worktrees#non-git-version-control) and Claude isolates edits the same way it does for git.
 
-When the hook fails in a directory that isn't a git repository, Claude skips isolation for that directory and edits the working directory in place. Inside a git repository, a session that Claude moves into a worktree before editing can't edit files in the shared checkout until that move happens.
+When the hook fails in a directory that isn't a git repository, Claude skips isolation for that directory and edits the working directory in place. Inside a git repository, a session that Claude moves into a worktree before editing can't use the `Edit`, `Write`, or `NotebookEdit` tools on the shared checkout until that move happens.
 
 To find a session's worktree path, attach and check its working directory.
 
@@ -8487,7 +8488,7 @@ claude agents --settings ./ci-settings.json --add-dir ../shared-lib
 <li>A terminal where you resumed the conversation, for example with <code>claude --resume</code> or <code>/resume</code>: the row shows <code>Open in a terminal</code> with a hint to continue it there, and opening the row shows <code>Can't open — this session is running in another terminal</code>. Continue in that terminal, or exit it and open the row again.</li>
 <li>Another non-interactive Claude Code process, for example a background session process for the same conversation that hasn't exited yet: opening the row shows <code>This conversation is already open in another running Claude session</code>. Use that process, or wait for it to exit and open the row again.</li>
 </ul>
-<p>Claude Code saves a reply you typed with the refused attempt and sends it the next time the session starts.</p>
+<p>Claude Code saves a reply you typed with the refused attempt, except one prefixed with <code>!</code> or <code>/</code>, and sends it the next time the session starts.</p>
 <h3 id="opening-a-session-says-it-has-no-saved-transcript">Opening a session says it has no saved transcript</h3>
 <p>A stopped session that was <a href="#from-inside-a-session">backgrounded from another conversation</a> and stopped before its first response finished has nothing to resume: until that first response finishes, the conversation still lives only in the session it was backgrounded from. <code>claude attach</code> refuses to open it with <code>This session has no saved transcript</code>.</p>
 <p>In agent view, opening that row shows <code>Press enter again to restart this session fresh</code> below the list. Press <code>Enter</code> on the same row again to restart the session with an empty conversation, or run <code>claude respawn &lt;id&gt;</code> from the shell.</p>
@@ -8564,6 +8565,10 @@ claude daemon stop --any --keep-workers
 <tr>
 <td>v2.1.290</td>
 <td><code>/model</code>, <code>/effort</code>, <code>/rename</code>, and <code>/usage</code> sent as a <a href="#peek-and-reply">peek reply</a> to a working session run right away.</td>
+</tr>
+<tr>
+<td>v2.1.290</td>
+<td>A <a href="#peek-and-reply">peek reply</a> that can't be delivered is no longer saved for the next restart when it starts with <code>/</code>, or when it answers a question with predefined choices while the session's process is running.</td>
 </tr>
 <tr>
 <td>v2.1.288</td>

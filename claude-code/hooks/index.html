@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -3351,6 +3351,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#reload-skills-that-a-hook-installs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reload skills that a hook installs
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3933,6 +3944,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="PostModelSwitch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#answer-a-form-request-from-a-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Answer a form request from a script
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -3962,6 +3990,23 @@
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binbash_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        !/bin/bash
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="!/bin/bash">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#prompt-based-hooks" class="md-nav__link">
@@ -7689,6 +7734,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#reload-skills-that-a-hook-installs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reload skills that a hook installs
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8271,6 +8327,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="PostModelSwitch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#answer-a-form-request-from-a-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Answer a form request from a script
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -8300,6 +8373,23 @@
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binbash_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        !/bin/bash
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="!/bin/bash">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#prompt-based-hooks" class="md-nav__link">
@@ -9545,7 +9635,7 @@ Exit code 2 is the way a hook signals "stop, don't do this." The effect depends 
 | `PostCompact` | No | Shows stderr to user only |
 | `PreModelSwitch` | Yes | Blocks the model switch and shows stderr to the user |
 | `PostModelSwitch` | No | Shows stderr to user only; the model already switched |
-| `Elicitation` | Yes | Denies the elicitation |
+| `Elicitation` | Yes | Declines the request, and no dialog appears |
 | `ElicitationResult` | Yes | Blocks the response (action becomes decline) |
 | `WorktreeCreate` | Yes | Any non-zero exit code causes worktree creation to fail |
 | `WorktreeRemove` | Yes | Any non-zero exit code causes worktree removal to fail if the directory still exists afterward. See [WorktreeRemove](#worktreeremove) for what happens to the directory |
@@ -9720,14 +9810,9 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 <td style="text-align: left;">Any non-zero exit code makes the removal fail if the directory still exists afterward. JSON output is discarded</td>
 </tr>
 <tr>
-<td style="text-align: left;">Elicitation</td>
-<td style="text-align: left;"><code>hookSpecificOutput</code></td>
-<td style="text-align: left;"><code>action</code> (accept/decline/cancel), <code>content</code> (form field values for accept)</td>
-</tr>
-<tr>
-<td style="text-align: left;">ElicitationResult</td>
-<td style="text-align: left;"><code>hookSpecificOutput</code></td>
-<td style="text-align: left;"><code>action</code> (accept/decline/cancel), <code>content</code> (form field values override)</td>
+<td style="text-align: left;">Elicitation, ElicitationResult</td>
+<td style="text-align: left;"><code>hookSpecificOutput</code> or top-level <code>decision</code></td>
+<td style="text-align: left;"><code>action</code> (accept/decline/cancel), <code>content</code> (form field values). <code>decision: "block"</code> also <a href="#other-ways-to-decline-an-elicitation">declines</a></td>
 </tr>
 <tr>
 <td style="text-align: left;">MessageDisplay</td>
@@ -9911,15 +9996,17 @@ Return `additionalContext` inside `hookSpecificOutput` alongside the event name:
 }
 <div class="highlight"><pre><span></span><code>#### SessionStart decision control
 
-Claude Code adds stdout it [treats as plain text](#exit-code-0) to Claude's context. In addition to the [JSON output fields](#json-output) available to all hooks, you can return these event-specific fields:
+A SessionStart hook can add context for Claude, supply the first user message, set the session title, watch files, and reload skills. Return the field for each one, in addition to the [JSON output fields](#json-output) available to all hooks:
 
 | Field | Description |
 | :- | :- |
 | `additionalContext` | String added to Claude's context at the start of the conversation, before the first prompt. See [Add context for Claude](#add-context-for-claude) for how the text is delivered and what to put in it |
-| `initialUserMessage` | String used as the first user message of the session. Applies in [non-interactive mode](/docs/en/headless) with the `-p` flag, where it becomes the first turn even if no prompt is provided. If a prompt is provided, it follows as the next turn. Unlike `additionalContext`, which attaches to an existing turn, this creates the turn |
-| `sessionTitle` | Sets the session title, with the same effect as `/rename`. Use to name sessions automatically from the launch folder, git branch, or worktree name. Applies when `source` is `"startup"`, `"resume"`, or `"fork"`; ignored on `"clear"` and `"compact"` |
+| `initialUserMessage` | String used as the first user message of the session, in [non-interactive mode](/docs/en/headless) with the `-p` flag. It becomes the first turn even if you pass no prompt. A prompt you do pass follows as the next turn |
+| `sessionTitle` | Sets the session title, with the same effect as `/rename`. Applies when `source` is `"startup"`, `"resume"`, or `"fork"` |
 | `watchPaths` | Array of absolute paths to watch for [FileChanged](#filechanged) events during this session |
-| `reloadSkills` | Boolean. When `true`, Claude Code re-scans the [skill](/docs/en/skills) and command directories after the SessionStart hooks complete, so skills the hook installed are available in the same session, starting with the first prompt |
+| `reloadSkills` | Boolean. When `true`, Claude Code re-scans the [skill](/docs/en/skills) and command directories after the SessionStart hooks complete. See [Reload skills that a hook installs](#reload-skills-that-a-hook-installs) |
+
+This output adds context and names the session:
 
 ```json theme={null}
 {
@@ -9930,14 +10017,17 @@ Claude Code adds stdout it [treats as plain text](#exit-code-0) to Claude's cont
   }
 }
 </code></pre></div></p>
-<p>Since plain stdout already reaches Claude for this event, a hook that only loads context can print to stdout directly without building JSON. Use the JSON form when you need to combine context with other fields such as <code>sessionTitle</code>.</p>
-<p>Use <code>reloadSkills</code> when a SessionStart hook installs or updates skills. Skill discovery normally runs before SessionStart hooks finish, so files the hook writes into <code>~/.claude/skills/</code> or <code>.claude/skills/</code> would otherwise only appear in the next session. This example syncs a shared skills repository and requests the re-scan:</p>
+<p>A hook that only adds context can print it without building JSON, because Claude Code adds a SessionStart hook's <a href="#exit-code-0">plain-text stdout</a> to Claude's context.</p>
+<p>If your plugin's SessionStart hook supplies <code>initialUserMessage</code> or <code>sessionTitle</code>, install the plugin before the session starts. Claude Code ignores both fields from a plugin that finishes installing after the SessionStart hooks have run.</p>
+<h4 id="reload-skills-that-a-hook-installs">Reload skills that a hook installs</h4>
+<p>To make skills that a SessionStart hook installs available in the same session, return <code>reloadSkills</code>. Skill discovery normally runs before SessionStart hooks finish, so without it, files a hook writes into <code>~/.claude/skills/</code> or <code>.claude/skills/</code> can be missing when the first prompt runs.</p>
+<p>This example syncs a shared skills repository and requests the re-scan:</p>
 <p>```bash theme={null}</p>
 <h1 id="binbash_2">!/bin/bash</h1>
 <p>git -C ~/.claude/skills/team-skills pull --quiet 2&gt;/dev/null || \
   git clone --quiet https://git.example.com/your-org/team-skills.git ~/.claude/skills/team-skills</p>
 <p>echo '{"hookSpecificOutput": {"hookEventName": "SessionStart", "reloadSkills": true}}'
-<div class="highlight"><pre><span></span><code>The repository URL is a placeholder; replace it with your own skills repository. With the placeholder, the clone fails and prints a `fatal:` message to stderr. Stderr from a SessionStart hook that exits 0 is informational only, so the `reloadSkills` request still applies.
+<div class="highlight"><pre><span></span><code>The repository URL is a placeholder. Replace it with your own skills repository.
 
 #### Persist environment variables
 
@@ -10491,6 +10581,7 @@ Fetches and processes web content.
 | :- | :- | :- | :- |
 | `url` | string | `"https://example.com/api"` | URL to fetch content from |
 | `prompt` | string | `"Extract the API endpoints"` | Prompt to run on the fetched content |
+| `offset` | number | `100000` | Optional number of characters to skip from the start of the page. Claude sets it to keep reading a long page. Requires Claude Code v2.1.290 or later |
 
 ##### WebSearch
 
@@ -11267,6 +11358,7 @@ SubagentStop hooks also receive the `background_tasks` and `session_crons` array
 | `task_description` | Detailed description of the task. May be absent |
 | `teammate_name` | Name of the teammate creating the task. May be absent |
 | `team_name` | Deprecated. Session-derived team name; will be removed in a future release |
+| `agent_id` | On this event, the [common input field](#common-input-fields) identifies the subagent or [in-process teammate](/docs/en/agent-teams#choose-a-display-mode) creating the task. May be absent. Requires Claude Code v2.1.290 or later |
 
 #### TaskCreated decision control
 
@@ -11314,6 +11406,7 @@ exit 0
 | `task_description` | Detailed description of the task. May be absent |
 | `teammate_name` | Name of the teammate completing the task. May be absent |
 | `team_name` | Deprecated. Session-derived team name; will be removed in a future release |
+| `agent_id` | On this event, the [common input field](#common-input-fields) identifies the subagent or [in-process teammate](/docs/en/agent-teams#choose-a-display-mode) completing the task. May be absent. Requires Claude Code v2.1.290 or later |
 
 #### TaskCompleted decision control
 
@@ -11522,6 +11615,7 @@ In addition to the [common input fields](#common-input-fields), StopFailure hook
 | :- | :- |
 | `teammate_name` | Name of the teammate that is about to go idle |
 | `team_name` | Deprecated. Session-derived team name; will be removed in a future release |
+| `agent_id` | On this event, the [common input field](#common-input-fields) identifies the [in-process teammate](/docs/en/agent-teams#choose-a-display-mode) that is about to go idle. May be absent. Requires Claude Code v2.1.290 or later |
 
 #### TeammateIdle decision control
 
@@ -12244,6 +12338,8 @@ CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS=5000 claude
 
 Runs when an MCP server requests user input mid-task. By default, Claude Code shows an interactive dialog for the user to respond. Hooks can intercept this request and respond programmatically, skipping the dialog entirely.
 
+For a complete hook with its settings entry and script, see [Answer a form request from a script](#answer-a-form-request-from-a-script).
+
 The matcher field matches against the MCP server name.
 
 #### Elicitation input
@@ -12283,7 +12379,16 @@ For form-mode elicitation, the most common case:
 }
 <div class="highlight"><pre><span></span><code>#### Elicitation output
 
-To respond programmatically without showing the dialog, return a JSON object with `hookSpecificOutput`:
+An Elicitation hook can answer the request for the user, decline or cancel it, or leave it to the dialog. To answer, decline, or cancel, exit 0 and print a `hookSpecificOutput` object with an `action`. The server gets your answer and no dialog appears. Each row of this table shows what to return for one outcome and what the MCP server receives:
+
+| To | Return | The server receives |
+| :- | :- | :- |
+| Answer for the user | `"action": "accept"`, with the form field values in `content` | `accept` with your `content` |
+| Decline the request | `"action": "decline"` | `decline` |
+| Cancel the request | `"action": "cancel"` | `cancel` |
+| Leave the request to the user | No output, with exit code 0 | The user's answer from the [dialog](/docs/en/mcp#respond-to-mcp-elicitation-requests) |
+
+This output answers the form-mode request shown under [Elicitation input](#elicitation-input). The keys in `content` are the property names from that request's `requested_schema`:
 
 ```json theme={null}
 {
@@ -12296,31 +12401,126 @@ To respond programmatically without showing the dialog, return a JSON object wit
   }
 }
 </code></pre></div></p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Field</th>
-<th style="text-align: left;">Values</th>
-<th style="text-align: left;">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>action</code></td>
-<td style="text-align: left;"><code>accept</code>, <code>decline</code>, <code>cancel</code></td>
-<td style="text-align: left;">Whether to accept, decline, or cancel the request</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>content</code></td>
-<td style="text-align: left;">object</td>
-<td style="text-align: left;">Form field values to submit. Only used when <code>action</code> is <code>accept</code></td>
-</tr>
-</tbody>
-</table>
-<p>Exit code 2 denies the elicitation. Claude Code doesn't show your stderr message anywhere.</p>
-<p>Claude Code acts on <code>hookSpecificOutput</code> from an Elicitation hook's JSON output and discards <code>systemMessage</code> and <code>continue</code>.</p>
+<p>This output declines a request:</p>
+<p>```json theme={null}
+{
+  "hookSpecificOutput": {
+    "hookEventName": "Elicitation",
+    "action": "decline"
+  }
+}
+<div class="highlight"><pre><span></span><code>In the dialog, selecting **Decline** sends `decline` and pressing `Esc` sends `cancel`, so return the one you want the server to see.
+
+For a URL-mode request, a hook that returns `accept` skips the dialog, so the URL never opens.
+
+Claude Code discards `reason`, `systemMessage`, and `continue` from an Elicitation hook's JSON output, whichever `action` you return.
+
+#### Other ways to decline an elicitation
+
+Your hook can also decline in these ways. The server receives the same `decline` as for `"action": "decline"`:
+
+* **Exits with code 2**: Claude Code ignores a `hookSpecificOutput` printed by the same hook
+* **Prints a top-level `"decision": "block"`**: the block overrides an `action` in the same output
+
+When several hooks match the same request, a decline from one of them overrides an `accept` or `cancel` from another.
+
+This script declines URL-mode requests and leaves form requests to the dialog:
+
+```bash theme={null}
+#!/bin/bash
+if [ "$(jq -r '.mode')" = "url" ]; then
+  exit 2
+fi
+</code></pre></div></p>
+<p>Neither the user nor the server sees why your hook declined, because Claude Code doesn't show your stderr or your <code>reason</code>.</p>
+<p>Claude Code ignored a top-level <code>decision</code> from <code>Elicitation</code> and <code>ElicitationResult</code> hooks from v2.1.105 until the fix in v2.1.284.</p>
+<h4 id="answer-a-form-request-from-a-script">Answer a form request from a script</h4>
+<p>This example answers one recurring question for the user. An MCP server named <code>issue-tracker</code> asks for a project key in a form, and the hook fills in <code>DOCS</code>. The script accepts when <code>project_key</code> is the form's single field. For any other request it prints nothing, so the dialog appears.</p>
+<p><Tabs>
+  <Tab title="macOS/Linux">
+    Register a command hook for the event in your settings file, with the server name as the matcher:</p>
+<pre><code>```json theme={null}
+{
+  "hooks": {
+    "Elicitation": [
+      {
+        "matcher": "issue-tracker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/answer-project-key.sh",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Save this script to `.claude/hooks/answer-project-key.sh` in your project and make it executable with `chmod +x`:
+
+```bash theme={null}
+#!/bin/bash
+input=$(cat)
+fields=$(jq -c '.requested_schema.properties // {} | keys' &lt;&lt;&lt;"$input")
+
+if [ "$fields" = '["project_key"]' ]; then
+  jq -n '{hookSpecificOutput: {hookEventName: "Elicitation", action: "accept", content: {project_key: "DOCS"}}}'
+fi
+```
+</code></pre>
+<p></Tab></p>
+<p><Tab title="Windows (PowerShell)">
+    Register a command hook that runs the script through PowerShell, with the server name as the matcher:</p>
+<pre><code>```json theme={null}
+{
+  "hooks": {
+    "Elicitation": [
+      {
+        "matcher": "issue-tracker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/answer-project-key.ps1"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Save this script to `.claude/hooks/answer-project-key.ps1` in your project:
+
+```powershell theme={null}
+$request = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$fields = @($request.requested_schema.properties.PSObject.Properties.Name)
+
+if ($fields.Count -eq 1 -and $fields[0] -eq 'project_key') {
+  @{
+    hookSpecificOutput = @{
+      hookEventName = "Elicitation"
+      action = "accept"
+      content = @{ project_key = "DOCS" }
+    }
+  } | ConvertTo-Json -Depth 3
+}
+```
+</code></pre>
+<p></Tab>
+</Tabs></p>
+<p>To confirm the hook works, start Claude Code with <code>claude --debug</code> and give Claude a task that makes the server ask for the project key. No dialog appears, and the <a href="#debug-hooks">debug log</a> has a line that ends with <code>Elicitation resolved by hook: {"action":"accept","content":{"project_key":"DOCS"}}</code>.</p>
 <h3 id="elicitationresult">ElicitationResult</h3>
 <p>Runs after a user responds to an MCP elicitation. Hooks can observe, modify, or block the response before it is sent back to the MCP server.</p>
+<p>When an <a href="#elicitation">Elicitation</a> hook answers a request, Claude Code sends that answer to the server without running ElicitationResult hooks.</p>
 <p>The matcher field matches against the MCP server name.</p>
 <h4 id="elicitationresult-input">ElicitationResult input</h4>
 <p>In addition to the <a href="#common-input-fields">common input fields</a>, ElicitationResult hooks receive <code>mcp_server_name</code>, <code>action</code>, and optional <code>mode</code>, <code>elicitation_id</code>, and <code>content</code> fields.</p>
@@ -12333,45 +12533,52 @@ To respond programmatically without showing the dialog, return a JSON object wit
   "mcp_server_name": "my-mcp-server",
   "action": "accept",
   "content": { "username": "alice" },
-  "mode": "form",
-  "elicitation_id": "elicit-123"
+  "mode": "form"
 }
 <div class="highlight"><pre><span></span><code>#### ElicitationResult output
 
-To override the user's response, return a JSON object with `hookSpecificOutput`:
+An ElicitationResult hook can let the user's response through, change its values, or block it. To change or block the response, exit 0 and print a `hookSpecificOutput` object with an `action`. Each row of this table shows what to return for one outcome and what the MCP server receives:
+
+| To | Return | The server receives |
+| :- | :- | :- |
+| Let the response through | No output, with exit code 0 | The user's response, unchanged |
+| Change the submitted values | `"action": "accept"`, with the new values in `content` | `accept` with your `content` in place of the user's values |
+| Block the response | `"action": "decline"` | `decline`, without the user's values |
+| Cancel the request | `"action": "cancel"` | `cancel`, along with the values the user submitted. To withhold them, return `"decline"` |
+
+This output changes the response shown under [ElicitationResult input](#elicitationresult-input), so the server receives `alice@example.com` where the user submitted `alice`:
 
 ```json theme={null}
 {
   "hookSpecificOutput": {
     "hookEventName": "ElicitationResult",
-    "action": "decline",
-    "content": {}
+    "action": "accept",
+    "content": {
+      "username": "alice@example.com"
+    }
   }
 }
 </code></pre></div></p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Field</th>
-<th style="text-align: left;">Values</th>
-<th style="text-align: left;">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;"><code>action</code></td>
-<td style="text-align: left;"><code>accept</code>, <code>decline</code>, <code>cancel</code></td>
-<td style="text-align: left;">Overrides the user's action</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>content</code></td>
-<td style="text-align: left;">object</td>
-<td style="text-align: left;">Overrides form field values. Only meaningful when <code>action</code> is <code>accept</code></td>
-</tr>
-</tbody>
-</table>
-<p>Exit code 2 blocks the response, changing the effective action to <code>decline</code>. Claude Code doesn't show your stderr message anywhere.</p>
-<p>Claude Code acts on <code>hookSpecificOutput</code> from an ElicitationResult hook's JSON output and discards <code>systemMessage</code> and <code>continue</code>.</p>
+<p>Your <code>content</code> replaces the user's whole <code>content</code> object, so include the fields you aren't changing. Return <code>action</code> along with it, because Claude Code ignores a <code>hookSpecificOutput</code> that has no <code>action</code>.</p>
+<p>ElicitationResult hooks also run when the user declines or cancels, and your <code>action</code> replaces theirs. Check that the input's <code>action</code> is <code>accept</code> before you return <code>accept</code>, or your hook turns a declined request into an accepted one. This script makes the same change when the user accepted, keeps the other fields, and prints nothing otherwise:</p>
+<p>```bash theme={null}</p>
+<h1 id="binbash_5">!/bin/bash</h1>
+<p>input=$(cat)</p>
+<p>if [ "$(jq -r '.action' &lt;&lt;&lt;"$input")" = "accept" ]; then
+  jq '{hookSpecificOutput: {hookEventName: "ElicitationResult", action: "accept", content: (.content + {username: (.content.username + "@example.com")})}}' &lt;&lt;&lt;"$input"
+fi
+<div class="highlight"><pre><span></span><code>This output blocks the response:
+
+```json theme={null}
+{
+  "hookSpecificOutput": {
+    "hookEventName": "ElicitationResult",
+    "action": "decline"
+  }
+}
+</code></pre></div></p>
+<p>Exit code 2 and a top-level <code>"decision": "block"</code> also block the response. <a href="#other-ways-to-decline-an-elicitation">Other ways to decline an elicitation</a> covers which one takes effect when a hook combines them, what the user sees, and which versions ignored <code>decision</code>.</p>
+<p>Claude Code discards <code>reason</code>, <code>systemMessage</code>, and <code>continue</code> from an ElicitationResult hook's JSON output, whichever <code>action</code> you return.</p>
 <h2 id="prompt-based-hooks">Prompt-based hooks</h2>
 <p>In addition to command, HTTP, and MCP tool hooks, Claude Code supports prompt-based hooks (<code>type: "prompt"</code>) that use an LLM to evaluate whether to allow or block an action, and agent hooks (<code>type: "agent"</code>) that spawn an agentic verifier with tool access. Not all events support every hook type.</p>
 <p>Events that support all five hook types (<code>command</code>, <code>http</code>, <code>mcp_tool</code>, <code>prompt</code>, and <code>agent</code>):</p>
@@ -12421,6 +12628,7 @@ To override the user's response, return a JSON object with `hookSpecificOutput`:
 </ol>
 <h3 id="prompt-hook-configuration">Prompt hook configuration</h3>
 <p>Set <code>type</code> to <code>"prompt"</code> and provide a <code>prompt</code> string instead of a <code>command</code>. Use the <code>$ARGUMENTS</code> placeholder to inject the hook's JSON input data into your prompt text.</p>
+<p>In a prompt or <a href="#agent-based-hooks">agent hook</a>, you can write the <code>prompt</code> as a rule about what to block or allow, such as "Block any Bash command that reads <code>.env</code> files", or as a condition that must hold, such as "All unit tests pass".</p>
 <p>This <code>Stop</code> hook asks the LLM to evaluate whether all tasks are complete before allowing Claude to finish:</p>
 <p>```json theme={null}
 {
@@ -12644,7 +12852,7 @@ jq -nc --arg msg "$MSG" '{hookSpecificOutput: {hookEventName: "PostToolUse", add
 Async hooks have additional constraints compared to synchronous hooks:
 
 * Hook output is delivered on the next conversation turn. If the session is idle, the response waits until the next user interaction. Exception: an `asyncRewake` hook that exits with code 2 wakes Claude immediately even when the session is idle.
-* Each execution creates a separate background process. There is no deduplication across multiple firings of the same async hook.
+* Each execution creates a separate background process.
 
 ## Security considerations
 

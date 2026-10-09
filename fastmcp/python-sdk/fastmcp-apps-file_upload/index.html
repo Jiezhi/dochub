@@ -19836,11 +19836,15 @@ mcp.add_provider(FileUpload())
         ...
 </code></pre>
 <h2 id="classes">Classes</h2>
-<h3 id="fileupload"><code>FileUpload</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L102" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
+<h3 id="fileupload"><code>FileUpload</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L105" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h3>
 <p>A Provider that adds file upload capabilities to a server.</p>
 <p>Registers a drag-and-drop UI tool, a backend storage tool, and
 model-visible tools for listing and reading uploaded files.</p>
 <p>Files are scoped by MCP session and stored in memory by default.
+Set <code>max_total_size</code> to limit decoded file bytes across all scopes or
+<code>file_ttl_seconds</code> to expire files by age since upload. Both default to
+None. Expired files are removed on storage operations, without a timer.
+These options apply to the default in-memory storage methods.
 Override <code>on_store</code>, <code>on_list</code>, and <code>on_read</code> for custom
 persistence (filesystem, S3, database, etc.). Each method receives
 the current <code>Context</code>, giving access to session ID, auth tokens,
@@ -19864,7 +19868,7 @@ mcp = FastMCP("My Server")
 mcp.add_provider(FileUpload())
 </code></pre>
 <p><strong>Methods:</strong></p>
-<h4 id="on_store"><code>on_store</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L183" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h4>
+<h4 id="on_store"><code>on_store</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L212" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h4>
 <div class="highlight"><pre><span></span><code><span class="n">on_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">files</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
 </code></pre></div>
 <p>Store uploaded files and return summaries.</p>
@@ -19875,11 +19879,13 @@ mcp.add_provider(FileUpload())
 auth tokens, or any metadata needed for partitioning.</p>
 <p>Override this method for custom persistence. The default
 implementation stores files in memory, scoped by
-<code>_get_scope_key(ctx)</code>.</p>
+<code>_get_scope_key(ctx)</code>. The optional <code>max_total_size</code> applies to
+decoded file bytes across every scope. An entire batch is rejected
+when its final contents would exceed the limit, including replacements.</p>
 <p><strong>Returns:</strong>
 - List of file summary dicts (<code>name</code>, <code>type</code>, <code>size</code>,
 - <code>size_display</code>, <code>uploaded_at</code>).</p>
-<h4 id="on_list"><code>on_list</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L216" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h4>
+<h4 id="on_list"><code>on_list</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L278" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h4>
 <div class="highlight"><pre><span></span><code><span class="n">on_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span>
 </code></pre></div>
 <p>List all stored files.</p>
@@ -19889,7 +19895,7 @@ implementation stores files in memory, scoped by
 implementation returns files from the current scope.</p>
 <p><strong>Returns:</strong>
 - List of file summary dicts.</p>
-<h4 id="on_read"><code>on_read</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L232" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h4>
+<h4 id="on_read"><code>on_read</code> <sup><a href="https://github.com/PrefectHQ/fastmcp/blob/main/fastmcp_slim/fastmcp/apps/file_upload.py#L296" target="_blank"><Icon icon="github" style="width: 14px; height: 14px;" /></a></sup></h4>
 <div class="highlight"><pre><span></span><code><span class="n">on_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 </code></pre></div>
 <p>Read a file's contents by name.</p>

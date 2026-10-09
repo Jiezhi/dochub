@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -5289,6 +5289,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#repository-settings-in-sessions-with-several-repositories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repository settings in sessions with several repositories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#repository-committed-permission-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7332,6 +7343,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#repository-settings-in-sessions-with-several-repositories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repository settings in sessions with several repositories
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#repository-committed-permission-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7713,7 +7735,7 @@ RUN claude mcp add --scope user --transport http internal http://mcp-gateway.svc
 <ul>
 <li>The enterprise-scope <a href="/docs/en/managed-mcp">managed MCP file</a> at its standard system path: <code>/etc/claude-code/managed-mcp.json</code> on Linux runner hosts, <code>/Library/Application Support/ClaudeCode/managed-mcp.json</code> on macOS hosts. Use it for locked-down fleets where only administrator-listed servers may load. See <a href="/docs/en/managed-mcp#exclusive-control-with-managed-mcp-json">exclusive control with managed-mcp.json</a> for the precedence rules. When this file is on the runner host, Claude Code skips the MCP servers Anthropic's control plane delivers to a session, including claude.ai connectors, and names them in a warning on the session child's stderr, which the runner records at the <code>debug</code> log level. Before v2.1.229, those sessions exited at startup with <code>You cannot dynamically configure MCP servers when an enterprise MCP config is present</code>.</li>
 <li>The <a href="/docs/en/settings-reference#managedmcpservers"><code>managedMcpServers</code></a> key in <a href="/docs/en/managed-settings">managed settings</a> on the runner host: provides HTTP and SSE servers without taking exclusive control, so servers from the other sources still load. Requires Claude Code v2.1.259 or later.</li>
-<li><code>&lt;repo&gt;/.mcp.json</code>: project scope. Commit the file to the repository; its servers are auto-approved in cloud sessions.</li>
+<li><code>&lt;repo&gt;/.mcp.json</code>: project scope. Commit the file to the repository; its servers are auto-approved in cloud sessions. In a session with several repositories, <a href="#repository-settings-in-sessions-with-several-repositories">at most one repository's file loads</a>.</li>
 </ul>
 <p>When connector delivery is enabled for your organization, Anthropic's control plane delivers the connectors you've configured on claude.ai to interactively-created sessions through server-provided MCP configuration, routed through <code>api.anthropic.com</code>. Sessions created programmatically, such as <a href="/docs/en/self-hosted-environments-testing#run-the-test-loop">CLI dispatches</a>, don't receive connector delivery; give them MCP servers through any of the other sources this section lists instead. The child's OAuth token doesn't carry a scope for fetching connectors directly, so the child doesn't attempt that fetch itself; delivery is server-driven.</p>
 <p><code>settings.json</code> doesn't carry MCP server definitions, and there is no top-level <code>mcpServers</code> field in the settings schema. In managed settings, provide servers with the <a href="/docs/en/settings-reference#managedmcpservers"><code>managedMcpServers</code></a> key instead.</p>
@@ -7830,7 +7852,7 @@ if [ "$unpushed" -gt 0 ]; then
   exit 0
 fi</p>
 <p>exit 0
-<div class="highlight"><pre><span></span><code>The hook prompts Claude to commit and push before the session ends, and stays silent when the directory isn't a git repository or has no remote.
+<div class="highlight"><pre><span></span><code>The hook prompts Claude to commit and push before the session ends, and stays silent when the directory isn't a git repository or has no remote. For a session with several repositories, see [what `$CLAUDE_PROJECT_DIR` names](#repository-settings-in-sessions-with-several-repositories).
 
 ## Permissions and tool approval
 
@@ -7850,7 +7872,7 @@ exec "$CLAUDE_RUNNER_CLAUDE_BIN" "$@" --permission-mode auto
 <h3 id="how-each-sessions-config-is-assembled">How each session's config is assembled</h3>
 <p>The runner gives each session its own config directory, seeded from a snapshot of the host's <code>~/.claude/</code> that the runner captures once at startup: <code>settings.json</code>, <code>CLAUDE.md</code>, hooks, agents, commands, and skills in your runner image apply to every session as the user-level baseline. If you change config on a running host, the change takes effect only after you restart the runner.</p>
 <p>Set <code>SELF_HOSTED_RUNNER_HOST_CONFIG_DIR</code> to seed from a different path, or point it at an empty directory to disable seeding.</p>
-<p>Repository-committed <code>.claude/settings.json</code> layers on top as project settings. Sessions also read <a href="/docs/en/settings#where-settings-live"><code>managed-settings.json</code></a> from the standard system path in your runner image. Whether its keys apply alongside <a href="/docs/en/server-managed-settings">server-managed settings</a> follows <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a>: by default, when your organization delivers any server-managed keys, sessions ignore the runner image's file apart from the <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">keys Claude Code reads from every admin source</a>, such as the <code>env</code> block, the sandbox locks, the sandbox binary paths, and <code>forceRemoteSettingsRefresh</code>. See <a href="/docs/en/settings#settings-precedence">settings precedence</a>.</p>
+<p>Repository-committed <code>.claude/settings.json</code> layers on top as project settings. In a session with several repositories, <a href="#repository-settings-in-sessions-with-several-repositories">at most one repository's file takes effect</a>. Sessions also read <a href="/docs/en/settings#where-settings-live"><code>managed-settings.json</code></a> from the standard system path in your runner image. Whether its keys apply alongside <a href="/docs/en/server-managed-settings">server-managed settings</a> follows <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a>: by default, when your organization delivers any server-managed keys, sessions ignore the runner image's file apart from the <a href="/docs/en/managed-settings#keys-read-from-every-admin-source">keys Claude Code reads from every admin source</a>, such as the <code>env</code> block, the sandbox locks, the sandbox binary paths, and <code>forceRemoteSettingsRefresh</code>. See <a href="/docs/en/settings#settings-precedence">settings precedence</a>.</p>
 <p>When Anthropic's control plane supplies a session with <a href="/docs/en/hooks">Claude Code hooks</a>, the runner installs them alongside, not over, your own configuration. Requires Claude Code v2.1.229 or later.</p>
 <ul>
 <li><strong>Where they land</strong>: the runner writes each supplied hook script to a reserved <code>hooks/.ccr-launcher/</code> subdirectory of the session's config directory and registers the scripts in a separate settings file it passes to the session with <code>--settings</code>, leaving the seeded <code>settings.json</code> and your own scripts at <code>hooks/&lt;name&gt;</code> untouched. The runner recreates the reserved subdirectory for each session and doesn't seed host content at <code>~/.claude/hooks/.ccr-launcher/</code> into sessions.</li>
@@ -7859,6 +7881,14 @@ exec "$CLAUDE_RUNNER_CLAUDE_BIN" "$@" --permission-mode auto
 </ul>
 <p>Outside <a href="https://claude.com/docs/claude-tag/overview">Claude Tag</a> sessions, a session in a self-hosted environment runs with <a href="/docs/en/memory#auto-memory">auto memory</a> off by default. For instructions that should carry across sessions, use the <code>CLAUDE.md</code> in your runner image or in the repository.</p>
 <p>The runner's snapshot of the host's <code>~/.claude/</code> leaves out the <code>projects/</code> directory. Auto memory's default storage location is under that directory. If you put memory files there, the runner doesn't seed them into sessions, and they don't turn auto memory on.</p>
+<h3 id="repository-settings-in-sessions-with-several-repositories">Repository settings in sessions with several repositories</h3>
+<p>In a session with several repositories, Claude Code reads project settings from the directory the session starts in, so at most one repository's <code>.claude/settings.json</code> takes effect as project settings. A hook defined in another repository's file doesn't run, a deny rule in it doesn't apply, and its <code>env</code> isn't set.</p>
+<ul>
+<li><strong><code>--capacity 1</code>, the default, with the built-in checkout</strong>: the session starts in the first repository in its list of repositories. That repository's <code>.claude/settings.json</code> takes effect as project settings and its <code>.mcp.json</code> loads, and the other repositories' don't.</li>
+<li><strong>A <code>--capacity</code> above one, or a <a href="#checkout"><code>checkout</code> hook</a></strong>: the session starts in a per-session directory that contains the checkouts. No repository's <code>.claude/settings.json</code> takes effect as project settings, no repository's <code>.mcp.json</code> loads, and <a href="/docs/en/hooks#reference-scripts-by-path"><code>$CLAUDE_PROJECT_DIR</code></a> in a hook command is that directory, not a checkout.</li>
+</ul>
+<p>Each repository's <code>CLAUDE.md</code> and skills load wherever the session starts. The runner passes every repository to Claude Code as an <a href="/docs/en/permissions#additional-directories-grant-file-access-not-configuration">additional directory</a>, so Claude Code also reads the <code>enabledPlugins</code> and <code>extraKnownMarketplaces</code> keys from each repository's <code>.claude/settings.json</code>.</p>
+<p>To run a hook or apply a permission rule in every session, put it in <code>~/.claude/settings.json</code> on the runner host. The runner <a href="#how-each-session’s-config-is-assembled">seeds the host file into every session</a>, wherever the session starts. Write a path in a <code>Read</code> or <code>Edit</code> rule as a <code>//</code> absolute or <code>~/</code> home-relative <a href="/docs/en/permissions#read-and-edit">pattern</a>, because other patterns anchor at the settings source or the current directory.</p>
 <h3 id="repository-committed-permission-rules">Repository-committed permission rules</h3>
 <p>Don't put a bare <code>"Edit"</code>, <code>"Write"</code>, or <code>"NotebookEdit"</code> entry in a repository-committed <code>permissions.allow</code>. A bare file-tool rule matches the tool regardless of path, granting writes anywhere on the host rather than only the workspace, so the runner's write-scope confine guard flags the session; with <a href="/docs/en/self-hosted-environments-reference#runner-cli-flags"><code>--confine-repo-settings enforce</code></a> it refuses to spawn the session instead of logging and continuing. See the <a href="/docs/en/self-hosted-environments-deploy#harden-your-deployment">hardening section</a>.</p>
 <p>A repository needs no file-tool rule at all: cloud sessions <a href="/docs/en/permission-modes#switch-permission-modes">pre-approve file edits regardless of mode</a>. If you do commit a rule, scope it to the workspace, such as <code>"Edit(/**)"</code>; a single leading slash is relative to the project root, which is the session's workspace. Bare file-tool rules are fine in the operator's host-level <code>settings.json</code>, since that file isn't repository-committed.</p>

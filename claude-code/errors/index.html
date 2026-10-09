@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -9499,6 +9499,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Set to <code>1</code> in unattended sessions such as CI jobs to retry <code>429</code> and <code>529</code> capacity errors indefinitely instead of failing after <code>CLAUDE_CODE_MAX_RETRIES</code> attempts. Claude Code fails at once when a standard-speed request gets a <code>429</code> that reports a spend limit or exhausted usage credits, even one from a <a href="#spend-limit-reached">gateway spend cap</a> that resets on a schedule. Before v2.1.239, the watchdog retried these indefinitely. For fast mode requests, see <a href="/docs/en/fast-mode#handle-rate-limits">Handle rate limits</a>. On v2.1.199 or later it also raises the default retry count for other transient errors, such as server errors, timeouts, and dropped connections, to 300, roughly three hours of backoff, and removes the cap of 15 on <code>CLAUDE_CODE_MAX_RETRIES</code> if you set that variable explicitly.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><a href="/docs/en/env-vars"><code>CLAUDE_CODE_OVERLOADED_RETRY_BASE_DELAY_MS</code></a></td>
+<td style="text-align: left;">500</td>
+<td style="text-align: left;">Starting delay in milliseconds of the backoff between retries of a request that the API rejects with a <code>529</code> overloaded error. Raise it, up to 32000, to spread the retries over a longer window when the API is at capacity. Has no effect when <code>CLAUDE_CODE_RETRY_WATCHDOG</code> is set to <code>1</code>, or when the rejected request was sent in <a href="/docs/en/fast-mode#handle-rate-limits">fast mode</a>. Requires Claude Code v2.1.292 or later.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><a href="/docs/en/env-vars"><code>API_TIMEOUT_MS</code></a></td>
 <td style="text-align: left;">600000</td>
 <td style="text-align: left;">Per-request timeout in milliseconds. Raise it for slow networks or proxies. It also caps how long Claude Code waits for response headers, described in <a href="#no-response-from-api">No response from API</a>.</td>
@@ -9818,15 +9823,14 @@ When a proxy, load balancer, or gateway between Claude Code and the API answers 
 Your plan's included usage can't cover this request, and the [usage credits](https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans) that would otherwise pay for it have reached a spend limit. That happens when one of your plan's usage windows has run out, or when the request is one that only usage credits pay for, such as a request to a model that [bills to usage credits](/docs/en/model-config#fable-and-usage-credits). The message names whose limit blocked you. The text after the `·` says how to get that limit increased, and varies with your plan and whether you manage billing:
 
 ```text theme={null}
-You've hit your monthly spend limit · raise it at claude.ai/settings/usage
+You've hit your monthly spend limit · raise it at https://claude.ai/settings/usage?from=cc_cli_limit_message
 You've hit your individual spend limit · ask your admin for a higher limit
-You've hit your org's monthly spend limit · visit claude.ai/admin-settings/usage to raise it
-You've hit your team's shared budget · ask your admin to raise it at claude.ai/admin-settings/usage
+You've hit your org's monthly spend limit · visit https://claude.ai/admin-settings/usage to raise it
+You've hit your team's shared budget · ask your admin to raise it at https://claude.ai/admin-settings/usage
 You've hit your channel's monthly spend limit · an org owner or channel manager can raise it in the channel's Claude settings
 </code></pre></div></p>
 <p><code>team's shared budget</code> is a pooled budget an admin assigned to a group you belong to; the message doesn't name the group. <code>channel's monthly spend limit</code> is the budget of the one Slack channel the session runs in, so your organization may still have budget outside it.</p>
 <p>When one of your plan's windows is what ran out, the message also says when that window resets, for example <code>· your session limit resets 3:45pm</code>, and access returns then without anyone raising the limit. On organizations with usage-based billing, the message says <code>usage limit</code> in place of <code>spend limit</code>, as in <code>You've hit your individual usage limit</code>.</p>
-<p>Before v2.1.239, the message didn't name the plan window's reset time. Before v2.1.268, a group's pooled budget produced the <code>individual spend limit</code> message instead of <code>team's shared budget</code>.</p>
 <p>If you connect through a Claude apps gateway and see lowercase <code>spend limit reached</code>, that is your gateway operator's cap instead; see <a href="#spend-limit-reached">Spend limit reached</a>.</p>
 <p><strong>What to do:</strong></p>
 <ul>
@@ -11373,7 +11377,7 @@ The model's safety measures flagged content in the conversation as a cybersecuri
 API Error: Opus 4.8's safeguards flagged this message. Our intentionally broad safeguards allow us to deliver more capabilities faster, but can sometimes flag legitimate cybersecurity work. Apply to the Cyber Verification Program to reduce these interruptions. Send feedback with /feedback or learn more: https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude
 </code></pre></div></p>
 <p>If the message includes the line <code>Details: `[reasoning_extraction]`</code>, see <a href="#safeguards-flagged-a-request-for-claudes-reasoning">Safeguards flagged a request for Claude's reasoning</a>.</p>
-<p>The message links to the <a href="https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude">Cyber Verification Program</a>, which grants access for legitimate cybersecurity work. On Opus 5.5 and Sonnet 5.5, the message opens with <code>&lt;model&gt;'s safeguards flagged this session</code> instead. When the flagged category has a fallback model available, Claude Code <a href="/docs/en/model-config#automatic-model-fallback">switches models</a> rather than showing this error.</p>
+<p>This message links to the <a href="https://support.claude.com/en/articles/14604842-real-time-cyber-safeguards-on-claude">Cyber Verification Program</a>, which grants access for legitimate cybersecurity work. Models with <a href="/docs/en/model-config#automatic-model-fallback">automatic model fallback</a> print a different message, without this link; on Opus 5.5 and Sonnet 5.5 it opens with <code>&lt;model&gt;'s safeguards flagged this session</code>. That section also covers when Claude Code switches models instead.</p>
 <p>On <a href="/docs/en/amazon-bedrock">Amazon Bedrock</a>, <a href="/docs/en/google-vertex-ai">Google Cloud's Agent Platform</a>, and <a href="/docs/en/microsoft-foundry">Microsoft Foundry</a>, a cybersecurity flag produces the <a href="#usage-policy-refusal">Usage Policy refusal</a> message instead.</p>
 <p>The safeguard itself is server-side and predates v2.1.203; client releases since then have changed only the message's wording.
 From v2.1.203 through v2.1.218, the message read <code>&lt;model&gt; has safety measures that flagged this message for a cybersecurity topic. To learn about the Cyber Verification Program and apply for access, visit our help center:</code> followed by the same help-center link, and interactive sessions appended <code>If you were not engaging in a cybersecurity topic, please send feedback via /feedback.</code>
@@ -12339,7 +12343,7 @@ Before v2.1.282, `claude plugin list` and `/plugin` reported the plugins of an i
 
 ### Marketplace is already added from a different source
 
-You confirmed adding a marketplace through [`/plugin install &lt;plugin&gt; --marketplace &lt;source&gt;`](/docs/en/plugins/install#add-a-marketplace-and-install-in-one-command), and the catalog Claude Code fetched from that source names itself the same as a marketplace you already added from a different source. Claude Code keeps the existing marketplace instead of replacing it, and the plugin isn't installed.
+You named a new marketplace source with [`--marketplace &lt;source&gt;` on the install command](/docs/en/plugins/install#add-a-marketplace-and-install-in-one-command), in a session or from your shell. The catalog Claude Code fetched from that source has the same name as a marketplace you already added from a different source. Claude Code keeps the existing marketplace instead of replacing it, and the plugin isn't installed.
 
 ```text theme={null}
 Marketplace "acme-tools" is already added from a different source (github:acme/plugins). To use this source instead, remove that marketplace first with /plugin marketplace remove acme-tools.
@@ -12949,7 +12953,7 @@ You attached to a stopped [background session](/docs/en/agent-view) that was bac
 ```text theme={null}
 This session has no saved transcript — it was stopped before its first response finished. If it was backgrounded from another conversation, that one is still intact; `claude respawn &lt;id&gt;` starts this one fresh.
 </code></pre></div></p>
-<p>Opening the same session's row in <a href="/docs/en/agent-view">agent view</a> shows <code>Press enter again to restart this session fresh</code> below the list instead, and a second <code>Enter</code> on the row restarts the session with an empty conversation. Before v2.1.212, opening the row showed the refusal message with no way to restart from agent view. Before v2.1.211, opening the stopped session silently started that blank conversation and could re-run the session's original prompt.</p>
+<p>Opening the same session's row in <a href="/docs/en/agent-view">agent view</a> shows <code>Press enter again to restart this session fresh</code> below the list instead, and a second <code>Enter</code> on the row restarts the session with an empty conversation.</p>
 <p><strong>What to do:</strong></p>
 <ul>
 <li>The conversation you backgrounded from is intact: resume it with <a href="/docs/en/sessions"><code>claude --resume</code></a> or keep working in it</li>
@@ -12966,8 +12970,6 @@ Can't open — this session is running in another terminal
 This conversation is already open in another running Claude session — use that one, or close it and try again
 <div class="highlight"><pre><span></span><code>* **`running in another terminal`**: a terminal holds the conversation, for example one where you resumed it with `claude --resume` or `/resume`. The row also shows `Open in a terminal`.
 * **`already open in another running Claude session`**: another non-interactive Claude Code process holds it, for example a [background session](/docs/en/agent-view#the-supervisor-process) process for the same conversation that hasn't exited yet.
-
-Claude Code saves a reply you typed when opening the row and sends it as the session's next prompt when the session next starts.
 
 **What to do:**
 

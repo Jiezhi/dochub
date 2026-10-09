@@ -1447,7 +1447,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6842,8 +6842,12 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 </code></pre>
 <p></Step></p>
 <p><Step title="Save and deploy">
-    Save your changes. Claude Code clients receive the updated settings on their next startup or hourly polling cycle.
-  </Step>
+    Save your changes. Claude Code clients receive the updated settings on their next startup or hourly polling cycle.</p>
+<pre><code>The editor checks your JSON against the published JSON schema for Claude Code settings. If it finds a problem in JSON that parses, it shows a warning and relabels the save button. The label is **Update with errors** when settings are already saved, and **Add with errors** when no settings are saved yet. That button still saves, because a schema warning doesn't block the save.
+
+The schema [can lag behind the newest releases](/docs/en/settings#edit-a-settings-file), so the editor can flag a key or value that the [settings reference](/docs/en/settings-reference#all-settings) documents. Claude Code receives the keys and values you saved and runs [its own validation](#invalid-entries-in-delivered-settings) when it loads them.
+</code></pre>
+<p></Step>
 </Steps></p>
 <h3 id="verify-settings-delivery">Verify settings delivery</h3>
 <p>To confirm that settings are being applied, ask a user to restart Claude Code. If the configuration includes settings that trigger the <a href="#security-approval-dialogs">security approval dialog</a>, the user sees a prompt describing the managed settings the next time Claude Code fetches them: at the next start, or within an hour in a running interactive session. You can also verify that managed permission rules are active by having a user run <code>/permissions</code> to view their effective permission rules.</p>
@@ -7016,6 +7020,11 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 <li>A <code>user_oauth</code> <a href="/docs/en/authentication#anthropic-profiles-and-federation-credentials">Anthropic profile</a>, unless the profile sets a <code>base_url</code> other than the Anthropic API. Requires Claude Code v2.1.257 or later.</li>
 </ul>
 <p>Neither keys returned by an <a href="/docs/en/settings-reference#apikeyhelper"><code>apiKeyHelper</code></a> script nor <a href="https://platform.claude.com/docs/en/manage-claude/workload-identity-federation">Workload Identity Federation</a> credentials trigger the settings fetch.</p>
+<p>A session receives the managed settings of the organization that owns the credential it authenticates with. An API key from the <a href="https://platform.claude.com">Claude Console</a> belongs to the Console organization it was created in, which is a separate organization from your claude.ai Team or Enterprise organization. Settings you configure in claude.ai Admin Settings therefore don't reach a session that authenticates with that key, such as a CI job that uses your company's Console API key. To apply them to that job, use one of these options. The OAuth token option doesn't apply to a job that runs with <a href="/docs/en/headless#start-faster-with-bare-mode"><code>--bare</code></a>, because bare mode doesn't read <code>CLAUDE_CODE_OAUTH_TOKEN</code>.</p>
+<ul>
+<li><strong>OAuth token</strong>: generate a token with <a href="/docs/en/authentication#generate-a-long-lived-token"><code>claude setup-token</code></a>, authorize it for your Team or Enterprise organization, and set it as <code>CLAUDE_CODE_OAUTH_TOKEN</code> in the job's environment. Remove any credential that <a href="/docs/en/authentication#authentication-precedence">takes precedence</a> over the token from that environment, such as <code>ANTHROPIC_API_KEY</code>.</li>
+<li><strong>Endpoint-managed settings</strong>: deploy a <a href="/docs/en/managed-settings#delivery-mechanisms">managed settings file</a> to the machine that runs the job.</li>
+</ul>
 <p>In a <a href="https://claude.com/docs/cowork/overview">Cowork</a> session in the Claude Desktop app, Claude Code doesn't fetch server-managed settings from the claude.ai admin console, even when the user signs in with a Team or Enterprise account. <a href="/docs/en/managed-settings#where-and-when-a-policy-applies">Where and when a policy applies</a> covers which policy reaches Cowork sessions on the user's machine and remote Cowork sessions. claude.ai still applies your <a href="/docs/en/settings-reference#strictknownmarketplaces"><code>strictKnownMarketplaces</code></a> and <a href="/docs/en/settings-reference#blockedmarketplaces"><code>blockedMarketplaces</code></a> lists itself when a Cowork user adds a marketplace from a git repository on claude.ai or from <strong>Customize</strong> in the Cowork tab. <a href="/docs/en/plugins/org#restrict-what-users-can-install">How restrictions work</a> describes that check.</p>
 <p>If you export a <code>CLAUDE_CODE_USE_*</code> provider variable or a non-default <code>ANTHROPIC_BASE_URL</code> in your shell, Claude Code skips the settings fetch for your sessions. <a href="#verify-settings-delivery"><code>claude doctor</code> and <code>/status</code> report the skipped fetch and its cause</a>.</p>
 <p>You can't clear the export with a server-managed <code>env</code> block, because the block arrives through the fetch that the export prevents. An <a href="/docs/en/managed-settings#delivery-mechanisms">endpoint-managed settings</a> <code>env</code> block doesn't restore the fetch either: Claude Code checks eligibility before it applies managed <code>env</code> blocks, so the endpoint-managed value changes the session's provider selection but the fetch stays skipped.</p>
@@ -7056,7 +7065,7 @@ To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-au
 </tr>
 <tr>
 <td style="text-align: left;">User authenticates with a different organization</td>
-<td style="text-align: left;">Settings are not delivered for accounts outside the managed organization</td>
+<td style="text-align: left;">Settings are not delivered for accounts outside the managed organization, including a session that authenticates with a <a href="#platform-availability">Console API key</a></td>
 </tr>
 <tr>
 <td style="text-align: left;">User configures a <a href="#platform-availability">third-party model provider</a></td>
