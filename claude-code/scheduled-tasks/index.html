@@ -4781,6 +4781,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Jitter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-late-a-recurring-task-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How late a recurring task runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-a-one-shot-task-runs-early" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a one-shot task runs early
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6508,6 +6536,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Jitter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-late-a-recurring-task-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How late a recurring task runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-a-one-shot-task-runs-early" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a one-shot task runs early
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6800,12 +6856,35 @@ cancel the deploy check job
 <p>The scheduler checks every second for due tasks and enqueues them at low priority. A scheduled prompt fires between your turns, not while Claude is mid-response. If Claude is busy when a task comes due, the prompt waits until the current turn ends.</p>
 <p>All times are interpreted in your local timezone. A cron expression like <code>0 9 * * *</code> means 9am wherever you're running Claude Code, not UTC.</p>
 <h3 id="jitter">Jitter</h3>
-<p>To avoid every session hitting the API at the same wall-clock moment, the scheduler adds a deterministic offset to fire times:</p>
-<ul>
-<li>Recurring tasks fire up to 30 minutes after the scheduled time (or up to half the interval, for tasks that run more often than hourly). An hourly job scheduled for <code>:00</code> may fire anywhere up to <code>:30</code>.</li>
-<li>One-shot tasks scheduled for the top or bottom of the hour fire up to 90 seconds early.</li>
-</ul>
-<p>The offset is derived from the task ID, so the same task always gets the same offset. If exact timing matters, pick a minute that is not <code>:00</code> or <code>:30</code>, for example <code>3 9 * * *</code> instead of <code>0 9 * * *</code>, and the one-shot jitter will not apply.</p>
+<p>A scheduled task can run at a different time than its schedule says. If every session's tasks ran exactly on schedule, many of them would call the API at the same moment, so Claude Code shifts each task's run time. Recurring tasks run late, and one-shot tasks scheduled on the hour or half hour run a little early.</p>
+<h4 id="how-late-a-recurring-task-runs">How late a recurring task runs</h4>
+<p>When you create a recurring task, Claude Code gives it a fixed delay and adds that delay to every run. The delay is worked out from the task's ID, so the same task runs the same number of minutes late each time, including when the session is idle and nothing else is running.</p>
+<p>Tasks that run more often get shorter delays, and 30 minutes is the longest delay a task can get. These are the delay ranges for some common schedules:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Task runs</th>
+<th style="text-align: left;">Delay is between</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Every 10 minutes</td>
+<td style="text-align: left;">0 and 5 minutes</td>
+</tr>
+<tr>
+<td style="text-align: left;">Every 30 minutes</td>
+<td style="text-align: left;">0 and 15 minutes</td>
+</tr>
+<tr>
+<td style="text-align: left;">Every hour, or less often such as daily</td>
+<td style="text-align: left;">0 and 30 minutes</td>
+</tr>
+</tbody>
+</table>
+<p>For example, <code>7,37 * * * *</code> schedules a task for <code>:07</code> and <code>:37</code>, which are 30 minutes apart, so its delay is somewhere between 0 and 15 minutes. If this task's delay is 14 minutes, it runs at <code>:21</code> and <code>:51</code> every hour. Changing the schedule to a different minute moves the run time, and a delay is still added on top.</p>
+<h4 id="when-a-one-shot-task-runs-early">When a one-shot task runs early</h4>
+<p>A one-shot task scheduled for <code>:00</code> or <code>:30</code> runs up to 90 seconds early. Claude Code doesn't shift a one-shot task scheduled for any other minute, so when the timing matters, schedule it off the hour and half hour: <code>3 9 * * *</code> instead of <code>0 9 * * *</code>.</p>
 <h3 id="seven-day-expiry">Seven-day expiry</h3>
 <p>Recurring tasks automatically expire 7 days after creation. The task fires one final time, then deletes itself. This bounds how long a forgotten loop can run. If you need a recurring task to last longer, cancel and recreate it before it expires, or use <a href="/docs/en/routines">Routines</a> or <a href="/docs/en/desktop-scheduled-tasks">Desktop scheduled tasks</a> for durable scheduling.</p>
 <h2 id="cron-expression-reference">Cron expression reference</h2>

@@ -4875,6 +4875,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Runner CLI flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auto-mode-rule-lists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto mode rule lists
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6391,6 +6408,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Runner CLI flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auto-mode-rule-lists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto mode rule lists
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6744,6 +6778,12 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Retire the runner at an absolute Unix timestamp in seconds, for infrastructure that kills the runner at a known time; <a href="/docs/en/self-hosted-environments#runner-lifecycle">Runner lifecycle</a> describes the release sequence and how to size the margin. Values before 2001 or after the year 5138 are rejected by the flag and ignored by the environment variable.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>--server-auto-mode-lists &lt;mode&gt;</code></td>
+<td style="text-align: left;"><code>SELF_HOSTED_RUNNER_SERVER_AUTO_MODE_LISTS</code></td>
+<td style="text-align: left;"><code>no-allow</code></td>
+<td style="text-align: left;">Which of the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a> classifier rule lists that the control plane sends with a session may reach that session: <code>all</code>, <code>no-allow</code>, or <code>none</code>. See <a href="#auto-mode-rule-lists">Auto mode rule lists</a> for what each value applies. An invalid value stops the runner at startup. Requires Claude Code v2.1.295 or later.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>--session-stop-grace-sec &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_SESSION_STOP_GRACE_MS</code></td>
 <td style="text-align: left;"><code>5</code></td>
@@ -6753,7 +6793,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--startup-timeout-min &lt;n&gt;</code></td>
 <td style="text-align: left;"><code>SELF_HOSTED_RUNNER_STARTUP_TIMEOUT_MS</code></td>
 <td style="text-align: left;"><code>15</code></td>
-<td style="text-align: left;">Release a session slot if the child hasn't signaled that it initialized within N minutes of spawn. Cleared by the child's init signal on the <a href="/docs/en/self-hosted-environments-configuration#keep-stdin-and-file-descriptor-3-attached">activity channel</a>, not by ordinary output, after which <code>--release-idle-session-min</code> takes over. <code>0</code> disables.</td>
+<td style="text-align: left;">Release a session slot if the child hasn't signaled that it initialized within N minutes of spawn. Cloning happens before spawn, so clone time doesn't count. Cleared by the child's init signal on the <a href="/docs/en/self-hosted-environments-configuration#keep-stdin-and-file-descriptor-3-attached">activity channel</a>, not by ordinary output, after which <code>--release-idle-session-min</code> takes over. <code>0</code> disables.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--trust-workspace [bool]</code></td>
@@ -6765,7 +6805,7 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><code>--use-anthropic-git-proxy</code></td>
 <td style="text-align: left;"><code>CLAUDE_RUNNER_USE_GIT_PROXY=1</code></td>
 <td style="text-align: left;">off</td>
-<td style="text-align: left;">Clone via the <a href="/docs/en/self-hosted-environments-deploy#use-the-anthropic-git-proxy">Anthropic git proxy</a> instead of customer-managed git auth. Requires <code>--capacity 1</code> and git 2.32 or later; the runner refuses to start otherwise. Supersedes the rewrite flags.</td>
+<td style="text-align: left;">Clone repositories on github.com via the <a href="/docs/en/self-hosted-environments-deploy#use-the-anthropic-git-proxy">Anthropic git proxy</a> instead of customer-managed git auth. Requires <code>--capacity 1</code> and git 2.32 or later; the runner refuses to start otherwise. Supersedes the rewrite flags.</td>
 </tr>
 </tbody>
 </table>
@@ -6774,6 +6814,20 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Flag</strong>: startup fails with an error.</li>
 <li><strong>Environment variable</strong>: the runner clamps the value to the timer ceiling rather than rejecting it.</li>
 </ul>
+<h3 id="auto-mode-rule-lists">Auto mode rule lists</h3>
+<p><code>--server-auto-mode-lists</code> lets you decide which <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a> classifier rules from outside the runner reach the sessions on your runners. Anthropic's control plane can send rule lists with a session and ask the runner to apply them. Some entries may be rules an admin of your organization wrote. The lists are <code>environment</code>, <code>soft_deny</code>, and <code>allow</code>:</p>
+<ul>
+<li><strong><code>environment</code></strong>: an entry can make the classifier allow more as well as less.</li>
+<li><strong><code>soft_deny</code></strong>: an entry blocks an action unless the user explicitly asked for it or an <code>allow</code> exception applies.</li>
+<li><strong><code>allow</code></strong>: the exceptions to <code>soft_deny</code> entries.</li>
+</ul>
+<p>The flag's value picks which lists the runner applies:</p>
+<ul>
+<li><strong><code>no-allow</code></strong>: the default. Applies <code>environment</code> and <code>soft_deny</code> and withholds <code>allow</code>. An <code>environment</code> entry can still make the classifier allow more, so the default doesn't rule out every loosening.</li>
+<li><strong><code>all</code></strong>: applies all three lists.</li>
+<li><strong><code>none</code></strong>: applies none of them. Pick <code>none</code> to rule out every loosening from these lists. It also drops the <code>soft_deny</code> restrictions.</li>
+</ul>
+<p>No runner setting makes the control plane ask the runner to apply the lists. When it doesn't ask, sessions receive no list whatever you set. To see which happened, start the runner with <code>--log-level debug</code>. For each session the runner then logs a line containing <code>the server asked this runner to apply</code>, or one containing <code>the server did not ask this runner to apply the auto mode lists it sends</code>.</p>
 <h2 id="orchestrator-cli-flags">Orchestrator CLI flags</h2>
 <p>The <code>self-hosted-runner orchestrator</code> subcommand, which spawns <a href="/docs/en/self-hosted-environments-configuration#on-demand-runners">on-demand runners</a>, accepts <code>--api-url</code>, <code>--environment-secret-file</code>, <code>--hooks-dir</code>, <code>--health-port</code>, and <code>--log-level</code> with the same defaults as the runner and, where the runner's flag has one, the same environment variable, except that <code>--hooks-dir</code> is required and must contain a <code>spawn-runner</code> hook. It also takes its own flags:</p>
 <table>
@@ -6798,7 +6852,7 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;"><code>--expected-spawn-seconds &lt;sec&gt;</code></td>
 <td style="text-align: left;"><code>120</code></td>
-<td style="text-align: left;">Expected p99 boot time for spawned runners, in the server-enforced range 10 to 3600. Sent on every poll as the server-side lease; if no runner registers before it elapses, the session is re-offered with a fresh order ID. All replicas must share this value.</td>
+<td style="text-align: left;">Expected p99 time from when the orchestrator receives a spawn request to when the runner registers, including any wait for capacity on your platform. The server enforces a range of 10 to 3600. Sent on every poll as the server-side lease: if no runner registers before it elapses, the session is re-offered with a fresh order ID. All replicas must share this value.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>--min-idle &lt;n&gt;</code></td>
@@ -6894,6 +6948,11 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">Git fetch depth for fresh clones. Set a positive integer, or <code>full</code> or <code>0</code> for a complete fetch. Repositories already present in the workspace keep their existing depth.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>CLAUDE_RUNNER_FETCH_SERVER_PROGRESS_CAP_MS</code></td>
+<td style="text-align: left;"><code>600000</code></td>
+<td style="text-align: left;">How long in milliseconds, per attempt, a git fetch may wait for its first data while the git server's own progress numbers keep rising, as when the server prepares the pack for a large repository. <code>0</code> or <code>off</code> turns the wait off: such a fetch is then cut off after two minutes without data. Any other whole number is clamped to between <code>120000</code> and <code>1800000</code>, 2 to 30 minutes. Requires Claude Code v2.1.295 or later.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>CLAUDE_RUNNER_SKIP_GIT_VERIFY</code></td>
 <td style="text-align: left;">unset</td>
 <td style="text-align: left;">When <code>1</code>, skip the <code>.git</code> presence check after a <code>checkout</code> hook runs. Set this when your hook materializes a non-git source.</td>
@@ -6962,7 +7021,7 @@ The orchestrator serves its own series at `GET /metrics` on the same port as its
 | `claude_code_self_hosted_orchestrator_poll_errors_total{error_kind}` | Cumulative PollSpawnHints failures by kind: `transport`, `timeout`, `5xx`, `429`, or `4xx`. All five series are present from process start; alert on `rate(...[5m]) &gt; 0`. |
 | `claude_code_self_hosted_orchestrator_queue_pending_sessions` | Spawn requests claimable right now |
 | `claude_code_self_hosted_orchestrator_queue_backing_off_sessions` | Spawn requests in retry backoff after a retryable hook failure |
-| `claude_code_self_hosted_orchestrator_queue_circuit_broken_sessions` | Spawn requests blocked until an Owner retries them from the environment's **Activity** tab; alert if above zero |
+| `claude_code_self_hosted_orchestrator_queue_circuit_broken_sessions` | Sessions blocked from spawning. Each stays blocked until a user sends it a new message or an Owner retries it from the environment's **Activity** tab. The count can stay above zero after you fix the cause. Alert if above zero. |
 | `claude_code_self_hosted_orchestrator_pool_pending_sessions` | Total sessions waiting on a runner for this environment. Environment-wide aggregate, identical on every orchestrator instance: use `MAX` rather than `SUM` across instances. |
 | `claude_code_self_hosted_orchestrator_pool_active_sessions` | Sessions currently assigned to an alive runner in this environment. Environment-wide aggregate, identical on every orchestrator instance: use `MAX` rather than `SUM` across instances. |
 | `claude_code_self_hosted_orchestrator_spawn_hooks_total{result}` | Cumulative `spawn-runner` hook outcomes: `ok`, `retryable`, `non_retryable`. Counts orchestrator hook invocations, not session children the runners spawn: not comparable to `sessions_started_total`, since capacity above one, warm pools, and runners spawned again for the same session all diverge the two. |
@@ -7067,7 +7126,7 @@ spec:
     for: 1m
     labels: {severity: critical}
     annotations:
-      summary: "{{ $value }} sessions circuit-broken — spawn-runner hook is repeatedly non-retryable; fix infra then retry from the Activity tab"</li>
+      summary: "Sessions blocked from spawning: {{ $value }}. Read each one's error in the Activity tab, fix the cause, then select Retry"</li>
 <li>alert: ClaudeOrchestratorPollErrors
     expr: sum by (pod) (rate(claude_code_self_hosted_orchestrator_poll_errors_total[5m])) &gt; 0
     for: 2m
@@ -7095,7 +7154,7 @@ spec:
 <li><code>interrupted</code>: the runner terminated the child for an operational reason that's neither a session success nor a runner fault, such as a drain, or terminating a session that was still on the runner when the <a href="#environment-variable-only-settings"><code>SELF_HOSTED_RUNNER_MAX_LIFETIME_GRACE_MS</code></a> grace window after its <code>--kill-session-after-min</code> limit ended. A Kubernetes rolling restart sending <code>SIGTERM</code> is one example of a drain. Increments <code>sessions_interrupted_total</code>.</li>
 </ul>
 <p>Before v2.1.260, the runner terminated every session that reached its <code>--kill-session-after-min</code> limit and counted it in <code>sessions_interrupted_total</code>.</p>
-<p>The <a href="/docs/en/self-hosted-environments-configuration#post-session"><code>post-session</code> hook</a>'s <code>CLAUDE_RUNNER_EXIT_REASON</code> classifies clean handoffs differently. The hook reports a release, a startup timeout, and a server deassign as <code>interrupted</code>, because the runner stopped the child. These counters record the same events as <code>completed</code>, because the slot was handed back cleanly.</p>
+<p>The <a href="/docs/en/self-hosted-environments-configuration#post-session"><code>post-session</code> hook</a>'s <code>CLAUDE_RUNNER_EXIT_REASON</code> classifies clean handoffs differently. The hook reports these as <code>interrupted</code>, because the runner stopped the child: a release, a startup timeout, a server deassign, and an archive or delete that the poll noticed first. These counters record the same events as <code>completed</code>, because the slot was handed back cleanly.</p>
 <p>If you reconcile hook receipts against <code>sessions_completed_total</code> directly, you undercount completions. Use the hook for per-session guarantees and the counters for aggregate rates.</p>
 <p>On a one-shot environment, <code>--capacity 1</code> with the default <code>--drain-grace-sec 0</code>, each runner process exits moments after its one session ends. <code>sessions_completed_total</code>, <code>sessions_failed_total</code>, and <code>sessions_interrupted_total</code> increment only at session end, right before that exit, so a Prometheus scrape every 15 to 60 seconds rarely catches the increment before the runner's series disappears; these three end-of-session counters are the terminal counters the rest of this section refers to. <code>sessions_started_total</code> increments at spawn and stays visible for the life of the session, so it reliably shows up, but on a one-shot environment it reads closer to "sessions currently running" than a cumulative count.</p>
 <p>Use the series in this table for the corresponding goal instead of the terminal counters:</p>

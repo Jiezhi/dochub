@@ -3106,10 +3106,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#debug-techniques" class="md-nav__link">
+  <a href="#check-what-a-hook-did" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Debug techniques
+        Check what a hook did
       
     </span>
   </a>
@@ -6589,10 +6589,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#debug-techniques" class="md-nav__link">
+  <a href="#check-what-a-hook-did" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Debug techniques
+        Check what a hook did
       
     </span>
   </a>
@@ -6883,7 +6883,7 @@ You can also ask Claude to write the hook for you by describing what you want in
 }
 <div class="highlight"><pre><span></span><code>To test the hook, ask Claude to add a line with single-quoted strings to a JavaScript file, then open the file: with Prettier's default settings, the hook rewrites them to double quotes.
 
-When the hook succeeds, Claude Code shows nothing in the conversation. To confirm the hook ran, check that the edited file is reformatted, or see [Debug techniques](#debug-techniques).
+When the hook succeeds, Claude Code shows nothing in the conversation. To confirm the hook ran, check that the edited file is reformatted, or see [Check what a hook did](#check-what-a-hook-did).
 
 To reformat a specific file however it changes, including when a `Bash` command rewrites it, use a [FileChanged](/docs/en/hooks#filechanged) hook instead.
 
@@ -7590,7 +7590,10 @@ This example verifies that tests pass before allowing Claude to stop:
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>The endpoint should return a JSON response body using the same [output format](/docs/en/hooks#json-output) as command hooks. To block a tool call, return a 2xx response with the appropriate `hookSpecificOutput` fields. HTTP status codes alone can't block actions.
+<div class="highlight"><pre><span></span><code>Your endpoint responds with a JSON body in the same [output format](/docs/en/hooks#json-output) as command hooks, and Claude Code also checks the response status:
+
+* **2xx status**: to block a tool call, return the appropriate `hookSpecificOutput` fields in the body.
+* **Any other status, or the request fails**: Claude Code reports a [non-blocking error](/docs/en/hooks#exit-code-output) and lets the action continue. To make a failed endpoint block the action, set [`onFailure: "block"`](/docs/en/hooks#block-the-action-when-a-hook-fails) on the hook.
 
 Header values support environment variable interpolation using `$VAR_NAME` or `${VAR_NAME}` syntax. Only variables listed in the `allowedEnvVars` array are resolved; all other `$VAR` references remain empty.
 
@@ -7689,16 +7692,16 @@ fi
 </code></pre></div></p>
 <p>The <code>$-</code> variable contains shell flags, and <code>i</code> means interactive. Hooks run in non-interactive shells, so the echo is skipped.</p>
 <p>When your hook returns <code>permissionDecision</code> or <code>additionalContext</code> at the top level instead of inside <code>hookSpecificOutput</code>, the JSON still parses, and Claude Code ignores the misplaced fields without reporting an error. To see which fields it ignored, start Claude Code with <code>claude --debug</code> and search the <a href="/docs/en/hooks#debug-hooks">debug log</a> for <code>Hook JSON output had unrecognized keys</code>.</p>
-<h3 id="debug-techniques">Debug techniques</h3>
-<p>Press <code>Ctrl+O</code> to open the transcript view to check the outcome of a hook run:</p>
+<h3 id="check-what-a-hook-did">Check what a hook did</h3>
+<p>Press <code>Ctrl+O</code> to open the transcript view and look for the hook's outcome:</p>
 <ul>
-<li><strong>Successful run</strong>: you see nothing, unless the hook's JSON surfaces something, such as <code>systemMessage</code> or Stop hook feedback.</li>
-<li>To confirm a hook ran, check for its effect, like a reformatted file, or turn on debug logging as described below and trigger the hook again</li>
-<li><strong>Blocking error</strong>: on most events you see the hook's feedback. When the hook's JSON made a blocking decision, the feedback is the reason from that decision; otherwise it is the hook's stderr. On a few events, such as <code>ConfigChange</code> and <code>Elicitation</code>, a block surfaces no message.</li>
-<li><strong>Non-blocking error</strong>: the action proceeded, and you see a <code>&lt;hook name&gt; hook error</code> notice with a short explanation, such as the first line of stderr prefixed with <code>Failed with non-blocking status code:</code>, or a JSON validation or parse message.</li>
+<li><strong>Success</strong>: you see nothing, unless the hook's JSON surfaces something, such as <code>systemMessage</code> or Stop hook feedback.</li>
+<li>To confirm the hook ran, check for its effect, like a reformatted file</li>
+<li><strong>Blocking error</strong>: on most events you see the message that came with the block, for example <code>Blocked: rm commands are not allowed</code>. On a few events, such as <code>ConfigChange</code> and <code>Elicitation</code>, you see no message. <a href="/docs/en/hooks#exit-code-2">Exit code 2</a> covers where the message comes from.</li>
+<li><strong>Non-blocking error</strong>: you see a <code>&lt;hook name&gt; hook error</code> notice with a short explanation, such as the first line of stderr after <code>Failed with non-blocking status code:</code>, or a JSON validation or parse message. The action went ahead.</li>
 </ul>
-<p>Which exit-code and JSON combinations produce each outcome, including the per-event exceptions, is defined in the reference's <a href="/docs/en/hooks#exit-code-output">Exit code output</a> section.</p>
-<p>For full execution details including which hooks matched, their exit codes, stdout, and stderr, read the debug log. Start Claude Code with <code>claude --debug-file /tmp/claude.log</code> to write to a known path, then <code>tail -f /tmp/claude.log</code> in another terminal. If you started without that flag, run <code>/debug</code> mid-session to enable logging and find the log path.</p>
+<p>To look up the outcome for a specific exit code and stdout, including the per-event exceptions, see <a href="/docs/en/hooks#exit-code-output">Exit code output</a> in the reference.</p>
+<p>For full execution details including hook exit codes, stdout, and stderr, read the debug log. Start Claude Code with <code>claude --debug-file /tmp/claude.log</code> to write to a known path, then <code>tail -f /tmp/claude.log</code> in another terminal. If you started without that flag, run <code>/debug</code> mid-session to enable logging and find the log path.</p>
 <h2 id="learn-more">Learn more</h2>
 <ul>
 <li><a href="/docs/en/hooks">Hooks reference</a>: full event schemas, JSON output format, async hooks, and MCP tool hooks</li>

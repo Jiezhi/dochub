@@ -6995,7 +6995,10 @@ exit 0
 <h2 id="run-the-test-loop">Run the test loop</h2>
 <p>The <code>--environment</code> and <code>--ref</code> dispatch flags require Claude Code v2.1.224 or later on the machine that runs the script, the same floor as the runner itself. With the hook in place and a runner started on this host, the test script:</p>
 <ol>
-<li>Creates a session on the test environment with <code>claude -p "&lt;prompt&gt;" --environment &lt;environment-id&gt; --output-format json</code>, run from a git checkout so the CLI can auto-detect the repository from the <code>origin</code> remote. The optional <code>--ref &lt;branch&gt;</code> bases the session's checkout on a named ref instead of local HEAD. The command creates the session, prints one line of JSON containing <code>session_id</code>, and exits without waiting for Claude's reply.</li>
+<li>Creates a session on the test environment with <code>claude -p "&lt;prompt&gt;" --environment &lt;environment-id&gt; --output-format json</code>. Run the command from a git checkout so the CLI can auto-detect the repository from the <code>origin</code> remote. The optional <code>--ref &lt;branch&gt;</code> bases the session's checkout on a named ref instead of local HEAD. The command exits without waiting for Claude's reply. What it prints tells your script the outcome:</li>
+<li><strong>Session created</strong>: one line of JSON such as <code>{"ok":true,"session_id":"session_...","title":"...","url":"...","pool_id":"..."}</code></li>
+<li><strong>Session creation failed</strong>: the line <code>{"ok":false,"error":"..."}</code>, and the command exits with status 1</li>
+<li><strong>Some earlier errors</strong>, such as cloud sessions being unavailable for your organization or a missing prompt: the error on stderr with no JSON line, and the command exits with status 1</li>
 <li>Waits for the reply to appear in <code>$E2E_REPLY_DIR/&lt;session_id&gt;.txt</code>, written by the Stop hook on the runner once the turn completes.</li>
 <li>Sends a follow-up with <code>claude -p "&lt;message&gt;" --cloud &lt;session_id&gt; --output-format json</code> (see <a href="/docs/en/claude-code-on-the-web#send-follow-ups-from-the-cli">Send a follow-up message to a running session</a>), which posts a user event to the existing session and exits.</li>
 <li>Waits for the follow-up's reply the same way as step 2.</li>
@@ -7004,7 +7007,14 @@ exit 0
 <p>Claude Code creates the session, prints the session ID and a link to it, and exits.</p>
 <p>The flag takes precedence over the <a href="/docs/en/settings-reference#remote-defaultenvironmentid"><code>remote.defaultEnvironmentId</code></a> setting. It doesn't support <code>--output-format stream-json</code>, and can't be combined with flags that resume, attach to, or preconfigure a session, such as <code>--resume</code>, <code>--continue</code>, <code>--teleport</code>, <code>--session-id</code>, or <code>--init-only</code>. <code>--cloud</code> is rejected with a session ID or URL, and in non-interactive runs when it carries a description. A bare <code>--cloud</code> is treated as absent. From a terminal, you can pass the task as the <code>--cloud</code> description instead of a positional prompt.</p>
 <h2 id="example-script">Example script</h2>
-<p>The script below runs the full loop against <code>$CLAUDE_TEST_ENVIRONMENT_ID</code>, your test environment's <code>ccpool_...</code> ID, shown in the environment's detail dialog on the admin page or returned by the <a href="#create-a-dedicated-test-environment">create-environment call</a>, and asserts on a sentinel phrase in each reply. Run it from a git checkout of the repository you want the session to work in, after starting a runner on this host with the capture hook installed and <code>E2E_REPLY_DIR</code> exported. First sign in with a claude.ai account on the machine that runs the script, as <a href="#authenticate-from-ci">Authenticate from CI</a> describes. Without that sign-in, the first dispatch fails with an error such as <code>Unable to get organization UUID for cloud session creation</code>.</p>
+<p>The example script runs on the same machine as the test runner. Before you run it, prepare that machine:</p>
+<ul>
+<li><strong>Repository checkout</strong>: run the script from a git checkout of the repository you want the session to work in.</li>
+<li><strong>Runner</strong>: start a runner on this host with the capture hook installed and <code>E2E_REPLY_DIR</code> exported.</li>
+<li><strong>Sign-in</strong>: sign in with a claude.ai account on the machine that runs the script, as <a href="#authenticate-from-ci">Authenticate from CI</a> describes.</li>
+<li><strong>Environment ID</strong>: set <code>CLAUDE_TEST_ENVIRONMENT_ID</code> to your test environment's <code>ccpool_...</code> ID, shown in the environment's detail dialog on the admin page or returned by the <a href="#create-a-dedicated-test-environment">create-environment call</a>.</li>
+</ul>
+<p>The script below runs the full loop against <code>$CLAUDE_TEST_ENVIRONMENT_ID</code> and asserts on a sentinel phrase in each reply.</p>
 <p>```bash theme={null}</p>
 <h1 id="usrbinenv-bash">!/usr/bin/env bash</h1>
 <h1 id="end-to-end-test-against-a-self-hosted-environment-using-stop-hook-read-back">End-to-end test against a self-hosted environment, using Stop-hook read-back.</h1>
@@ -7046,7 +7056,7 @@ exit 0
 <p>TURN1="e2e-probe-$(date +%s)-$$: say exactly 'ok: custom tools are reachable' and nothing else"
 EXPECT1="ok: custom tools are reachable"
 create_json=$(claude -p "$TURN1" --environment "$CLAUDE_TEST_ENVIRONMENT_ID" \
-  --ref "$TEST_REPO_REF" --output-format json)
+  --ref "$TEST_REPO_REF" --output-format json &lt; /dev/null)
 echo "create: $create_json"
 SESSION_ID=$(jq -er '.session_id' &lt;&lt;&lt;"$create_json")</p>
 <h1 id="2-wait-for-the-turn-1-reply">2. Wait for the turn-1 reply.</h1>
@@ -7055,7 +7065,7 @@ echo "turn-1 reply ok"</p>
 <h1 id="3-post-a-follow-up-via-the-cli">3. Post a follow-up via the CLI.</h1>
 <p>TURN2="e2e-probe-followup-$(date +%s): say exactly 'ok: follow-up delivered' and nothing else"
 EXPECT2="ok: follow-up delivered"
-followup_json=$(claude -p "$TURN2" --cloud "$SESSION_ID" --output-format json)
+followup_json=$(claude -p "$TURN2" --cloud "$SESSION_ID" --output-format json &lt; /dev/null)
 echo "followup: $followup_json"
 jq -e '.ok == true' &lt;&lt;&lt;"$followup_json" &gt;/dev/null</p>
 <h1 id="4-wait-for-the-turn-2-reply">4. Wait for the turn-2 reply.</h1>
