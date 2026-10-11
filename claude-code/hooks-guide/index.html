@@ -1359,6 +1359,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../auto-mode-classifier-billing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auto mode classifier billing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../auto-mode-config/" class="md-nav__link">
         
   
@@ -3102,6 +3129,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Hook JSON has no effect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shell-profile-output-before-the-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell profile output before the JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fields-at-the-wrong-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fields at the wrong level
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -6586,6 +6641,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Hook JSON has no effect">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shell-profile-output-before-the-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shell profile output before the JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fields-at-the-wrong-level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fields at the wrong level
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -7248,7 +7331,7 @@ exit 0  # exit 0 = no decision; the normal permission flow applies
 
 On `PreToolUse`, Claude Code handles each `permissionDecision` value as follows:
 
-* `"allow"`: skip the interactive permission prompt. Deny and ask rules, including enterprise managed deny lists, still apply, as do prompts for MCP tools marked [`requiresUserInteraction`](/docs/en/mcp#require-approval-for-a-specific-tool) and for connector tools [your organization set to `ask`](/docs/en/mcp#organization-controls-on-connector-tools) in sessions where that setting reaches Claude Code
+* `"allow"`: skip the interactive permission prompt. Deny and ask rules, including enterprise managed deny lists, still apply, as do prompts for reads from [network paths](/docs/en/permissions#network-paths), for MCP tools marked [`requiresUserInteraction`](/docs/en/mcp#require-approval-for-a-specific-tool), and for connector tools [your organization set to `ask`](/docs/en/mcp#organization-controls-on-connector-tools) in sessions where that setting reaches Claude Code
 * `"deny"`: cancel the tool call and send the reason to Claude
 * `"ask"`: show the permission prompt to the user as normal
 
@@ -7620,7 +7703,7 @@ Keep these constraints in mind when designing hooks:
 
 `PreToolUse` hooks fire before any permission-mode check, in every [permission mode](/docs/en/permission-modes), including `dontAsk`. A hook that returns `permissionDecision: "deny"` blocks the tool even in `bypassPermissions` mode or with `--dangerously-skip-permissions`. This lets you enforce policy that users can't bypass by changing their permission mode.
 
-The reverse is not true: a hook returning `"allow"` doesn't bypass deny rules from settings, and it can't suppress the prompt for MCP tools marked [`requiresUserInteraction`](/docs/en/mcp#require-approval-for-a-specific-tool) or for connector tools [your organization set to `ask`](/docs/en/mcp#organization-controls-on-connector-tools) in sessions where that setting reaches Claude Code. Hooks in settings files and in a plugin's `hooks/hooks.json` can tighten restrictions but not loosen them past what permission rules allow.
+The reverse is not true: a hook returning `"allow"` doesn't bypass deny rules from settings, and it can't suppress the prompt for reads from [network paths](/docs/en/permissions#network-paths), for MCP tools marked [`requiresUserInteraction`](/docs/en/mcp#require-approval-for-a-specific-tool), or for connector tools [your organization set to `ask`](/docs/en/mcp#organization-controls-on-connector-tools) in sessions where that setting reaches Claude Code. Hooks in settings files and in a plugin's `hooks/hooks.json` can tighten restrictions but not loosen them past what permission rules allow.
 
 A [mod](/docs/en/plugins/mods/overview) you install that handles `tool.check` can approve a call that your `PreToolUse` hook blocked, unless the hook is in managed settings. [Extend permissions with hooks](/docs/en/permissions#extend-permissions-with-hooks) lists which rules hold over a mod.
 
@@ -7675,14 +7758,15 @@ fi
 <h3 id="hook-json-has-no-effect">Hook JSON has no effect</h3>
 <p>Your hook prints valid JSON, but the decision doesn't take effect and no error appears in the transcript. Check which cause applies:</p>
 <ul>
-<li><strong>Extra output before the JSON</strong>: something else writes to stdout first, usually an unconditional <code>echo</code> in your shell profile, so the output no longer starts with <code>{</code> and Claude Code doesn't parse it as JSON. The cause and fix follow this list.</li>
-<li><strong>A field at the wrong level</strong>: compare each field's placement against the <a href="/docs/en/hooks#json-output">JSON output</a> format. For example, <code>permissionDecision</code> belongs inside <code>hookSpecificOutput</code>, not at the top level.</li>
+<li><strong>Extra output before the JSON</strong>: something else writes to stdout first, usually an unconditional <code>echo</code> in your shell profile, so the output no longer starts with <code>{</code>. See <a href="#shell-profile-output-before-the-json">Shell profile output before the JSON</a>.</li>
+<li><strong>A field at the wrong level</strong>: compare each field's placement against the <a href="/docs/en/hooks#json-output">JSON output</a> format. For example, <code>permissionDecision</code> belongs inside <code>hookSpecificOutput</code>, not at the top level. See <a href="#fields-at-the-wrong-level">Fields at the wrong level</a>.</li>
 </ul>
-<p>When Claude Code runs a shell-form command hook, one without <code>args</code>, it spawns <code>sh -c</code> on macOS and Linux, Git Bash on Windows, or PowerShell when Git Bash isn't installed by default. This shell is non-interactive, but Git Bash and some configurations, such as <code>BASH_ENV</code> pointing at <code>~/.bashrc</code>, still source your profile. If that profile contains unconditional <code>echo</code> statements, the output gets prepended to your hook's JSON:</p>
+<h4 id="shell-profile-output-before-the-json">Shell profile output before the JSON</h4>
+<p>Hooks run in non-interactive shells, but Git Bash and some configurations, such as <code>BASH_ENV</code> pointing at <code>~/.bashrc</code>, still source your profile, and anything the profile prints reaches stdout ahead of your hook's JSON:</p>
 <p>```text theme={null}
 Shell ready on arm64
 {"decision": "block", "reason": "Not allowed"}
-<div class="highlight"><pre><span></span><code>The combined output no longer starts with `{`, so Claude Code treats all of stdout as plain text and ignores the JSON. On exit 0 nothing is reported in the transcript; the parse attempt is recorded only in the [debug log](/docs/en/hooks#debug-hooks). To fix this, wrap echo statements in your shell profile so they only run in interactive shells:
+<div class="highlight"><pre><span></span><code>Unless the hook is [async](/docs/en/hooks#how-async-hooks-execute), Claude Code reads output that doesn't start with `{` as plain text, so your JSON is ignored. Because the hook exited 0, the transcript shows no error either. To check for this cause, start Claude Code with `claude --debug`, trigger the hook, and search the [debug log](/docs/en/hooks#debug-hooks) for `Hook output does not start with {`. To fix it, wrap the `echo` statements in your profile so they run only in interactive shells:
 
 ```bash theme={null}
 # In ~/.zshrc or ~/.bashrc
@@ -7691,6 +7775,7 @@ if [[ $- == *i* ]]; then
 fi
 </code></pre></div></p>
 <p>The <code>$-</code> variable contains shell flags, and <code>i</code> means interactive. Hooks run in non-interactive shells, so the echo is skipped.</p>
+<h4 id="fields-at-the-wrong-level">Fields at the wrong level</h4>
 <p>When your hook returns <code>permissionDecision</code> or <code>additionalContext</code> at the top level instead of inside <code>hookSpecificOutput</code>, the JSON still parses, and Claude Code ignores the misplaced fields without reporting an error. To see which fields it ignored, start Claude Code with <code>claude --debug</code> and search the <a href="/docs/en/hooks#debug-hooks">debug log</a> for <code>Hook JSON output had unrecognized keys</code>.</p>
 <h3 id="check-what-a-hook-did">Check what a hook did</h3>
 <p>Press <code>Ctrl+O</code> to open the transcript view and look for the hook's outcome:</p>
@@ -7701,7 +7786,7 @@ fi
 <li><strong>Non-blocking error</strong>: you see a <code>&lt;hook name&gt; hook error</code> notice with a short explanation, such as the first line of stderr after <code>Failed with non-blocking status code:</code>, or a JSON validation or parse message. The action went ahead.</li>
 </ul>
 <p>To look up the outcome for a specific exit code and stdout, including the per-event exceptions, see <a href="/docs/en/hooks#exit-code-output">Exit code output</a> in the reference.</p>
-<p>For full execution details including hook exit codes, stdout, and stderr, read the debug log. Start Claude Code with <code>claude --debug-file /tmp/claude.log</code> to write to a known path, then <code>tail -f /tmp/claude.log</code> in another terminal. If you started without that flag, run <code>/debug</code> mid-session to enable logging and find the log path.</p>
+<p>For full execution details, including hook exit codes, stdout, and stderr, read the <a href="/docs/en/hooks#debug-hooks">debug log</a>. Start Claude Code with <code>claude --debug-file /tmp/claude.log</code> to write to a known path, then <code>tail -f /tmp/claude.log</code> in another terminal. If you started without that flag, run <code>/debug</code> mid-session to enable logging and find the log path.</p>
 <h2 id="learn-more">Learn more</h2>
 <ul>
 <li><a href="/docs/en/hooks">Hooks reference</a>: full event schemas, JSON output format, async hooks, and MCP tool hooks</li>

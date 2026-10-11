@@ -1359,6 +1359,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../auto-mode-classifier-billing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auto mode classifier billing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../auto-mode-config/" class="md-nav__link">
         
   
@@ -7080,7 +7107,12 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="plugins-shared-through-a-repository">Plugins shared through a repository</h3>
 <p>To share a plugin through a repository, list it under <code>enabledPlugins</code> in <code>.claude/settings.json</code> or place it under <code>.claude/skills/</code>. Claude Code doesn't scan a project's <code>.claude/plugins/</code> directory.</p>
 <p>A cloud session doesn't add the marketplaces a repository lists under <a href="/docs/en/settings-reference#extraknownmarketplaces"><code>extraKnownMarketplaces</code></a>, because that requires the workspace trust dialog, which a cloud session never shows.</p>
-<p>A project-scope skills-directory plugin loads only from the <code>.claude/skills/</code> of the session's <a href="/docs/en/permissions#working-directories">primary working directory</a>, and only after you accept the <a href="/docs/en/permissions#what-runs-before-you-trust-a-folder">workspace trust dialog</a> for that folder. It doesn't <a href="/docs/en/skills#discovery-from-parent-and-nested-directories">search parent directories up to the repository root</a> the way plain skills and commands do. If you launch from a subdirectory, a plugin at the repository root doesn't load. Launch from the repository root instead, or <a href="/docs/en/permissions#move-the-session-to-another-directory">move the session there with <code>/cd</code></a> on v2.1.246 or later.</p>
+<p>If a plugin in your repository's <code>.claude/skills/</code> doesn't load, check where you started the session and whether you trusted the folder:</p>
+<ul>
+<li><strong>In a subdirectory</strong>: a plugin at the repository root doesn't load. Claude Code reads the <code>.claude/skills/</code> of the session's <a href="/docs/en/permissions#working-directories">primary working directory</a> and, unlike plain skills and commands, doesn't <a href="/docs/en/skills#discovery-from-parent-and-nested-directories">search parent directories</a> for plugins. Launch from the repository root instead, or <a href="/docs/en/permissions#move-the-session-to-another-directory">move the session there with <code>/cd</code></a> on v2.1.246 or later</li>
+<li><strong>From the desktop app, in a worktree</strong>: the plugin loads from the main checkout's <code>.claude/skills/</code> rather than the worktree's. See <a href="/docs/en/worktrees#what-worktrees-share-with-the-main-checkout">What worktrees share with the main checkout</a></li>
+<li><strong>In a folder you haven't trusted</strong>: the plugin loads only after you accept the <a href="/docs/en/permissions#what-runs-before-you-trust-a-folder">workspace trust dialog</a> for that folder</li>
+</ul>
 <p>A project-scope plugin is checked into the repository and reaches every collaborator who clones it. Because that content comes from the repository rather than from you, it loads only after the same trust check that applies to project allow rules in <code>.claude/settings.json</code>. Trusting a parent folder or running with <code>-p</code> isn't enough. Components that run code are restricted further:</p>
 <ul>
 <li>MCP servers it declares go through the <a href="/docs/en/mcp">same per-server approval</a> as a project <code>.mcp.json</code></li>
@@ -7420,6 +7452,13 @@ Use this file to discover all available pages before exploring further.</p>
 <li>A plugin <a href="#synced-plugins">synced from claude.ai</a>. When an enabled plugin from any other origin matches its name, Claude Code loads that plugin and reports the synced copy as not loaded. To use the claude.ai copy instead, disable your own copy</li>
 </ol>
 <p>Because the order compares manifest names, a <code>--plugin-dir</code> plugin named <code>hello-plugin</code> replaces <code>hello@example-marketplace</code> when that plugin's manifest also says <code>"name": "hello-plugin"</code>.</p>
+<h3 id="hooks-when-two-enabled-plugins-share-a-name">
+  Hooks when two enabled plugins share a name
+</h3>
+
+<p>When you install and enable two plugins with the same manifest name from different marketplaces, both appear as enabled in <code>/plugin</code>, but the hooks of one of them are left out. One plugin per name registers the hooks in its <code>hooks/hooks.json</code>, and one plugin per name loads a <a href="/docs/en/plugins/mods/overview">hooks module</a>. When your organization's managed settings turn on one of the copies, that copy holds the name. Otherwise the copy Claude Code loads first holds it.</p>
+<p>To see which copy holds the name, run <code>/plugin</code> in your session and open the <strong>Errors</strong> tab. A note there for the copy whose hooks were left out names the copy that holds the name, and the left-out copy's details show the same note. For <code>hooks/hooks.json</code> hooks the note begins <code>Its hooks.json hooks do not run</code>, and for a hooks module it begins <code>Its hooks module does not load</code>. The note requires Claude Code v2.1.296 or later.</p>
+<p>To run the left-out copy's hooks instead, disable or uninstall the copy that holds the name, then run <code>/reload-plugins</code> in your session. The reload registers the remaining copy's hooks and clears the note. When the copy that holds the name is one your managed settings turn on, you can't disable it, and the other copy's hooks stay off while both are installed.</p>
 <h3 id="keep-a-session-only-plugin-from-loading">Keep a session-only plugin from loading</h3>
 <p>To keep a <code>--plugin-dir</code> plugin from shadowing anything, or to turn one off when a parent process passes the flag for you, set its id to <code>false</code> in any settings file. For a plugin whose manifest name is <code>hello-plugin</code>, the entry is <code>"enabledPlugins": {"hello-plugin@inline": false}</code>. A disabled session-only plugin doesn't shadow, so the marketplace or skills-directory copy loads instead.</p>
 <h2 id="next-steps">Next steps</h2>

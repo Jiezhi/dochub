@@ -1359,6 +1359,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../auto-mode-classifier-billing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auto mode classifier billing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../auto-mode-config/" class="md-nav__link">
         
   
@@ -6635,7 +6662,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><a href="#allow-only-pre-approved-tools-with-dontask-mode"><code>dontAsk</code></a></td>
-<td style="text-align: left;">Reads and pre-approved tools; anything that would prompt is denied</td>
+<td style="text-align: left;">File reads inside your working directories and pre-approved tools; anything that would prompt is denied</td>
 <td style="text-align: left;">Locked-down CI and scripts</td>
 </tr>
 <tr>
@@ -7127,7 +7154,7 @@ Pushing to any branch of the repository you're working in and creating a pull re
   The first read outside the working directories
 &lt;/h3&gt;
 
-While [`permissions.blockReadsOutsideWorkingDirectories`](/docs/en/settings-reference#permissions-blockreadsoutsideworkingdirectories) is off, file reads run without a prompt in auto mode, including reads outside the [working directories](/docs/en/permissions#working-directories). The first time Claude uses the Read, Grep, or Glob tool on a path outside them, Claude Code asks whether to allow that read.
+While [`permissions.blockReadsOutsideWorkingDirectories`](/docs/en/settings-reference#permissions-blockreadsoutsideworkingdirectories) is off, file reads other than [reads from network paths](/docs/en/permissions#network-paths) run without a prompt in auto mode, including reads outside the [working directories](/docs/en/permissions#working-directories). The first time Claude uses the Read, Grep, or Glob tool on a path outside them, Claude Code asks whether to allow that read.
 
 The prompt doesn't appear in non-interactive `-p` runs or background sessions; reads there run as before.
 
@@ -7181,16 +7208,18 @@ The following sections cover the order Claude Code evaluates an action in, how t
     Each action goes through a fixed decision order. The first matching step wins:
 
     1. Actions matching your [allow, ask, or deny rules](/docs/en/permissions#manage-permissions) resolve immediately, with these exceptions:
-       * Writes to [protected paths](#protected-paths) route to the classifier even when an allow rule matches
+       * Writes to [protected paths](#protected-paths) route to the classifier even when an allow rule matches. When the protected path is the file that a symlinked settings file points to, the write can prompt you instead, as the [protected paths](#protected-paths) list describes
        * No allow rule approves `rm` and `rmdir` removals targeting a [critical path](#critical-paths)
        * MCP tools marked [`requiresUserInteraction`](/docs/en/mcp#require-approval-for-a-specific-tool) prompt you directly even when an allow rule matches, and so do connector tools [your organization set to `ask`](/docs/en/mcp#organization-controls-on-connector-tools) in sessions where that setting reaches Claude Code
        * A shell command that carries [per-command allowed domains](/docs/en/sandboxing#per-command-allowed-domains-in-auto-mode) also routes to the classifier even when an allow rule matches, because a rule approves the command, not its hosts
        * Ask rules that match on a command's content, such as `Bash(git push *)`, fall back to a permission prompt
        * A write that the [symlink check](/docs/en/permissions#symlinks) resolves to a protected path prompts you when the path Claude requested isn't itself protected
+       * A read from a [network path](/docs/en/permissions#network-paths) prompts you even when an allow rule matches
     2. Read-only actions and file edits in your working directory are auto-approved, except writes to [protected paths](#protected-paths) and [the first read outside the working directories](#first-read-outside-the-working-directories), which prompts you
        * In a session with [server-side classifier review](#server-side-classifier-review), read-only and [sandboxed](/docs/en/sandboxing#sandbox-modes) shell commands wait for that review and are blocked if it flags them
        * A write inside your working directory that the [symlink check](/docs/en/permissions#symlinks) resolves to a location outside it prompts you
        * When Claude reads an [artifact someone else made](/docs/en/artifacts#read-an-artifact-shared-with-you), the approval cases listed in that section apply
+       * A read from a [network path](/docs/en/permissions#network-paths) prompts you
     3. Everything else goes to the classifier, apart from [critical-path removals](#critical-paths) under their default handling. The connector tools and `requiresUserInteraction` MCP tools that prompt you directly in step 1 never reach the classifier either, so neither an org-required approval nor a consent step is auto-approved
     4. If the classifier blocks, Claude receives the reason. In most sessions the reason names the rule the classifier matched, such as `[Data Exfiltration]`, rather than giving a written explanation; see [Review denials](/docs/en/auto-mode-config#review-denials)
 
@@ -7242,7 +7271,7 @@ If you set `dontAsk` mode, Claude Code auto-denies every tool call that would ot
 
 Claude Code denies calls matching your explicit [`ask` rules](/docs/en/permissions#manage-permissions) rather than prompting. It also denies the built-in `AskUserQuestion` tool even if your allow rules match it, and does the same to connector tools [your organization set to `ask`](/docs/en/mcp#organization-controls-on-connector-tools) in sessions where that setting reaches Claude Code. It denies MCP tools marked [`_meta["anthropic/requiresUserInteraction"]`](/docs/en/mcp#require-approval-for-a-specific-tool) the same way, because their approval card needs an answer this mode never collects.
 
-`rm` and `rmdir` removals targeting a [critical path](#critical-paths), such as `rm -rf /` and `rm -rf ~`, are denied even when an allow rule matches them or a `PreToolUse` hook allows them.
+`rm` and `rmdir` removals targeting a [critical path](#critical-paths), such as `rm -rf /` and `rm -rf ~`, are denied even when an allow rule matches them or a `PreToolUse` hook allows them. A read from a [network path](/docs/en/permissions#network-paths) is denied the same way.
 
 [Cloud sessions](/docs/en/claude-code-on-the-web) ignore `defaultMode: "dontAsk"`; see [bypassPermissions](#skip-all-checks-with-bypasspermissions-mode) for details.
 
@@ -7276,7 +7305,10 @@ The first time you start an interactive session with this mode enabled, Claude C
 * **If you accept**: Claude Code sets `skipDangerousModePermissionPrompt` to `true` in `~/.claude/settings.json`, so later sessions skip the dialog. To see the dialog again, remove the key from that file or set it to `false`. The [`skipDangerousModePermissionPrompt` reference](/docs/en/settings-reference#skipdangerousmodepermissionprompt) lists the other settings files where you or your organization can set it.
 * **If you decline**: Claude Code exits.
 
-In [non-interactive mode](/docs/en/headless) no dialog is shown, and a [background session](/docs/en/agent-view) started with `--bg` is refused until you've accepted the dialog in an interactive session.
+In [non-interactive mode](/docs/en/headless) no dialog is shown. A [background session](/docs/en/agent-view) honors your acceptance when it's recorded in user or managed settings:
+
+* With no acceptance recorded, `claude --bg --permission-mode bypassPermissions` is refused until you accept the dialog in an interactive session.
+* With `skipDangerousModePermissionPrompt` set only in `.claude/settings.local.json`, the background session starts with the bypass request ignored and pins the notice `Bypass permissions was requested at launch and ignored · if that was you, ~/.claude/settings.json needs "skipDangerousModePermissionPrompt": true`. To get bypass honored, add that key to `~/.claude/settings.json`, then start a new background session.
 
 On Linux and macOS, Claude Code refuses to start in this mode when running as root or under `sudo`:
 
@@ -7357,6 +7389,7 @@ On Linux and macOS, Claude Code refuses to start in this mode when running as ro
 <li><code>.devcontainer.json</code></li>
 <li><code>.ripgreprc</code>, <code>pyrightconfig.json</code></li>
 <li><code>.mcp.json</code>, <code>.claude.json</code></li>
+<li>The file that your user, project, or local <a href="/docs/en/settings#settings-files-and-who-they-affect">settings file</a> points to when the settings file is itself a symbolic link, for example into a dotfiles repository. In the modes that route protected-path writes to the classifier, a write to this file prompts you instead, even when an allow rule matches. If the file's own path is also that of a settings file, such as <code>.claude/settings.json</code> in another folder, the write goes to the classifier as other protected-path writes do</li>
 </ul>
 <h2 id="critical-paths">Critical paths</h2>
 <p>Critical paths are the directories Claude Code protects from <code>rm</code> and <code>rmdir</code> commands, such as the filesystem root, your home directory, and your working directory.</p>
@@ -7367,11 +7400,12 @@ On Linux and macOS, Claude Code refuses to start in this mode when running as ro
 <ul>
 <li>The filesystem root</li>
 <li>Top-level directories, meaning any direct child of the root, such as <code>/usr</code>, <code>/etc</code>, or <code>/data</code></li>
-<li>Your home directory</li>
-<li>Windows drive roots and their top-level directories, such as <code>C:\</code> and <code>C:\Windows</code></li>
+<li>Your home directory. On Windows, its 8.3 short name counts too, such as <code>C:\Users\LONGNA~1</code></li>
+<li>Windows drive roots and their top-level directories, such as <code>C:\</code> and <code>C:\Windows</code>. Spellings such as <code>\\?\C:\</code> and <code>\\localhost\C$</code> count as <code>C:\</code></li>
 <li>Your working directory and its parents</li>
 <li>Your additional working directories and their parents, but only when the removal is a glob under one of them, such as <code>rm -rf &lt;dir&gt;/*</code>. <code>rm -rf &lt;dir&gt;</code> on the directory itself doesn't trigger this check</li>
 </ul>
+<p>The checks on the home directory's 8.3 short name and on the <code>\\?\C:\</code> and <code>\\localhost\C$</code> spellings require Claude Code v2.1.292 or later.</p>
 <h3 id="other-targets-that-count-as-critical-paths">Other targets that count as critical paths</h3>
 <p>Claude Code also treats the following <code>rm</code> and <code>rmdir</code> targets as critical paths. The last column says why each one counts.</p>
 <table>
@@ -7417,6 +7451,11 @@ On Linux and macOS, Claude Code refuses to start in this mode when running as ro
 <td style="text-align: left;">A target that is only backslashes</td>
 <td style="text-align: left;"><code>rm -rf "\\"</code></td>
 <td style="text-align: left;">Git Bash on Windows reads a lone backslash as the current drive's root, so the check applies on every platform</td>
+</tr>
+<tr>
+<td style="text-align: left;">A Windows path that names a volume by GUID instead of a drive letter</td>
+<td style="text-align: left;"><code>rm -rf '\\?\Volume{GUID}\work\build'</code></td>
+<td style="text-align: left;">The path doesn't say which drive it's on, so it could be a critical path. Requires Claude Code v2.1.292 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;">Some targets that end in <code>/*</code> or <code>/*/</code></td>

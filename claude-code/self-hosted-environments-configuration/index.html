@@ -1359,6 +1359,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../auto-mode-classifier-billing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auto mode classifier billing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../auto-mode-config/" class="md-nav__link">
         
   
@@ -7651,8 +7678,8 @@ IFS=':'
 # privileges. -c commit.gpgsign=false also leaves these rescue commits
 # unsigned under --configure-git.
 # Repo-local credential.helper and pushurl still apply, and on a runner
-# before v2.1.280 so does core.sshCommand; if the hook holds credentials
-# the session didn't, see the note below the script.
+# before v2.1.280 so does core.sshCommand; see the note below the script
+# before you give this push a credential.
 g() { git -c core.fsmonitor=false -c core.hooksPath=/dev/null \
         -c commit.gpgsign=false "$@"; }
 for ws in $CLAUDE_RUNNER_WORKSPACE_PATHS; do
@@ -7664,7 +7691,8 @@ for ws in $CLAUDE_RUNNER_WORKSPACE_PATHS; do
 done
 </code></pre></div></p>
 <p>The <code>GIT_ALLOW_PROTOCOL</code> line in the script limits git to HTTPS, HTTP, and SSH remotes. If the runner's environment already sets a non-empty <code>GIT_ALLOW_PROTOCOL</code> list of its own, the script keeps that list.</p>
-<p>The hook pushes with whatever git credentials are available in its own environment on the runner host. Under the <a href="/docs/en/self-hosted-environments-deploy#configure-git">no-credentials-in-the-image posture</a>, including when the built-in clone goes through the Anthropic git proxy, there are none, so mint a short-lived push credential inside the hook before pushing: exchange the session token the hook receives in <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code> with your own token service, verifying it as <a href="/docs/en/self-hosted-environments-identity">Verify session identity</a> describes. When the hook holds a credential the session didn't, replace <code>origin</code> with an operator-supplied URL and pass <code>-c credential.helper=</code> plus your own helper. <a href="#git-configuration-inside-lifecycle-hooks">Git configuration inside lifecycle hooks</a> describes what session-written configuration can still affect.</p>
+<p>The hook pushes with whatever git credentials are available in its own environment on the runner host. Under the <a href="/docs/en/self-hosted-environments-deploy#configure-git">no-credentials-in-the-image posture</a>, including when the built-in clone goes through the Anthropic git proxy, there are none, so mint a short-lived push credential inside the hook before pushing: exchange the session token the hook receives in <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code> with your own token service, verifying it as <a href="/docs/en/self-hosted-environments-identity">Verify session identity</a> describes.</p>
+<p>Treat any credential your hook gives git as one a session can obtain, and mint it so that it can do no more than this push. Git in your hook reads configuration files that a session can write, and a credential helper or filter driver named in one of them runs with your hook's privileges. Settings in those files can also change where a push goes, whatever remote you name. For the git settings the runner fixes in your hook and the ones it leaves to those files, see <a href="#git-configuration-inside-lifecycle-hooks">Git configuration inside lifecycle hooks</a>.</p>
 <h4 id="hook-timing-when-the-runner-releases-a-session">Hook timing when the runner releases a session</h4>
 <p>A released session can resume on another runner. On a runner on v2.1.236 or later, what the session was doing at release decides whether it can resume before this hook finishes:</p>
 <ul>
