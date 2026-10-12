@@ -6883,29 +6883,38 @@ cancel the deploy check job
 <p>The scheduler checks every second for due tasks and enqueues them at low priority. A scheduled prompt fires between your turns, not while Claude is mid-response. If Claude is busy when a task comes due, the prompt waits until the current turn ends.</p>
 <p>All times are interpreted in your local timezone. A cron expression like <code>0 9 * * *</code> means 9am wherever you're running Claude Code, not UTC.</p>
 <h3 id="jitter">Jitter</h3>
-<p>A scheduled task can run at a different time than its schedule says. If every session's tasks ran exactly on schedule, many of them would call the API at the same moment, so Claude Code shifts each task's run time. Recurring tasks run late, and one-shot tasks scheduled on the hour or half hour run a little early.</p>
+<p>A scheduled task can run at a different time than its schedule says. If every session's tasks ran exactly on schedule, many of them would call the API at the same moment, so Claude Code shifts each task's run time. Recurring tasks run late, except a task that runs every five minutes, written <code>*/5 * * * *</code>. One-shot tasks scheduled on the hour or half hour run a little early.</p>
 <h4 id="how-late-a-recurring-task-runs">How late a recurring task runs</h4>
-<p>When you create a recurring task, Claude Code gives it a fixed delay and adds that delay to every run. The delay is worked out from the task's ID, so the same task runs the same number of minutes late each time, including when the session is idle and nothing else is running.</p>
-<p>Tasks that run more often get shorter delays, and 30 minutes is the longest delay a task can get. These are the delay ranges for some common schedules:</p>
+<p>Unless it runs every five minutes, a recurring task starts each run late by up to half the gap to the next run, and by at most 30 minutes. Your task is one of these three cases:</p>
+<ul>
+<li><strong>Evenly spaced runs</strong>: a task with equal gaps, such as hourly, daily, or every 10 minutes, runs the same number of minutes late every time, including when the session is idle.</li>
+<li><strong>Unevenly spaced runs</strong>: a task with uneven gaps, such as one scheduled for <code>:00</code> and <code>:15</code> each hour, can run a different number of minutes late at each.</li>
+<li><strong>Every five minutes</strong>: a task written <code>*/5 * * * *</code> isn't delayed. A run exactly five minutes after the last one would start after a five-minute <a href="/docs/en/prompt-caching#which-ttl-each-request-gets">prompt cache</a> had expired, so each run starts 15 seconds sooner.</li>
+</ul>
+<p>Find your schedule in the first column of this table to see when each of its runs starts.</p>
 <table>
 <thead>
 <tr>
-<th style="text-align: left;">Task runs</th>
-<th style="text-align: left;">Delay is between</th>
+<th style="text-align: left;">Schedule</th>
+<th style="text-align: left;">When each run starts</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td style="text-align: left;">Every 5 minutes, written <code>*/5 * * * *</code>, which is what <code>/loop 5m</code> creates</td>
+<td style="text-align: left;">4 minutes 45 seconds after the previous run</td>
+</tr>
+<tr>
 <td style="text-align: left;">Every 10 minutes</td>
-<td style="text-align: left;">0 and 5 minutes</td>
+<td style="text-align: left;">0 to 5 minutes late</td>
 </tr>
 <tr>
 <td style="text-align: left;">Every 30 minutes</td>
-<td style="text-align: left;">0 and 15 minutes</td>
+<td style="text-align: left;">0 to 15 minutes late</td>
 </tr>
 <tr>
 <td style="text-align: left;">Every hour, or less often such as daily</td>
-<td style="text-align: left;">0 and 30 minutes</td>
+<td style="text-align: left;">0 to 30 minutes late</td>
 </tr>
 </tbody>
 </table>

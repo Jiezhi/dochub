@@ -6552,15 +6552,57 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>Authentication, model selection, built-in tools, and permissions work normally. If the problem disappears in safe mode, you've narrowed the cause to one of the items you turned off. To find it, use the check for that item, such as <a href="#see-what-loaded-into-context">See what loaded into context</a>, <a href="#check-mcp-servers">Check MCP servers</a>, or <a href="#check-hooks">Check hooks</a>.</p>
 <p>Safe mode still applies managed hooks and settings policy from your organization. Managed plugins, skills, <code>CLAUDE.md</code>, and MCP servers are turned off.</p>
-<p>If the problem persists in safe mode, or your settings themselves are suspect, compare against a session that loads nothing from your usual setup. Point <a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a> at an empty directory to bypass everything under <code>~/.claude</code>, and launch from a directory that has no <code>.claude</code> folder, <code>.mcp.json</code>, or <code>CLAUDE.md</code> so project configuration is also skipped.</p>
-<p><code>bash theme={null}
-cd /tmp &amp;&amp; CLAUDE_CONFIG_DIR=/tmp/claude-clean claude</code></p>
-<p>The clean session has no user or project settings, hooks, MCP servers, plugins, or memory. On the first launch, expect the first-run setup screens, starting with theme selection. If you see them, the clean configuration directory is in effect. Later launches with the same directory skip these screens because Claude Code saves onboarding state there.</p>
-<ul>
-<li>Managed settings still apply if your organization deploys them. Claude Code reads MDM profiles, registry policy, and <code>managed-settings.json</code> from locations outside the configuration directory, and <a href="/docs/en/server-managed-settings#fetch-and-caching-behavior">fetches server-managed settings</a> again for the clean session once it has credentials</li>
-<li>You'll be prompted to log in again</li>
-</ul>
-<p>If the problem disappears here, the cause is somewhere in your real <code>~/.claude</code> or project <code>.claude</code> files. Reintroduce them one at a time, by copying files into the temporary directory or by launching from your project, to find which one. If it persists in the clean session, the cause is outside your user and project configuration. Run <code>/status</code> to check whether managed settings are in effect, look for <a href="/docs/en/env-vars">environment variables</a> that affect Claude Code, then see <a href="/docs/en/troubleshooting">Troubleshooting</a>.</p>
+<p>If the problem persists in safe mode, or your settings themselves are suspect, start a session with none of your own configuration and check whether the problem follows.</p>
+<p><Steps>
+  <Step title="Create an empty directory and change into it">
+    In your shell, with no Claude Code session running, create the directory and move into it:</p>
+<pre><code>&lt;Tabs&gt;
+  &lt;Tab title="Bash or Zsh"&gt;
+    ```bash theme={null}
+    mkdir -p ~/claude-clean/empty &amp;&amp; cd ~/claude-clean/empty
+    ```
+  &lt;/Tab&gt;
+
+  &lt;Tab title="PowerShell"&gt;
+    ```powershell theme={null}
+    New-Item -ItemType Directory -Force "$HOME/claude-clean/empty" | Out-Null
+    Set-Location "$HOME/claude-clean/empty"
+    ```
+  &lt;/Tab&gt;
+&lt;/Tabs&gt;
+</code></pre>
+<p></Step></p>
+<p><Step title="Start Claude Code with a clean configuration directory">
+    From the same shell, set <a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a> to a fresh directory in place of <code>~/.claude</code>, and pass <a href="/docs/en/cli-reference#cli-flags"><code>--setting-sources user</code></a> to turn off project configuration such as <code>.claude/settings.json</code>, <code>CLAUDE.md</code>, and <code>.mcp.json</code>:</p>
+<pre><code>&lt;Tabs&gt;
+  &lt;Tab title="Bash or Zsh"&gt;
+    The variable applies to this one launch.
+
+    ```bash theme={null}
+    CLAUDE_CONFIG_DIR=~/claude-clean/config claude --setting-sources user
+    ```
+  &lt;/Tab&gt;
+
+  &lt;Tab title="PowerShell"&gt;
+    The variable stays set for the rest of this PowerShell session, so later `claude` launches in the same window keep using the clean directory. To return to your usual directory, run `Remove-Item Env:CLAUDE_CONFIG_DIR` before the next launch.
+
+    ```powershell theme={null}
+    $env:CLAUDE_CONFIG_DIR = "$HOME/claude-clean/config"
+    claude --setting-sources user
+    ```
+  &lt;/Tab&gt;
+&lt;/Tabs&gt;
+
+On the first launch, you go through the first-run setup screens again, a sign that the clean configuration directory is in effect. Managed settings still apply, and [connectors](/docs/en/mcp#use-mcp-servers-from-claude-ai) still load if you log in with a claude.ai account.
+</code></pre>
+<p></Step></p>
+<p><Step title="Reproduce the problem">
+    Repeat what triggered the problem in the clean session:</p>
+<pre><code>* **Problem gone**: the cause is in your user or project configuration. Copy `~/.claude.json` and the files in `~/.claude` into `~/claude-clean/config` one at a time. If none brings the problem back, go to your project directory in the same shell and start Claude Code without `--setting-sources user`. In Bash or Zsh, run `CLAUDE_CONFIG_DIR=~/claude-clean/config claude`. In PowerShell, the variable is still set, so run `claude`.
+* **Problem persists**: the cause is outside your user and project configuration. Run `/status` in the session to check for managed settings, check your shell for [environment variables](/docs/en/env-vars), then see [Troubleshooting](/docs/en/troubleshooting).
+</code></pre>
+<p></Step>
+</Steps></p>
 <h2 id="check-common-causes">Check common causes</h2>
 <p>Most configuration surprises trace back to a small set of location and syntax rules. Check these before assuming a bug:</p>
 <table>
@@ -6615,7 +6657,7 @@ cd /tmp &amp;&amp; CLAUDE_CONFIG_DIR=/tmp/claude-clean claude</code></p>
 <tr>
 <td style="text-align: left;">Subdirectory <code>CLAUDE.md</code> instructions seem ignored</td>
 <td style="text-align: left;">Subdirectory files load on demand, not at session start</td>
-<td style="text-align: left;">See <a href="/docs/en/memory#how-claude-md-files-load">when subdirectory files load</a>. Before v2.1.288, only the Read tool loaded them.</td>
+<td style="text-align: left;">To load a subdirectory's <code>CLAUDE.md</code>, ask Claude to read another file in that subdirectory. See <a href="/docs/en/memory#how-claude-md-files-load">when subdirectory files load</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;">Subagent ignores <code>CLAUDE.md</code> instructions</td>

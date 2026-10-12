@@ -8435,6 +8435,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#anthropic-profile-login-expired">Authentication</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>Login expired · Run /login to sign in again, or re-authenticate your Anthropic profile</code></td>
+<td style="text-align: left;"><a href="#anthropic-profile-login-expired">Authentication</a></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>Anthropic profile login expired · Run /login to use your claude.ai account instead, or re-authenticate the profile</code></td>
 <td style="text-align: left;"><a href="#anthropic-profile-login-expired">Authentication</a></td>
 </tr>
@@ -10339,6 +10343,7 @@ Login expired · Please run /login
 ```text theme={null}
 Failed to authenticate: OAuth session expired and could not be refreshed
 </code></pre></div></p>
+<p>For a <code>Login expired</code> message that ends with <code>or re-authenticate your Anthropic profile</code>, see <a href="#anthropic-profile-login-expired">Anthropic profile login expired</a>.</p>
 <p>This is not the same state as <a href="#oauth-token-revoked-or-expired">OAuth token revoked or expired</a>. Those messages report a rejection the API returned. Claude Code itself produces <code>Login expired</code> for a login it already failed to renew, so it sends no request. When the renewal fails because the account itself is suspended rather than the login being stale, Claude Code shows <a href="#your-account-is-on-hold">Your account is on hold</a> instead.</p>
 <p>Sessions authenticated with an API key, <a href="/docs/en/env-vars"><code>CLAUDE_CODE_OAUTH_TOKEN</code></a>, or a third-party provider don't use the saved login and never see this message.</p>
 <p>You can check for this state before a request fails: <a href="/docs/en/commands"><code>/status</code></a> shows a <code>Login</code> row reading <code>Expired — log in again</code>, plus the organization and email it has saved for the expired login. The row appears only when the saved login is your active credential and can no longer be refreshed. Sessions authenticated another way don't show the row, even if an expired login remains saved. Before v2.1.210, <code>/status</code> gave no indication in this state that a login had ever existed, because the cleared credential left it nothing to report.</p>
@@ -10466,25 +10471,27 @@ Your account is on hold and can't sign in to Claude Code. View details or appeal
 
 ### Anthropic profile login expired
 
-Claude Code is authenticating through an Anthropic credential profile whose saved login credential has expired, and the profile holds no refresh credential Claude Code can use to renew it. Claude Code stops each request locally without retrying, because a retry would read the same expired credential.
+Claude Code is authenticating through an Anthropic credential profile whose saved login credential has expired, and the profile holds no refresh credential Claude Code can use to renew it. Claude Code stops each request locally without retrying.
 
 ```text theme={null}
 Anthropic profile login expired · Re-authenticate your Anthropic profile
-Anthropic profile login expired · Run /login to use your claude.ai account instead, or re-authenticate the profile
+Login expired · Run /login to sign in again, or re-authenticate your Anthropic profile
 </code></pre></div></p>
-<p>This appears only when the active credential comes from an Anthropic credential profile, one you select with the <code>ANTHROPIC_PROFILE</code> environment variable, that Claude Code discovers as the active profile in your Anthropic configuration directory, or that Claude Code wrote when you <a href="/docs/en/authentication#sign-in-without-an-api-key">signed in without an API key</a>. Sessions that authenticate with an API key, a bearer token such as <code>ANTHROPIC_AUTH_TOKEN</code>, or a third-party provider never see this message.</p>
-<p>On a machine that <a href="/docs/en/authentication#sign-in-without-an-api-key">offers the keyless sign-in</a>, run <code>/login</code>, choose the Anthropic Console account, and sign in again to renew a profile that the keyless Console sign-in or the Claude Platform CLI's <code>ant auth login</code> wrote. Claude Code replaces the expired credential in that profile. For a federation profile or one another tool created, <code>/login</code> doesn't renew the credential. Which form you see depends on whether you selected the profile or Claude Code discovered it:</p>
-<ul>
-<li>When you set <code>ANTHROPIC_PROFILE</code> explicitly, the message ends with <code>Re-authenticate your Anthropic profile</code>.</li>
-<li>When Claude Code discovered the profile from your configuration directory, the message offers <code>/login</code>, because Claude Code gives a working <code>/login</code> precedence over the discovered profile and then authenticates with your claude.ai or Console account instead. Before v2.1.234, Claude Code showed the <code>Re-authenticate your Anthropic profile</code> form in this case too.</li>
-</ul>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Sign in to the profile again, then retry: on a machine that <a href="/docs/en/authentication#sign-in-without-an-api-key">offers the keyless sign-in</a>, run <code>/login</code> and choose the Anthropic Console account for a profile the keyless Console sign-in or the Claude Platform CLI's <code>ant auth login</code> wrote; for other profiles, use the tool that created them</li>
+<li>If the message leads with <code>Login expired</code>, run <code>/login</code> to sign in again</li>
+<li>To renew a profile that the keyless Console sign-in or the Claude Platform CLI's <code>ant auth login</code> wrote, run <code>/login</code> on a machine that <a href="/docs/en/authentication#sign-in-without-an-api-key">offers the keyless sign-in</a>. Choose the Anthropic Console account, then <strong>Sign in with your Console account</strong>. Claude Code replaces the expired credential in that profile</li>
+<li>To renew a profile that another tool created, sign in again with that tool. If you choose <strong>Sign in with your Console account</strong> at <code>/login</code> instead, Claude Code leaves the profile as it is and creates an API key</li>
 <li>If an administrator provisioned the profile's credential, ask them to issue a new one</li>
 <li>Run <code>/status</code> to confirm the active credential source and profile name</li>
 <li>To stop using the profile, unset <code>ANTHROPIC_PROFILE</code> if you set it, then authenticate another way, such as <code>/login</code> or <code>ANTHROPIC_API_KEY</code></li>
 </ul>
+<p>How the message starts tells you how Claude Code found the profile:</p>
+<ul>
+<li>When Claude Code discovered the profile from your configuration directory and its auth mode is <code>user_oauth</code>, the message leads with <code>Login expired</code> and offers <code>/login</code> first. Claude Code gives a working <code>/login</code> precedence over the discovered profile and then authenticates with your claude.ai account instead. From v2.1.234 until v2.1.277, this form read <code>Anthropic profile login expired · Run /login to use your claude.ai account instead, or re-authenticate the profile</code>. Before v2.1.234, Claude Code showed the <code>Re-authenticate your Anthropic profile</code> form in this case too.</li>
+<li>When you selected the profile with <code>ANTHROPIC_PROFILE</code>, the message leads with <code>Anthropic profile login expired</code>.</li>
+</ul>
+<p>This appears only when the active credential comes from an Anthropic credential profile, one you select with the <code>ANTHROPIC_PROFILE</code> environment variable, that Claude Code discovers as the active profile in your Anthropic configuration directory, or that Claude Code wrote when you <a href="/docs/en/authentication#sign-in-without-an-api-key">signed in without an API key</a>. Sessions that authenticate with an API key, a bearer token such as <code>ANTHROPIC_AUTH_TOKEN</code>, or a third-party provider never see this message.</p>
 <h3 id="oauth-scope-requirement">OAuth scope requirement</h3>
 <p>The stored token predates a permission scope that a newer feature needs:</p>
 <p>```text theme={null}
@@ -12470,8 +12477,12 @@ Claude Code refuses the marketplace name "anthropic-plugins-v2"
 <p>Before v2.1.282, <code>claude plugin list</code> and <code>/plugin</code> reported the plugins of an imitating name as failed to load too, without naming the marketplace's name as the cause.</p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Run <code>claude plugin marketplace remove &lt;name&gt;</code>. This also uninstalls the plugins installed from the marketplace and deletes their saved data</li>
-<li>To keep the marketplace instead, wait until its maintainer renames it, then run <code>claude plugin marketplace update &lt;name&gt;</code></li>
+<li>To keep a marketplace that a settings file declares inline with <code>"source": "settings"</code>, rename it before you remove the old name, because removing the marketplace also deletes its entry from your settings files. Claude Code v2.1.292 or later lists these steps in the message:</li>
+<li>In each settings file that lists the marketplace under <code>extraKnownMarketplaces</code>, give the entry's key and its <code>source.name</code> one new plain-ASCII name that doesn't look like an official one. If an administrator adds the marketplace through your organization's managed settings, the administrator does this step</li>
+<li>Run <code>claude plugin marketplace remove &lt;old-name&gt;</code>, or remove the old name in the <strong>Marketplaces</strong> tab in <code>/plugin</code>. This also uninstalls its plugins and deletes their data, options, and secrets</li>
+<li>Start Claude Code again, in the project's folder if the file is a project's settings file. Then install the plugins from the renamed marketplace</li>
+<li>To keep any other marketplace, wait until its maintainer renames it, then run <code>claude plugin marketplace update &lt;name&gt;</code></li>
+<li>To remove the marketplace, run <code>claude plugin marketplace remove &lt;name&gt;</code>. This also uninstalls the plugins installed from the marketplace and deletes their data, options, and secrets</li>
 <li>If you publish the marketplace, rename it in your <code>marketplace.json</code>; users then update the marketplace instead of removing it</li>
 </ul>
 <h3 id="marketplace-is-already-added-from-a-different-source">Marketplace is already added from a different source</h3>
