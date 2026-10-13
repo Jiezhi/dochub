@@ -12161,6 +12161,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#encrypt-uploads-with-a-kms-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encrypt uploads with a KMS key
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -13180,6 +13191,34 @@
     
   
     Self-hosted Sandbox architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../self-host-sandbox-egress-proxy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Route self-hosted Sandbox egress through a forward proxy
   
 
     
@@ -17268,10 +17307,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6_529" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6_530" >
         
           
-          <label class="md-nav__link" for="__nav_5_6_529" id="__nav_5_6_529_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_6_530" id="__nav_5_6_530_label" tabindex="0">
             
   
   
@@ -17289,8 +17328,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_6_529_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_6_529">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_6_530_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6_530">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -36775,6 +36814,34 @@
     
   
     OpenAI middleware integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../oss/python/integrations/middleware/scaledown/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ScaleDown middleware integration
   
 
     
@@ -75816,6 +75883,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#encrypt-uploads-with-a-kms-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encrypt uploads with a KMS key
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -75937,7 +76015,7 @@
 <p>Sandbox mounts attach external data sources to a sandbox filesystem when the sandbox is created. Use mounts when sandbox code needs direct file access to object storage buckets, public Git repositories, or <a href="/langsmith/use-the-context-hub">Context Hub</a> repos without copying the data into the sandbox image.</p>
 <p>Mounts are configured through <code>mount_config</code> in Python or <code>mountConfig</code> in TypeScript. The SDK sends the mount specs to LangSmith and composes the required <a href="/langsmith/sandbox-auth-proxy">auth proxy</a> rules for provider credentials.</p>
 <p><Note>
-Sandbox mounts require <code>langsmith[sandbox]&gt;=0.8.16</code> for Python or <code>langsmith&gt;=0.7.10</code> for TypeScript. Context Hub mounts require <code>langsmith[sandbox]&gt;=0.11.0</code> for Python or <code>langsmith&gt;=0.8.11</code> for TypeScript.
+Sandbox mounts require <code>langsmith&gt;=0.8.16</code> for Python or <code>langsmith&gt;=0.7.10</code> for TypeScript. Context Hub mounts require <code>langsmith&gt;=0.11.0</code> for Python or <code>langsmith&gt;=0.8.11</code> for TypeScript.
 </Note></p>
 <p><Warning>
 When using static AWS keys or a GCP service account, store cloud credentials as LangSmith workspace secrets before creating the sandbox. S3 mounts authenticated with an IAM role do not require stored AWS access keys. Do not pass real cloud credentials as sandbox environment variables, command arguments, or files.
@@ -76102,7 +76180,7 @@ This option requires your LangSmith deployment to enable AWS proxy role authenti
 <p><Warning>
 A read-only mount rejects filesystem writes, but does not block direct S3 API writes that the role permits. Use the role's IAM policy to enforce read-only AWS access.
 </Warning></p>
-<p>Use a commercial AWS role and supported AWS HTTPS endpoints. The S3 permissions example does not include KMS permissions; review the permissions required by your bucket's encryption settings.</p>
+<p>Use a commercial AWS role and supported AWS HTTPS endpoints. The S3 permissions example does not include KMS permissions. For buckets encrypted with a KMS key, see <a href="#encrypt-uploads-with-a-kms-key">Encrypt uploads with a KMS key</a>.</p>
 <h4 id="use-a-shared-role-in-the-sdk">Use a shared role in the SDK</h4>
 <p>A shared AWS proxy role authenticates both S3 mounts and supported application requests, just like the UI setup above. Configure the trust and permissions policies first, then replace the example role ARN and bucket with your own values.</p>
 <p>Pass the same proxy configuration to the mount helper and sandbox creation. The mount helper does not copy it into mount-specific authentication:</p>
@@ -76227,6 +76305,42 @@ const sandbox = await client.createSandbox({
 <h4 id="renew-credentials">Renew credentials</h4>
 <p>LangSmith renews temporary credentials as AWS requests need them, including after a sandbox stops and resumes. You do not supply a saved STS token or renew it manually. Keep the role's trust and access permissions in place for continued access.</p>
 <p>If renewal is temporarily unavailable, the mount can use cached credentials only until they expire. An authorization denial or expired credentials causes authenticated S3 requests to fail; the mount does not fall back to static keys.</p>
+<h3 id="encrypt-uploads-with-a-kms-key">Encrypt uploads with a KMS key</h3>
+<p>Set <code>encryption</code> on an S3 mount to encrypt every object the sandbox uploads through the mount with a customer-managed AWS KMS key (SSE-KMS). Use it when a bucket policy requires uploads to name a specific key, or to choose the key instead of relying on the bucket's default encryption.</p>
+<p><Note>
+Mount encryption requires <code>langsmith&gt;=0.14.8</code> for Python or <code>langsmith&gt;=0.10.12</code> for TypeScript. Self-hosted deployments require LangSmith v0.17.35 or later.
+</Note></p>
+<p><CodeGroup></p>
+<p>```python Python
+s3_mount(
+    id="customer_data",
+    mount_path="/mnt/mounts/customer-data",
+    bucket="example-bucket",
+    region="us-east-1",
+    encryption={
+        "kms_key": "arn:aws:kms:us-east-1:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+    },
+)
+<div class="highlight"><pre><span></span><code>```ts TypeScript
+s3Mount({
+  id: "customer_data",
+  mountPath: "/mnt/mounts/customer-data",
+  bucket: "example-bucket",
+  region: "us-east-1",
+  encryption: {
+    kms_key:
+      "arn:aws:kms:us-east-1:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  },
+});
+</code></pre></div></p>
+<p></CodeGroup></p>
+<ul>
+<li><strong>Key format</strong>: <code>kms_key</code> must be a KMS key ARN in the mount's region and AWS partition. LangSmith rejects key aliases and bare key IDs.</li>
+<li><strong>Mount types</strong>: Only S3 mounts accept <code>encryption</code>. LangSmith rejects it on GCS, Git, and Context Hub mounts.</li>
+<li><strong>Static keys and shared roles</strong>: Grant the IAM identity <code>kms:GenerateDataKey</code> on the key for uploads and <code>kms:Decrypt</code> for reads and multipart uploads. The key policy must also allow that identity.</li>
+<li><strong>Mount-scoped roles</strong>: The session policy lets S3, and only S3, use the configured key: <code>kms:Decrypt</code> for every mount, and <code>kms:GenerateDataKey</code> only when a writable mount uses the key. All role-backed mounts in a sandbox must name the same key. The customer role and the key policy must still grant both permissions.</li>
+</ul>
+<p>A bucket whose default encryption is SSE-KMS works without <code>encryption</code> when the mount's AWS identity can use the bucket's default key. Uploads then use that default key. Mount-scoped role authentication denies KMS access for mounts without <code>encryption</code>, so those mounts cannot read or write objects encrypted with a KMS key.</p>
 <h2 id="mount-a-gcs-bucket">Mount a GCS bucket</h2>
 <p>GCS mounts require GCP auth. The OAuth scope is supplied by the backend, derived from the mounts themselves: read-only mounts get <code>devstorage.read_only</code> and writable mounts get <code>devstorage.read_write</code>.</p>
 <p>Because a single <code>mount_config</code> resolves to one scope, all of its GCS mounts must agree: mixing read-only and writable GCS mounts in one config is rejected. Use writable mounts throughout, or create separate sandboxes.</p>
@@ -76592,6 +76706,8 @@ gcsMount({
 <h2 id="limits">Limits</h2>
 <ul>
 <li>Mounts are attached when the sandbox is created. Create a new sandbox to change mounts.</li>
+<li>S3 mounts in China (<code>cn-*</code>) and AWS GovCloud (<code>us-gov-*</code>) regions must set <code>endpoint_url</code> / <code>endpointUrl</code> to the region's S3 endpoint. The default endpoint, <code>https://s3.amazonaws.com</code>, serves only commercial regions.</li>
+<li>Mount-scoped role authentication must fit AWS's 2,048-character session policy limit. Many mounts, long bucket names or prefixes, or a KMS key can exceed it, and LangSmith then rejects the sandbox.</li>
 <li>Configure each cloud provider's credentials in one auth surface per sandbox. If mount auth supplies AWS or GCP credentials, do not also add an auth proxy rule for the same provider.</li>
 <li>Git refs can be omitted or set to a branch or tag. Commit refs are not supported.</li>
 <li>Git mounts do not support <code>read_only</code> / <code>readOnly</code> or cache settings.</li>
