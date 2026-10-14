@@ -2,7 +2,7 @@
 title: "Bruno SCIM API"
 ---
 
-The Bruno SCIM API provides a direct way to manage users and groups programmatically without requiring integration through identity provider applications like Okta or Microsoft Entra. This is ideal for organizations that want to build custom integrations.
+The Bruno SCIM API provides a direct way to manage users programmatically without requiring integration through identity provider applications like Okta or Microsoft Entra. This is ideal for organizations that want to build custom integrations.
 
 <Info>
 **Prerequisites**: Before using the Bruno SCIM API, you must first enable SCIM provisioning in Bruno and generate an API key. Follow the [Enabling SCIM Provisioning](./overview#enabling-scim-provisioning) section in the overview page to complete this setup and save your API key for use in the steps below.
@@ -26,7 +26,6 @@ Bruno provides a complete API collection to help you get started quickly:
 
 This collection includes:
 - **User management** endpoints (create, read, update, delete)
-- **Group management** endpoints (create, read, update, delete)
 - **Service provider configuration** endpoints
 - **Pre-configured environments** for testing
 - **Example requests and responses** for all operations
@@ -57,18 +56,6 @@ Bruno's SCIM implementation follows the SCIM 2.0 specification and supports the 
 | List Users | `GET` | `/Users` | Retrieve all users with pagination |
 | Filter Users | `GET` | `/Users?filter=...` | Search users by attributes |
 
-### Group Operations
-
-| Operation | HTTP Method | Endpoint | Description |
-|-----------|-------------|----------|-------------|
-| Create Group | `POST` | `/Groups` | Create a new user group |
-| Get Group | `GET` | `/Groups/{id}` | Retrieve group information by ID |
-| Update Group | `PUT` | `/Groups/{id}` | Update group attributes |
-| Patch Group | `PATCH` | `/Groups/{id}` | Partial group updates |
-| Delete Group | `DELETE` | `/Groups/{id}` | Remove group |
-| List Groups | `GET` | `/Groups` | Retrieve all groups with pagination |
-| Filter Groups | `GET` | `/Groups?filter=...` | Search groups by attributes |
-
 ## User Schema
 
 Bruno supports the following SCIM user attributes:
@@ -83,21 +70,9 @@ Bruno supports the following SCIM user attributes:
 - `name.givenName` - First name
 - `name.familyName` - Last name
 - `timezone` - User's timezone (IANA format, e.g., "America/Los_Angeles")
-- `groups` - Array of group memberships
 
 ### Bruno-Specific Extensions
 - `urn:ietf:params:scim:schemas:extension:newrelic:2.0:User:nrUserType` - User type (Basic User, Core User, or Full User)
-
-## Group Schema
-
-Bruno supports the following SCIM group attributes:
-
-### Required Fields
-- `displayName` - Name of the group (must be unique)
-
-### Optional Fields
-- `members` - Array of users in the group
-- `externalId` - External system identifier for the group
 
 ## Example API Calls
 
@@ -122,46 +97,105 @@ Authorization: Bearer YOUR_TOKEN
     "primary": true
   }],
   "timezone": "America/New_York",
-  "active": true,
-  "groups": []
+  "active": true
 }
 ```
 
-### Create a Group
+### List Users
+
+Retrieve the users in your subscription. Results are returned in pages, ordered by creation date (oldest first).
 
 ```http
-POST /Groups
+GET /Users?startIndex=1&count=100
 Authorization: Bearer YOUR_TOKEN
+```
 
+**Query parameters**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `startIndex` | `1` | 1-based index of the first result to return |
+| `count` | `100` | Number of results per page (maximum `200`) |
+| `filter` | - | SCIM filter expression. See [Filter Users](#filter-users) |
+| `attributes` | - | Comma-separated list of attributes to include in each user |
+| `excludedAttributes` | - | Comma-separated list of attributes to leave out of each user |
+
+<Info>
+By default, only **active** users are returned. To include deactivated users, add a filter on `active`, for example `filter=active eq true or active eq false`.
+</Info>
+
+**Example response**
+
+```json
 {
-  "schemas": [
-    "urn:ietf:params:scim:schemas:core:2.0:Group"
-  ],
-  "displayName": "Engineering Team",
-  "members": []
+  "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+  "totalResults": 2,
+  "itemsPerPage": 2,
+  "startIndex": 1,
+  "Resources": [
+    {
+      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+      "id": "673f2fc148b546efd5bbbbce",
+      "externalId": "emp-12345",
+      "userName": "john.doe@company.com",
+      "name": {
+        "formatted": "John Doe",
+        "givenName": "John",
+        "familyName": "Doe"
+      },
+      "displayName": "John Doe",
+      "active": true,
+      "emails": [{ "value": "john.doe@company.com", "type": "work", "primary": true }],
+      "meta": {
+        "resourceType": "User",
+        "created": "2025-01-07T07:46:38.482Z",
+        "lastModified": "2026-10-13T14:36:16.673Z",
+        "lastSeenAt": "2026-10-13T14:36:16.673Z",
+        "location": "https://license.usebruno.com/scim/v2/Users/673f2fc148b546efd5bbbbce"
+      }
+    },
+    {
+      "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+      "id": "68e79210a79a31703985d98b",
+      "userName": "jane.smith@company.com",
+      "name": {
+        "formatted": "Jane Smith",
+        "givenName": "Jane",
+        "familyName": "Smith"
+      },
+      "displayName": "Jane Smith",
+      "active": true,
+      "emails": [{ "value": "jane.smith@company.com", "type": "work", "primary": true }],
+      "meta": {
+        "resourceType": "User",
+        "created": "2026-09-07T14:11:40.608Z",
+        "lastModified": "2026-09-07T14:11:40.608Z",
+        "lastSeenAt": null,
+        "location": "https://license.usebruno.com/scim/v2/Users/68e79210a79a31703985d98b"
+      }
+    }
+  ]
 }
 ```
 
-### Update User Group Membership
+To page through all users, increase `startIndex` by `count` on each request until you have retrieved `totalResults` users.
+
+#### Last activity (`meta.lastSeenAt`)
+
+`meta.lastSeenAt` is a Bruno-specific attribute containing the timestamp of the user's most recent license check-in, or `null` if none has been recorded.
+
+### Filter Users
+
+Use the `filter` parameter to search users. Bruno supports the SCIM operators `eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `ge`, `lt`, and `le`, combined with `and`, `or`, and `not`.
+
+Filterable attributes: `userName`, `emails.value`, `id`, `externalId`, `active`, `displayName`, `meta.created`, `meta.lastModified`, and `meta.lastSeenAt`.
 
 ```http
-PATCH /Users/{userId}
-Authorization: Bearer YOUR_TOKEN
-
-{
-  "schemas": [
-    "urn:ietf:params:scim:api:messages:2.0:PatchOp"
-  ],
-  "Operations": [{
-    "op": "Add",
-    "path": "groups",
-    "value": [{
-      "value": "{groupId}",
-      "display": "Engineering Team"
-    }]
-  }]
-}
+# Find a user by email
+GET /Users?filter=userName eq "john.doe@company.com"
 ```
+
+URL-encode the filter value when sending it from code or the command line.
 
 ## Error Handling
 
@@ -194,7 +228,7 @@ The Bruno SCIM API implements rate limiting to ensure service stability:
 ### Performance
 - **Batch operations**: Use PATCH operations for bulk updates when possible
 - **Pagination**: Implement proper pagination for large result sets
-- **Caching**: Cache user and group data to reduce API calls
+- **Caching**: Cache user data to reduce API calls
 
 ### Error Handling
 - **Retry logic**: Implement exponential backoff for transient errors
