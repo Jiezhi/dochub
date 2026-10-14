@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -3285,6 +3285,56 @@
     <span class="md-ellipsis">
       
         Turn prompt suggestions off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#you-should-know-suggestions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        You should know suggestions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="You should know suggestions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cost-of-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost of checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#answer-a-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Answer a note
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#turn-off-you-should-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turn off You should know
       
     </span>
   </a>
@@ -6888,6 +6938,56 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#you-should-know-suggestions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        You should know suggestions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="You should know suggestions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cost-of-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost of checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#answer-a-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Answer a note
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#turn-off-you-should-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turn off You should know
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#emoji-shortcodes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7720,6 +7820,47 @@ Run shell commands directly without going through Claude by prefixing your input
   export CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false</code></li>
 </ul>
 <p>To turn prompt suggestions off across an organization, set <code>promptSuggestionEnabled</code> to <code>false</code> in <a href="/docs/en/managed-settings">managed settings</a>. Also set <code>CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION</code> to <code>false</code> under the managed <a href="/docs/en/settings-reference#env"><code>env</code></a> key so that users can't re-enable them with their own environment variable.</p>
+<h2 id="you-should-know-suggestions">You should know suggestions</h2>
+<p>"You should know" looks for one thing you should know but might have missed, such as a tradeoff Claude chose without calling it out or a result that may be off. When it finds one, it shows a short note above the prompt input:</p>
+<p>```text theme={null}
+✦ Heads up · There was a change to how folder sharing starts in June, which may have bumped usage metrics artificially.
+  1: Learn more   2: Knew this already   0: Dismiss
+<div class="highlight"><pre><span></span><code>It's one of Claude Code's [built-in mods](/docs/en/plugins/mods/overview#mods-built-into-claude-code), a plugin built into Claude Code that is off by default. Requires Claude Code v2.1.287 or later.
+
+While it's on, a side agent rereads the conversation from time to time as Claude works through a longer task. The side agent is a separate request to the same model and has no tools, so it can't read files, run commands, or change what Claude does.
+
+If the mod is available for your organization, `/plugin` lists it when you connect to the Claude API directly with a claude.ai account or a Console API key. It doesn't when you connect through an [LLM gateway](/docs/en/llm-gateway) or a [Claude apps gateway](/docs/en/claude-apps-gateway), or get your key from an [`apiKeyHelper`](/docs/en/settings-reference#apikeyhelper). Even with a direct connection, these sessions don't list it:
+
+* A session that [doesn't fetch the feature flags](/docs/en/env-vars#features-that-need-feature-flag-fetching) the mod depends on, such as one with `DISABLE_TELEMETRY` set
+* A [first session after an install or upgrade](/docs/en/env-vars#first-session-after-an-install-or-upgrade) whose flags haven't arrived yet
+
+To turn it on, run this at the Claude Code prompt:
+
+```text theme={null}
+/plugin enable cc-plugin-you-should-know@builtin
+</code></pre></div></p>
+<p>Where <code>/plugin</code> doesn't list the mod, the enable command answers <code>Plugin "cc-plugin-you-should-know@builtin" is not installed in this project</code>.</p>
+<h3 id="cost-of-checks">Cost of checks</h3>
+<p>While the mod is on, checks are background requests to the same model your session is using, and they count toward your plan's usage limits or your API costs. Each check sends what's already in Claude's context, meaning the conversation so far with its tool results, followed by the mod's own instructions and the text of your recent notes. The conversation part is read from the session's <a href="/docs/en/prompt-caching">prompt cache</a> on the same terms as Claude's own next request. The instructions, several thousand tokens of them, and the side agent's reply are billed in full on every check.</p>
+<p>To watch the checks happen, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_YOU_SHOULD_KNOW_DEBUG=1</code></a> in your shell before you start Claude Code.</p>
+<h3 id="answer-a-note">Answer a note</h3>
+<p>Type the choice's digit on its own into an empty prompt input. A note offers these choices:</p>
+<ul>
+<li><strong>Learn more</strong>: opens a short explanation under the note, with its own choices:</li>
+<li><strong>Understood</strong>: closes it and marks the topic as known</li>
+<li><strong>Chat in main session</strong>: quotes the note into your prompt input so you can add a question and send it to Claude</li>
+<li><strong>Dismiss</strong>: closes it without marking the topic as known</li>
+<li><strong>Knew this already</strong>: closes the note and marks the topic as known.</li>
+<li><strong>Dismiss</strong>: closes the note.</li>
+</ul>
+<p>The main agent doesn't see a note unless you send it with <strong>Chat in main session</strong>.</p>
+<p>Claude Code keeps your recent notes and the topics you marked as known in a file whose name starts with <code>cc-plugin-you-should-know</code> under <code>~/.claude/plugins/store/</code>. Each check, in this session and later ones, lists them to the side agent as ones not to repeat. Claude Code deletes the file once it has gone <a href="/docs/en/settings-reference#cleanupperioddays"><code>cleanupPeriodDays</code></a> without a session reading or writing it. To clear them sooner, delete that file while no session is running.</p>
+<h3 id="turn-off-you-should-know">Turn off You should know</h3>
+<p>To turn off You should know, use either of the following:</p>
+<ul>
+<li>At the Claude Code prompt, run <code>/plugin disable cc-plugin-you-should-know@builtin</code>, or turn it off from the <strong>Installed</strong> tab of <code>/plugin</code></li>
+<li>After you choose <strong>Dismiss</strong> on a note without opening <strong>Learn more</strong> first, choose <strong>Turn off suggestions</strong> on the <code>Dismissed.</code> line, which clears after 20 seconds</li>
+</ul>
 <h2 id="emoji-shortcodes">Emoji shortcodes</h2>
 <p>Type a <code>:</code> followed by an emoji shortcode in the prompt input to insert the emoji. Requires Claude Code v2.1.217 or later.</p>
 <ul>

@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7406,8 +7406,8 @@ Use this file to discover all available pages before exploring further.</p>
 {
   "permissions": {
     "allow": [
-      "Bash(npm run <em>)",
-      "Bash(git commit </em>)"
+      "Bash(npm run *)",
+      "Bash(git commit *)"
     ],
     "deny": [
       "Bash(git push *)"
@@ -7564,8 +7564,8 @@ Deny and ask rules also accept glob patterns in the tool-name position. The patt
 {
   "permissions": {
     "allow": [
-      "PowerShell(Get-ChildItem <em>)",
-      "PowerShell(git commit </em>)"
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(git commit *)"
     ],
     "deny": [
       "PowerShell(Remove-Item *)"
@@ -7581,6 +7581,13 @@ Claude Code parses the PowerShell AST and checks each command in a compound comm
 To block Claude's file tools from reading a file or directory, add a `Read` deny rule for its path, such as `Read(./.env)` or `Read(./secrets/**)`; [Exclude sensitive files](/docs/en/settings-reference#exclude-sensitive-files) has a paste-ready example. If your project has a `.claudeignore` file, it has no effect, so move its entries into `Read` deny rules.
 
 `Edit` rules apply to all built-in tools that edit files. Claude makes a best-effort attempt to apply `Read` rules to all built-in tools that read files like Grep and Glob, to `@file` mentions in your prompts, and to the selection and open-file context that a connected [IDE](/docs/en/vs-code#the-built-in-ide-mcp-server) shares with Claude.
+
+A `Read(path)` deny rule also applies to image paths you paste into a prompt and directories you @-mention:
+
+* **Image path**: when you paste an image's path or drag an image file into your prompt in the terminal and the rule matches that path, Claude Code doesn't attach the image. If the paste holds no other image, the path stays in your prompt as text.
+* **Directory**: the [listing Claude receives](/docs/en/common-workflows#reference-files-and-directories) leaves out the file and directory names the rule matches.
+
+Claude Code checks pasted image paths and directory listings in v2.1.290 and later.
 
 A `Read` deny rule also blocks the [Edit and Write tools](/docs/en/errors#file-is-covered-by-a-read-deny-rule) on the same path, including creating a new file there. NotebookEdit isn't covered, so add an `Edit` deny rule for paths no tool may change. The check requires Claude Code v2.1.208 or later on edits, and v2.1.228 or later on writes.
 
@@ -7687,7 +7694,7 @@ The following example shows each pattern shape against a project with a top-leve
 <p><Note>
   In gitignore patterns, <code>*</code> matches within a single path segment and can appear at any position in the pattern, while <code>**</code> matches across directories.
 </Note></p>
-<p>When you approve a file path with "Yes, and don't ask again", Claude Code escapes gitignore pattern characters in that path, such as <code>[</code>, <code>]</code>, and <code>*</code>, so the generated rule matches only the literal path you approved. Rules you write yourself aren't escaped. Before v2.1.202, Claude Code saved the path unescaped, so a generated rule for a directory named <code>[2024-06] Reports</code> could fail to match its own path or match unintended sibling directories.</p>
+<p>When you approve a file path with "Yes, and don't ask again", Claude Code escapes gitignore pattern characters in that path, such as <code>[</code>, <code>]</code>, and <code>*</code>, so the generated rule matches only the literal path you approved. Rules you write yourself aren't escaped.</p>
 <p>You don't need to escape parentheses in a path, so <code>Edit(./Finance (2024)/**)</code> matches the <code>Finance (2024)</code> folder as spelled.</p>
 <p>A deny or ask rule whose path isn't usable as a gitignore pattern still guards that exact path. An allow rule with an unusable pattern doesn't approve anything.</p>
 <p>A deny or ask pattern that starts with <code>!</code> is a gitignore negation. It carves the paths it matches out of the <code>path</code> or <code>./path</code> rules listed before it. In one settings file's <code>deny</code> list, <code>Read(*.env)</code> followed by <code>Read(!sample.env)</code> blocks every file whose name ends in <code>.env</code> at any depth, except files named <code>sample.env</code>. A <code>!</code> rule listed first carves nothing out.</p>
@@ -7964,7 +7971,6 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <p><Note>
   The configuration-home exception skips only the trust step. <code>~/.claude/settings.local.json</code> is still <a href="/docs/en/settings#compare-the-scope-of-each-settings-file">local scope</a>, so Claude Code reads it only in sessions you start in your home directory itself, not in every project. To apply permission rules across all your projects, add them to your user settings instead: <code>~/.claude/settings.json</code>, or <code>$CLAUDE_CONFIG_DIR/settings.json</code> when <code>CLAUDE_CONFIG_DIR</code> is set.
 </Note></p>
-<p>Before v2.1.207, Claude Code applied an untracked file's rules before you accepted the dialog.</p>
 <h3 id="what-runs-before-you-trust-a-folder">What runs before you trust a folder</h3>
 <p>Each row is one kind of content a repository can supply. The columns are the two situations in which you haven't trusted the folder itself: you trusted only a parent folder, or you ran <code>claude -p</code> or the SDK there, which never shows the trust dialog. The parent-folder column doesn't apply inside a <a href="#project-allow-rules-and-workspace-trust">nested repository</a>: in an interactive session Claude Code shows the trust dialog for it, and a <code>claude -p</code> or SDK run there follows the <code>claude -p</code> column.</p>
 <table>

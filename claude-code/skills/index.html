@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7264,7 +7264,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Most bundled skills are available in every session. A few depend on a specific feature: <code>/workflow-authoring</code>, for example, is available only when <a href="/docs/en/workflows">dynamic workflows</a> are enabled.</p>
 <p>To turn bundled skills off, use the <a href="/docs/en/settings-reference#disablebundledskills"><code>disableBundledSkills</code></a> setting.</p>
 <p><Note>
-  The <a href="/docs/en/commands#all-commands"><code>/doctor</code></a> setup checkup stays typable when <code>disableBundledSkills</code> is on, in Claude Code v2.1.205 and later. To hide it, set the <code>DISABLE_DOCTOR_COMMAND</code> environment variable or a <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> entry of <code>"doctor": "off"</code>. Before v2.1.205, <code>/doctor</code> was a built-in command rather than a bundled skill.
+  The <a href="/docs/en/commands#all-commands"><code>/doctor</code></a> setup checkup stays typable when <code>disableBundledSkills</code> is on. To hide it, set the <code>DISABLE_DOCTOR_COMMAND</code> environment variable or a <a href="#override-skill-visibility-from-settings"><code>skillOverrides</code></a> entry of <code>"doctor": "off"</code>.
 </Note></p>
 <p>Bundled skills are listed alongside built-in commands in the <a href="/docs/en/commands">commands reference</a>, marked <strong>Skill</strong> in the Purpose column.</p>
 <h3 id="check-your-setup-with-doctor">Check your setup with <code>/doctor</code></h3>
@@ -7304,7 +7304,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p><code>/run</code> and <code>/verify</code> work without setup. They infer the launch from your project type (CLI, server, TUI, browser-driven) and from what's in your README, <code>package.json</code>, or <code>Makefile</code>. That inference gets unreliable for projects that need anything beyond a standard launch: a database, an env file, a graphical session, a multi-step build.</p>
 <p><code>/run-skill-generator</code> records the recipe instead. It gets your app running from a clean environment, captures what worked (the install commands, the env vars, the launch script), and commits it as a per-project skill at <code>.claude/skills/run-&lt;name&gt;/</code>. After that, <code>/run</code>, <code>/verify</code>, and any other agent in the repo follow the recorded recipe instead of rediscovering it. Run <code>/run-skill-generator</code> once per project, and again if the build or launch process changes.</p>
 <p><code>/verify</code> can also record its own recipe. When it has to build and drive your app without a recorded recipe, it writes what worked to <code>.claude/skills/verify/SKILL.md</code> at the repo root, or in the touched package directory in a monorepo, so later runs and other agents follow the same steps. At the repo root, the recorded skill replaces the bundled <code>/verify</code>.</p>
-<p>Claude edits the recorded file only when it steered a run wrong, such as a command that failed or a missing step, so you can commit the file without per-session diffs. Before v2.1.205, the bundled skill told Claude to fold in anything a run learned, which caused frequent merge conflicts.</p>
+<p>Claude edits the recorded file only when it steered a run wrong, such as a command that failed or a missing step, so you can commit the file without per-session diffs.</p>
 <h3 id="run-your-checks-before-each-commit">Run your checks before each commit</h3>
 <p>When a session starts with a skill named <code>verify</code> or <code>simplify</code> in place, Claude Code's commit instructions tell Claude to run it right before each commit, except for changes to docs or tests. This requires Claude Code v2.1.286 or later. Claude gets that instruction when these conditions hold at the start of the session:</p>
 <ul>
@@ -7900,7 +7900,7 @@ Deploy $ARGUMENTS to production:
 <p>name: commit
 description: Stage and commit the current changes
 disable-model-invocation: true
-allowed-tools: Bash(git add <em>) Bash(git commit </em>) Bash(git status *)</p>
+allowed-tools: Bash(git add *) Bash(git commit *) Bash(git status *)</p>
 <hr />
 <div class="highlight"><pre><span></span><code>To remove tools from Claude's available pool while a skill is active, list them in `disallowed-tools` in the skill's frontmatter. The restriction clears when you send your next message. Like deny rules, the field can't remove [`EndConversation`](/docs/en/tools-reference#endconversation-tool-behavior) while any other tool remains. To block tools across all skills and prompts, add deny rules in your [permission settings](/docs/en/permissions).
 
@@ -8064,7 +8064,9 @@ Skills and [subagents](/docs/en/sub-agents) work together in two directions:
 | Skill with `context: fork` | From agent type | SKILL.md content | CLAUDE.md, per the agent's [startup context](/docs/en/sub-agents#what-loads-at-startup) |
 | Subagent with `skills` field | Subagent's markdown body | Claude's delegation message | Preloaded skills + CLAUDE.md, per the subagent's [startup context](/docs/en/sub-agents#what-loads-at-startup) |
 
-With `context: fork`, you write the task in your skill and pick an agent type to execute it. The built-in Explore and Plan agents [skip CLAUDE.md and git status](/docs/en/sub-agents#what-loads-at-startup) to keep their context small, so a forked skill using `agent: Explore` sees only the SKILL.md content and the agent's own system prompt. For the inverse, where you define a custom subagent that uses skills as reference material, see [Subagents](/docs/en/sub-agents#preload-skills-into-subagents).
+With `context: fork`, you write the task in your skill and pick an agent type to execute it. The built-in Explore and Plan agents [start without CLAUDE.md and git status](/docs/en/sub-agents#what-loads-at-startup) to keep their context small. Put everything the task needs in your SKILL.md. A forked skill using `agent: Explore` starts with that content and the agent's own system prompt, and none of your CLAUDE.md files.
+
+For the inverse, where you define a custom subagent that uses skills as reference material, see [Subagents](/docs/en/sub-agents#preload-skills-into-subagents).
 
 #### Example: Research skill using Explore agent
 
@@ -8326,7 +8328,7 @@ from collections import Counter</p>
     }
     lang_bars = "".join(
         f'<div class="bar-row"><span class="bar-label">{ext}</span>'
-        f'<div class="bar" style="width:{(size/total_size)*100}%;background:{colors.get(ext,"#6b7280")}"></div>'
+        f'&lt;div class="bar" style="width:{(size/total_size)*100}%;background:{colors.get(ext,"#6b7280")}"&gt;</div>'
         f'<span class="bar-pct">{(size/total_size)*100:.1f}%</span></div>'
         for ext, size in sorted_exts
     )

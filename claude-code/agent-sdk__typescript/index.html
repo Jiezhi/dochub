@@ -3236,7 +3236,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -10987,6 +10987,7 @@ type SDKControlInitializeResponse = {
     | "malformed"
     | "not_honoured"
   &gt;;
+  claude_code_version?: string;
 };
 </code></pre></div></p>
 <p><code>hooks_applied</code> reports whether Claude Code registered the <code>hooks</code> that the <code>initialize</code> request carried. The SDK sends that request once when the session starts and again on each <a href="#query-object"><code>reinitialize()</code></a> call. The field requires Agent SDK v0.3.238 or later.</p>
@@ -10997,6 +10998,11 @@ type SDKControlInitializeResponse = {
 </ul>
 <p>Before Agent SDK v0.3.238, the response never carried the field, and Claude Code ignored <code>hooks</code> on every repeated initialize.</p>
 <p>The request's <code>sdkMcpServerManifests</code> field and the response's <code>sdk_mcp_manifests_parked</code> field are for the in-process <a href="/docs/en/agent-sdk/custom-tools">SDK MCP servers</a> you created with <a href="#createsdkmcpserver"><code>createSdkMcpServer()</code></a>. Your application doesn't set or read either field.</p>
+<p><code>claude_code_version</code> is the Claude Code version of the process that runs the session's turns. It is the same value the <a href="#sdksystemmessage"><code>SDKSystemMessage</code></a> init message carries, so you can read the CLI version before the first turn.</p>
+<ul>
+<li>The field requires Agent SDK v0.3.296 or later, which bundles Claude Code v2.1.296.</li>
+<li>If the field is <code>undefined</code> and you set <code>pathToClaudeCodeExecutable</code>, point it at Claude Code v2.1.296 or later.</li>
+</ul>
 <p>The response always reports <code>fast_mode_state</code>, and when something blocks <a href="/docs/en/fast-mode">fast mode</a>, <code>fast_mode_disabled_reason</code> carries the reason code alongside it, so you can explain the blocked state instead of re-deriving availability. Both behaviors require Claude Code v2.1.219 or later. Before v2.1.219, the response omitted <code>fast_mode_state</code> when fast mode wasn't available and never carried a reason. For the reason codes and their meanings, see <a href="#sdkresultmessage"><code>fast_mode_disabled_reason</code></a> on the result message.</p>
 <p>The control-response wrapper for a successful <code>initialize</code> also carries a <code>pending_permission_requests</code> array. The field is on the response wrapper itself, not in the <code>SDKControlInitializeResponse</code> payload above. Each entry is a complete <code>control_request</code> message with the same <code>{ type: "control_request", request_id, request }</code> shape the session streams for permission requests while running.</p>
 <p>The array lists the permission requests that this Claude Code process has issued and not yet resolved. The SDK reads the array for you and dispatches each entry to your <a href="#canusetool"><code>canUseTool</code></a> callback, the same redelivery that <a href="#query-object"><code>reinitialize()</code></a> triggers after a transport gap. Handle repeated request IDs idempotently, because an entry can repeat a request the callback already received before the connection dropped.</p>
@@ -11319,7 +11325,7 @@ type AgentDefinition = {
 <tr>
 <td style="text-align: left;"><code>omitClaudeMd</code></td>
 <td style="text-align: left;">No</td>
-<td style="text-align: left;">Run this agent without the user, project, and local CLAUDE.md files when it runs as a subagent; managed policy files still load. Use it for agents that take everything they need from the Agent tool prompt. Ignored when this agent runs as the main thread agent. Requires TypeScript Agent SDK v0.3.271 or later</td>
+<td style="text-align: left;">Leave the user, project, and local CLAUDE.md files out of this agent's initial context; managed policy files still load. Use it for agents that take everything they need from the Agent tool prompt. Ignored when this agent runs as the main thread agent. Requires TypeScript Agent SDK v0.3.271 or later</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>memory</code></td>
@@ -12948,7 +12954,7 @@ type SetupHookInput = BaseHookInput &amp; {
 type TeammateIdleHookInput = BaseHookInput &amp; {
   hook_event_name: "TeammateIdle";
   teammate_name: string;
-  /*<em> @deprecated since v2.1.178. Carries the session-derived team name; will be removed. </em>/
+  /** @deprecated since v2.1.178. Carries the session-derived team name; will be removed. */
   team_name: string;
 };
 <div class="highlight"><pre><span></span><code>#### `TaskCreatedHookInput`
@@ -12972,7 +12978,7 @@ type TaskCompletedHookInput = BaseHookInput &amp; {
   task_subject: string;
   task_description?: string;
   teammate_name?: string;
-  /*<em> @deprecated since v2.1.178. Carries the session-derived team name; will be removed. </em>/
+  /** @deprecated since v2.1.178. Carries the session-derived team name; will be removed. */
   team_name?: string;
 };
 <div class="highlight"><pre><span></span><code>#### `ElicitationHookInput`
@@ -13390,8 +13396,12 @@ type FileReadInput = {
   offset?: number;
   limit?: number;
   pages?: string;
+  allow_large?: boolean;
 };
-<div class="highlight"><pre><span></span><code>Reads files from the local filesystem, including text, images, PDFs, and Jupyter notebooks. Use `pages` for PDF page ranges (for example, `"1-5"`).
+<div class="highlight"><pre><span></span><code>Reads files from the local filesystem, including text, images, PDFs, and Jupyter notebooks.
+
+* Use `pages` for PDF page ranges (for example, `"1-5"`).
+* `allow_large` lets Claude read a text file past the [usual size limits](/docs/en/tools-reference#large-files) when the session's context window has room. It requires Agent SDK v0.3.296 or later, which bundles Claude Code v2.1.296.
 
 For a PDF, Claude receives the file's contents inside the Read call's `tool_result` content. A read that returns the `pdf` [output](#tool-output-types) carries a summary `text` block followed by a `document` block. One that returns the `parts` output carries the summary `text` block followed by one block per extracted page: an `image` block, or a `text` block naming the page when Claude Code couldn't render it as an image. Before Agent SDK v0.3.242, Claude Code delivered the file's contents as a separate `user` message after the tool result.
 
@@ -13586,7 +13596,7 @@ type TaskListInput = {};
 <p><strong>Tool name:</strong> <code>ExitPlanMode</code></p>
 <p>```typescript theme={null}
 type ExitPlanModeInput = {
-  /*<em> Deprecated: no longer used. </em>/
+  /** Deprecated: no longer used. */
   allowedPrompts?: Array&lt;{
     tool: "Bash";
     prompt: string;
