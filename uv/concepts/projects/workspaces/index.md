@@ -39,7 +39,7 @@ Every directory included by the `members` globs (and not excluded by the `exclud
 
 Every workspace needs a root, which is *also* a workspace member. In the above example, `albatross` is the workspace root, and the workspace members include all projects under the `packages` directory, except `seeds`.
 
-By default, `uv run` and `uv sync` operates on the workspace root. For example, in the above example, `uv run` and `uv run --package albatross` would be equivalent, while `uv run --package bird-feeder` would run the command in the `bird-feeder` package.
+By default, `uv run` and `uv sync` operate on the workspace root. In the example above, `uv run` and `uv run --package albatross` would be equivalent, while `uv run --package bird-feeder` would run the command in the `bird-feeder` package.
 
 ## [Workspace sources](#workspace-sources)
 

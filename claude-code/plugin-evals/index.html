@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7423,11 +7423,11 @@ claude plugin eval . \
 <tbody>
 <tr>
 <td style="text-align: left;">0</td>
-<td style="text-align: left;">Every case scored at or above <code>--threshold</code> and every case file loaded</td>
+<td style="text-align: left;">The suite passed: every case scored at or above <code>--threshold</code> and nothing else failed the run</td>
 </tr>
 <tr>
 <td style="text-align: left;">1</td>
-<td style="text-align: left;">A case scored below the threshold, a case file failed to load, no cases were found, a run couldn't be started, the plugin directory isn't trusted and <code>--trust-plugin</code> wasn't passed, or an option was invalid</td>
+<td style="text-align: left;">A case scored below the threshold, a case file failed to load, no cases were found, a run couldn't be started, or a run <a href="#runs-ended-on-an-api-error">ended on an API error</a>. Also returned when the plugin directory isn't trusted and <code>--trust-plugin</code> wasn't passed, an option was invalid, or the <code>--json</code> result couldn't be written</td>
 </tr>
 <tr>
 <td style="text-align: left;">2</td>
@@ -7507,7 +7507,7 @@ claude plugin eval . \
 </tr>
 <tr>
 <td style="text-align: left;"><code>cases[].arms.with[].error</code></td>
-<td style="text-align: left;"><code>null</code>, or why a run ended abnormally, such as <code>timed out after 300s</code>. A run that started but ended badly is still graded on what it produced, so a non-null error doesn't imply score 0</td>
+<td style="text-align: left;"><code>null</code>, or why a run ended abnormally, such as <code>timed out after 300s</code>. Some of these runs are still graded on what they produced, so a non-null error doesn't imply score 0. A run that <a href="#runs-ended-on-an-api-error">ended on an API error</a> scores 0 without grading</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>cases[].arms.with[].aborted</code></td>
@@ -7738,7 +7738,8 @@ Error: formatter@my-marketplace cannot be evaluated where sessions load it: no s
 <h3 id="tools-are-denied-mcp-tools-are-missing-or-bash-wont-run">Tools are denied, MCP tools are missing, or Bash won't run</h3>
 <p>Anything beyond the read-only set needs your grant, such as <code>--allow-tools Bash Write</code>. Your personal MCP servers never load in a run. The plugin's own servers don't start unless you <a href="#mock-mcp-servers">opt in</a>, and their tools then also need an <code>--allow-tools "mcp__plugin_&lt;plugin&gt;_&lt;server&gt;__*"</code> grant; a mocked tool needs neither.</p>
 <h3 id="the-run-exits-1-but-the-results-look-fine">The run exits 1 but the results look fine</h3>
-<p>The default <code>--threshold</code> is 1.0, so the command exits 1 when any case scores below perfect. Set a threshold that matches the score you require. Exit 1 also covers a case file that failed to load, which is reported on stderr above the table.</p>
+<p>When every case scored at or above <code>--threshold</code> and the command still exits 1, a line on stderr names the cause, even under <code>--json</code>. For example, a case file failed to load, or runs <a href="#runs-ended-on-an-api-error">ended on an API error</a>. For the other causes, see the <a href="#run-evals-in-ci">exit codes</a>.</p>
+<p>The default <code>--threshold</code> is 1.0, so the command exits 1 when any case scores below perfect. Set a threshold that matches the score you require.</p>
 <h3 id="json-output-path-must-end-in-json">
   `--json output path must end in .json`
 </h3>
@@ -7746,8 +7747,20 @@ Error: formatter@my-marketplace cannot be evaluated where sessions load it: no s
 <p>You put the target after <code>--json</code>, so it was read as the output path. Put the target first, as in <code>claude plugin eval . --json</code>, or give <code>--json</code> an explicit <code>.json</code> path.</p>
 <h3 id="a-grader-shows-passed-false-under-a-run-that-scored-10">A grader shows passed: false under a run that scored 1.0</h3>
 <p>That grader is excluded from the score by design in a two-arm run, and its <code>scored</code> field is <code>false</code>. See <a href="#compare-against-a-no-plugin-baseline">Score against the no-plugin baseline</a>.</p>
+<h3 id="runs-ended-on-an-api-error">
+  "ended on an API error and scored 0 without grading"
+</h3>
+
+<p>This stderr warning means the API answered at least one run's last request with an HTTP error, such as a rate limit or a plan usage limit. Such a run scores 0 with no grader results, and the command exits non-zero whatever the scores and <code>--threshold</code> are.</p>
+<p>To fix it, find each affected run's error and resolve the cause it reports, then run the suite again:</p>
+<ul>
+<li><strong>Without <code>--json</code></strong>: the error is at the end of the run's progress line, after <code>error:</code></li>
+<li><strong>Under <code>--json</code></strong>: the error is in the <a href="#json-result">JSON result</a>, at <code>cases[].arms.with[].error</code> or <code>cases[].arms.without[].error</code></li>
+</ul>
+<p>The count includes <a href="#the-no-plugin-baseline">baseline</a> runs too. Their scores never decide whether a case passes, so every case can pass while the command still fails. In a two-arm run, the affected case's <code>W/OUT</code> and <code>Δ</code> print as <code>—</code>. For a usage or rate limit, see <a href="#runs-fail-with-a-usage-limit-or-rate-limit-error-partway-through">Runs fail with a usage-limit or rate-limit error</a>.</p>
+<p>Before v2.1.299, such a run was graded on what it had produced.</p>
 <h3 id="runs-fail-with-a-usage-limit-or-rate-limit-error-partway-through">Runs fail with a usage-limit or rate-limit error partway through</h3>
-<p>If your account reaches its plan's usage limit or an API rate limit while a suite is running, each later run ends with that error, is graded on what it produced, and usually scores 0. The suite still finishes and isn't marked <code>partial</code>, so the result can look like a regression. Check the <code>NOTES</code> column or <code>cases[].arms.with[].error</code> in the JSON for the limit message before trusting the scores, then re-run after the limit resets, with <code>--runs 1</code> or a <code>--case</code> filter if you need to stay under it.</p>
+<p>Runs that end with a usage-limit or rate-limit error <a href="#runs-ended-on-an-api-error">score 0 without grading</a>, and the command exits non-zero. The suite still finishes and isn't marked <code>partial</code>. Re-run after the limit resets, with <code>--runs 1</code> or a <code>--case</code> filter if you need to stay under it.</p>
 <h3 id="mock-call-budget-exceeded">
   "mock call budget exceeded"
 </h3>

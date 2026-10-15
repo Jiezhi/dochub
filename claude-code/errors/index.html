@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -9543,8 +9543,16 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#agent-descriptions-are-over-the-15000-token-limit">Configuration warnings</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>hook needs quotes around a path with a space</code></td>
+<td style="text-align: left;"><a href="#hook-needs-quotes-around-a-path-with-a-space">Configuration warnings</a></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>Not loaded: rename &lt;path&gt;, then restart — its name uses "&lt;name&gt;", a name reserved for the skills synced from your claude.ai account</code></td>
 <td style="text-align: left;"><a href="#a-skill-command-or-workflow-wasnt-loaded-because-its-name-is-reserved">Configuration warnings</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>N skill or command names refused: run with --debug to see which ([names]), rename, then restart</code></td>
+<td style="text-align: left;"><a href="#skill-or-command-name-refused">Configuration warnings</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>Ignoring N permissions.allow entries from ... this workspace has not been trusted</code></td>
@@ -10940,7 +10948,7 @@ x-deny-reason: host_not_allowed
 <p>These steps change one of your own environments. An <a href="/docs/en/cloud-environments#organization-shared-environments">organization-shared environment</a> opens read-only in the selector, so ask an Owner to change its network access from the <strong>Cloud environments</strong> page in <a href="https://claude.ai/admin-settings">admin settings</a>.</p>
 <ul>
 <li>Open your environment for editing, either from the <a href="/docs/en/routines#environments-and-network-access">routine's form</a> or from the <a href="/docs/en/cloud-environments#configure-your-environment">environment selector</a> where you start cloud sessions.</li>
-<li>In the <strong>Edit environment</strong> dialog, change <strong>Network access</strong> from <strong>Trusted</strong> to <strong>Custom</strong>, then add the blocked domain to <strong>Allowed domains</strong>. Enter one domain per line. Check <strong>Also include default list of common package managers</strong> to keep the <a href="/docs/en/cloud-environments#default-allowed-domains">default allowlist</a> alongside your custom domains. Select <strong>Full</strong> instead if you want unrestricted access.</li>
+<li>In the <strong>Edit cloud environment</strong> dialog, change <strong>Network access</strong> from <strong>Trusted</strong> to <strong>Custom</strong>, then add the blocked domain to <strong>Allowed domains</strong>. Enter one domain per line. Check <strong>Also include default list of common package managers</strong> to keep the <a href="/docs/en/cloud-environments#default-allowed-domains">default allowlist</a> alongside your custom domains. Select <strong>Full</strong> instead if you want unrestricted access.</li>
 <li>Click <strong>Save changes</strong>. The next run uses the updated allowlist. For a cloud session that's already open, see <a href="/docs/en/cloud-environments#network-access">when a network access change reaches existing sessions</a>.</li>
 </ul>
 <p>See <a href="/docs/en/cloud-environments#network-access">Network access</a> for access levels and the default allowlist. Local CLI sessions are not affected by this policy.</p>
@@ -13686,23 +13694,55 @@ Agent descriptions are over the 15.0k-token limit (~16.2k tokens) · ask Claude 
 * Shorten the `description` frontmatter of your agent files, or ask Claude to trim them for you.
 * Remove agent files you no longer use.
 
-&lt;h3 id="a-skill-command-or-workflow-wasnt-loaded-because-its-name-is-reserved"&gt;
-  A skill, command, or workflow wasn't loaded because its name is reserved
+&lt;h3 id="hook-needs-quotes-around-a-path-with-a-space"&gt;
+  Hook needs quotes around a path with a space
 &lt;/h3&gt;
 
-A skill folder, a frontmatter `name`, a file or subfolder in `.claude/commands/`, or a [saved workflow](/docs/en/workflows#save-the-workflow-for-reuse) uses the name `anthropic-skills` or a name that starts with `anthropic-skills:`. Claude Code [reserves that name for skills synced from claude.ai](/docs/en/skills#names-reserved-for-synced-skills) and doesn't load that item.
+This notification in the conversation view means a hook's script didn't run because its path has a space and isn't quoted. That hook is an [`asyncRewake`](/docs/en/hooks#run-hooks-in-the-background) hook in shell form. In its `command`, an interpreter such as `python3` is followed by an unquoted path placeholder, and the resolved path contains a space.
 
-Claude Code shows this warning as a startup notice in the conversation view rather than on stderr:
+The notification starts with the hook's event name and names the script:
 
 ```text theme={null}
-Not loaded: rename .claude/skills/anthropic-skills, then restart — its name uses "anthropic-skills", a name reserved for the skills synced from your claude.ai account
+Stop hook needs quotes around a path with a space (check.py)
 </code></pre></div></p>
-<p>The notice names what to change for the first item it refused: a folder or file to rename, a <code>name:</code> line to edit, or a workflow to rename. When more than one item was refused, the notice ends with a count such as <code>· 2 more</code>, and the <a href="/docs/en/debug-your-config">debug log</a> names each one.</p>
 <p><strong>What to do:</strong></p>
 <ul>
-<li>Rename the item the notice names, or edit the <code>name:</code> line it points to, then restart the session.</li>
+<li>In the <code>command</code> of the hook that runs the script the notification names, wrap the path in double quotes. In a JSON file, write it as <code>"command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/check.py\""</code>.</li>
 </ul>
-<p>Before v2.1.282, Claude Code loaded skills and commands with these names.</p>
+<h3 id="a-skill-command-or-workflow-wasnt-loaded-because-its-name-is-reserved">
+  A skill, command, or workflow wasn't loaded because its name is reserved
+</h3>
+
+<p>A skill folder, a frontmatter <code>name</code>, a file or subfolder in <code>.claude/commands/</code>, or a <a href="/docs/en/workflows#save-the-workflow-for-reuse">saved workflow</a> uses the name <code>anthropic-skills</code> or a name that starts with <code>anthropic-skills:</code>. Claude Code <a href="/docs/en/skills#names-reserved-for-synced-skills">reserves that name for skills synced from claude.ai</a> and doesn't load that item.</p>
+<p>Claude Code shows this warning as a startup notice in the conversation view rather than on stderr:</p>
+<p>```text theme={null}
+Not loaded: rename .claude/skills/anthropic-skills, then restart — its name uses "anthropic-skills", a name reserved for the skills synced from your claude.ai account
+<div class="highlight"><pre><span></span><code>The notice names what to change for the first item it refused: a folder or file to rename, a `name:` line to edit, or a workflow to rename. When more than one item was refused, the notice ends with a count such as `· 2 more`, and the [debug log](/docs/en/debug-your-config) names each one.
+
+**What to do:**
+
+* Rename the item the notice names, or edit the `name:` line it points to, then restart the session.
+
+Before v2.1.282, Claude Code loaded skills and commands with these names.
+
+&lt;h3 id="skill-or-command-name-refused"&gt;
+  Skill or command name refused
+&lt;/h3&gt;
+
+This startup notice means Claude Code refused the name of at least one [skill or custom command](/docs/en/skills), so it didn't load or loaded without its `name` field:
+
+```text theme={null}
+1 skill or command name refused: run with --debug to see which ([names]), rename, then restart — a name may not hold hidden, direction-changing or blank-like characters, &lt; or &gt;, or be over 256 characters
+</code></pre></div></p>
+<ul>
+<li><strong>Not loaded</strong>: Claude Code refused the name a skill or command goes by, such as its directory name or a command file's name or subfolder. It's missing from the <code>/</code> menu and Claude can't invoke it. Its line in the debug log reads <code>&lt;name&gt; is not offered</code>.</li>
+<li><strong><code>name</code> field ignored</strong>: Claude Code refused a skill's frontmatter <code>name</code>. The skill still loads, but the <code>/</code> menu doesn't show the <code>name</code> value and typing it doesn't invoke the skill. Its line in the debug log reads <code>&lt;name value&gt; is not shown for &lt;skill&gt;</code>.</li>
+</ul>
+<p><strong>What to do:</strong></p>
+<ul>
+<li>Start Claude Code with <code>claude --debug</code> from your shell and search the <a href="/docs/en/debug-your-config">debug log</a> for <code>[names]</code>. Each name the notice counts has one line there. The line spells out some hidden characters as codes, such as <code>\u{200B}</code> for a zero-width space, so you can see where they are.</li>
+<li>Remove the <a href="/docs/en/skills#characters-a-skill-name-cant-hold">characters a skill name can't hold</a> by renaming the folder or file or editing the <code>name:</code> line, or shorten a name that is over 256 characters. Then restart the session, unless the file is in a directory Claude Code <a href="/docs/en/skills#live-change-detection">watches for changes</a>. For a skill from a plugin you didn't write, ask the plugin's author to rename it.</li>
+</ul>
 <h3 id="workspace-has-not-been-trusted">Workspace has not been trusted</h3>
 <p>Claude Code found <code>permissions.allow</code> rules or <code>permissions.additionalDirectories</code> entries in the project's <code>.claude/settings.json</code> or <code>.claude/settings.local.json</code> and didn't apply them, because <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">allow rules from project settings require workspace trust</a>. The count, the setting name, and the file named in the message vary with your configuration. <code>deny</code> and <code>ask</code> rules aren't affected.</p>
 <p>```text theme={null}
