@@ -14,7 +14,7 @@
         <link rel="prev" href="../cli-reference/">
       
       
-        <link rel="next" href="../code-review/">
+        <link rel="next" href="../code-review-costs/">
       
       
         
@@ -2235,7 +2235,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="!/bin/bash">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pip-skips-requirements-that-are-already-satisfied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pip skips requirements that are already satisfied
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pip skips requirements that are already satisfied">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2280,6 +2291,168 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-review-costs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code review costs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-review-customize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code review customize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-review-local/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code review local
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-review-pull-requests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code review pull requests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-review-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code review setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-review-troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code review troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -6774,7 +6947,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="!/bin/bash">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pip-skips-requirements-that-are-already-satisfied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pip skips requirements that are already satisfied
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="pip skips requirements that are already satisfied">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -7337,18 +7521,30 @@ First, add a SessionStart hook to your repo's `.claude/settings.json`. This conf
 }
 </code></pre></div></p>
 <p>The <code>matcher</code> limits the hook to the <code>startup</code> and <code>resume</code> events, and <code>$CLAUDE_PROJECT_DIR</code> resolves to the repository root, so the hook finds the script regardless of the session's working directory.</p>
-<p>Next, create the script at <code>scripts/install_pkgs.sh</code>. It exits immediately outside the cloud, then installs your dependencies:</p>
+<p>Next, create the script at <code>scripts/install_pkgs.sh</code>. It exits immediately outside the cloud, then installs your dependencies. It skips <code>npm install</code> while <code>package.json</code>, <code>package-lock.json</code>, and the script itself are unchanged since the last successful install:</p>
 <p>```bash theme={null}</p>
 <h1 id="binbash_2">!/bin/bash</h1>
 <p>if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
   exit 0
 fi</p>
-<p>npm install
-pip install -r requirements.txt
+<p>cd "$CLAUDE_PROJECT_DIR" || exit 1
+hashes=node_modules/.install_pkgs.sha256</p>
+<p>if ! sha256sum --check --status "$hashes" 2&gt;/dev/null; then
+  # Delete the old hashes first, so a failed install runs again next time
+  rm -f "$hashes"
+  if npm install; then
+    sha256sum scripts/install_pkgs.sh package.json package-lock.json &gt; "$hashes" || rm -f "$hashes"
+  fi
+fi</p>
+<h1 id="pip-skips-requirements-that-are-already-satisfied">pip skips requirements that are already satisfied</h1>
+<p>pip install -r requirements.txt
 exit 0
 ```</p>
 <p>The <code>CLAUDE_CODE_REMOTE</code> check is what scopes the install to cloud sessions: the session VM's environment carries that variable as <code>true</code>, it's never <code>true</code> locally, so on your laptop the script exits before installing anything.</p>
-<p>Together, the two files give every cloud session a fresh <code>npm install</code> and <code>pip install</code> at startup while leaving local sessions untouched.</p>
+<p>To confirm <code>npm install</code> succeeded, start a cloud session and ask Claude to show <code>node_modules/.install_pkgs.sha256</code>. The file lists a hash for each of the three files. If the file is missing, ask Claude to run <code>npm install</code> and report the error.</p>
+<p><Note>
+  If <code>npm install</code> reads other files, such as a workspace's <code>package.json</code>, an <code>.npmrc</code>, or your <code>postinstall</code> script's inputs, add them to the <code>sha256sum</code> command that saves the hashes. Otherwise, you keep the old packages after one of those files changes.
+</Note></p>
 <h4 id="limitations-in-cloud-sessions">Limitations in cloud sessions</h4>
 <p>SessionStart hooks behave the same in the cloud as locally, with these caveats:</p>
 <ul>
@@ -7356,7 +7552,7 @@ exit 0
 <li><strong>No cloud-only scoping</strong>: hooks run in both local and cloud sessions. To skip local execution, exit early unless the <code>CLAUDE_CODE_REMOTE</code> environment variable is <code>true</code>, the way the <a href="#install-dependencies-with-a-sessionstart-hook">dependency install script</a> does.</li>
 <li><strong>Requires network access</strong>: install commands need to reach package registries. If your environment uses <strong>None</strong> network access, these hooks fail. The <a href="#default-allowed-domains">default allowlist</a> under <strong>Trusted</strong> covers npm, PyPI, RubyGems, and crates.io.</li>
 <li><strong>Proxy compatibility</strong>: in Anthropic-hosted environments, all outbound traffic passes through a <a href="#security-proxy">security proxy</a>, and some package managers don't work correctly with it; Bun is a known example. In a <a href="/docs/en/self-hosted-environments-deploy#default-deny-egress">self-hosted environment</a>, outbound traffic goes through your own network boundary instead.</li>
-<li><strong>Adds startup latency</strong>: hooks run each time a session starts or resumes, unlike setup scripts which benefit from <a href="#environment-caching">environment caching</a>. Keep install scripts fast by checking whether dependencies are already present before reinstalling.</li>
+<li><strong>Adds startup latency</strong>: hooks run each time a session starts or resumes, unlike setup scripts which benefit from <a href="#environment-caching">environment caching</a>. Keep install scripts fast by skipping work that's already done, the way the <a href="#install-dependencies-with-a-sessionstart-hook">dependency install script</a> does.</li>
 </ul>
 <p>To customize the base image, use a setup script to install what you need on top of the <a href="#installed-tools">provided image</a>, or run your own image as a container alongside Claude with <code>docker compose</code>. Replacing the base image entirely isn't supported yet.</p>
 <h2 id="default-allowed-domains">Default allowed domains</h2>
