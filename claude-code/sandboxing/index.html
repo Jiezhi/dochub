@@ -5245,17 +5245,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#sandbox-fails-with-sandbox-settings-are-overridden-by-a-higher-priority-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        /sandbox fails with Sandbox settings are overridden by a higher-priority configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -7316,17 +7305,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#sandbox-fails-with-sandbox-settings-are-overridden-by-a-higher-priority-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        /sandbox fails with Sandbox settings are overridden by a higher-priority configuration
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -7599,8 +7577,8 @@ A sandboxed command that connects to a host you haven't allowed stays in the san
 
 Even in auto-allow mode, the following still apply:
 
-* Explicit [deny rules](/docs/en/permissions) are always respected
-* `rm` or `rmdir` commands that target a [critical path](/docs/en/permission-modes#critical-paths) still go through the regular permission flow
+* A command in a [form that a `Bash` deny rule matches](/docs/en/permissions#bash-rule-limits) is still blocked
+* `rm` or `rmdir` commands recognized as targeting a [critical path](/docs/en/permission-modes#which-paths-are-critical) still go through the regular permission flow
 * Content-scoped [ask rules](/docs/en/permissions) like `Bash(git push *)` still force a prompt even for sandboxed commands
 * A bare `Bash` ask rule, or the equivalent `Bash(*)` form, is skipped for commands that run sandboxed; it still applies to commands that run outside the sandbox. In [plan mode](/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode), the rule isn't skipped: it prompts for sandboxed commands too, including read-only ones
 * [Monitor tool](/docs/en/tools-reference#monitor-tool) commands aren't approved automatically, though they still run in the sandbox. To skip the prompt, add an [allow rule](/docs/en/permissions#bash) that matches the command, such as `Bash(npm run *)`
@@ -8322,23 +8300,36 @@ This example turns the setting on for macOS:
 <h3 id="an-allowed-hostname-is-refused-with-resolved-to-a-loopback-address">An allowed hostname is refused with <code>resolved to a loopback address</code></h3>
 <p>The sandbox proxy refuses an allowed hostname that <a href="#hostnames-that-resolve-to-local-addresses">resolves to a local address</a>, which affects development names such as <code>myapp.test</code> that point at <code>127.0.0.1</code>. The command sees a <code>403</code> response whose body names the kind of address, such as <code>Connection to myapp.test blocked: resolved to a loopback address</code>.</p>
 <p>Add the IP address the name resolves to alongside the hostname in <code>allowedDomains</code>, each with the port your server listens on:</p>
-<p><code>json theme={null}
+<p>```json theme={null}
 {
   "sandbox": {
     "network": {
       "allowedDomains": ["myapp.test:3000", "127.0.0.1:3000"]
     }
   }
-}</code></p>
-<p>An IP address entry with no port lets sandboxed commands reach every service listening on that address.</p>
-<p>Before v2.1.284, the proxy connected to whatever address an allowed hostname resolved to.</p>
-<h3 id="sandbox-fails-with-sandbox-settings-are-overridden-by-a-higher-priority-configuration"><code>/sandbox</code> fails with <code>Sandbox settings are overridden by a higher-priority configuration</code></h3>
-<p><code>/sandbox</code> prints <code>Error: Sandbox settings are overridden by a higher-priority configuration and cannot be changed locally.</code> instead of opening its panel when a higher <a href="/docs/en/settings#settings-precedence">settings level</a> sets <code>sandbox.enabled</code>, <code>sandbox.autoAllowBashIfSandboxed</code>, or <code>sandbox.allowUnsandboxedCommands</code>. The panel saves your choices to <code>.claude/settings.local.json</code>, and a value saved there can't override those levels.</p>
-<p>Managed settings and <code>--settings</code> rank above local settings. To see which of them this session loaded, run <code>/status</code> and read the <code>Setting sources</code> line:</p>
-<ul>
-<li><strong><code>Command line arguments</code></strong>: if you started Claude Code with <a href="/docs/en/settings#change-a-setting-for-one-session"><code>--settings</code></a>, check whether the file or JSON you passed sets one of those keys. If it does, change the value there, or start Claude Code again without those keys.</li>
-<li><strong><code>Enterprise managed settings</code></strong>: your organization's managed settings are loaded. If they set one of those keys, you can't change that key from <code>/sandbox</code> or from any settings file you control, so ask your administrator.</li>
-</ul>
+}
+<div class="highlight"><pre><span></span><code>An IP address entry with no port lets sandboxed commands reach every service listening on that address.
+
+Before v2.1.284, the proxy connected to whatever address an allowed hostname resolved to.
+
+### `/sandbox` fails with `Sandbox settings are overridden by a higher-priority configuration`
+
+`/sandbox` prints `Error: Sandbox settings are overridden by a higher-priority configuration and cannot be changed locally.` instead of opening its panel when a higher [settings level](/docs/en/settings#settings-precedence) sets `sandbox.enabled`, `sandbox.autoAllowBashIfSandboxed`, or `sandbox.allowUnsandboxedCommands`. The panel saves your choices to `.claude/settings.local.json`, and a value saved there can't override those levels.
+
+Managed settings and `--settings` rank above local settings. To see which of them this session loaded, run `/status` and read the `Setting sources` line:
+
+* **`Command line arguments`**: if you started Claude Code with [`--settings`](/docs/en/settings#change-a-setting-for-one-session), check whether the file or JSON you passed sets one of those keys. If it does, change the value there, or start Claude Code again without those keys.
+* **`Enterprise managed settings`**: your organization's managed settings are loaded. If they set one of those keys, you can't change that key from `/sandbox` or from any settings file you control, so ask your administrator.
+
+### `/sandbox` prints `Sandbox settings not changed`
+
+This line means `/sandbox` couldn't save the choice you made in its panel to your project's `.claude/settings.local.json`:
+
+```text theme={null}
+✗ Sandbox settings not changed: /home/you/project/.claude/settings.local.json couldn't be updated (EACCES). Start Claude Code in a project folder you can write to.
+</code></pre></div></p>
+<p>If the reason in parentheses is <code>EACCES</code>, <code>EPERM</code>, or <code>EROFS</code>, start Claude Code in a project folder you can write to, then run <code>/sandbox</code> again in that session.</p>
+<p>If the reason begins with <code>Invalid JSON syntax in settings file</code>, correct the JSON in your project's <code>.claude/settings.local.json</code>, then run <code>/sandbox</code> again.</p>
 <h2 id="limitations">Limitations</h2>
 <p>Sandboxing reduces risk but is not a complete isolation boundary. Review the limitations below before relying on it as a hard security control.</p>
 <h3 id="security-limitations">Security limitations</h3>

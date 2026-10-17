@@ -4090,6 +4090,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Extend permissions with hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#precedence-among-rules-hooks-and-mods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Precedence among rules, hooks, and mods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hook-approvals-in-plan-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hook approvals in plan mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -7181,6 +7209,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Extend permissions with hooks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#precedence-among-rules-hooks-and-mods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Precedence among rules, hooks, and mods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hook-approvals-in-plan-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hook approvals in plan mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -7948,11 +8004,17 @@ In [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode), Clau
 
 ### MCP
 
-MCP rules use the server name as configured in Claude Code, optionally followed by the name of a tool from that server.
+To match every tool from an MCP server, write `mcp__&lt;server&gt;__*`. To match one tool, write its full name, `mcp__&lt;server&gt;__&lt;tool&gt;`.
 
 * `mcp__puppeteer` matches any tool provided by the `puppeteer` server
 * `mcp__puppeteer__*` uses wildcard syntax and also matches all tools from the `puppeteer` server
 * `mcp__puppeteer__puppeteer_navigate` matches the `puppeteer_navigate` tool provided by the `puppeteer` server
+
+For `&lt;server&gt;`, write the server's name the way it appears in that server's tool names. These examples show the rule to write for a name with special characters, a server from a plugin, and a name that contains `__` or ends in `_`:
+
+* **Names with characters such as `.` or spaces**: those characters become `_`, so for a server you configured as `my.server`, write `mcp__my_server__*`
+* **Servers that a plugin provides**: `&lt;server&gt;` takes the [plugin-scoped form](/docs/en/mcp#plugin-provided-mcp-servers), so for the `database-tools` server in a plugin named `my-plugin`, write `mcp__plugin_my-plugin_database-tools__*`
+* **A `&lt;server&gt;` that contains `__` or ends in `_`**: write the wildcard form, `mcp__&lt;server&gt;__*`, with the whole name. For a server named `reports__v2`, write `mcp__reports__v2__*`. The bare `mcp__reports__v2` and the shorter `mcp__reports` don't match its tools as allow rules, because Claude Code reads both as rules for a server named `reports`
 
 If your organization has set a [claude.ai connector](/docs/en/mcp#organization-controls-on-connector-tools) tool to `ask` and that setting reaches Claude Code in your session, allow rules for that tool don't take effect: Claude Code prompts on every call, even in `auto` and `bypassPermissions` modes. In `dontAsk` mode, which never prompts, Claude Code denies the call instead. Tools from connectors Claude Code fetches itself appear as `mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;`.
 
@@ -8008,8 +8070,9 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 </table>
 <h2 id="extend-permissions-with-hooks">Extend permissions with hooks</h2>
 <p><a href="/docs/en/hooks-guide">Claude Code hooks</a> let you register custom shell commands that evaluate permissions at runtime. When Claude Code makes a tool call, PreToolUse hooks run before the permission prompt, for every tool except <a href="/docs/en/tools-reference#endconversation-tool-behavior"><code>EndConversation</code></a>. The hook output can deny the tool call, force a prompt, or skip the prompt to let the call proceed.</p>
+<h3 id="precedence-among-rules-hooks-and-mods">Precedence among rules, hooks, and mods</h3>
 <p>PreToolUse hook decisions don't bypass permission rules. Claude Code evaluates deny and ask rules regardless of what a PreToolUse hook returns: a matching deny rule blocks the call, and a matching ask rule still prompts even when the hook returned <code>"allow"</code> or <code>"ask"</code>. This preserves the deny-first precedence described in <a href="#manage-permissions">Manage permissions</a>, including deny rules set in managed settings.</p>
-<p>That precedence covers hooks in settings files and in a plugin's <code>hooks/hooks.json</code>. A <a href="/docs/en/plugins/mods/overview">mod</a> you install that handles <code>tool.check</code> answers after the rules and the <code>PreToolUse</code> hooks have decided, and its answer can replace theirs:</p>
+<p>That precedence covers hooks in settings files and in a plugin's <code>hooks/hooks.json</code>. A <a href="/docs/en/plugins/mods/overview">mod</a> you install that handles <code>tool.check</code> answers after the rules and the <code>PreToolUse</code> hooks have decided. Outside <a href="#hook-approvals-in-plan-mode">plan mode</a>, or for a read-only call, its answer can replace theirs:</p>
 <ul>
 <li><strong>Ask rules</strong>: the mod can approve a call that an ask rule would prompt for</li>
 <li><strong>A block from a <code>PreToolUse</code> hook</strong>: the mod can approve the call, unless the hook is in managed settings</li>
@@ -8019,6 +8082,9 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <p>See <a href="/docs/en/plugins/mods/overview#decide-whether-to-trust-a-mod">Decide whether to trust a mod</a>, or <a href="/docs/en/plugins/mods/admin#know-what-happens-by-default">Manage mods for your organization</a> if you deploy managed settings.</p>
 <p>For a <a href="/docs/en/permission-modes#actions-no-mode-auto-approves">tool that requires user interaction</a>, such as <code>AskUserQuestion</code> or an MCP tool marked <code>requiresUserInteraction</code>, a mod's <code>tool.check</code> approval doesn't skip the prompt. Requires Claude Code v2.1.292 or later. MCP tools marked <a href="/docs/en/mcp#require-approval-for-a-specific-tool"><code>requiresUserInteraction</code></a> also still prompt when a hook returns <code>"allow"</code>, as do reads from <a href="#network-paths">network paths</a> and connector tools <a href="/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a> in sessions where that setting reaches Claude Code.</p>
 <p>A blocking hook also takes precedence over allow rules. A hook that exits with code 2 stops the tool call before permission rules are evaluated, so the block applies even when an allow rule would otherwise let the call proceed. To run all Bash commands without prompts except for a few you want blocked, add <code>"Bash"</code> to your allow list and register a PreToolUse hook that rejects those specific commands. See <a href="/docs/en/hooks-guide#block-edits-to-protected-files">Block edits to protected files</a> for a hook script you can adapt.</p>
+<h3 id="hook-approvals-in-plan-mode">Hook approvals in plan mode</h3>
+<p>In <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">plan mode</a>, apart from <code>ExitPlanMode</code>, your <code>PreToolUse</code> hook's <code>"allow"</code> has no effect on a file edit or another call that isn't read-only. You get the same prompt, block, or approval the call would get with no hook, and Claude Code still applies any <code>updatedInput</code> the hook returns. If the hook answers <a href="/docs/en/hooks#allow-with-updatedinput"><code>ExitPlanMode</code></a> with <code>"allow"</code> and <code>updatedInput</code>, that tool still runs without a prompt.</p>
+<p>In plan mode, a mod that handles <code>tool.check</code> also can't approve a file edit or another call that isn't read-only, though it can still block such a call. To lift this limit on hook and mod approvals, <a href="/docs/en/permission-modes#review-and-approve-a-plan">approve the plan</a> or switch to another permission mode.</p>
 <h2 id="working-directories">Working directories</h2>
 <p>By default, Claude has access to files in the directory where you launched it. That directory is the session's primary working directory until you <a href="#move-the-session-to-another-directory">move the session with <code>/cd</code></a>. You can extend this access:</p>
 <ul>
@@ -8097,8 +8163,6 @@ Add these rules to the `deny` array in your settings or use the `--disallowedToo
 <p>These checks still apply:</p>
 <ul>
 <li>Content-scoped ask rules like <code>Bash(git push *)</code> still force a prompt</li>
-<li>Explicit deny rules still apply</li>
-<li><code>rm</code> or <code>rmdir</code> commands that target a <a href="/docs/en/permission-modes#critical-paths">critical path</a> still go through the regular permission flow</li>
 <li>Other sandboxed commands can go through the regular permission flow too, as <a href="/docs/en/sandboxing#auto-allow-mode">Auto-allow mode</a> describes</li>
 </ul>
 <p>Commands that won't run sandboxed, such as excluded commands, respect the bare <code>Bash</code> ask rule as usual. See <a href="/docs/en/sandboxing#sandbox-modes">sandbox modes</a> to change this behavior.</p>
