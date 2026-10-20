@@ -10102,7 +10102,8 @@ This example logs all memory server operations and validates write operations fr
 <li><strong><a href="#prompt-and-agent-hook-fields">Prompt hooks</a></strong> (<code>type: "prompt"</code>): send a prompt to a Claude model for single-turn evaluation. The model returns its decision as JSON. See <a href="#prompt-based-hooks">Prompt-based hooks</a>.</li>
 <li><strong><a href="#prompt-and-agent-hook-fields">Agent hooks</a></strong> (<code>type: "agent"</code>): spawn a subagent that can use tools like Read, Grep, and Glob to verify conditions before returning a decision. Agent hooks are experimental and may change. See <a href="#agent-based-hooks">Agent-based hooks</a>.</li>
 </ul>
-<p>All matching hooks run in parallel. If you define the same handler in more than one settings file, it runs once. A plugin's or skill's copy of the same handler stays separate.</p>
+<p>When an event fires, its matching hooks run in parallel. If more than 12 of them are prompt or agent hooks, 12 of those run at once and the rest start as running ones finish. Each waiting hook's <a href="#common-fields"><code>timeout</code></a> starts counting when that hook starts.</p>
+<p>If you define the same handler in more than one settings file, it runs once. A plugin's or skill's copy of the same handler stays separate.</p>
 <p>Handlers run in the current directory with Claude Code's environment. If the current directory no longer exists, for example a worktree or temp directory that another shell deleted mid-session, Claude Code runs command hooks from the first of these that still exists: the directory the session started in, the project root, your home directory, or the system temp directory. Claude Code records a warning naming the fallback directory in the <a href="#debug-hooks">debug log</a>. For a worktree session that you start from the desktop app, see <a href="/docs/en/worktrees#what-worktrees-share-with-the-main-checkout">What worktrees share with the main checkout</a>.</p>
 <p>The <code>$CLAUDE_CODE_REMOTE</code> environment variable is <code>"true"</code> in remote web environments and not set in the local CLI. Claude Code v2.1.199 and later sets <a href="/docs/en/env-vars"><code>$CLAUDE_CODE_BRIDGE_SESSION_ID</code></a> to the <a href="/docs/en/remote-control">Remote Control</a> session ID while the local session has an active Remote Control connection.</p>
 <h4 id="common-fields">Common fields</h4>
@@ -10144,7 +10145,7 @@ This example logs all memory server operations and validates write operations fr
 </tbody>
 </table>
 <p>The <code>if</code> field holds exactly one permission rule. There is no <code>&amp;&amp;</code>, <code>||</code>, or list syntax for combining rules; to apply multiple conditions, define a separate hook handler for each.</p>
-<p>In an <code>if</code> condition for a file tool, a single-segment directory pattern like <code>"Edit(src/**)"</code> matches only the <code>src</code> directory in the working directory and the files under it. To match a directory named <code>src</code> at any depth, write <code>"Edit(**/src/**)"</code>. Before v2.1.214, <code>"Edit(src/**)"</code> matched a directory named <code>src</code> at any depth under the working directory.</p>
+<p>In an <code>if</code> condition for a file tool, a single-segment directory pattern like <code>"Edit(src/**)"</code> matches only the <code>src</code> directory in the working directory and the files under it. To match a directory named <code>src</code> at any depth, write <code>"Edit(**/src/**)"</code>.</p>
 <h4 id="bash-if-matching">
   How `if` patterns match Bash commands
 </h4>
@@ -10551,7 +10552,7 @@ For example, a `PreToolUse` hook for a Bash command receives this on stdin:
 </code></pre></div>
 <p>The <code>tool_name</code>, <code>tool_input</code>, and <code>tool_use_id</code> fields are event-specific. Each <a href="#hook-events">hook event</a> section documents the additional fields for that event.</p>
 <h3 id="exit-code-output">Exit code output</h3>
-<p>Your hook's exit code tells Claude Code whether to continue with the action that triggered the hook, such as a tool call or a prompt. A run that finishes has one of three outcomes:</p>
+<p>When your hook's run finishes, Claude Code uses its exit code to decide whether to continue with the action that triggered it, such as a tool call or a prompt:</p>
 <ul>
 <li><strong>Success</strong>: your hook exits 0. Claude Code applies any <a href="#json-output">JSON output</a> fields your hook printed, and the action goes ahead unless those fields block or deny it. <a href="#hooks-that-start-a-background-process">Hooks that start a background process</a> covers the exception.</li>
 <li><strong>Blocking error</strong>: your hook exits 2. On <a href="#exit-code-2-behavior-per-event">events that can block</a>, Claude Code stops the action.</li>
@@ -10598,16 +10599,14 @@ For example, a `PreToolUse` hook for a Bash command receives this on stdin:
 </ul>
 <p>To check what exit code 2 does on your event, see <a href="#exit-code-2-behavior-per-event">Exit code 2 behavior per event</a>. To check which decision fields it honors, see <a href="#decision-control">Decision control</a>.</p>
 <h4 id="exit-code-0">Exit code 0</h4>
-<p>Exit 0 means success, and is the intended exit code when you print JSON for structured control.</p>
-<p>For most events, Claude Code writes stdout to the debug log and doesn't show it in the transcript. The exceptions are <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, <code>SessionStart</code>, and <code>PostModelSwitch</code>, where Claude Code adds plain-text stdout as context that Claude can see and act on.</p>
-<p>For a hook that isn't <a href="#how-async-hooks-execute">async</a>, Claude Code parses your stdout as <a href="#json-output">JSON output</a> when the whole output is one JSON object with nothing around it but whitespace, and otherwise as plain text or a parse failure:</p>
+<p>Exit 0 means success, and is the intended exit code when you print JSON for structured control. When your hook exits 0 but prints JSON that can't be parsed or fails <a href="#json-output">schema validation</a>, the action goes ahead unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>. Instead of a success with your fields applied, the run is a <a href="#exit-code-output">non-blocking error</a>.</p>
+<p>To fix your output, use the parse or validation message that the <code>&lt;hook name&gt; hook error</code> notice carries. For a hook that isn't <a href="#how-async-hooks-execute">async</a>, your stdout counts as <a href="#json-output">JSON output</a> only when you print one JSON object, on one line or several, with nothing around it but whitespace. Claude Code reads any other stdout as plain text or a parse failure:</p>
 <ul>
-<li><strong>One JSON object, on one line or several</strong>: parsed as JSON output.</li>
 <li><strong>Output that doesn't start with <code>{</code>, or that starts with <code>{</code> and doesn't end with <code>}</code></strong>: plain text. A JSON array and a quoted JSON string are plain text by this rule.</li>
-<li><strong>Two or more lines that each parse as JSON on their own, the first starting with <code>{</code> and the last ending with <code>}</code></strong>: plain text when no line is a JSON output object that sets a field, and a parse failure when one is.</li>
+<li><strong>Two or more lines that each parse as JSON on their own, the first starting with <code>{</code> and the last ending with <code>}</code></strong>: plain text when no line is a JSON output object that sets a field. When one line is, the output is a parse failure, so print that object with nothing else on stdout.</li>
 <li><strong>Anything else that starts with <code>{</code> and ends with <code>}</code> but isn't valid JSON</strong>: a parse failure.</li>
 </ul>
-<p>Unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>, a parse failure or a parsed object that fails <a href="#json-output">schema validation</a> is a <a href="#exit-code-output">non-blocking error</a>. The <code>&lt;hook name&gt; hook error</code> notice carries the parse or validation message. On the events that add plain-text stdout as context, Claude Code doesn't add stdout it failed to parse.</p>
+<p>For most events, Claude Code writes stdout to the debug log and doesn't show it in the transcript. The exceptions are <code>UserPromptSubmit</code>, <code>UserPromptExpansion</code>, <code>SessionStart</code>, and <code>PostModelSwitch</code>, where Claude Code adds plain-text stdout as context that Claude can see and act on. On those events, Claude Code doesn't add stdout it failed to parse.</p>
 <p>Claude never sees stderr from a hook that exits 0. To read it yourself on events such as <code>PreToolUse</code>, enable <a href="#debug-hooks">debug logging</a>. To surface a warning to Claude from a <code>PostToolUse</code> or <code>PostToolUseFailure</code> hook, exit 2 instead so <a href="#exit-code-2-behavior-per-event">Claude sees the stderr</a> even though the tool already ran.</p>
 <h4 id="exit-code-2">Exit code 2</h4>
 <p>Exit with code 2 to block the action. On <a href="#exit-code-2-behavior-per-event">events that can block</a>, Claude Code stops the action: a <code>PreToolUse</code> hook blocks the tool call, for example, and a <code>UserPromptSubmit</code> hook rejects the prompt.</p>
@@ -10634,28 +10633,23 @@ fi</p>
 PreToolUse:Bash hook error: [${CLAUDE_PROJECT_DIR}/.claude/hooks/no-rm.sh]: Blocked: rm commands are not allowed
 </code></pre></div></p>
 <h4 id="other-exit-codes">Other exit codes</h4>
-<p>Unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>, an exit code other than 0 or 2 with plain text or nothing on stdout is a <a href="#exit-code-output">non-blocking error</a>. If the action goes ahead, you see a <code>&lt;hook name&gt; hook error</code> notice in the transcript with <code>Failed with non-blocking status code:</code> and the first line of your hook's stderr.</p>
+<p>A <code>&lt;hook name&gt; hook error</code> notice with <code>Failed with non-blocking status code:</code> means your hook's exit code wasn't 0 or 2 and its stdout was plain text or empty. Unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>, this is a <a href="#exit-code-output">non-blocking error</a>, so your hook didn't stop the action. To capture your hook's full stderr rather than the first line the notice shows, enable <a href="#debug-hooks">debug logging</a>.</p>
 <p>For example, when a <code>PreToolUse</code> hook on <code>Bash</code> prints <code>something broke</code> to stderr and exits 1, the <code>PreToolUse:Bash hook error</code> notice carries this line:</p>
 <p>```text theme={null}
 Failed with non-blocking status code: something broke
-<div class="highlight"><pre><span></span><code>To capture the full stderr rather than its first line, enable [debug logging](#debug-hooks).
-
-Unless the hook is one [whose failure blocks the action](#block-the-action-when-a-hook-fails), a hook that can't start is a non-blocking error too. In shell form, when the script path doesn't exist or isn't executable, the shell exits with a code like 127 and the notice carries the interpreter's message. For example, when the script path doesn't exist, the notice carries a line like this one:
+<div class="highlight"><pre><span></span><code>If the notice carries the shell's `No such file or directory` message, as in the following line, the hook never ran, for example because its script path doesn't exist:
 
 ```text theme={null}
 Failed with non-blocking status code: /bin/sh: /path/to/hook.sh: No such file or directory
 </code></pre></div></p>
+<p>If the path is wrong, correct it where the hook is configured. In shell form, when the script path doesn't exist or isn't executable, the shell exits with a code like 127 and the notice carries the interpreter's message. Unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>, a hook that can't start is a non-blocking error too.</p>
 <p>When you set up a policy hook, watch for this notice on its first run, because a mistyped path in <code>settings.json</code> means the hook never runs. To block the action when the hook can't start, set <a href="#block-the-action-when-a-hook-fails"><code>onFailure: "block"</code></a>.</p>
 <p><Warning>
   Exit code 1 without valid JSON output is a non-blocking error unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>, even though 1 is the conventional Unix failure code. If your hook is meant to enforce a policy, use <code>exit 2</code>.
 </Warning></p>
 <h4 id="timeouts">Timeouts</h4>
-<p>Apart from a command hook you run with <a href="#run-hooks-in-the-background"><code>async: true</code></a>, Claude Code cancels a <code>command</code>, <code>http</code>, or <code>mcp_tool</code> hook that reaches its <a href="#common-fields"><code>timeout</code></a>, discarding the hook's output, so on most events a timed-out hook renders no decision.</p>
-<p>On <a href="#premodelswitch"><code>PreModelSwitch</code></a>, a hook canceled at its timeout blocks the model switch. On <code>PreToolUse</code>, the two hook families differ:</p>
-<ul>
-<li>A timed-out <code>command</code>, <code>http</code>, or <code>mcp_tool</code> hook doesn't block the tool call, except for hooks <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>. The call continues through the normal <a href="/docs/en/permissions">permission flow</a>, so don't count on a stalled hook to act as a gate. To block the call when a <code>command</code> or <code>http</code> hook times out, set <a href="#block-the-action-when-a-hook-fails"><code>onFailure: "block"</code></a>.</li>
-<li>An <a href="/docs/en/agent-sdk/hooks">Agent SDK callback hook</a> that exceeds its timeout <a href="#pretooluse">blocks the tool call</a>.</li>
-</ul>
+<p>Apart from a command hook you run with <a href="#run-hooks-in-the-background"><code>async: true</code></a>, Claude Code cancels a <code>command</code>, <code>http</code>, or <code>mcp_tool</code> hook that reaches its <a href="#common-fields"><code>timeout</code></a>, discarding the hook's output, so on most events a timed-out hook renders no decision. On <a href="#premodelswitch"><code>PreModelSwitch</code></a>, a hook canceled at its timeout blocks the model switch.</p>
+<p>On <code>PreToolUse</code>, a timed-out <code>command</code>, <code>http</code>, or <code>mcp_tool</code> hook doesn't block the tool call, except for hooks <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>. The call continues through the normal <a href="/docs/en/permissions">permission flow</a>, so don't count on a stalled hook to act as a gate. To block the call when a <code>command</code> or <code>http</code> hook times out, set <a href="#block-the-action-when-a-hook-fails"><code>onFailure: "block"</code></a>. An <a href="/docs/en/agent-sdk/hooks">Agent SDK callback hook</a> that exceeds its timeout <a href="#pretooluse">blocks the tool call</a>.</p>
 <h4 id="hooks-that-start-a-background-process">Hooks that start a background process</h4>
 <p>If your command hook makes its decision in a background process and exits, a deny that process prints after Claude Code has stopped reading doesn't block the tool call. For a hook that isn't <a href="#run-hooks-in-the-background">async</a>, Claude Code finishes reading the hook's output shortly after the hook's own process exits.</p>
 <p>Print the decision before you start a background process, and redirect that process's stdout and stderr. If your script prints an allow, then starts a background process without redirecting that process's stdout and stderr, Claude Code blocks the tool call. The hook error includes <code>refusing to honor the suspect capture</code>.</p>
@@ -10916,7 +10910,8 @@ blocking because Git Bash wasn't found and this hook doesn't set "shell" to "pow
 </table>
 <p>For <code>SessionStart</code>, <code>SubagentStart</code>, and <code>PostModelSwitch</code>, Claude Code renders the exit code 2 stderr in the transcript as a <code>&lt;hook name&gt; hook error</code> notice, the same way it renders a <a href="#exit-code-output">non-blocking error</a>. Claude doesn't see it, and the session or subagent proceeds. For <code>SubagentStart</code>, the notice appears in the subagent's own transcript, not in the parent conversation.</p>
 <h3 id="http-response-handling">HTTP response handling</h3>
-<p>HTTP hooks use HTTP status codes and response bodies instead of exit codes and stdout. The outcomes below apply to most events; an event with its own failure contract in the <a href="#exit-code-2-behavior-per-event">per-event table</a>, such as <code>WorktreeCreate</code>, applies that contract to a failed HTTP hook too:</p>
+<p>HTTP hooks use HTTP status codes and response bodies instead of exit codes and stdout. To block the action when the request fails or returns a non-2xx status, set <a href="#block-the-action-when-a-hook-fails"><code>onFailure: "block"</code></a>. To block a tool call or deny a permission, return a 2xx response with a JSON body containing the appropriate <a href="#decision-control">decision fields</a>.</p>
+<p>After a <a href="#exit-code-output">non-blocking error</a>, the action goes ahead unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>. Except on events with their own failure contract in the <a href="#exit-code-2-behavior-per-event">per-event table</a>, such as <code>WorktreeCreate</code>, you get these results for each response or failure:</p>
 <ul>
 <li><strong>2xx with an empty body</strong>: success, equivalent to exit code 0 with no output</li>
 <li><strong>2xx with a JSON object body</strong>: parsed using the same <a href="#json-output">JSON output</a> schema as command hooks. A body that fails schema validation is a non-blocking error</li>
@@ -10925,7 +10920,6 @@ blocking because Git Bash wasn't found and this hook doesn't set "shell" to "pow
 <li><strong>Connection failure</strong>: non-blocking error</li>
 <li><strong>Timeout</strong>: the hook is canceled, as described under <a href="#timeouts">Timeouts</a></li>
 </ul>
-<p>After a <a href="#exit-code-output">non-blocking error</a>, the action goes ahead unless the hook is one <a href="#block-the-action-when-a-hook-fails">whose failure blocks the action</a>. To block a tool call or deny a permission, return a 2xx response with a JSON body containing the appropriate <a href="#decision-control">decision fields</a>. To block the action when the request fails or returns a non-2xx status, set <a href="#block-the-action-when-a-hook-fails"><code>onFailure: "block"</code></a>.</p>
 <h3 id="json-output">JSON output</h3>
 <p>Exit codes only let you block or stay silent, but JSON output gives you finer-grained control. Instead of exiting with code 2 to block, exit 0 and print a JSON object to stdout. Claude Code reads specific fields from that JSON to control behavior, including <a href="#decision-control">decision control</a> for blocking, allowing, or escalating to the user.</p>
 <p><Note>
@@ -11149,8 +11143,6 @@ The matcher value corresponds to how the session was initiated:
 | `clear` | `/clear` |
 | `compact` | Auto or manual compaction |
 | `fork` | A new session forked from an existing one: `--fork-session` with `--resume` or `--continue`, the `/fork` background copy, `/branch`, or a conversation you [move to the background](/docs/en/agent-view#from-inside-a-session) |
-
-Before v2.1.214, forked sessions reported source `"resume"`.
 
 When you start an interactive session, resume a conversation at launch with `--continue` or `--resume`, or run `/clear`, SessionStart hooks run in the background. You can type right away, and a conversation you resumed appears without waiting for the hooks. Claude's first response still waits for the hooks to finish, so their context reaches Claude.
 
@@ -11380,13 +11372,13 @@ to add additional context based on the prompt/conversation, validate prompts, or
 block certain types of prompts.</p>
 <p><code>UserPromptSubmit</code> hooks don't fire only on prompts you type. Claude Code also runs them on:</p>
 <ul>
-<li>A <a href="/docs/en/scheduled-tasks">scheduled task</a> firing, including a <code>/loop</code> iteration</li>
+<li>A <a href="/docs/en/scheduled-tasks">session-scoped scheduled task</a> firing, including a <code>/loop</code> iteration</li>
 <li>A <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">background subagent</a> reporting back to the session that started it</li>
 <li>A <a href="/docs/en/cross-session-messaging">message another session sends</a> to your main conversation</li>
 </ul>
 <p><code>UserPromptSubmit</code> hooks have a default timeout of 30 seconds for <code>command</code>, <code>http</code>, and <code>mcp_tool</code> types, shorter than the 600-second default for those types on most other events. Because this hook runs before every prompt and blocks model processing until it completes, a stuck hook stalls the session. If your hook needs more time, set the <code>timeout</code> field in the hook entry.</p>
 <p>Apart from a command hook you run with <a href="#run-hooks-in-the-background"><code>async: true</code></a>, a <code>UserPromptSubmit</code> command, HTTP, or MCP tool hook that reaches its timeout is canceled and its output, including any <code>additionalContext</code>, is discarded. The prompt still reaches Claude without that context. To block the prompt instead, set <a href="#block-the-action-when-a-hook-fails"><code>onFailure: "block"</code></a> on a command or HTTP hook. The transcript shows a notice naming the hook, the timeout that fired, and that the output was discarded.</p>
-<p>An <a href="/docs/en/agent-sdk/hooks">Agent SDK callback hook</a> on <code>UserPromptSubmit</code> that reaches its timeout blocks the prompt with a message naming the hook and the timeout, because a callback there can be acting as a policy gate that must not fail open. The session continues. Before v2.1.208, a callback timeout on that event ended the turn with an execution error.</p>
+<p>An <a href="/docs/en/agent-sdk/hooks">Agent SDK callback hook</a> on <code>UserPromptSubmit</code> that reaches its timeout blocks the prompt with a message naming the hook and the timeout, because a callback there can be acting as a policy gate that must not fail open. The session continues.</p>
 <h4 id="userpromptsubmit-input">UserPromptSubmit input</h4>
 <p>In addition to the <a href="#common-input-fields">common input fields</a>, UserPromptSubmit hooks receive the <code>prompt</code> field containing the submitted text. Pasted content that collapsed to a <code>[Pasted text #N]</code> placeholder arrives expanded in place. In sessions where Claude Code <a href="/docs/en/terminal-config#how-claude-treats-pasted-text">marks pasted text for Claude</a>, that expanded content sits between a <code>&lt;pasted_content id="…"&gt;</code> line and a <code>&lt;/pasted_content id="…"&gt;</code> line, so account for those lines if your hook parses the prompt.</p>
 <p>UserPromptSubmit hooks also receive <code>session_title</code> when the session has a custom title, with the same meaning as the <a href="#sessionstart-input">SessionStart <code>session_title</code> field</a>.</p>
@@ -12098,7 +12090,7 @@ A `Write` call on Windows delivers:
 <td style="text-align: left;"><code>status</code></td>
 <td style="text-align: left;">string</td>
 <td style="text-align: left;"><code>"completed"</code></td>
-<td style="text-align: left;"><code>"completed"</code> for foreground subagents, <code>"async_launched"</code> for background subagents. Subagents run in the background by default, so an Agent call that omits <code>run_in_background</code> also produces <code>"async_launched"</code></td>
+<td style="text-align: left;"><code>"completed"</code> for foreground subagents, <code>"async_launched"</code> for background subagents. For which subagents run each way, see <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">Run subagents in foreground or background</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>agentId</code></td>
@@ -12122,7 +12114,7 @@ A `Write` call on Windows delivers:
 <td style="text-align: left;"><code>modelsUsed</code></td>
 <td style="text-align: left;">array</td>
 <td style="text-align: left;"><code>["claude-sonnet-4-5", "claude-haiku-4-5"]</code></td>
-<td style="text-align: left;">Models used in order, with consecutive repeats collapsed; set only when the model was swapped mid-run. Requires Claude Code v2.1.212 or later</td>
+<td style="text-align: left;">Models used in order, with consecutive repeats collapsed; set only when the model was swapped mid-run</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>totalTokens</code></td>
@@ -12152,7 +12144,7 @@ A `Write` call on Windows delivers:
 </table>
 <p>On Claude Code v2.1.271 or later, a subagent that runs with the <a href="/docs/en/tools-reference"><code>SubagentHandback</code></a> tool, which Claude Code provides in <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, delivers its report through that tool rather than returning it as text. The <code>content</code> field of its <code>completed</code> result then carries a short note about that hand-back rather than the report itself. To read the report, match a <code>PreToolUse</code> or <code>PostToolUse</code> hook on <code>SubagentHandback</code> and read <code>tool_input.message</code>.</p>
 <p>For background subagents, the tool returns when the task moves to the background, so <code>tool_response</code> carries no usage fields: a background launch returns immediately, and a foreground task that Claude Code backgrounds mid-run returns at that transition. It has <code>status: "async_launched"</code>, <code>agentId</code>, <code>description</code>, <code>prompt</code>, <code>outputFile</code>, and <code>resolvedModel</code>.</p>
-<p>On a <code>completed</code> response, <code>resolvedModel</code> names the model the subagent started on, which can differ from the <code>model</code> value in <code>tool_input</code>, such as when <code>availableModels</code> or another override applies. On an <code>async_launched</code> response, <code>resolvedModel</code> names the model in use when the agent moved to the background, so a swap that happened before backgrounding is reflected there. <code>modelsUsed</code> and the backgrounding-time <code>resolvedModel</code> behavior require Claude Code v2.1.212 or later.</p>
+<p>On a <code>completed</code> response, <code>resolvedModel</code> names the model the subagent started on, which can differ from the <code>model</code> value in <code>tool_input</code>, such as when <code>availableModels</code> or another override applies. On an <code>async_launched</code> response, <code>resolvedModel</code> names the model in use when the agent moved to the background, so a swap that happened before backgrounding is reflected there.</p>
 <p><a id="askuserquestion" /></p>
 <h5 id="askuserquestion">AskUserQuestion</h5>
 <p>Asks the user one to four multiple-choice questions.</p>
@@ -12244,7 +12236,7 @@ A `Write` call on Windows delivers:
 <p>When multiple PreToolUse hooks return different decisions, precedence is <code>deny</code> &gt; <code>defer</code> &gt; <code>ask</code> &gt; <code>allow</code>.</p>
 <p>A hook that blocks by exiting 2 routes the same way as <code>"deny"</code>: Claude sees the stderr message as the denial reason.</p>
 <p>When a hook returns <code>"ask"</code>, the permission prompt displayed to the user includes a label identifying where the hook came from: <code>[settings]</code> for a hook from any settings file or from agent frontmatter, <code>[plugin:&lt;name&gt;]</code> for a plugin's hook, or <code>[skill]</code> for a hook from skill frontmatter. This helps users understand which configuration source is requesting confirmation.</p>
-<p>A hook's <code>"ask"</code> also forces a permission prompt in <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>: the classifier can still deny the tool call, but it can't approve the call silently. Before v2.1.211, the classifier could approve a Bash command running outside the <a href="/docs/en/sandboxing">sandbox</a> without showing the prompt the hook requested; the classifier still applied its own safety rules to that command, and a hook <code>"deny"</code> was always honored.</p>
+<p>A hook's <code>"ask"</code> also forces a permission prompt in <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>: the classifier can still deny the tool call, but it can't approve the call silently.</p>
 <p>```json theme={null}
 {
   "hookSpecificOutput": {
@@ -13758,7 +13750,7 @@ In addition to the [common input fields](#common-input-fields), PreModelSwitch h
 | `source` | string | Where the request came from: `"command"` for `/model &lt;name&gt;`, the Model setting in `/config`, or turning on fast mode; `"picker"` for a model picker; `"sdk"` for a `set_model` request, or a model change in an `apply_flag_settings` request, from an Agent SDK host or Remote Control |
 | `context_tokens` | number | Tokens the next request re-sends as its prompt: the input, cache read, cache creation, and output tokens of the last response in the main conversation, combined. `0` before the first response |
 | `prompt_cache_warm` | boolean | Whether the current model's prompt cache is likely still warm, meaning the switch forfeits it |
-| `cache_ttl` | string | [Prompt cache lifetime](/docs/en/prompt-caching#cache-lifetime) Claude Code requests for this session: `"5m"` or `"1h"` |
+| `cache_ttl` | string | [Prompt cache lifetime](/docs/en/prompt-caching#cache-lifetime) of the main conversation at the time of this switch: `"5m"` or `"1h"` |
 | `estimated_cache_write_usd` | number | Estimated cost in US dollars of writing `context_tokens` to the prompt cache on `to_model` at the `cache_ttl` rate, excluding the next response. The server may not need to re-cache the whole context, so treat it as an estimate |
 | `pricing` | string | How Claude Code priced `estimated_cache_write_usd`: `"configured"` at your organization's own rates when it has configured them, `"catalog"` at list price, or `"default"` when `to_model` has no known price and Claude Code assumed a default rate |
 
@@ -13820,7 +13812,7 @@ Claude Code shows the user any `systemMessage` your hook returns regardless of t
 
 A PreModelSwitch hook that doesn't respond before its timeout blocks the switch. The default timeout for this event is 30 seconds.
 
-For what an exit code other than 0 or 2 does, see [Other exit codes](#other-exit-codes).
+An exit code other than 0 or 2 without valid JSON output is a [non-blocking error](#other-exit-codes), so the switch goes ahead, except for hooks [whose failure blocks it](#block-the-action-when-a-hook-fails).
 
 ### PostModelSwitch
 
@@ -14359,7 +14351,7 @@ This `Stop` hook asks the LLM to evaluate whether all tasks are complete before 
 What happens on `ok: false` depends on the event:
 
 * `Stop` and `SubagentStop`: the reason is fed back to Claude as its next instruction and the turn continues, unless the response also sets `impossible: true`, in which case Claude Code allows the stop and the turn ends
-* `PreToolUse`: the tool call is denied; by default the turn ends and the deny reason appears in the chat as a warning line. Set `continueOnBlock: true` to instead return the reason to Claude as the tool error so it can adjust and continue, equivalent to a command hook's `permissionDecision: "deny"`. Before v2.1.210, the deny reason was returned to Claude as the tool error and the turn continued
+* `PreToolUse`: the tool call is denied; by default the turn ends and the deny reason appears in the chat as a warning line. Set `continueOnBlock: true` to instead return the reason to Claude as the tool error so it can adjust and continue, equivalent to a command hook's `permissionDecision: "deny"`
 * `PostToolUse`: by default the turn ends and the reason appears in the chat as a warning line. Set `continueOnBlock: true` to feed the reason back to Claude and continue the turn instead
 * `PostToolBatch`, `UserPromptSubmit`, and `UserPromptExpansion`: the turn ends and the reason appears as a warning line. These events end the turn on `decision: "block"` regardless of `continue`
 * `PostToolUseFailure` and `TaskCreated`: the reason is returned to Claude as a tool error and the turn continues, regardless of `continueOnBlock`

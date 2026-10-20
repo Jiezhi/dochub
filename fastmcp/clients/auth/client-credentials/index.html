@@ -11176,6 +11176,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../servers/providers/experimental-skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Experimental Skills Extension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../servers/providers/filesystem/" class="md-nav__link">
         
   
@@ -19801,12 +19829,15 @@ Machine-to-machine authentication is only relevant for HTTP-based transports.
     <span class="n">client_id</span><span class="o">=</span><span class="s2">"my-client-id"</span><span class="p">,</span>
     <span class="n">client_secret</span><span class="o">=</span><span class="s2">"my-client-secret"</span><span class="p">,</span>
     <span class="n">scopes</span><span class="o">=</span><span class="p">[</span><span class="s2">"read"</span><span class="p">,</span> <span class="s2">"write"</span><span class="p">],</span>
+    <span class="n">issuer</span><span class="o">=</span><span class="s2">"https://auth.example.com"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://example.com/mcp"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
 </code></pre></div>
-<p>The provider discovers the authorization server, exchanges the credentials for an access token, and caches the token in memory for the life of the client. When the token expires it is re-acquired automatically on the next request. Because re-acquiring a token is a single non-interactive request, tokens are held in memory by default with no warning — unlike the interactive <code>OAuth</code> flow, losing the cache on restart costs nothing.</p>
+<p>The provider discovers the authorization server, exchanges the credentials for an access token, and caches the token in memory for the life of the client. When the token expires it is re-acquired automatically on the next request. Because re-acquiring a token is a single non-interactive request, tokens are held in memory by default with no warning — unlike the interactive <code>OAuth</code> flow, losing the cache on restart costs nothing. Cached tokens are isolated by client ID, requested scopes, and configured issuer, so changing <code>issuer</code> acquires a new token.</p>
+<p>Always pass <code>issuer</code>, the issuer identifier of the authorization server that issued your credentials. Without it, the MCP server decides which authorization server receives them, so a malicious or compromised server can advertise its own authorization server and collect your client secret or signed assertion. With <code>issuer</code> set, the provider only sends credentials to an authorization server whose discovered metadata names that issuer, and otherwise stops with an <code>OAuthFlowError</code>.</p>
+<p>Omitting <code>issuer</code> remains supported for compatibility and emits an <code>MCPDeprecationWarning</code>; upgrading alone does not bind existing credentials. Set <code>issuer</code> when upgrading, and rotate credentials that may already have been sent to an untrusted server.</p>
 <h3 id="clientcredentialsoauthprovider-parameters"><code>ClientCredentialsOAuthProvider</code> Parameters</h3>
 <ul>
 <li><strong><code>mcp_url</code></strong> (<code>str</code>, optional): Full URL to the MCP endpoint. Omit it when passing the provider to <code>Client(auth=...)</code> — the transport supplies the URL automatically.</li>
@@ -19814,6 +19845,7 @@ Machine-to-machine authentication is only relevant for HTTP-based transports.
 <li><strong><code>client_secret</code></strong> (<code>str</code>, required): The OAuth client secret.</li>
 <li><strong><code>scopes</code></strong> (<code>str | list[str]</code>, optional): Scopes to request, as a space-separated string or a list.</li>
 <li><strong><code>token_endpoint_auth_method</code></strong> (<code>"client_secret_basic" | "client_secret_post"</code>, optional): How the credentials are presented to the token endpoint. Defaults to <code>"client_secret_basic"</code> (an HTTP Basic <code>Authorization</code> header); use <code>"client_secret_post"</code> to send them in the request body instead.</li>
+<li><strong><code>issuer</code></strong> (<code>str</code>, optional): <VersionBadge version="4.1.2" /> The issuer identifier of the authorization server that issued these credentials. Credentials are only sent to an authorization server whose discovered metadata names this issuer. Always set it.</li>
 <li><strong><code>token_storage</code></strong> (<code>AsyncKeyValue</code>, optional): A key-value store for the acquired token. Defaults to in-memory storage.</li>
 </ul>
 <h2 id="private-key-jwt">Private Key JWT</h2>
@@ -19838,6 +19870,7 @@ Machine-to-machine authentication is only relevant for HTTP-based transports.
 <span class="n">auth</span> <span class="o">=</span> <span class="n">PrivateKeyJWTOAuthProvider</span><span class="p">(</span>
     <span class="n">client_id</span><span class="o">=</span><span class="s2">"my-client-id"</span><span class="p">,</span>
     <span class="n">assertion_provider</span><span class="o">=</span><span class="n">jwt_params</span><span class="o">.</span><span class="n">create_assertion_provider</span><span class="p">(),</span>
+    <span class="n">issuer</span><span class="o">=</span><span class="s2">"https://auth.example.com"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://example.com/mcp"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">auth</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
@@ -19850,6 +19883,7 @@ Machine-to-machine authentication is only relevant for HTTP-based transports.
 <li><strong><code>client_id</code></strong> (<code>str</code>, required): The OAuth client ID.</li>
 <li><strong><code>assertion_provider</code></strong> (<code>Callable[[str], Awaitable[str]]</code>, required): Async callback that receives the authorization server's issuer identifier and returns a signed JWT assertion.</li>
 <li><strong><code>scopes</code></strong> (<code>str | list[str]</code>, optional): Scopes to request, as a space-separated string or a list.</li>
+<li><strong><code>issuer</code></strong> (<code>str</code>, optional): <VersionBadge version="4.1.2" /> The issuer identifier of the authorization server that issued these credentials. Credentials are only sent to an authorization server whose discovered metadata names this issuer. Always set it.</li>
 <li><strong><code>token_storage</code></strong> (<code>AsyncKeyValue</code>, optional): A key-value store for the acquired token. Defaults to in-memory storage.</li>
 </ul>
 

@@ -8538,7 +8538,7 @@ Example managed settings configuration:
 </tr>
 <tr>
 <td><code>CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH</code></td>
-<td>Content limit: the maximum length of content-bearing attributes such as model responses, tool content, system prompts, and raw API bodies, truncation marker included, in UTF-16 code units (default: 61440, i.e. 60 KB). The default is sized for backends that cap attribute values at 64 KB; raise it only if your backend accepts larger values, or lower it to cut telemetry volume. When an OpenTelemetry SDK attribute limit, <code>OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT</code> or one of its logrecord and span variants, is set lower, Claude Code truncates at that smaller value so the <code>[TRUNCATED ...]</code> marker stays within the SDK limit. Requires Claude Code v2.1.214 or later</td>
+<td>Content limit: the maximum length of content-bearing attributes such as model responses, tool content, system prompts, and raw API bodies, truncation marker included, in UTF-16 code units (default: 61440, i.e. 60 KB). The default is sized for backends that cap attribute values at 64 KB; raise it only if your backend accepts larger values, or lower it to cut telemetry volume. When an OpenTelemetry SDK attribute limit, <code>OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT</code> or one of its logrecord and span variants, is set lower, Claude Code truncates at that smaller value so the <code>[TRUNCATED ...]</code> marker stays within the SDK limit</td>
 <td><code>262144</code></td>
 </tr>
 <tr>
@@ -8553,7 +8553,7 @@ Example managed settings configuration:
 </tr>
 </tbody>
 </table>
-<p>For the <code>http/protobuf</code> and <code>http/json</code> protocols, Claude Code sends each export request with a <code>Content-Length</code> header. Before v2.1.212, Claude Code versions from v2.1.191 onward sent these requests with chunked transfer encoding; Azure Monitor and other endpoints that require a declared length rejected them with <code>411 Length Required</code> or <code>400</code> errors.</p>
+<p>For the <code>http/protobuf</code> and <code>http/json</code> protocols, Claude Code sends each export request with a <code>Content-Length</code> header.</p>
 <h3 id="mtls-authentication">mTLS authentication</h3>
 <p>How you configure client certificates for the OTLP exporter depends on the OTLP protocol in use for that signal, set via <code>OTEL_EXPORTER_OTLP_PROTOCOL</code> or the per-signal override. The same configuration applies to metrics, logs, and traces.</p>
 <table>
@@ -8679,7 +8679,7 @@ Example managed settings configuration:
 <p>By default, the <code>traceparent</code> header on model and HTTP MCP requests is sent only when <code>ANTHROPIC_BASE_URL</code> is unset or points at the Anthropic API, since some proxies reject unrecognized headers. The subprocess <code>TRACEPARENT</code> variable is controlled by the same switch for consistency. If you run Claude Code through a custom <code>ANTHROPIC_BASE_URL</code> proxy and want trace context propagated, set <code>CLAUDE_CODE_PROPAGATE_TRACEPARENT=1</code>.</p>
 <p>In Agent SDK and non-interactive sessions started with <code>-p</code>, Claude Code also reads <code>TRACEPARENT</code> and <code>TRACESTATE</code> from its own environment when starting each interaction span. This lets an embedding process pass its active W3C trace context into the subprocess so Claude Code's spans appear as children of the caller's distributed trace. Interactive sessions ignore inbound <code>TRACEPARENT</code> to avoid accidentally inheriting ambient values from CI or container environments.</p>
 <p>The inbound trace context also applies to <a href="#events">events</a>. In Agent SDK and <code>-p</code> sessions with <code>TRACEPARENT</code> set, each OTLP event log record carries <code>trace_id</code> and <code>span_id</code> values that join it to your application's trace, even when the traces exporter isn't configured, so your logging backend can correlate events with the rest of the trace.</p>
-<p>A record emitted while an interaction is active carries the interaction span's IDs, even when Claude Code emits it outside the span's async context, such as in a permission prompt callback or for a record buffered during startup and exported later. A record emitted with no active interaction span carries the inbound <code>TRACEPARENT</code> IDs directly. Before v2.1.214, records emitted outside the span's async context carried the inbound <code>TRACEPARENT</code> IDs instead of the span's IDs. Before v2.1.212, event records emitted outside an active span didn't carry <code>trace_id</code> or <code>span_id</code>.</p>
+<p>A record emitted while an interaction is active carries the interaction span's IDs, even when Claude Code emits it outside the span's async context, such as in a permission prompt callback or for a record buffered during startup and exported later. A record emitted with no active interaction span carries the inbound <code>TRACEPARENT</code> IDs directly.</p>
 <h4 id="span-hierarchy">Span hierarchy</h4>
 <p>Each user prompt starts a <code>claude_code.interaction</code> root span. API calls, tool calls, and hook executions are recorded as its children. Tool spans have two child spans of their own: one for the time spent waiting on a permission decision and one for the execution itself. When the Agent tool, or legacy Task tool, spawns a subagent, the subagent's API and tool spans nest under the parent's <code>claude_code.tool</code> span.</p>
 <p>```text theme={null}
@@ -8796,8 +8796,10 @@ The parent span's `tool_name` attribute tells you which tool an event came from.
 | Attribute | Description | Gated by |
 | - | - | - |
 | `duration_ms` | Time spent waiting for the permission decision | |
-| `decision` | `accept` or `reject` | |
-| `source` | Decision source, matching the [Tool decision event](#tool-decision-event) | |
+| `decision` | `accept`, `reject`, or `cancelled`, where `cancelled` means Claude Code stopped waiting for a permission decision on the tool call and didn't run it | |
+| `source` | For an `accept` or `reject`, where the decision came from, such as `config`, `hook`, or `user_temporary`, with the meanings given under the [Tool decision event](#tool-decision-event). For a `cancelled`, what ended the wait before any decision was made, such as `user_abort` | |
+
+A `cancelled` decision with `source` `user_abort` means a message needing immediate delivery interrupted the turn while the permission prompt or [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode) check was pending. For example, during an auto mode check, the user had a message queued and [sent it immediately](/docs/en/interactive-mode#when-claude-code-sends-what-you-queued).
 
 **`claude_code.tool.execution`**
 
@@ -9289,7 +9291,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 </tr>
 <tr>
 <td><code>message.uuid</code></td>
-<td>UUID of the message as persisted in the session transcript, the <code>~/.claude/projects/*/*.jsonl</code> files. Present on <code>assistant_response</code>, on <code>api_response_body</code>, and on <code>user_prompt</code> except for command dispatches, which can produce zero or many messages. On <code>assistant_response</code> and <code>api_response_body</code>, this is the response's final transcript entry, which the next turn's <code>parentUuid</code> chains from. Requires Claude Code v2.1.214 or later, or v2.1.274 or later on <code>api_response_body</code></td>
+<td>UUID of the message as persisted in the session transcript, the <code>~/.claude/projects/*/*.jsonl</code> files. Present on <code>assistant_response</code>, on <code>api_response_body</code>, and on <code>user_prompt</code> except for command dispatches, which can produce zero or many messages. On <code>assistant_response</code> and <code>api_response_body</code>, this is the response's final transcript entry, which the next turn's <code>parentUuid</code> chains from. Requires Claude Code v2.1.274 or later on <code>api_response_body</code></td>
 </tr>
 <tr>
 <td><code>request_id</code></td>
@@ -9297,7 +9299,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 </tr>
 <tr>
 <td><code>client_request_id</code></td>
-<td>Client-generated UUID sent as the <code>x-client-request-id</code> request header. Present on <code>api_request</code> and <code>api_error</code> on first-party API connections; absent on third-party provider backends and when the request was retried through the non-streaming fallback. Pairs a request with its response and remains available for failures such as timeouts that never produced a server <code>request_id</code>. Matches the same attribute on the <code>llm_request</code> trace span. Requires Claude Code v2.1.214 or later</td>
+<td>Client-generated UUID sent as the <code>x-client-request-id</code> request header. Present on <code>api_request</code> and <code>api_error</code> on first-party API connections; absent on third-party provider backends and when the request was retried through the non-streaming fallback. Pairs a request with its response and remains available for failures such as timeouts that never produced a server <code>request_id</code>. Matches the same attribute on the <code>llm_request</code> trace span</td>
 </tr>
 </tbody>
 </table>
@@ -9321,7 +9323,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>prompt_length</code>: Length of the prompt</li>
 <li><code>prompt</code>: Prompt content. Redacted by default. Set <code>OTEL_LOG_USER_PROMPTS=1</code> to include it</li>
 <li><code>prompt_text</code>: Same value as <code>prompt</code>, redacted under the same gate. A backend that stores dotted attribute names as nested objects reads <code>prompt.id</code> as <code>id</code> inside an object named <code>prompt</code> and can lose the prompt string. Read <code>prompt_text</code> there instead. Requires Claude Code v2.1.287 or later</li>
-<li><code>message.uuid</code>: UUID of the resulting user message, matching the persisted transcript entry. Absent on command dispatches, which can produce zero or many messages. Requires Claude Code v2.1.214 or later</li>
+<li><code>message.uuid</code>: UUID of the resulting user message, matching the persisted transcript entry. Absent on command dispatches, which can produce zero or many messages.</li>
 <li><code>command_name</code>: Command name when the prompt invokes one. Built-in and bundled command names such as <code>compact</code> or <code>debug</code> are emitted as-is; aliases such as <code>reset</code> emit as typed rather than the canonical name. Custom, plugin, and MCP command names collapse to <code>custom</code> or <code>mcp</code> unless <code>OTEL_LOG_TOOL_DETAILS=1</code> is set</li>
 <li><code>command_source</code>: Origin of the command when present: <code>builtin</code>, <code>custom</code>, or <code>mcp</code>. Plugin-provided commands report as <code>custom</code></li>
 </ul>
@@ -9338,7 +9340,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>response</code>: Response text, truncated at the content limit (60 KB by default). Redacted to <code>&lt;REDACTED&gt;</code> by default. Set <code>OTEL_LOG_ASSISTANT_RESPONSES=1</code> to include it. When <code>OTEL_LOG_ASSISTANT_RESPONSES</code> is unset, <code>OTEL_LOG_USER_PROMPTS</code> controls it instead, so set <code>OTEL_LOG_ASSISTANT_RESPONSES=0</code> to keep responses redacted while prompt logging is on</li>
 <li><code>model</code>: Model identifier (for example, "claude-sonnet-5")</li>
 <li><code>request_id</code>: API request ID, described under <a href="#event-correlation-attributes">Event correlation attributes</a></li>
-<li><code>message.uuid</code>: UUID of the response's final transcript entry. An API response is persisted as one transcript entry per content block; this is the last one, which the next turn's <code>parentUuid</code> chains from. Requires Claude Code v2.1.214 or later</li>
+<li><code>message.uuid</code>: UUID of the response's final transcript entry. An API response is persisted as one transcript entry per content block; this is the last one, which the next turn's <code>parentUuid</code> chains from.</li>
 <li><code>query_source</code>: Subsystem that issued the request, such as <code>"repl_main_thread"</code>, <code>"compact"</code>, or a subagent name</li>
 </ul>
 <h4 id="tool-result-event">Tool result event</h4>
@@ -9362,7 +9364,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>tool_result_size_bytes</code>: Size of the tool result in bytes</li>
 <li><code>mcp_server_scope</code>: MCP server scope identifier (for MCP tools)</li>
 <li><code>vcs.ref.head.revision</code>, <code>vcs.ref.head.name</code>, <code>vcs.ref.head.type</code> (when <code>OTEL_LOG_TOOL_DETAILS=1</code>): the commit identity of a successful <code>git commit</code> run by the Bash or PowerShell tool. <code>vcs.ref.head.revision</code> is the commit SHA, <code>vcs.ref.head.name</code> is the branch it was committed on, and <code>vcs.ref.head.type</code> is <code>branch</code>. The name and type are omitted when the commit was made on a detached HEAD. Requires Claude Code v2.1.269 or later</li>
-<li><code>tool_parameters</code> (when <code>OTEL_LOG_TOOL_DETAILS=1</code>): JSON string containing tool-specific parameters. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, the <code>mcp_server_name</code>/<code>mcp_tool_name</code> pair is included even with the flag off, the same host-authored exception as the <a href="#tool-decision-event">Tool decision event</a>, requiring Claude Code v2.1.214 or later. The parameters vary by tool:</li>
+<li><code>tool_parameters</code> (when <code>OTEL_LOG_TOOL_DETAILS=1</code>): JSON string containing tool-specific parameters. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, the <code>mcp_server_name</code>/<code>mcp_tool_name</code> pair is included even with the flag off, the same host-authored exception as the <a href="#tool-decision-event">Tool decision event</a>. The parameters vary by tool:</li>
 <li>For Bash tool: includes <code>bash_command</code>, <code>full_command</code>, <code>timeout</code>, <code>description</code>, and <code>dangerouslyDisableSandbox</code>, plus <code>git_commit_id</code> and <code>git_branch</code> when a <code>git commit</code> command succeeds. <code>git_commit_id</code> is the full commit SHA when the commit is the HEAD of the session's working directory, and git's abbreviated SHA otherwise. <code>git_branch</code> is the branch it was committed on, omitted on a detached HEAD</li>
 <li>For the desktop app's workspace Bash tool, which also reports <code>tool_name</code> as <code>Bash</code>: includes only <code>bash_command</code>, <code>full_command</code>, and <code>timeout</code></li>
 <li>For MCP tools: includes <code>mcp_server_name</code>, <code>mcp_tool_name</code></li>
@@ -9388,7 +9390,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>cache_read_tokens</code>: Number of tokens read from cache</li>
 <li><code>cache_creation_tokens</code>: Number of tokens used for cache creation</li>
 <li><code>request_id</code>: API request ID, such as <code>"req_011..."</code>, described under <a href="#event-correlation-attributes">Event correlation attributes</a>.</li>
-<li><code>client_request_id</code>: Client-generated UUID sent as the <code>x-client-request-id</code> request header; see the <a href="#event-correlation-attributes">event correlation attributes</a> table for when it's present. Requires Claude Code v2.1.214 or later</li>
+<li><code>client_request_id</code>: Client-generated UUID sent as the <code>x-client-request-id</code> request header; see the <a href="#event-correlation-attributes">event correlation attributes</a> table for when it's present</li>
 <li><code>speed</code>: <code>"fast"</code> or <code>"normal"</code>, indicating whether fast mode was active</li>
 <li><code>query_source</code>: Subsystem that issued the request, such as <code>"repl_main_thread"</code>, <code>"compact"</code>, or a subagent name</li>
 <li><code>effort</code>: <a href="/docs/en/model-config#adjust-effort-level">Effort level</a> applied to the request: <code>"low"</code>, <code>"medium"</code>, <code>"high"</code>, <code>"xhigh"</code>, or <code>"max"</code>. Absent when Claude Code sends no effort level, for example on a model that doesn't support effort.</li>
@@ -9409,7 +9411,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>duration_ms</code>: Request duration in milliseconds</li>
 <li><code>attempt</code>: Number of attempts made, including the initial request. <a href="#detect-retry-exhaustion">Detect retry exhaustion</a> says when the count starts again</li>
 <li><code>request_id</code>: API request ID, such as <code>"req_011..."</code>, described under <a href="#event-correlation-attributes">Event correlation attributes</a>.</li>
-<li><code>client_request_id</code>: Client-generated UUID sent as the <code>x-client-request-id</code> request header. Available even when a failure such as a timeout or connection error never produced a server <code>request_id</code>; see the <a href="#event-correlation-attributes">event correlation attributes</a> table for when it's present. Requires Claude Code v2.1.214 or later</li>
+<li><code>client_request_id</code>: Client-generated UUID sent as the <code>x-client-request-id</code> request header. Available even when a failure such as a timeout or connection error never produced a server <code>request_id</code>; see the <a href="#event-correlation-attributes">event correlation attributes</a> table for when it's present.</li>
 <li><code>speed</code>: <code>"fast"</code> or <code>"normal"</code>, indicating whether fast mode was active</li>
 <li><code>query_source</code>: Subsystem that issued the request, such as <code>"repl_main_thread"</code>, <code>"compact"</code>, or a subagent name</li>
 <li><code>effort</code>: <a href="/docs/en/model-config#adjust-effort-level">Effort level</a> applied to the request. Absent when Claude Code sends no effort level, for example on a model that doesn't support effort.</li>
@@ -9486,19 +9488,52 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>tool_name</code>: Name of the tool (for example, "Read", "Edit", "Write", "NotebookEdit")</li>
 <li><code>tool_use_id</code>: Unique identifier for this tool invocation. Matches the <code>tool_use_id</code> passed to hooks, allowing correlation between OTel events and hook-captured data.</li>
 <li><code>decision</code>: Either <code>"accept"</code> or <code>"reject"</code></li>
-<li><code>tool_source</code>: Always present. The tool's provenance, as a closed set of CLI-authored values. Requires Claude Code v2.1.214 or later</li>
+<li><code>tool_source</code>: Always present. The tool's provenance, as a closed set of CLI-authored values:</li>
 <li><code>"builtin"</code>: the CLI's own tools</li>
 <li><code>"mcp"</code>: MCP servers generally</li>
 <li><code>"sdk_host_builtin_mcp"</code>: an in-process server built into Claude Desktop itself, in a session Claude Desktop owns. Claude Desktop owns a session it started from one of its own entrypoints, <code>claude-desktop</code>, <code>claude-desktop-3p</code>, or <code>local-agent</code>, when that session isn't a nested child; nested sessions, including sessions Claude Code itself spawns, report these servers as <code>"mcp"</code></li>
 <li><code>source</code>: Where the decision came from:</li>
-<li><code>"config"</code>: Decided automatically without prompting, based on project settings, allow or deny rules in the user's personal settings, enterprise managed policy, <code>--allowedTools</code> or <code>--disallowedTools</code> flags, the active permission mode, a session-scoped grant from an earlier prompt in the same interactive CLI session, or because the tool is inherently safe. The event doesn't indicate which of these sources matched. Claude Code also reports <code>"config"</code> when the permission prompt request itself fails, for example when the Agent SDK's <a href="/docs/en/agent-sdk/typescript#canusetool"><code>canUseTool</code></a> callback or the <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a> tool returns an invalid result, or when the input stream closes while the request is pending. Before v2.1.216, Claude Code reported these failures as <code>"user_reject"</code>.</li>
-<li><code>"hook"</code>: A <code>PreToolUse</code> or <code>PermissionRequest</code> hook returned the decision.</li>
-<li><code>"user_permanent"</code>: Emitted when the user chose "Yes, and don't ask again for ..." at a permission prompt, which saves an allow rule to their personal settings. In the interactive CLI this is emitted only for that choice itself; later calls that match the saved rule emit <code>"config"</code> instead. In Agent SDK or non-interactive <code>-p</code> sessions, both the initial choice and later rule matches emit <code>"user_permanent"</code>. Treated as an accept.</li>
-<li><code>"user_temporary"</code>: Emitted when the user chose "Yes" at a permission prompt for a one-time approval, or chose an option that grants access for the rest of the session on a file edit or read prompt. In the interactive CLI this is emitted only for the choice itself; later calls allowed by that session-scoped grant emit <code>"config"</code> instead. In Agent SDK or non-interactive <code>-p</code> sessions, both the choice and later matches emit <code>"user_temporary"</code>. Treated as an accept.</li>
-<li><code>"user_abort"</code>: Emitted when the user dismissed the permission prompt without answering. In Agent SDK and non-interactive <code>-p</code> sessions, this includes interrupting the turn while a <code>canUseTool</code> or <code>--permission-prompt-tool</code> permission request is pending; before v2.1.216, Claude Code reported that interrupt as <code>"user_reject"</code>. Treated as a reject.</li>
-<li><code>"user_reject"</code>: Emitted when the user chose "No" when prompted. In the interactive CLI this is emitted only for that choice itself; calls that match a deny rule in the user's personal settings emit <code>"config"</code> instead. In Agent SDK or non-interactive <code>-p</code> sessions, calls that match a deny rule in personal settings emit <code>"user_reject"</code>. Treated as a reject.</li>
+<li>
+<p><code>"config"</code>: Decided automatically without prompting, by one of these sources:</p>
+<ul>
+<li>Project settings</li>
+<li>Allow or deny rules in the user's personal settings</li>
+<li>Enterprise managed policy</li>
+<li><code>--allowedTools</code> or <code>--disallowedTools</code> flags</li>
+<li>The active permission mode</li>
+<li>The auto mode classifier, whose verdict the same event records in <code>classifier_verdict</code></li>
+<li>A grant for the rest of the session, given at an earlier permission prompt in the same interactive CLI session</li>
+<li>The tool being inherently safe</li>
+</ul>
+<p>The <code>source</code> value doesn't indicate which of these sources matched.</p>
+<p>Claude Code also reports <code>"config"</code> when the permission prompt request itself fails. For example, that request fails when the Agent SDK's <a href="/docs/en/agent-sdk/typescript#canusetool"><code>canUseTool</code></a> callback or the <a href="/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a> tool returns an invalid result, or when the input stream closes while the request is pending. Before v2.1.216, Claude Code reported these failures as <code>"user_reject"</code>.
+  * <code>"hook"</code>: A <code>PreToolUse</code> or <code>PermissionRequest</code> hook returned the decision.
+  * <code>"user_permanent"</code>: Emitted when the user chose "Yes, and don't ask again for ..." at a permission prompt, which saves an allow rule to their personal settings. In the interactive CLI this is emitted only for that choice itself; later calls that match the saved rule emit <code>"config"</code> instead. In Agent SDK or non-interactive <code>-p</code> sessions, both the initial choice and later rule matches emit <code>"user_permanent"</code>. Treated as an accept.
+  * <code>"user_temporary"</code>: Emitted when the user chose "Yes" at a permission prompt for a one-time approval, or chose an option that grants access for the rest of the session on a file edit or read prompt. In the interactive CLI this is emitted only for the choice itself; later calls allowed by that session-scoped grant emit <code>"config"</code> instead. In Agent SDK or non-interactive <code>-p</code> sessions, both the choice and later matches emit <code>"user_temporary"</code>. Treated as an accept.
+  * <code>"user_abort"</code>: Emitted when the user dismissed the permission prompt without answering. In Agent SDK and non-interactive <code>-p</code> sessions, this includes interrupting the turn while a <code>canUseTool</code> or <code>--permission-prompt-tool</code> permission request is pending; before v2.1.216, Claude Code reported that interrupt as <code>"user_reject"</code>. Treated as a reject.
+  * <code>"user_reject"</code>: Emitted when the user chose "No" when prompted. In the interactive CLI this is emitted only for that choice itself; calls that match a deny rule in the user's personal settings emit <code>"config"</code> instead. In Agent SDK or non-interactive <code>-p</code> sessions, calls that match a deny rule in personal settings emit <code>"user_reject"</code>. Treated as a reject.
+* <code>classifier_verdict</code>: The auto mode <a href="/docs/en/permission-modes#how-the-classifier-evaluates-actions">classifier</a> verdict for the call, or why Claude Code denied the call when none came. Requires Claude Code v2.1.301 or later</p>
+</li>
+<li>
+<p><code>"allow"</code>: the classifier approved the call</p>
+</li>
+<li><code>"block"</code>: the classifier blocked the call. A classifier check that fails partway through can also end as <code>"block"</code>, so a partial classifier outage can appear as more blocks rather than as <code>"unavailable"</code></li>
+<li><code>"no_verdict"</code>: the check ran but gave <a href="/docs/en/errors#auto-mode-cannot-determine-the-safety-of-an-action">no usable verdict</a>, so Claude Code denied the call. The denial doesn't mean the classifier found the call unsafe</li>
+<li><code>"unavailable"</code>: the request to the classifier failed, for example on a rate limit, timeout, or connection error, so Claude Code denied the call. With <a href="/docs/en/permission-modes#server-side-classifier-review">server-side classifier review</a>, it also marks a call denied because <a href="/docs/en/errors#the-server-returned-no-safety-verdict">the server returned no safety verdict</a></li>
+</ul>
+<p>The attribute also appears on plan mode calls when <a href="/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode">the classifier reviews commands in plan mode</a>. The attribute is absent in these cases:</p>
+<ul>
+<li>An allow or deny <a href="/docs/en/permissions#manage-permissions">permission rule</a> decided the call</li>
+<li>Claude Code approved the call in auto mode without asking the classifier</li>
+<li>The user answered the prompt Claude Code showed after <a href="/docs/en/permission-modes#repeated-block-thresholds">repeated blocks</a></li>
+<li>In a <code>-p</code> run without <code>--permission-prompt-tool</code>, Claude Code denied the call after repeated blocks because there was nobody to answer a prompt. That event reports <code>decision</code> as <code>"reject"</code> and <code>source</code> as <code>"config"</code></li>
+<li><code>classifier_category</code> (when <code>OTEL_LOG_TOOL_DETAILS=1</code>): The name of the <a href="/docs/en/auto-mode-config#inspect-the-defaults-and-your-effective-config">built-in rule</a> the classifier named when it blocked the call, in lowercase with underscores, such as <code>"data_exfiltration"</code> for the Data Exfiltration rule. Requires Claude Code v2.1.301 or later. The attribute is present when all of these hold:</li>
+<li><code>classifier_verdict</code> is <code>"block"</code></li>
+<li>Claude Code sent the classifier request itself, rather than using <a href="/docs/en/permission-modes#server-side-classifier-review">server-side classifier review</a></li>
+<li>The classifier named exactly one rule, and that rule is a built-in one rather than one you wrote</li>
+<li><code>permission_mode</code>: <a href="/docs/en/permission-modes">Permission mode</a> active when this call's permission check began: <code>"default"</code>, <code>"plan"</code>, <code>"acceptEdits"</code>, <code>"bypassPermissions"</code>, <code>"dontAsk"</code>, or <code>"auto"</code>. Manual mode appears as <code>"default"</code>. A <a href="/docs/en/sub-agents#permission-modes">subagent</a> call reports the subagent's permission mode rather than the session's. Requires Claude Code v2.1.301 or later</li>
 <li><code>tool_parameters</code> (when <code>OTEL_LOG_TOOL_DETAILS=1</code>): JSON string containing tool-specific parameters. Same shape as the <a href="#tool-result-event">Tool result event</a>, minus post-execution fields such as <code>git_commit_id</code>. Values may differ from <code>tool_result</code> for an accepted call if the permission decision rewrites the tool input via <code>updatedInput</code>. Use this attribute to see which command was rejected when <code>decision</code> is <code>"reject"</code>.</li>
-<li>For <code>"sdk_host_builtin_mcp"</code> tools: <code>mcp_server_name</code> and <code>mcp_tool_name</code> are included even when <code>OTEL_LOG_TOOL_DETAILS</code> is off, because the host application defines these names; without them, a rejected call to one of these built-in servers would be unattributable on the default stream. For user-configured MCP servers, the event's <code>tool_name</code> is always the literal <code>"mcp_tool"</code>, and the server and tool names appear only in <code>tool_parameters</code> with the flag on; argument content requires the flag everywhere. Requires Claude Code v2.1.214 or later</li>
+<li>For <code>"sdk_host_builtin_mcp"</code> tools: <code>mcp_server_name</code> and <code>mcp_tool_name</code> are included even when <code>OTEL_LOG_TOOL_DETAILS</code> is off, because the host application defines these names; without them, a rejected call to one of these built-in servers would be unattributable on the default stream. For user-configured MCP servers, the event's <code>tool_name</code> is always the literal <code>"mcp_tool"</code>, and the server and tool names appear only in <code>tool_parameters</code> with the flag on; argument content requires the flag everywhere.</li>
 <li>For Bash tool: includes <code>bash_command</code>, <code>full_command</code>, <code>timeout</code>, <code>description</code>, <code>dangerouslyDisableSandbox</code>. The desktop app's workspace bash tool also reports <code>tool_name</code> as <code>Bash</code>, but includes only <code>bash_command</code>, <code>full_command</code>, and <code>timeout</code></li>
 <li>For MCP tools: includes <code>mcp_server_name</code>, <code>mcp_tool_name</code></li>
 <li>For Skill tool: includes <code>skill_name</code></li>
@@ -9506,6 +9541,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 </ul>
 <h4 id="permission-mode-changed-event">Permission mode changed event</h4>
 <p>Logged when the permission mode changes, for example from <code>Shift+Tab</code> cycling, exiting plan mode, or an auto mode gate check.</p>
+<p>To group tool calls by the permission mode each was checked in, use <code>permission_mode</code> on the <a href="#tool-decision-event">Tool decision event</a>.</p>
 <p><strong>Event Name</strong>: <code>claude_code.permission_mode_changed</code></p>
 <p><strong>Attributes</strong>:</p>
 <ul>
@@ -9515,7 +9551,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>event.sequence</code>: per-process counter for ordering events, described under <a href="#event-correlation-attributes">Event correlation attributes</a></li>
 <li><code>from_mode</code>: The previous permission mode, for example <code>"default"</code>, <code>"plan"</code>, <code>"acceptEdits"</code>, <code>"auto"</code>, or <code>"bypassPermissions"</code></li>
 <li><code>to_mode</code>: The new permission mode</li>
-<li><code>trigger</code>: What caused the change. One of <code>"shift_tab"</code>, <code>"exit_plan_mode"</code>, <code>"auto_gate_denied"</code>, or <code>"auto_opt_in"</code>. Absent for some changes, such as when the SDK sets the permission mode through <a href="/docs/en/agent-sdk/typescript#query-object"><code>setPermissionMode()</code></a></li>
+<li><code>trigger</code>: What caused the change, for example <code>"shift_tab"</code>, <code>"exit_plan_mode"</code>, or <code>"auto_gate_denied"</code>. Absent for some changes, such as when the SDK sets the permission mode through <a href="/docs/en/agent-sdk/typescript#query-object"><code>setPermissionMode()</code></a></li>
 </ul>
 <h4 id="auth-event">Auth event</h4>
 <p>Logged when <code>/login</code> or <code>/logout</code> completes.</p>
@@ -9755,8 +9791,8 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li><code>total_tool_uses</code>: Number of tool calls the subagent made across the whole run</li>
 <li><code>duration_ms</code>: Run time in milliseconds</li>
 <li><code>model</code>: The model the subagent was resolved to run</li>
-<li><code>final_model</code>: The model that produced the subagent's final response, which differs from <code>model</code> after a mid-run switch such as a fallback. Requires Claude Code v2.1.212 or later</li>
-<li><code>model_swapped</code>: Whether more than one model served the subagent's requests. Requires Claude Code v2.1.212 or later</li>
+<li><code>final_model</code>: The model that produced the subagent's final response, which differs from <code>model</code> after a mid-run switch such as a fallback</li>
+<li><code>model_swapped</code>: Whether more than one model served the subagent's requests</li>
 <li><code>plugin_id_hash</code>, <code>plugin.name</code>: Present for plugin-provided agents. Official-marketplace plugin names appear verbatim; other plugin names are replaced with <code>"third-party"</code> unless <code>OTEL_LOG_TOOL_DETAILS=1</code> is set</li>
 </ul>
 <h4 id="feedback-survey-event">Feedback survey event</h4>
@@ -9892,7 +9928,7 @@ Requires Claude Code v2.1.274 or later.</p>
 <p><Note>
   Cost metrics are approximations. For official billing data, refer to your API provider (Claude Console, Amazon Bedrock, or Google Cloud's Agent Platform).
 </Note></p>
-<p>Claude Code counts each streaming response toward the cost and token metrics exactly once, including when a gateway or proxy behind <code>ANTHROPIC_BASE_URL</code> streams usage progressively across multiple frames. Before v2.1.214, streams that carried usage in more than one frame inflated <code>claude_code.cost.usage</code> and <code>claude_code.token.usage</code> by roughly one extra full request per extra frame.</p>
+<p>Claude Code counts each streaming response toward the cost and token metrics exactly once, including when a gateway or proxy behind <code>ANTHROPIC_BASE_URL</code> streams usage progressively across multiple frames.</p>
 <h3 id="alerting-and-segmentation">Alerting and segmentation</h3>
 <p>Common alerts to consider:</p>
 <ul>
@@ -9904,7 +9940,7 @@ Requires Claude Code v2.1.274 or later.</p>
 <p>Per-model breakdowns of commits can only be approximated by joining against the token or cost metrics on <code>session.id</code>, since one session can span multiple models. Filter the token or cost side to rows where <code>query_source</code> is <code>"main"</code> so auxiliary and subagent requests don't attribute the session's commits to a model that didn't make them.</p>
 <h3 id="detect-retry-exhaustion">Detect retry exhaustion</h3>
 <p>Claude Code retries failed API requests internally and emits a single <code>claude_code.api_error</code> event only after it gives up, so the event itself is the terminal signal for that request. Intermediate retry attempts are not logged as separate events.</p>
-<p>The <code>attempt</code> attribute on the event records the number of attempts. <code>CLAUDE_CODE_MAX_RETRIES</code> defaults to 10 and is capped at 15. On v2.1.199 or later, you can set <code>CLAUDE_CODE_RETRY_WATCHDOG</code> to raise the default and remove the cap.</p>
+<p>The <code>attempt</code> attribute on the event records the number of attempts. <code>CLAUDE_CODE_MAX_RETRIES</code> defaults to 10 and is capped at 15; with <a href="/docs/en/env-vars"><code>CLAUDE_CODE_RETRY_WATCHDOG</code></a> set, the default is higher and there is no cap.</p>
 <p>When the request exhausts all retries on a transient error, <code>attempt</code> is at most one more than that effective limit: 11 by default.</p>
 <p>A lower value can still mean the retries ran out: <code>attempt</code> starts again from <code>1</code> each time Claude Code re-issues the request after a streaming failure.</p>
 <p>To distinguish a session that recovered from one that stalled, group events by <code>session.id</code> and check whether a later <code>api_request</code> event exists after the error.</p>
@@ -9954,8 +9990,8 @@ To capture MCP server activity with full call detail, enable the logs exporter a
 
 Without `OTEL_LOG_TOOL_DETAILS`, these events drop the identifying detail:
 
-* `tool_result`: keeps `mcp_server_scope` and a `tool_name` redacted to the literal `"mcp_tool"` for user-configured servers, omits argument content. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, it also keeps the `mcp_server_name`/`mcp_tool_name` pair inside `tool_parameters`, the same host-authored exception as `tool_decision`, requiring Claude Code v2.1.214 or later
-* `tool_decision`: keeps `tool_source` and a `tool_name` redacted to the literal `"mcp_tool"` for user-configured servers, omits argument content. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, it also keeps the `mcp_server_name`/`mcp_tool_name` pair inside `tool_parameters`; `tool_source` and the name pair both require Claude Code v2.1.214 or later
+* `tool_result`: keeps `mcp_server_scope` and a `tool_name` redacted to the literal `"mcp_tool"` for user-configured servers, omits argument content. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, it also keeps the `mcp_server_name`/`mcp_tool_name` pair inside `tool_parameters`, the same host-authored exception as `tool_decision`
+* `tool_decision`: keeps `tool_source` and a `tool_name` redacted to the literal `"mcp_tool"` for user-configured servers, omits argument content. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, it also keeps the `mcp_server_name`/`mcp_tool_name` pair inside `tool_parameters`
 * `mcp_server_connection`: omits `server_name` and the error message, but keeps `is_plugin`, `plugin_id_hash`, and `plugin.name`, with non-Anthropic plugin names redacted to the literal `"third-party"`, so plugin-provided servers remain distinguishable without detailed logging
 
 ### Map security questions to events
@@ -9964,8 +10000,10 @@ When building detection rules, look up the signal you want to monitor and query 
 
 | Signal | Event | Key attributes |
 | - | - | - |
-| Tool call allowed or denied, and by what | `tool_decision` | `decision`, `source`, `tool_name`, `tool_parameters` |
+| Tool call allowed or denied, and where the decision came from, such as a rule, a hook, or the user | [`tool_decision`](#tool-decision-event) | `decision`, `source`, `classifier_verdict`, `permission_mode`, `tool_name`; `tool_parameters` when you set `OTEL_LOG_TOOL_DETAILS=1` |
+| Auto mode classifier allowed or blocked a tool call, or Claude Code denied the call without a classifier verdict | [`tool_decision`](#tool-decision-event) where `classifier_verdict` is present. For a denial without a verdict, `classifier_verdict` is `"no_verdict"` or `"unavailable"` | `classifier_verdict`, `permission_mode`, `tool_name`; `classifier_category` when you set `OTEL_LOG_TOOL_DETAILS=1` |
 | Permission mode escalation | `permission_mode_changed` | `from_mode`, `to_mode`, `trigger` |
+| Which permission mode each tool call was checked in, including calls subagents make | [`tool_decision`](#tool-decision-event) | `permission_mode`, `session.id` |
 | Policy hook blocked an action | `hook_execution_complete` | `hook_event`, `num_blocking` |
 | Login, logout, and authentication failure | `auth` | `action`, `success`, `error_category` |
 | MCP server connect or failure | `mcp_server_connection` | `status`, `server_name`, `is_plugin`, `error_code` |
@@ -10098,7 +10136,7 @@ processors:
 <p>Under detailed beta tracing, spans also carry the new user messages, tool results, and system reminders sent with each request, system prompt text, and model output. <a href="#new-context-gates">Content attributes under detailed beta tracing</a> lists each attribute. The <code>claude_code.system_prompt</code> event carries the complete system prompt</p>
 </li>
 <li>Assistant response text is not collected by default. Only response length is recorded. To include response text, set <code>OTEL_LOG_ASSISTANT_RESPONSES=1</code>. Like all OpenTelemetry data from Claude Code, the response text is sent only to the OTel endpoint you configure, never to Anthropic. When this variable is unset, <code>OTEL_LOG_USER_PROMPTS</code> is used as a fallback, so set <code>OTEL_LOG_ASSISTANT_RESPONSES=0</code> if you want prompt content without response content in events. Under detailed beta tracing, the <code>claude_code.llm_request</code> span still carries model output in <a href="#new-context-gates"><code>response.model_output</code></a>, which follows <code>OTEL_LOG_USER_PROMPTS</code> rather than this variable</li>
-<li>Tool input arguments and parameters are not logged by default. To include them, set <code>OTEL_LOG_TOOL_DETAILS=1</code>. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, <code>tool_decision</code> and <code>tool_result</code> carry the <code>mcp_server_name</code>/<code>mcp_tool_name</code> pair, host-authored names rather than argument content, even with the flag off. The exception requires Claude Code v2.1.214 or later. This data is sent only to the OTEL endpoint you configure, never to Anthropic. Arguments may still contain sensitive values, so configure your telemetry backend to filter or redact these attributes as needed. When enabled:</li>
+<li>Tool input arguments and parameters are not logged by default. To include them, set <code>OTEL_LOG_TOOL_DETAILS=1</code>. For Claude Desktop's built-in servers, in sessions Claude Desktop owns, <code>tool_decision</code> and <code>tool_result</code> carry the <code>mcp_server_name</code>/<code>mcp_tool_name</code> pair, host-authored names rather than argument content, even with the flag off. This data is sent only to the OTEL endpoint you configure, never to Anthropic. Arguments may still contain sensitive values, so configure your telemetry backend to filter or redact these attributes as needed. When enabled:</li>
 <li><code>tool_result</code> and <code>tool_decision</code> events include a <code>tool_parameters</code> attribute with Bash commands, MCP server and tool names, and skill names. Fields such as <code>full_command</code> are emitted untruncated</li>
 <li><code>tool_result</code> events additionally include a <code>tool_input</code> attribute with file paths, URLs, search patterns, and other arguments. Individual values over 512 characters are truncated and the total is bounded to \~4 K characters</li>
 <li><code>user_prompt</code> events include the verbatim <code>command_name</code> for custom, plugin, and MCP commands</li>

@@ -2428,10 +2428,49 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pass-arguments-to-the-launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pass arguments to the launcher
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        !/bin/sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#your-organizations-setup-for-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Your organization's setup for "$profile".
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Your organization&#39;s setup for &#34;$profile&#34;.">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#relationship-to-claude_code_shell_prefix" class="md-nav__link">
@@ -6611,10 +6650,49 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pass-arguments-to-the-launcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pass arguments to the launcher
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#binsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        !/bin/sh
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#your-organizations-setup-for-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Your organization's setup for "$profile".
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Your organization&#39;s setup for &#34;$profile&#34;.">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#relationship-to-claude_code_shell_prefix" class="md-nav__link">
@@ -6757,25 +6835,40 @@ Project and local settings can't configure the launcher. A file committed to a r
 <p>When the launcher can't run, Claude Code refuses to start the process instead of starting it unwrapped. On Windows, <a href="#what-the-launcher-covers">the variable is ignored</a> and processes start unwrapped. Claude Code holds the script to these rules:</p>
 <ul>
 <li><strong>End with <code>exec "$@"</code>.</strong> A launcher that forks a child and exits leaves an orphaned Claude Code process the background service can't track. Agent view marks such a session failed with a message naming the launcher, and the service reaps what the launcher left behind.</li>
-<li><strong>Don't reorder, absorb, or prepend arguments.</strong> The first argument is the Claude Code binary and everything after it is its argv.</li>
+<li><strong>Don't reorder, absorb, or add to Claude Code's arguments.</strong> Remove the launcher's <a href="#pass-arguments-to-the-launcher">own arguments</a>, which come first, and pass the rest to <code>exec</code> as it arrived.</li>
 <li><strong>Pass every inherited environment variable through to <code>exec</code>.</strong> Adding variables, such as injected credentials, is fine; dropping inherited ones is not.</li>
 <li>The per-session authentication tokens, the model and provider selection, and <code>CLAUDE_CODE_PROCESS_WRAPPER</code> itself all travel on the inherited environment, so a launcher that rebuilds it from an allow list breaks the sessions it starts, and <code>/status</code> reports a launcher mismatch.</li>
 <li>If the launcher must enter a namespace or sandbox that resets the environment, re-export the inherited environment inside it verbatim.</li>
-<li><strong>Reach <code>exec</code> within about three seconds each time the launcher runs.</strong> A cold background dispatch runs the launcher twice in series before the first byte of output, so do slow work such as a single sign-on exchange lazily or from a cache.</li>
+<li><strong>Reach <code>exec</code> within about three seconds each time the launcher runs.</strong> A background session can run the launcher three times in series before its first output. Do slow work such as a single sign-on exchange lazily or from a cache, and give any step that waits on the network its own time limit.</li>
 <li><strong>Tolerate being invoked from inside itself.</strong> Claude Code applies the launcher to every nested self-spawn, so a launcher that acquires an exclusive resource must detect that it already holds it.</li>
-<li><strong>Don't write to the terminal before Claude Code starts.</strong> Anything printed before the <code>exec</code> is reported as the crash cause if the session dies before initializing.</li>
+<li><strong>Don't write to the terminal or standard output before Claude Code starts.</strong> Anything printed before the <code>exec</code> is reported as the crash cause if the session dies before initializing. Text on standard output also reaches a program that reads Claude Code's output, such as a script that parses <code>claude -p</code> results.</li>
 <li><strong>Don't depend on how arguments are spelled.</strong> A flag's value can arrive as its own argument, <code>--flag value</code>, or joined to the flag, <code>--flag=value</code>. Which form a flag uses can change between versions.</li>
 <li><strong>Run <code>exec</code> from the directory the launcher started in.</strong> Claude Code works in the directory it starts in, so a launcher that changes directory can start a session in the wrong project. If the launcher must enter a namespace or sandbox that resets the working directory, change back to the starting directory inside it, before the <code>exec</code>.</li>
+<li><strong>Don't read standard input.</strong> A command that reads it before the <code>exec</code>, such as one that asks for a password, can wait for input that doesn't come and leave the session stuck. It can also take input meant for Claude Code, and the session can then run without that input and report no error. Redirect such a command's input from <code>/dev/null</code>.</li>
+<li><strong>Call other programs by absolute path.</strong> The launcher can start with a <code>PATH</code> that lacks the directories your shell profile adds.</li>
 </ul>
 <h3 id="format-of-the-launcher-value">Format of the launcher value</h3>
 <p><code>CLAUDE_CODE_PROCESS_WRAPPER</code> and the <code>processWrapper</code> setting take the same format. For most launchers, the value is the script's absolute path, like <code>/opt/corp/launcher</code>.</p>
 <p>To pass your launcher arguments of its own, write them after the path. Claude Code parses the value as an argument list, not a shell command:</p>
 <ul>
-<li>Whitespace separates tokens, and double quotes group a token that contains spaces.</li>
+<li>Whitespace separates tokens, and double quotes group a token that contains spaces. A single quote is an ordinary character, so <code>'a b'</code> is two tokens.</li>
 <li>A value that starts with <code>[</code> is read as a JSON string array, such as <code>["/opt/corp/launcher", "--profile", "cc"]</code>.</li>
 <li>Shell syntax doesn't work: there is no variable expansion or globbing, and an unquoted operator such as <code>;</code>, <code>|</code>, <code>&amp;</code>, or <code>$(</code> is rejected as a configuration error rather than reinterpreted.</li>
 </ul>
 <p>When the value can't be used, Claude Code refuses to start the affected process and <a href="/docs/en/errors#claude_code_process_wrapper-launcher-errors">reports the reason</a>.</p>
+<p>In a settings file, write the array form inside a JSON string and escape its quotes: <code>"[\"/opt/corp/launcher\", \"--profile\", \"cc\"]"</code>.</p>
+<h3 id="pass-arguments-to-the-launcher">Pass arguments to the launcher</h3>
+<p>Write the launcher's own arguments after its path in <a href="#format-of-the-launcher-value">the value</a>, and remove them in the script before the <code>exec</code> call. They reach the script first, ahead of the Claude Code command. The following script, written for the value <code>/opt/corp/launcher --profile cc</code>, saves the profile name and then removes both arguments with <code>shift</code>:</p>
+<p>```bash theme={null}</p>
+<h1 id="binsh">!/bin/sh</h1>
+<p>if [ "$1" = "--profile" ]; then
+  profile="$2"
+  shift 2
+fi</p>
+<h1 id="your-organizations-setup-for-profile">Your organization's setup for "$profile".</h1>
+<p>exec "$@"
+```</p>
+<p>Use the <a href="#set-up-the-launcher">Verify step</a> to see the launch command Claude Code resolved from the value.</p>
 <h2 id="relationship-to-claude_code_shell_prefix">Relationship to <code>CLAUDE_CODE_SHELL_PREFIX</code></h2>
 <p><code>CLAUDE_CODE_PROCESS_WRAPPER</code> wraps Claude Code's own processes and passes the command through as separate argv tokens for the launcher to <code>exec</code>. <a href="/docs/en/env-vars"><code>CLAUDE_CODE_SHELL_PREFIX</code></a> wraps the shell commands Claude runs on your behalf, such as Bash tool calls, hooks, and the commands that start stdio MCP servers, and passes each one as a single shell-quoted string in <code>$1</code> for the wrapper to re-evaluate. A launcher written for one doesn't work as the other.</p>
 <h2 id="related-resources">Related resources</h2>

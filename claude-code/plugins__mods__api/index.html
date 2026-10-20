@@ -4376,6 +4376,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Run work in the background">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-refused-calls-return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What refused calls return
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#work-your-mod-started-before-the-interruption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Work your mod started before the interruption
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#send-and-receive-messages-between-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Send and receive messages between sessions
+      
+    </span>
+  </a>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6670,6 +6709,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Run work in the background">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-refused-calls-return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What refused calls return
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#work-your-mod-started-before-the-interruption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Work your mod started before the interruption
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#send-and-receive-messages-between-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Send and receive messages between sessions
+      
+    </span>
+  </a>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6934,21 +7012,148 @@ When a background job finds something that needs Claude's attention, it can star
 
 Timers stop when the module reloads. For long-running work inside a hook, [`next.signal`](/docs/en/plugins/mods/reference#the-hook-function) is an `AbortSignal` that aborts when the event your hook is handling is abandoned, for example when the user interrupts, so pass it to anything long-running.
 
-## Send and receive messages between sessions
+### Calls and background work after the user interrupts a turn
 
-A mod can send a plain-text message to another of your sessions, to one of this session's subagents, or to a teammate in its [agent team](/docs/en/agent-teams). It can also observe the messages that arrive and leave.
+The reason `the session was stopped and nobody has sent input since` in a result or error means the user stopped a running turn, such as with Esc or **Stop**. After that interruption, calls that start new work in the session are refused until the user's next input, such as a message at the prompt.
 
-To send one, call `$.session.send({ to, text })`, which makes the same delivery the SendMessage tool makes. Set `to` by who receives the message:
+Apart from `$.prompt.submit` and `$.command.run`, this handling of calls and background work after an interruption requires Claude Code v2.1.304 or later.
 
-* **Another of your sessions**: `{ sessionId }`
-* **A subagent or teammate**: `{ agentId }`, with an id from `$.agent.list()`
-* **The sender of a message you received**: the string address that message came from
+#### Retry a refused or dropped call
 
-The call resolves once the message is queued, with `{ isDelivered: true }`. When nothing was delivered, it resolves with `{ isDelivered: false, reason }`, and `reason` says why.
+Make a refused or dropped call again from a [`turn.complete`](/docs/en/plugins/mods/events#follow-a-turn) hook. Calls stay refused until the user's next input, and nothing queues or repeats them for you.
 
-This hook answers a `/ping` command, [registered as a command](#add-a-command), by asking the session whose id you type after it for a status:
+When a call's result or error contains one of these strings, keep its arguments for a later retry:
+
+* **`the session was stopped and nobody has sent input since`**: the call was refused
+* **`was removed from the queue before it ran`**: the prompt or command left the queue without running and was dropped, for example when the user stopped the turn
+
+In this example, call `submitPrompt` from your background job in place of [`$.prompt.submit`](#start-a-turn-from-a-background-job). When the result or the error carries one of those strings, `submitPrompt` keeps the text in `pendingText` for the `turn.complete` hook to submit again:
 
 ```javascript theme={null}
+// The text of the last refused or dropped prompt, or null
+let pendingText = null
+
+async function submitPrompt($, text) {
+  let reason
+  try {
+    const result = await $.prompt.submit({ text })
+    reason = result?.drop ?? ''
+  } catch (error) {
+    reason = String(error?.message ?? error)
+  }
+  if (reason.includes('the session was stopped and nobody has sent input since') ||
+      reason.includes('was removed from the queue before it ran')) {
+    pendingText = text
+  }
+  // Any other result or error isn't retried
+}
+
+on('turn.complete', async ($, e, next) =&gt; {
+  if (pendingText !== null) {
+    const text = pendingText
+    // Empty pendingText before retrying, so that a second run of this hook
+    // doesn't submit the same text.
+    pendingText = null
+    // Not awaited: the hook would stay open until the new turn starts
+    submitPrompt($, text)
+  }
+  return next(e)
+})
+</code></pre></div></p>
+<p>Before the user's next input, <code>turn.complete</code> can fire for the interrupted turn itself and for a subagent's turn, and calls made then are refused again. In that case <code>submitPrompt</code> keeps the text for a later <code>turn.complete</code>.</p>
+<p>For a call that rejects, such as <code>$.command.run</code>, catch the error and test its message the way <code>submitPrompt</code> tests <code>reason</code>.</p>
+<h4 id="what-refused-calls-return">What refused calls return</h4>
+<p>In the results, <code>&lt;reason&gt;</code> stands for <code>the session was stopped and nobody has sent input since</code>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Some refused calls</th>
+<th style="text-align: left;">Result until the user's next input</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>$.prompt.submit</code></td>
+<td style="text-align: left;">Resolves with <code>{ drop: '&lt;reason&gt;' }</code> and queues no prompt</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$.command.run</code></td>
+<td style="text-align: left;">Rejects with an error whose message ends with <code>&lt;reason&gt;</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/plugins/mods/reference#mods-api-methods"><code>$.agent.spawn</code></a></td>
+<td style="text-align: left;">Resolves with <code>{ deny: '&lt;reason&gt;' }</code> and starts no subagent</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$.session.send</code> to a subagent that finished</td>
+<td style="text-align: left;">Resolves with <code>{ isDelivered: false, reason: 'Agent "&lt;id&gt;" was not resumed: &lt;reason&gt;.' }</code>, where <code>&lt;id&gt;</code> is the subagent's id. A subagent that's still running receives the message.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$.session.send</code> to an <a href="/docs/en/agent-teams">agent team</a> teammate</td>
+<td style="text-align: left;">Resolves with <code>{ isDelivered: false, reason: 'Teammate "&lt;name&gt;" was not messaged: &lt;reason&gt;.' }</code>, where <code>&lt;name&gt;</code> is the teammate's name</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="/docs/en/plugins/mods/reference#mods-api-methods"><code>$.tool.call</code></a> of Bash with <code>run_in_background: true</code>, Monitor, or CronCreate</td>
+<td style="text-align: left;">Resolves with <code>{ deny: '&lt;tool&gt; was not run: it starts background work, a schedule or a goal, and &lt;reason&gt;' }</code>, where <code>&lt;tool&gt;</code> is the tool's name</td>
+</tr>
+</tbody>
+</table>
+<p>Along with these <code>$.session.send</code> and <code>$.tool.call</code> results, the user can see the <a href="/docs/en/plugins/mods/troubleshoot#stopped-type-a-message-to-continue"><code>Stopped:</code> toast</a>.</p>
+<h4 id="work-your-mod-started-before-the-interruption">Work your mod started before the interruption</h4>
+<p>After the user stops a running turn, for example with Esc, some work your mod had already started is dropped and some waits for the user's next input.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Work</th>
+<th style="text-align: left;">What happens until the user's next input</th>
+<th style="text-align: left;">What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">A prompt from <code>$.prompt.submit</code> still in the queue</td>
+<td style="text-align: left;">Dropped. The call resolves with <code>{ drop: 'the prompt was removed from the queue before it ran' }</code>.</td>
+<td style="text-align: left;">Submit it again as <a href="#retry-a-refused-or-dropped-call">Retry a refused or dropped call</a> shows</td>
+</tr>
+<tr>
+<td style="text-align: left;">A command from <code>$.command.run</code> still in the queue</td>
+<td style="text-align: left;">Dropped. The call rejects with an error whose message includes <code>the command was removed from the queue before it ran</code>.</td>
+<td style="text-align: left;">Run it again as <a href="#retry-a-refused-or-dropped-call">Retry a refused or dropped call</a> shows</td>
+</tr>
+<tr>
+<td style="text-align: left;">A one-time job scheduled with a tool such as CronCreate that comes due before the user's next input</td>
+<td style="text-align: left;">Starts no turn then, and runs after that input</td>
+<td style="text-align: left;">Nothing needed</td>
+</tr>
+<tr>
+<td style="text-align: left;">A recurring job scheduled with a tool such as CronCreate that comes due before the user's next input</td>
+<td style="text-align: left;">Starts no turn then. The job loses that run and keeps its schedule.</td>
+<td style="text-align: left;">Nothing needed</td>
+</tr>
+<tr>
+<td style="text-align: left;">An event from a monitor your mod started</td>
+<td style="text-align: left;">The monitor keeps running. An event the monitor raises before the user's next input is dropped, except the notice that the monitor ended, which arrives after that input.</td>
+<td style="text-align: left;">Nothing can be done</td>
+</tr>
+<tr>
+<td style="text-align: left;">A subagent your mod spawned and later resumed with <code>$.session.send</code> that finishes before the user's next input</td>
+<td style="text-align: left;">Its finish notice waits, and reaches the conversation after that input</td>
+<td style="text-align: left;">Nothing needed</td>
+</tr>
+</tbody>
+</table>
+<p>When a scheduled job comes due or a monitor raises an event before the user's next input, the user can see the <a href="/docs/en/plugins/mods/troubleshoot#stopped-type-a-message-to-continue"><code>Stopped:</code> toast</a>.</p>
+<h2 id="send-and-receive-messages-between-sessions">Send and receive messages between sessions</h2>
+<p>A mod can send a plain-text message to another of your sessions, to one of this session's subagents, or to a teammate in its <a href="/docs/en/agent-teams">agent team</a>. It can also observe the messages that arrive and leave.</p>
+<p>To send one, call <code>$.session.send({ to, text })</code>, which makes the same delivery the SendMessage tool makes. Set <code>to</code> by who receives the message:</p>
+<ul>
+<li><strong>Another of your sessions</strong>: <code>{ sessionId }</code></li>
+<li><strong>A subagent or teammate</strong>: <code>{ agentId }</code>, with an id from <code>$.agent.list()</code></li>
+<li><strong>The sender of a message you received</strong>: the string address that message came from</li>
+</ul>
+<p>The call resolves once the message is queued, with <code>{ isDelivered: true }</code>. When nothing was delivered, it resolves with <code>{ isDelivered: false, reason }</code>, and <code>reason</code> says why.</p>
+<p>This hook answers a <code>/ping</code> command, <a href="#add-a-command">registered as a command</a>, by asking the session whose id you type after it for a status:</p>
+<p><code>javascript theme={null}
 on('command.run', { command: 'ping' }, async ($, e) =&gt; {
   // e.args is the session id typed after /ping
   const sent = await $.session.send({ to: { sessionId: e.args }, text: 'Status? One line.' })
@@ -6956,8 +7161,7 @@ on('command.run', { command: 'ping' }, async ($, e) =&gt; {
   if (!sent.isDelivered) $.ui.toast('Not delivered: ' + sent.reason)
   // An empty result prints nothing in this session's transcript
   return {}
-})
-</code></pre></div></p>
+})</code></p>
 <p>When the message is queued, nothing appears in your session, and the other session's Claude reads <code>Status? One line.</code> When nothing was delivered, a toast notification gives the reason.</p>
 <p><code>session.receive</code> and <code>session.send</code> let a mod observe the messages. Return <code>next(e)</code> from both to pass each message through unchanged:</p>
 <table>

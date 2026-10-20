@@ -1113,6 +1113,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="AgentDefinition configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#choose-whether-claude-waits-for-subagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choose whether Claude waits for subagents
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1170,6 +1187,17 @@
     <span class="md-ellipsis">
       
         Explicit invocation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forked-subagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forked subagents
       
     </span>
   </a>
@@ -6764,6 +6792,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="AgentDefinition configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#choose-whether-claude-waits-for-subagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choose whether Claude waits for subagents
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6821,6 +6866,17 @@
     <span class="md-ellipsis">
       
         Explicit invocation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forked-subagents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forked subagents
       
     </span>
   </a>
@@ -7232,8 +7288,13 @@ Focus on:
 </tbody>
 </table>
 <p>In the Python SDK, multi-word field names such as <code>disallowedTools</code> and <code>mcpServers</code> keep their camelCase spelling to match the wire format rather than following Python's snake_case convention. See the <a href="/docs/en/agent-sdk/python#agentdefinition"><code>AgentDefinition</code> reference</a> for details.</p>
-<p>Subagents run in the background by default. An Agent tool call that omits the <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background"><code>run_in_background</code></a> input launches a background subagent, and Claude sets <code>run_in_background: false</code> when it needs the result before continuing. Set the <code>background</code> field to <code>true</code> to force background execution for a specific agent regardless of what Claude requests. Before Claude Code v2.1.198, the background default was rolling out gradually, and an Agent tool call that omitted <code>run_in_background</code> could run the subagent synchronously.</p>
-<p>Subagents can also spawn subagents of their own. To limit how deep that nesting goes, how many subagents run at once, and how much a query spends, see <a href="#cap-subagent-depth-concurrency-and-spend">Cap subagent depth, concurrency, and spend</a>.</p>
+<h4 id="choose-whether-claude-waits-for-subagents">Choose whether Claude waits for subagents</h4>
+<p>By default, a subagent your main agent spawns <a href="/docs/en/sub-agents#run-subagents-in-foreground-or-background">runs in the background</a>. The Agent tool result has <code>status: "async_launched"</code>, and the report arrives in a later turn.</p>
+<p>Claude waits when its next action needs the report: the call blocks and returns <code>status: "completed"</code>. To make that choice yourself:</p>
+<ul>
+<li><strong>In your prompt</strong>: ask Claude to wait, such as "run the test-runner agent and wait for it"</li>
+<li><strong>In the definition</strong>: set <code>background</code> to <code>true</code> to keep that agent in the background</li>
+</ul>
 <h3 id="filesystem-based-definition-alternative">Filesystem-based definition (alternative)</h3>
 <p>You can also define subagents as markdown files in <code>.claude/agents/</code> directories. See the <a href="/docs/en/sub-agents">Claude Code subagents documentation</a> for details on this approach. Programmatically defined agents take precedence over filesystem-based agents with the same name.</p>
 <p><Note>
@@ -7286,6 +7347,21 @@ Focus on:
 <p><code>text theme={null}
 "Use the code-reviewer agent to check the authentication module"</code></p>
 <p>This bypasses automatic matching and directly invokes the named subagent.</p>
+<h3 id="forked-subagents">Forked subagents</h3>
+<p>A <a href="/docs/en/sub-agents#fork-the-current-conversation">fork</a> is a subagent that copies the conversation so far instead of starting fresh. From Claude Code v2.1.302, Claude can start forks in your application with nothing configured, by calling the Agent tool with <code>subagent_type: "fork"</code>.</p>
+<p>To stop Claude from starting forks, add an <a href="/docs/en/agent-sdk/permissions#allow-and-deny-rules"><code>Agent(fork)</code> deny rule</a>:</p>
+<p><CodeGroup>
+  <code>python Python theme={null}
+  options = ClaudeAgentOptions(
+      # Deny only the fork subagent type; other subagents still run
+      disallowed_tools=["Agent(fork)"],
+  )</code></p>
+<p><code>typescript TypeScript theme={null}
+  const options = {
+    // Deny only the fork subagent type; other subagents still run
+    disallowedTools: ["Agent(fork)"]
+  };</code>
+</CodeGroup></p>
 <h3 id="dynamic-agent-configuration">Dynamic agent configuration</h3>
 <p>You can create agent definitions dynamically based on runtime conditions. This example creates a security reviewer with different strictness levels, using a more capable model for strict reviews.</p>
 <p><CodeGroup>

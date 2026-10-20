@@ -11170,6 +11170,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../servers/providers/experimental-skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Experimental Skills Extension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../servers/providers/filesystem/" class="md-nav__link">
         
   
@@ -19842,8 +19870,9 @@
 </code></pre></div>
 <p>Both options default to <code>None</code>, keeping files for the server process's lifetime without an aggregate size limit. <code>max_total_size</code> accepts a nonnegative integer; <code>file_ttl_seconds</code> accepts a positive, finite duration. These controls apply to the default in-memory methods. If you override the storage methods, your implementation sets its own retention policy.</p>
 <h2 id="storage-scoping">Storage scoping</h2>
-<p>By default, files are stored in memory and scoped by MCP session ID. Each session gets its own isolated file store — files uploaded in one conversation aren't visible in another.</p>
-<p>This works with <strong>stdio</strong>, <strong>SSE</strong>, and <strong>stateful HTTP</strong> transports, where sessions persist across requests.</p>
+<p>By default, files are stored in memory and scoped to the client that uploaded them, so one client's files aren't visible to another. How FastMCP identifies that client depends on the protocol version the connection negotiated.</p>
+<p>On a handshake-era connection (<code>mode="legacy"</code>, or a client that predates MCP 2026-07-28), files are scoped by MCP session ID. This works with <strong>stdio</strong>, <strong>SSE</strong>, and <strong>stateful HTTP</strong> transports, where sessions persist across requests.</p>
+<p>MCP 2026-07-28 connections, which FastMCP clients negotiate by default, have no session. Files are scoped to the authenticated user instead, the same identity <a href="/servers/sessions"><code>UserSession</code></a> uses. Without authentication, stdio servers keep one store for the process, because a stdio server serves a single client. An unauthenticated HTTP request carries nothing that identifies its client between requests, so the default storage rejects it with an error rather than sharing files across clients. Add <a href="/servers/auth/authentication">authentication</a> to the server, or override <code>_get_scope_key</code>.</p>
 <p><Warning>
 In <strong>stateless HTTP</strong> mode, each request creates a new session object with a new ID. Files stored during one request (e.g. the UI upload) will be invisible to the next request (e.g. the LLM calling <code>list_files</code>). You <strong>must</strong> override <code>_get_scope_key</code> to use a stable identifier like a user ID from your auth token.
 </Warning></p>

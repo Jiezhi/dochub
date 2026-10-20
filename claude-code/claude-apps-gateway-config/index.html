@@ -1999,6 +1999,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#send-cumulative-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Send cumulative metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#add-your-own-labels" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7162,6 +7173,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#send-cumulative-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Send cumulative metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#add-your-own-labels" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7698,8 +7720,12 @@ upstreams:
 </tbody>
 </table>
 <p>When the IdP token carries no email, the gateway sends only <code>x-claude-gateway-user-id</code> and omits the two email headers. If your IdP puts the email in a different claim, set <a href="#oidc"><code>oidc.email_claim</code></a> to that claim.</p>
+<p>Your proxy doesn't receive the <a href="/docs/en/llm-gateway-protocol#request-headers"><code>x-claude-code-*</code> headers</a> that Claude Code sends, such as <code>x-claude-code-session-id</code>. The gateway doesn't pass them to any upstream, so group requests by developer with the headers in the table above.</p>
 <p>When your proxy answers <code>429</code> to a request that carried the developer's email, the gateway returns that response to the developer as-is instead of failing over to the next upstream, so your proxy's per-user budget or rate limit holds. The proxy's other responses follow the ordinary <a href="#upstreams">failover rules</a>. If a developer's IdP token carries no email, the gateway forwards their requests without the email headers, so a <code>429</code> to one of those requests counts as upstream capacity and fails over. Before v2.1.267 on the gateway server, every <code>429</code> failed over.</p>
 <p>Set <code>forward_user_identity</code> only on an upstream whose <code>base_url</code> is a proxy you operate. The gateway sends developer emails to whatever server that <code>base_url</code> names. If the <code>base_url</code> is the Anthropic API, which is the default, the gateway refuses to start.</p>
+<p><Note>
+  If you set <code>forward_user_identity</code> on an Amazon Bedrock upstream, the gateway exits at startup with <code>Unrecognized key(s) in object: 'forward_user_identity'</code>. If your proxy sits in front of Bedrock, list it as a <code>provider: anthropic</code> upstream instead. The gateway sends that upstream the Anthropic Messages format, so your proxy has to <a href="/docs/en/llm-gateway-protocol#format-mismatch-with-the-upstream">translate requests for Bedrock</a>. To name each developer to AWS instead, see <a href="#per-developer-aws-cost-attribution">Per-developer AWS cost attribution</a>.
+</Note></p>
 <h4 id="amazon-bedrock">Amazon Bedrock</h4>
 <p>For the client-side Amazon Bedrock deployment that the gateway replaces or fronts, see <a href="/docs/en/amazon-bedrock">Claude Code on Amazon Bedrock</a>. The gateway-side upstream:</p>
 <p>```yaml theme={null}
@@ -8479,7 +8505,7 @@ The gateway derives much of the bootstrap response from the matched policy's `cl
 
 * The model list, from `availableModels`. [Extended context in Claude Desktop](#extended-context-in-claude-desktop) covers each model's 1M context option
 * Disabled tools, from bare tool-name `permissions.deny` entries. If you set `disabledBuiltinTools` in the policy's `desktop` block, the gateway serves the union of your value and the derived list, so you can disable more tools this way but can't re-enable one you disabled through `permissions.deny`
-* The egress allowlist, from `sandbox.network.allowedDomains`. If you set `coworkEgressAllowedHosts` in the policy's `desktop` block, the gateway uses that value instead of the derived list
+* The egress allowlist, from `sandbox.network.allowedDomains`. If you set `coworkEgressAllowedHosts` in the policy's `desktop` block, the gateway uses that value instead of the derived list. If the allowlist the gateway serves includes `*` and the gateway doesn't also serve Claude Desktop's [`allowedWorkspaceFolders`](https://claude.com/docs/third-party/claude-desktop/code#applied-as-managed-policy), Claude Desktop doesn't turn on the [Bash sandbox](/docs/en/sandboxing) in the Code tab
 * An OTLP endpoint that points at the gateway itself, and the signed-in user's identity attributes. The gateway relays the exports it receives at that endpoint to your `forward_to` destinations. It includes the endpoint and the attributes when you set both [`telemetry.forward_to`](#telemetry) and `listen.public_url`.
 
   Claude Desktop exports every signal with one encoding: `http/protobuf`, or `http/json` when you set `OTEL_EXPORTER_OTLP_PROTOCOL` or one of its per-signal variants to `http/json` in the policy's `env`. Before Claude Code v2.1.261 on the gateway server, the response set `http/json` regardless, so a collector that accepts only protobuf rejected Claude Desktop's exports
@@ -8668,6 +8694,15 @@ telemetry:
 <p><a href="/docs/en/monitoring-usage#traces-beta">Traces</a> also require <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code> on each client. Set it in a managed policy's <code>env</code> block, since the gateway doesn't push it. Developers approve it in the same <a href="#managed">security approval dialog</a> that the pushed endpoint already triggers.</p>
 <p>Set it to <code>1</code> only in the policies whose groups you want traced. A policy that doesn't set it inherits the value from your <code>match: {}</code> catch-all policy if that policy sets one, per the <a href="#managed">merge rules</a>. To keep a group's clients from sending traces even when a developer sets the variable locally, set it to <code>0</code> in that group's policy.</p>
 <p>Both protobuf and JSON OTLP encodings are relayed, and any OpenTelemetry-compatible backend works as a destination.</p>
+<h4 id="send-cumulative-metrics">Send cumulative metrics</h4>
+<p>If your collector accepts only cumulative metrics, set <a href="/docs/en/monitoring-usage#common-configuration-variables"><code>OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE</code></a> to <code>cumulative</code>. Claude Code sends delta metrics by default, and the gateway relays them without converting them. Set the variable where each kind of session reads it:</p>
+<ul>
+<li><strong>Terminal sessions</strong>: in the <code>env</code> block under a policy's <a href="#choose-cli-or-code"><code>cli</code> or <code>code</code> key</a></li>
+<li><strong>Cowork sessions that <a href="/docs/en/managed-settings#where-and-when-a-policy-applies">run on the user's machine</a></strong>: in the <code>env</code> block of the <a href="#client-side-managed-settings">client-side managed settings</a> on that machine</li>
+<li><strong>Code tab sessions under a <code>code</code> policy</strong>: in the policy's <code>env</code> block, once you meet the <a href="#apply-code-settings-in-the-code-tab">conditions for <code>code</code> settings to apply</a></li>
+<li><strong>Code tab sessions under a <code>cli</code> policy</strong>: in the <code>env</code> block of the client-side managed settings on the machine that runs the session. Over SSH, that's the remote host.</li>
+</ul>
+<p>If you add the variable to a machine's managed settings, also set <a href="/docs/en/claude-apps-gateway#set-the-opt-in"><code>parentSettingsBehavior: "merge"</code></a> in the highest-priority source on that machine. Without it, Cowork sessions and Code tab sessions under a <code>cli</code> policy run without the egress allowlist and other policy that Claude Desktop passes them as parent settings.</p>
 <h4 id="add-your-own-labels">Add your own labels</h4>
 <p>To put fixed labels such as <code>service.namespace</code> or <code>deployment.environment.name</code> on the telemetry of sessions signed in through the gateway, set <code>telemetry.resource_attributes</code>. Each label is an OpenTelemetry resource attribute, and every destination receives the same labels.</p>
 <p>Sessions get the labels only when you also set <code>telemetry.forward_to</code> and <code>listen.public_url</code>. This example adds two labels:</p>

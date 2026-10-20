@@ -7302,6 +7302,7 @@ Claude Code handles any other blocked selection according to where the model was
 * **Skill or command override**: Claude Code ignores the override, including a blocked family alias, and the skill or command runs on the session model. A skill or command that [runs in a subagent](/docs/en/skills#run-skills-in-a-subagent) follows the subagent behavior above instead
 * **`advisorModel` setting**: the advisor is disabled for the session
 * **`--advisor` flag**: Claude Code exits with an error at launch. In a [background session](/docs/en/agent-view), it starts the session without the advisor instead of exiting
+* **`CLAUDE_CODE_AUTO_MODE_MODEL`**: Claude Code ignores the variable and picks the model for its [auto mode classifier requests](/docs/en/permission-modes#default-classifier-model) as if you hadn't set it
 
 Claude Code hides excluded models from the `/model` picker. Whether a model ID you list also gets a row of its own differs by provider:
 
@@ -7313,7 +7314,7 @@ Model changes that Claude Code makes on your behalf are checked the same way:
 * **[Fallback model chains](#fallback-model-chains)**: entries outside the allowlist are dropped
 * **Plan-mode upgrades**: on the Anthropic API and Claude Platform on AWS, an upgrade such as [`opusplan`](#opusplan-model-setting) to an excluded model uses the newest permitted version of the upgrade family. On providers with provider-specific model IDs, and when no version is permitted, the upgrade is skipped and planning continues on the session's model
 * **[Automatic model fallback](#automatic-model-fallback)**: a fallback whose target is excluded does not run, so the flagged request ends with a refusal instead
-* **[Auto mode classifier](/docs/en/permission-modes#eliminate-prompts-with-auto-mode)**: the classifier's Claude Sonnet 5 default applies only when the allowlist permits Sonnet 5. When it's excluded, the classifier runs on the session's model, which the allowlist already governs, or on an Opus model when the session runs on a [Fable model](#work-with-fable). On providers other than the Anthropic API, that Opus fallback runs on the model you set in `ANTHROPIC_DEFAULT_OPUS_MODEL` or otherwise on Opus 5, without consulting the allowlist. Requires Claude Code v2.1.210 or later
+* **[Auto mode classifier](/docs/en/permission-modes#eliminate-prompts-with-auto-mode)**: when the allowlist excludes the [default classifier model](/docs/en/permission-modes#default-classifier-model), classifier requests that would use that model run on the session model, or an Opus model in [Fable](#work-with-fable) sessions. On providers other than the Anthropic API, that Opus fallback runs on the model you set in `ANTHROPIC_DEFAULT_OPUS_MODEL` or otherwise on Opus 5, without consulting the allowlist. Requires Claude Code v2.1.210 or later
 * **[Fast mode](/docs/en/fast-mode)**: enabling fast mode is refused when the model the session would run on afterward is outside the allowlist
 * **Availability fallback on Amazon Bedrock and Google Cloud's Agent Platform**: when your account loses access to a model mid-session, the switch to another model skips excluded models. The startup model checks on [Amazon Bedrock](/docs/en/amazon-bedrock#when-your-organization-enforces-a-model-allowlist) and [Google Cloud's Agent Platform](/docs/en/google-vertex-ai#when-your-organization-enforces-a-model-allowlist) skip excluded models only when managed settings also set [`enforceAvailableModels`](#enforce-the-allowlist-for-the-default-model)
 
@@ -7811,12 +7812,15 @@ To select a 1M variant by name, append the `[1m]` suffix to a model alias or a f
 <h2 id="context-window-and-auto-compaction">Context window and auto-compaction</h2>
 <p>The auto-compact window is how full the context window can get before Claude Code compacts the conversation. For what compaction keeps and drops per mechanism, see <a href="/docs/en/context-window#what-survives-compaction">What survives compaction</a>.</p>
 <h3 id="set-the-auto-compact-window">Set the auto-compact window</h3>
+<p><Note>
+  If Claude Code warned about the value of <code>CLAUDE_CODE_AUTO_COMPACT_WINDOW</code>, see <a href="#claude_code_auto_compact_window-values">the variable's values and warnings</a>.
+</Note></p>
 <p>You can set the auto-compact window in these places:</p>
 <ul>
 <li><strong>For the current model, in this session and later ones</strong>: run <code>/autocompact</code> with a value, like <code>/autocompact 500k</code>. Claude Code saves it to your user settings under the current model in <a href="/docs/en/settings-reference#modelsettings"><code>modelSettings</code></a> and applies it to the current session. If a higher-priority <a href="/docs/en/settings#settings-precedence">settings scope</a> such as managed settings sets its own window for that model or for every model, the command saves your value but the session keeps that scope's window, and the command says so. Run <code>/autocompact auto</code> to return to the window tuned for your model. Before v2.1.288, the command saved one window for every model, as the top-level <code>autoCompactWindow</code>.</li>
 <li><strong>For every model</strong>: set <a href="/docs/en/settings-reference#autocompactwindow"><code>autoCompactWindow</code></a> in a settings file, such as <code>"autoCompactWindow": 200000</code> in <code>~/.claude/settings.json</code>. A window you saved for a model with <code>/autocompact</code> takes precedence over this key in the same file for that model.</li>
 <li><strong>For one launch</strong>: pass <a href="/docs/en/cli-reference#cli-flags"><code>--autocompact</code></a> when starting Claude Code. The flag overrides your saved setting for that launch without changing it, and <code>claude --autocompact auto</code> runs the session at the tuned window even if your saved setting has a value. Unlike <code>/autocompact</code>, the flag isn't preempted by a higher-priority settings scope such as managed settings.</li>
-<li><strong>In scripts and cloud environments</strong>: set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_AUTO_COMPACT_WINDOW</code></a>. While it's set, it takes precedence over the command, the flag, and the setting, and <code>/autocompact</code> reports the override instead of changing the window.</li>
+<li><strong>In scripts and cloud environments</strong>: set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_AUTO_COMPACT_WINDOW</code></a> to a token count such as <code>200000</code>. Unless Claude Code <a href="#claude_code_auto_compact_window-values">ignores the value</a>, the variable takes precedence over the command, the flag, and the <code>autoCompactWindow</code> setting. <code>/autocompact</code> then reports the override without saving. The status line's <code>used_percentage</code> measures against the model's full context window, so while the variable is set, that percentage doesn't indicate when compaction will run.</li>
 <li><strong>For one subagent</strong>: see <a href="/docs/en/sub-agents#subagent-auto-compact-window">Set the auto-compact window for one subagent</a>.</li>
 </ul>
 <p>The command and the flag accept a window size from 100K to 1M tokens, in any of these forms:</p>
@@ -7825,7 +7829,40 @@ To select a 1M variant by name, append the `[1m]` suffix to a model alias or a f
 <li>A <code>k</code> or <code>M</code> suffix, such as <code>500k</code> or <code>1M</code></li>
 <li>A bare number from 100 to 1000, meaning thousands, so <code>200</code> sets 200,000</li>
 </ul>
-<p>The environment variable accepts only the plain token count. Claude Code caps the window at the model's context window.</p>
+<p>Whichever way you set the window, Claude Code caps it at the model's context window.</p>
+<h4 id="claude_code_auto_compact_window-values">
+  Values and warnings for `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+</h4>
+
+<p>A warning that quotes your <code>CLAUDE_CODE_AUTO_COMPACT_WINDOW</code> value means the value falls outside 100,000 to 1,000,000 or isn't a token count. To stop the warning, set a number in that range, such as <code>CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000</code>. On Claude Code v2.1.304 or later, you can also write the number with <code>k</code> for thousands or <code>M</code> for millions, as in <code>200k</code> or <code>1M</code>.</p>
+<p>Find your warning's wording in the first column, then read across for the window your session uses and what to change:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Your warning contains</th>
+<th style="text-align: left;">Window the session uses</th>
+<th style="text-align: left;">What to change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>reads as &lt;N&gt; tokens, so Claude Code treats it as the 100k minimum</code></td>
+<td style="text-align: left;">The smaller of 100,000 tokens and your model's context window</td>
+<td style="text-align: left;">Set at least <code>100000</code>, such as <code>200000</code>, or <code>200k</code> if you meant <code>200</code> as thousands</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>is too large, so Claude Code treats it as the 1M maximum</code></td>
+<td style="text-align: left;">The smaller of 1,000,000 tokens and your model's context window</td>
+<td style="text-align: left;">You already have the largest window. To stop the warning, set <code>1M</code> or <code>1000000</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>isn't a usable size, so Claude Code ignores it</code></td>
+<td style="text-align: left;">The window from <code>--autocompact</code>, <code>/autocompact</code>, or <code>autoCompactWindow</code>, or the <a href="#default-auto-compact-thresholds">default</a> when none is set</td>
+<td style="text-align: left;">Set a number such as <code>200000</code>, or unset the variable</td>
+</tr>
+</tbody>
+</table>
+<p>A number with no suffix is read as that many tokens, so <code>CLAUDE_CODE_AUTO_COMPACT_WINDOW=200</code> means 200 tokens even though <code>/autocompact 200</code> means 200,000.</p>
 <h3 id="default-auto-compact-thresholds">Default auto-compact thresholds</h3>
 <p>If you don't set an auto-compact window, Claude Code compacts when the conversation reaches the model's context limit, except in these sessions:</p>
 <ul>
