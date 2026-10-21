@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -8352,9 +8352,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Learn how to enable and configure OpenTelemetry for Claude Code.</p>
 </blockquote>
 <p>Track Claude Code usage, costs, and tool activity across your organization by exporting telemetry data through OpenTelemetry (OTel). Claude Code exports metrics as time series data via the standard metrics protocol, events via the logs/events protocol, and optionally <a href="#traces-beta">distributed traces via OpenTelemetry</a>.</p>
-<p><Note>
-  For the Claude API or Managed Agents, see <a href="https://platform.claude.com/docs/en/manage-claude/opentelemetry">OpenTelemetry for the Claude API</a>.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>For the Claude API or Managed Agents, see <a href="https://platform.claude.com/docs/en/manage-claude/opentelemetry">OpenTelemetry for the Claude API</a>.</p>
+</blockquote>
 <h2 id="quick-start">Quick start</h2>
 <p>Configure OpenTelemetry using environment variables:</p>
 <p>```bash theme={null}</p>
@@ -8766,7 +8767,7 @@ Each retry attempt is also recorded as a `gen_ai.request.attempt` span event wit
 | `skill_name` | Skill name for the Skill tool | `OTEL_LOG_TOOL_DETAILS` |
 | `subagent_type` | Subagent type for the Agent tool or legacy Task tool | `OTEL_LOG_TOOL_DETAILS` |
 
-&lt;span id="tool-output-span-event" /&gt;**`tool.output` span event on `claude_code.tool`**
+**`tool.output` span event on `claude_code.tool`**
 
 If you set `OTEL_LOG_TOOL_CONTENT=1`, Read and Bash calls can record a `tool.output` span event on the `claude_code.tool` span. Edit and Write calls record one only when you also set `OTEL_LOG_TOOL_DETAILS=1`. That variable isn't scoped to those two tools, so check its [row in the configuration table](#common-configuration-variables) for the arguments it adds elsewhere.
 
@@ -8830,13 +8831,11 @@ In interactive CLI sessions, detailed beta tracing also requires your organizati
 | `num_non_blocking_error` | Count of hooks that failed without blocking | |
 | `num_cancelled` | Count of hooks cancelled before completion | |
 
-&lt;span id="new-context-gates" /&gt;
-
 **Content attributes under detailed beta tracing**
 
-&lt;Note&gt;
-  Additional content-bearing attributes such as `new_context`, `system_reminders`, `system_prompt_preview`, `user_system_prompt`, `tool_input`, and `response.model_output` are emitted only when detailed beta tracing is active. They are not part of the stable span schema.
-&lt;/Note&gt;
+&gt; [!NOTE]
+&gt;
+&gt; Additional content-bearing attributes such as `new_context`, `system_reminders`, `system_prompt_preview`, `user_system_prompt`, `tool_input`, and `response.model_output` are emitted only when detailed beta tracing is active. They are not part of the stable span schema.
 
 These attributes appear on the spans below, and `Gated by` names the variable an attribute needs on top of detailed beta tracing. Values longer than the content limit (60 KB by default) are truncated.
 
@@ -8901,8 +8900,9 @@ export OTEL_RESOURCE_ATTRIBUTES="department=engineering,team.id=platform,cost_ce
 </ul>
 <p>Claude Code attaches these values as attributes on every metric datapoint and event record, in addition to sending them in the OTLP resource block. Because most metrics backends expose datapoint attributes as queryable labels, you can group and filter metrics by your custom keys directly. Except for the <code>vcs.*</code> <a href="#repository-attributes">repository attributes</a>, custom keys never override the <a href="#standard-attributes">standard attributes</a> such as <code>user.id</code> or <code>session.id</code>: when a key collides, Claude Code keeps the built-in value.</p>
 <p>Each custom key becomes a label on every metric series, so high-cardinality values increase storage cost in your metrics backend. To send custom attributes in the resource block only and omit them from datapoint labels, set <code>OTEL_METRICS_INCLUDE_RESOURCE_ATTRIBUTES=false</code>. See <a href="#metrics-cardinality-control">Metrics cardinality control</a>.</p>
-<p><Warning>
-  The <code>OTEL_RESOURCE_ATTRIBUTES</code> environment variable uses comma-separated key=value pairs with strict formatting requirements:</p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>The <code>OTEL_RESOURCE_ATTRIBUTES</code> environment variable uses comma-separated key=value pairs with strict formatting requirements:</p>
 <ul>
 <li><strong>No spaces allowed</strong>: values can't contain spaces. For example, <code>user.organizationName=My Company</code> is invalid</li>
 <li><strong>Format</strong>: must be comma-separated key=value pairs: <code>key1=value1,key2=value2</code></li>
@@ -8911,15 +8911,15 @@ export OTEL_RESOURCE_ATTRIBUTES="department=engineering,team.id=platform,cost_ce
 </ul>
 <p>For a value that would need a space, use underscores or camelCase instead. The following examples set <code>org.name</code> with each form:</p>
 <p>```bash theme={null}
-  export OTEL_RESOURCE_ATTRIBUTES="org.name=Johns_Organization"
-  export OTEL_RESOURCE_ATTRIBUTES="org.name=JohnsOrganization"
-  <div class="highlight"><pre><span></span><code>You can percent-encode any character, not only the excluded ones. This example encodes both the space and the apostrophe:
+export OTEL_RESOURCE_ATTRIBUTES="org.name=Johns_Organization"
+export OTEL_RESOURCE_ATTRIBUTES="org.name=JohnsOrganization"
+<div class="highlight"><pre><span></span><code>You can percent-encode any character, not only the excluded ones. This example encodes both the space and the apostrophe:
 
 ```bash theme={null}
 export OTEL_RESOURCE_ATTRIBUTES="org.name=John%27s%20Organization"
 </code></pre></div></p>
-<p>Wrapping values in quotes doesn't escape spaces. For example, <code>org.name="My Company"</code> results in the literal value <code>"My Company"</code> with the quotes included, not <code>My Company</code>.
-</Warning></p>
+<p>Wrapping values in quotes doesn't escape spaces. For example, <code>org.name="My Company"</code> results in the literal value <code>"My Company"</code> with the quotes included, not <code>My Company</code>.</p>
+</blockquote>
 <h3 id="attribute-telemetry-to-desktop-ssh-sessions">Attribute telemetry to Desktop SSH sessions</h3>
 <p>To see which remote machine a <a href="/docs/en/desktop#ssh-sessions">Desktop SSH session</a> ran on, name each machine in a custom attribute. Metrics and events don't name the machine a session ran on.</p>
 <p>On each remote machine, add <a href="#multi-team-organization-support"><code>OTEL_RESOURCE_ATTRIBUTES</code></a> to the <code>env</code> block that turns telemetry on, in the <a href="/docs/en/desktop#managed-settings">managed settings file the session reads</a>. Write the name out in each machine's file. Claude Code doesn't expand the value, so <code>host.name=$(hostname)</code> arrives as those characters.</p>
@@ -9095,9 +9095,10 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 </tbody>
 </table>
 <p>In sessions signed in to a <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a> through <code>/login</code>, the CLI stamps exports with the authenticated identity: <code>user.id</code> is the IdP subject, <code>user.email</code> is the signed-in email, and <code>user.groups</code> carries IdP group membership as a comma-separated string. Each export also carries <code>identity.source: gateway-oidc</code>. The gateway identity is applied last, so <code>user.*</code> and <code>identity.*</code> keys set through <code>OTEL_RESOURCE_ATTRIBUTES</code> are ignored on those sessions.</p>
-<p><Note>
-  Events that Claude Code logs before a developer signs in don't carry the gateway identity. When Claude Code opens a session signed out of the gateway, for example after <a href="/docs/en/errors#cloud-gateway-session-expired">the gateway ends the sign-in</a>, the startup events logged before sign-in carry the anonymous <code>user.id</code> and no <code>identity.source</code>. These include <a href="#managed-settings-resolved-event"><code>managed_settings_resolved</code></a>, <a href="#plugin-loaded-event"><code>plugin_loaded</code></a>, and <a href="#mcp-server-connection-event"><code>mcp_server_connection</code></a>.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Events that Claude Code logs before a developer signs in don't carry the gateway identity. When Claude Code opens a session signed out of the gateway, for example after <a href="/docs/en/errors#cloud-gateway-session-expired">the gateway ends the sign-in</a>, the startup events logged before sign-in carry the anonymous <code>user.id</code> and no <code>identity.source</code>. These include <a href="#managed-settings-resolved-event"><code>managed_settings_resolved</code></a>, <a href="#plugin-loaded-event"><code>plugin_loaded</code></a>, and <a href="#mcp-server-connection-event"><code>mcp_server_connection</code></a>.</p>
+</blockquote>
 <p>For the identity attributes on Claude Desktop and Cowork sessions that connect through a gateway, see the <a href="/docs/en/claude-apps-gateway-config#telemetry">gateway <code>telemetry</code> reference</a>.</p>
 <p>Events additionally include the following attributes. These are never attached to metrics because they would cause unbounded cardinality:</p>
 <ul>
@@ -9539,6 +9540,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 <li>For Skill tool: includes <code>skill_name</code></li>
 <li>For Agent tool or legacy Task tool: includes <code>subagent_type</code></li>
 </ul>
+<p>If you lower the OpenTelemetry SDK's <code>OTEL_LOGRECORD_ATTRIBUTE_COUNT_LIMIT</code> below the number of attributes on a <code>tool_decision</code> event, the SDK drops the attributes that Claude Code set last. The SDK drops <code>permission_mode</code> first, <code>classifier_category</code> second, and <code>classifier_verdict</code> third, and drops the event's other attributes only after those three. This ordering requires Claude Code v2.1.302 or later.</p>
 <h4 id="permission-mode-changed-event">Permission mode changed event</h4>
 <p>Logged when the permission mode changes, for example from <code>Shift+Tab</code> cycling, exiting plan mode, or an auto mode gate check.</p>
 <p>To group tool calls by the permission mode each was checked in, use <code>permission_mode</code> on the <a href="#tool-decision-event">Tool decision event</a>.</p>
@@ -9925,9 +9927,10 @@ Requires Claude Code v2.1.274 or later.</p>
 <li>Identifying high-usage sessions for optimization</li>
 <li>Attributing spend to specific skills, plugins, or subagent types via the <code>skill.name</code>, <code>plugin.name</code>, and <code>agent.name</code> attributes</li>
 </ul>
-<p><Note>
-  Cost metrics are approximations. For official billing data, refer to your API provider (Claude Console, Amazon Bedrock, or Google Cloud's Agent Platform).
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Cost metrics are approximations. For official billing data, refer to your API provider (Claude Console, Amazon Bedrock, or Google Cloud's Agent Platform).</p>
+</blockquote>
 <p>Claude Code counts each streaming response toward the cost and token metrics exactly once, including when a gateway or proxy behind <code>ANTHROPIC_BASE_URL</code> streams usage progressively across multiple frames.</p>
 <h3 id="alerting-and-segmentation">Alerting and segmentation</h3>
 <p>Common alerts to consider:</p>
@@ -10075,21 +10078,18 @@ Point `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` at your SIEM's OTLP receiver, or at an 
 <p>To confirm events arrive, submit a prompt in a session running under this configuration and check your SIEM for the <code>claude_code.user_prompt</code> event. If nothing arrives, start Claude Code with <code>claude --debug-file &lt;path&gt;</code> and check that log for <code>[3P telemetry]</code> export errors.</p>
 <h2 id="backend-considerations">Backend considerations</h2>
 <p>Your choice of metrics, logs, and traces backends determines the types of analyses you can perform:</p>
-<p><span id="for-metrics" /></p>
 <h3 id="backends-for-metrics">Backends for metrics</h3>
 <ul>
 <li><strong>Time series databases</strong>: Rate calculations, aggregated metrics</li>
 <li><strong>Columnar stores</strong>: Complex queries, unique user analysis</li>
 <li><strong>Full-featured observability platforms</strong>: Advanced querying, visualization, alerting</li>
 </ul>
-<p><span id="for-events/logs" /></p>
 <h3 id="backends-for-events-and-logs">Backends for events and logs</h3>
 <ul>
 <li><strong>Log aggregation systems</strong>: Full-text search, log analysis</li>
 <li><strong>Columnar stores</strong>: Structured event analysis</li>
 <li><strong>Full-featured observability platforms</strong>: Correlation between metrics and events</li>
 </ul>
-<p><span id="for-traces" /></p>
 <h3 id="backends-for-traces">Backends for traces</h3>
 <p>Choose a backend that supports distributed trace storage and span correlation:</p>
 <ul>

@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7179,379 +7179,16 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Change Claude Code settings, pick the scope a key belongs in, verify the change, and learn which value Claude Code uses when a key is set in several places.</p>
 </blockquote>
-<p>export const SettingsPrecedence = () =&gt; {
-  const LEVELS = [{
-    n: 1,
-    name: 'Managed settings',
-    file: 'managed-settings.json, MDM, or the claude.ai console',
-    who: 'Your organization',
-    w: 390
-  }, {
-    n: 2,
-    name: 'Command line',
-    file: 'claude --settings',
-    who: 'You, this session',
-    w: 420
-  }, {
-    n: 3,
-    name: 'Project local',
-    file: '.claude/settings.local.json',
-    who: 'You, this project',
-    w: 480
-  }, {
-    n: 4,
-    name: 'Shared project',
-    file: '.claude/settings.json',
-    who: 'Everyone in the project',
-    w: 540
-  }, {
-    n: 5,
-    name: 'User',
-    file: '~/.claude/settings.json',
-    who: 'You, every project',
-    w: 600
-  }];
-  const W = 760;
-  const ROW = 58;
-  const GAP = 8;
-  const TOP = 34;
-  const H = TOP + LEVELS.length * (ROW + GAP) + 30;
-  const cx = W / 2;
-  const mono = 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)';
-  const sans = 'var(--font-sans, system-ui, -apple-system, sans-serif)';
-  return <div className="sp-root not-prose" role="img" aria-label="Settings precedence, highest first: managed settings, command line, project local, shared project, user. A key set at a higher level overrides the same key set lower down.">
-      <style>{<code>.sp-root { --sp-text: #1A1918; --sp-sub: #5E5D59; --sp-faint: #8A8880; --sp-fill: #F5F4EF; --sp-stroke: rgba(0,0,0,0.12); --sp-top: #D97757; --sp-top-fill: rgba(217,119,87,0.14); --sp-arrow: #8A8880; margin: 1.25rem 0; }
-        .dark .sp-root { --sp-text: #F1EFE9; --sp-sub: #B8B5AD; --sp-faint: #8A8880; --sp-fill: #24231F; --sp-stroke: rgba(255,255,255,0.12); --sp-top-fill: rgba(217,119,87,0.22); --sp-arrow: #8A8880; }
-        .sp-root svg { width: 100%; height: auto; display: block; max-width: ${W}px; margin: 0 auto; }</code>}</style>
-      <svg viewBox={<code>0 0 ${W} ${H}</code>} xmlns="http://www.w3.org/2000/svg">
-        <text x={cx} y={18} textAnchor="middle" fontFamily={sans} fontSize="12.5" fontWeight="600" fill="var(--sp-sub)">Highest precedence</text>
-        {LEVELS.map((l, i) =&gt; {
-    const y = TOP + i * (ROW + GAP);
-    const x = cx - l.w / 2;
-    const top = i === 0;
-    return <g key={l.n}>
-              &lt;rect x={x} y={y} width={l.w} height={ROW} rx={10} fill={top ? 'var(--sp-top-fill)' : 'var(--sp-fill)'} stroke={top ? 'var(--sp-top)' : 'var(--sp-stroke)'} strokeWidth={top ? 1.5 : 1} /&gt;
-              <text x={x + 14} y={y + 24} fontFamily={sans} fontSize="14" fontWeight="600" fill="var(--sp-text)">{l.n}. {l.name}</text>
-              <text x={x + 14} y={y + 43} fontFamily={mono} fontSize="11.5" fill="var(--sp-sub)">{l.file}</text>
-              <text x={x + l.w - 14} y={y + 24} textAnchor="end" fontFamily={sans} fontSize="12" fill="var(--sp-faint)">{l.who}</text>
-            </g>;
-  })}
-        <text x={cx} y={H - 10} textAnchor="middle" fontFamily={sans} fontSize="12.5" fontWeight="600" fill="var(--sp-sub)">Lowest precedence</text>
-        <g stroke="var(--sp-arrow)" strokeWidth="1.5" fill="none">
-          <line x1={W - 40} y1={TOP + 10} x2={W - 40} y2={H - 38} />
-          <path d={<code>M ${W - 46} ${TOP + 18} L ${W - 40} ${TOP + 10} L ${W - 34} ${TOP + 18}</code>} />
-        </g>
-        <text x={W - 40} y={H - 22} textAnchor="middle" fontFamily={sans} fontSize="10.5" fill="var(--sp-faint)">overrides</text>
-      </svg>
-    </div>;
-};</p>
-<p>export const SettingsScope = ({defaultSelected = 'project'}) =&gt; {
-  const FILES = [{
-    id: 'user',
-    path: '~/.claude/settings.json'
-  }, {
-    id: 'project',
-    path: 'acme-app/.claude/settings.json'
-  }, {
-    id: 'local',
-    path: 'acme-app/.claude/settings.local.json'
-  }, {
-    id: 'managed',
-    path: 'Managed settings',
-    ring: 'managed-settings.json, MDM, or the claude.ai console'
-  }];
-  const SHORT = {
-    user: '~/.claude/settings.json',
-    project: 'acme-app/.claude/settings.json',
-    local: 'acme-app/.claude/settings.local.json',
-    managed: 'managed-settings.json, MDM, or the claude.ai console'
-  };
-  const TILE_MARK = {
-    project: 'settings.json',
-    local: 'settings.local.json'
-  };
-  const initial = FILES.some(f =&gt; f.id === defaultSelected) ? defaultSelected : 'project';
-  const [sel, setSel] = useState(initial);
-  const [scale, setScale] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const rootRef = useRef(null);
-  const frameRef = useRef(null);
-  const CANVAS_W = 862;
-  const CANVAS_H = 240;
-  useEffect(() =&gt; {
-    const el = frameRef.current;
-    if (!el) return;
-    const measure = () =&gt; setScale(Math.min(1, el.clientWidth / CANVAS_W));
-    measure();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure);
-      return () =&gt; window.removeEventListener('resize', measure);
-    }
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () =&gt; ro.disconnect();
-  }, []);
-  useEffect(() =&gt; {
-    const onFsChange = () =&gt; setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', onFsChange);
-    return () =&gt; document.removeEventListener('fullscreenchange', onFsChange);
-  }, []);
-  const toggleFullscreen = () =&gt; {
-    if (!rootRef.current) return;
-    if (document.fullscreenElement) document.exitFullscreen(); else rootRef.current.requestFullscreen().catch(() =&gt; {});
-  };
-  const COVERAGE = {
-    user: ['website', 'api', 'yacme'],
-    project: ['yacme', 'tacme', 'cacme'],
-    local: ['yacme'],
-    managed: ['website', 'api', 'yacme', 'tacme', 'cacme']
-  };
-  const RINGS = {
-    local: {
-      l: 282,
-      t: 50,
-      w: 142,
-      h: 124
-    },
-    project: {
-      l: 282,
-      t: 50,
-      w: 560,
-      h: 124
-    },
-    user: {
-      l: 2,
-      t: 34,
-      w: 446,
-      h: 198
-    },
-    managed: {
-      l: 0,
-      t: 32,
-      w: 862,
-      h: 204
-    }
-  };
-  const TILES = [{
-    id: 'website',
-    name: 'website/',
-    left: 30,
-    caption: ''
-  }, {
-    id: 'api',
-    name: 'api/',
-    left: 160,
-    caption: ''
-  }, {
-    id: 'yacme',
-    name: 'acme-app/',
-    left: 290,
-    caption: ''
-  }, {
-    id: 'tacme',
-    name: 'acme-app/',
-    left: 497,
-    caption: sel === 'project' ? 'their clone, once you commit the file' : 'their clone'
-  }, {
-    id: 'cacme',
-    name: 'acme-app/',
-    left: 704,
-    caption: sel === 'project' ? 'fresh clone, once you commit the file' : sel === 'managed' ? 'server-managed only' : 'fresh clone'
-  }];
-  const FILE_AT = {
-    user: {
-      machine: 'you',
-      tiles: []
-    },
-    project: {
-      machine: null,
-      tiles: ['yacme', 'tacme', 'cacme']
-    },
-    local: {
-      machine: null,
-      tiles: ['yacme']
-    },
-    managed: {
-      machine: null,
-      tiles: []
-    }
-  };
-  const fileAt = FILE_AT[sel];
-  const coverage = COVERAGE[sel];
-  const ring = RINGS[sel];
-  const selFile = FILES.find(f =&gt; f.id === sel);
-  const FolderIcon = ({open}) =&gt; <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden="true">
-      <path d="M1.5 4.5a1 1 0 0 1 1-1h3.2l1.3 1.5h6a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1h-10.5a1 1 0 0 1-1-1z" />
-      {open &amp;&amp; <path d="M1.5 7.5h13" />}
-    </svg>;
-  const FileIcon = () =&gt; <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 1.5h5.5L13 5v9.5H4z" />
-      <path d="M9.5 1.5V5H13" />
-    </svg>;
-  const CloudIcon = () =&gt; <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4.5 12.5h7a2.5 2.5 0 0 0 .4-4.97A3.5 3.5 0 0 0 5.2 6.6 3 3 0 0 0 4.5 12.5z" />
-    </svg>;
-  const LaptopIcon = () =&gt; <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2.5" y="3" width="11" height="7.5" rx="1" />
-      <path d="M1 12.5h14" />
-    </svg>;
-  return &lt;div ref={rootRef} className={'ssc-root not-prose' + (isFullscreen ? ' ssc-fs' : '')}&gt;
-      <style>{<code>.ssc-root {
-          --ssc-bg: #FFFFFF;
-          --ssc-text: #1A1918;
-          --ssc-sub: #5E5D59;
-          --ssc-faint: #8A8880;
-          --ssc-border: rgba(0,0,0,0.12);
-          --ssc-panel: #F5F4EF;
-          --ssc-tile: #FAFAF8;
-          --ssc-clay: #D97757;
-          --ssc-clay-bg: rgba(217,119,87,0.14);
-          --ssc-label: #B0562F;
-          --ssc-hover: rgba(115,114,108,0.10);
-          font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
-          background: var(--ssc-bg);
-          color: var(--ssc-text);
-          border: 1px solid var(--ssc-border);
-          border-radius: 16px;
-          padding: 20px 24px 24px;
-          margin: 1.5rem 0;
-          box-sizing: border-box;
-        }
-        .dark .ssc-root {
-          --ssc-bg: #1B1A18;
-          --ssc-text: #F1EFE9;
-          --ssc-sub: #B8B5AD;
-          --ssc-faint: #8A8880;
-          --ssc-border: rgba(255,255,255,0.12);
-          --ssc-panel: #24231F;
-          --ssc-tile: #2A2925;
-          --ssc-clay-bg: rgba(217,119,87,0.20);
-          --ssc-label: #EBC9B7;
-        }
-        .ssc-fs { display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 0; border-radius: 0; height: 100vh; }
-        .ssc-fs .ssc-head { width: 100%; max-width: ${CANVAS_W}px; }
-        .ssc-fs .ssc-frame { width: 100%; }
-        .ssc-mono { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); }
-        .ssc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-        .ssc-files { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ssc-file {
-          font-size: 12.5px; font-weight: 430; padding: 8px 13px; border-radius: 10px; cursor: pointer;
-          border: 0.5px solid var(--ssc-border); background: var(--ssc-tile); color: var(--ssc-text);
-          white-space: nowrap; transition: background 0.2s, border-color 0.2s;
-        }
-        .ssc-file:hover { filter: brightness(0.97); }
-        .ssc-file[aria-pressed="true"] { font-weight: 600; border: 1.5px solid var(--ssc-clay); background: var(--ssc-clay-bg); }
-        .ssc-fsbtn {
-          display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0;
-          border: none; background: none; border-radius: 6px; cursor: pointer; color: var(--ssc-faint); font-size: 15px;
-        }
-        .ssc-fsbtn:hover { background: var(--ssc-hover); }
-        .ssc-frame { width: 100%; max-width: ${CANVAS_W}px; margin: 0 auto; }
-        .ssc-canvas { position: relative; width: ${CANVAS_W}px; height: ${CANVAS_H}px; transform-origin: top left; }
-        .ssc-machine { position: absolute; top: 42px; height: 182px; background: var(--ssc-panel); border-radius: 16px; }
-        .ssc-machine-label { position: absolute; top: 192px; display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
-        .ssc-tile {
-          position: absolute; top: 58px; width: 126px; height: 108px; border-radius: 12px; padding: 11px 12px; box-sizing: border-box;
-          background: var(--ssc-tile); border: 0.5px solid var(--ssc-border); opacity: 0.6;
-          transition: background 0.25s, border-color 0.25s, opacity 0.25s;
-        }
-        .ssc-tile.ssc-on { background: var(--ssc-clay-bg); border: 1px solid var(--ssc-clay); opacity: 1; }
-        .ssc-tile-name { display: flex; align-items: center; gap: 6px; color: var(--ssc-faint); }
-        .ssc-tile.ssc-on .ssc-tile-name { color: var(--ssc-clay); }
-        .ssc-tile-name span { font-size: 12px; font-weight: 430; white-space: nowrap; color: var(--ssc-text); }
-        .ssc-tile.ssc-on .ssc-tile-name span { font-weight: 600; }
-        .ssc-tile-caption { font-size: 10.5px; color: var(--ssc-sub); margin-top: 5px; line-height: 1.35; }
-        .ssc-filemark {
-          position: absolute; left: 5px; right: 5px; bottom: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 2px;
-          font-size: 8.5px; color: var(--ssc-label); background: var(--ssc-bg); border: 1px solid var(--ssc-clay);
-          border-radius: 6px; padding: 2px 3px; white-space: nowrap; overflow: hidden;
-        }
-        .ssc-filemark svg { flex-shrink: 0; }
-        .ssc-machine-filemark { display: inline-flex; align-items: center; gap: 4px; margin-left: 10px; font-size: 10.5px; font-weight: 500; color: var(--ssc-label); }
-        .ssc-ring {
-          position: absolute; border: 2px solid var(--ssc-clay); border-radius: 18px; pointer-events: none;
-          transition: left 0.35s ease, top 0.35s ease, width 0.35s ease, height 0.35s ease;
-        }
-        .ssc-ring-label {
-          position: absolute; font-size: 12px; font-weight: 600; color: var(--ssc-label); white-space: nowrap; pointer-events: none;
-          transition: left 0.35s ease, top 0.35s ease;
-        }</code>}</style></p>
-<pre><code>  &lt;div className="ssc-head"&gt;
-    &lt;div className="ssc-files" role="group" aria-label="Settings file"&gt;
-      {FILES.map(f =&gt; &lt;button key={f.id} type="button" className="ssc-file ssc-mono" aria-pressed={f.id === sel} onClick={() =&gt; setSel(f.id)}&gt;{f.path}&lt;/button&gt;)}
-    &lt;/div&gt;
-    &lt;button type="button" className="ssc-fsbtn" onClick={toggleFullscreen} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}&gt;{isFullscreen ? '⤡' : '⛶'}&lt;/button&gt;
-  &lt;/div&gt;
-
-  &lt;div ref={frameRef} className="ssc-frame" style={{
-height: CANVAS_H * scale + 'px'
-</code></pre>
-<p>}}&gt;
-        &lt;div className="ssc-canvas" style={{
-    transform: 'scale(' + scale + ')'
-  }}&gt;
-          &lt;div className="ssc-machine" style={{
-    left: '10px',
-    width: '430px'
-  }} /&gt;
-          &lt;span className="ssc-machine-label" style={{
-    left: '30px'
-  }}&gt;<LaptopIcon />Your machine{fileAt.machine === 'you' &amp;&amp; <span className="ssc-machine-filemark ssc-mono"><FileIcon />{selFile.path}</span>}</span>
-          &lt;div className="ssc-machine" style={{
-    left: '460px',
-    width: '200px'
-  }} /&gt;
-          &lt;span className="ssc-machine-label" style={{
-    left: '470px'
-  }}&gt;<LaptopIcon />A teammate’s machine</span>
-          &lt;div className="ssc-machine" style={{
-    left: '682px',
-    width: '170px'
-  }} /&gt;
-          &lt;span className="ssc-machine-label" style={{
-    left: '692px'
-  }}&gt;<CloudIcon />A cloud session</span></p>
-<pre><code>      {TILES.map(t =&gt; {
-const on = coverage.includes(t.id);
-return &lt;div key={t.id} className={'ssc-tile' + (on ? ' ssc-on' : '')} style={{
-  left: t.left + 'px'
-}}&gt;
-            &lt;div className="ssc-tile-name"&gt;&lt;FolderIcon open={on} /&gt;&lt;span className="ssc-mono"&gt;{t.name}&lt;/span&gt;&lt;/div&gt;
-            {t.caption &amp;&amp; &lt;div className="ssc-tile-caption"&gt;{t.caption}&lt;/div&gt;}
-            {fileAt.tiles.includes(t.id) &amp;&amp; &lt;span className="ssc-filemark ssc-mono" title={SHORT[sel]}&gt;&lt;FileIcon /&gt;{TILE_MARK[sel]}&lt;/span&gt;}
-          &lt;/div&gt;;
-</code></pre>
-<p>})}</p>
-<pre><code>      &lt;div className="ssc-ring" style={{
-left: ring.l + 'px',
-top: ring.t + 'px',
-width: ring.w + 'px',
-height: ring.h + 'px'
-</code></pre>
-<p>}} /&gt;
-          &lt;span className="ssc-ring-label ssc-mono" style={{
-    left: ring.l + 14 + 'px',
-    top: ring.t - 26 + 'px'
-  }}&gt;{selFile.ring || selFile.path}</span>
-        </div>
-      </div>
-    </div>;
-};</p>
 <p>Settings are the JSON keys that change how Claude Code behaves: which model it starts with, what it can run without asking, which files it can't read, how it looks in your terminal, and what your organization enforces.</p>
-<p><Tip>
-  To look up a specific key, go to <a href="/docs/en/settings-reference">All settings</a>, which lists every key with the file you set it in, its default, and an example.
-</Tip></p>
+<blockquote>
+<p>[!TIP]</p>
+<p>To look up a specific key, go to <a href="/docs/en/settings-reference">All settings</a>, which lists every key with the file you set it in, its default, and an example.</p>
+</blockquote>
 <p>Claude Code reads settings from JSON settings files such as <code>~/.claude/settings.json</code>. It looks for them in a few locations, and <a href="#settings-files-and-who-they-affect">the file it reads a setting from decides who the setting applies to</a>. This page covers those files: which one to put a setting in, how to change a setting and confirm it applied, and which value Claude Code uses when the same key is set in more than one file. <a href="/docs/en/permissions">Configure permissions</a> covers what Claude Code can run without asking and how to write <code>allow</code>, <code>ask</code>, and <code>deny</code> rules.</p>
-<p><Note>
-  This page covers Claude Code running on your machine: the terminal, the <a href="/docs/en/vs-code">VS Code</a> and <a href="/docs/en/jetbrains">JetBrains</a> extensions, and the <a href="/docs/en/desktop">desktop app</a>, which all read the same settings files. A <a href="/docs/en/claude-code-on-the-web">cloud session</a> runs on a different machine and reads only some of them; see <a href="#settings-in-cloud-sessions">Settings in cloud sessions</a>.
-</Note></p>
-<p><span id="settings-files" /></p>
-<p><span id="configuration-scopes" /></p>
-<p><span id="available-scopes" /></p>
-<p><span id="when-to-use-each-scope" /></p>
-<p><span id="what-uses-scopes" /></p>
-<p><span id="subagent-configuration" /></p>
-<p><span id="where-settings-live" /></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>This page covers Claude Code running on your machine: the terminal, the <a href="/docs/en/vs-code">VS Code</a> and <a href="/docs/en/jetbrains">JetBrains</a> extensions, and the <a href="/docs/en/desktop">desktop app</a>, which all read the same settings files. A <a href="/docs/en/claude-code-on-the-web">cloud session</a> runs on a different machine and reads only some of them; see <a href="#settings-in-cloud-sessions">Settings in cloud sessions</a>.</p>
+</blockquote>
 <h2 id="settings-files-and-who-they-affect">Settings files and who they affect</h2>
 <p>Claude Code reads settings from four files, and an organization can also deliver managed settings from the claude.ai console. Each source has a scope: the set of people and projects a setting saved in it applies to, whether that's only you, everyone in a project, or everyone in your organization.</p>
 <table>
@@ -7591,19 +7228,19 @@ height: ring.h + 'px'
 </tbody>
 </table>
 <p>In the File column, <code>~/.claude</code> is the <code>.claude</code> folder in your home directory, and a bare <code>.claude</code> is the <code>.claude</code> folder inside your project.</p>
-<p><span id="where-each-file-applies" /></p>
-<p><span id="compare-what-each-file-reaches" /></p>
 <h3 id="compare-the-scope-of-each-settings-file">Compare the scope of each settings file</h3>
 <p>Suppose you have three projects on your machine, <code>website/</code>, <code>api/</code>, and <code>acme-app/</code>, a teammate has their own clone of <code>acme-app/</code>, and you start a <a href="#settings-in-cloud-sessions">cloud session</a> on <code>acme-app/</code>.</p>
 <p>The graphic below shows which of those folders a setting applies in when you start Claude Code from them. Click a settings file to see the folders it reaches.</p>
-<p><SettingsScope /></p>
+<p>Settings file</p>
+<p>Your machine</p>
+<p>A teammate’s machine</p>
+<p>A cloud session</p>
 <ul>
 <li><strong><code>~/.claude/settings.json</code></strong>: every project on your machine, and nothing on your teammate's or in the cloud session</li>
 <li><strong><code>acme-app/.claude/settings.json</code></strong>: your <code>acme-app/</code>. It reaches your teammate's clone and the cloud session only if you commit the file to version control; until you do, it's a file on your disk like any other and nobody else has it</li>
 <li><strong><code>acme-app/.claude/settings.local.json</code></strong>: your <code>acme-app/</code> only. Claude Code adds it to your global git excludes the first time it writes the file, so it stays out of your commits; if you create the file by hand, <a href="#keep-personal-settings-out-of-a-repository">add it to <code>.gitignore</code> yourself</a></li>
 <li><strong>Managed settings</strong>, whether a <code>managed-settings.json</code> file, an MDM policy, or <a href="/docs/en/server-managed-settings">server-managed settings</a> from the claude.ai console: every project on every machine your organization deploys it to, or that you sign in to with your organization account. Only server-managed settings reach the cloud session</li>
 </ul>
-<p><span id="which-files-you-have" /></p>
 <h3 id="find-or-create-your-settings-files">Find or create your settings files</h3>
 <p>Installing Claude Code doesn't create any settings file. If your machine or project already has one, it came from one of these sources:</p>
 <ul>
@@ -7611,17 +7248,14 @@ height: ring.h + 'px'
 <li><strong>Shared project</strong>: a project that already uses Claude Code may have one committed. If not, create it at <code>.claude/settings.json</code> in the project folder.</li>
 <li><strong>User</strong> and <strong>Project local</strong>: create them yourself, or let Claude Code create them. It writes <code>~/.claude/settings.json</code> the first time you change an option in the <code>/config</code> menu that it stores in user settings, such as the theme, and <code>.claude/settings.local.json</code> the first time you give a standing approval on a permission prompt, such as "Yes, and don't ask again" for a Bash command. A few <code>/config</code> options, including <strong>Show tips</strong>, save to <code>.claude/settings.local.json</code> instead of the user file.</li>
 </ul>
-<p><Info>
-  On Windows, <code>~/.claude</code> means <code>%USERPROFILE%\.claude</code>. To keep the home-directory files somewhere else, set <a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a>; Claude Code then stores your settings, session history, and plugins there instead.
-</Info></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>On Windows, <code>~/.claude</code> means <code>%USERPROFILE%\.claude</code>. To keep the home-directory files somewhere else, set <a href="/docs/en/env-vars"><code>CLAUDE_CONFIG_DIR</code></a>; Claude Code then stores your settings, session history, and plugins there instead.</p>
+</blockquote>
 <p>Claude Code also keeps a fifth file, <a href="/docs/en/claude-directory#ce-claude-json"><code>~/.claude.json</code></a>, that it writes for itself; you don't need to edit it. It holds your sign-in session, <a href="/docs/en/mcp">MCP server</a> configurations, per-project state such as trust decisions, and the <a href="/docs/en/settings-reference#global-config-settings">global config keys</a> that <code>/config</code> writes for you.</p>
 <h3 id="share-settings-with-your-team">Share settings with your team</h3>
 <p>Commit <code>.claude/settings.json</code> so everyone who clones the repository gets the same permissions, hooks, and plugins. Each teammate can still override it for themselves in their own <code>.claude/settings.local.json</code>, so personal exceptions don't need a commit. For a complete team file, see <a href="/docs/en/settings-example#a-teams-shared-settings">a team's shared settings</a>.</p>
 <p>Some of what you commit waits until each teammate <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">trusts the folder</a>, and a few keys never take effect from a repository file; <a href="#common-cases">Troubleshoot a setting that doesn't apply</a> covers both.</p>
-<p><span id="local-settings-file" /></p>
-<p><span id="where-claude-code-saves-the-project-local-file" /></p>
-<p><span id="the-project-local-file" /></p>
-<p><span id="keep-personal-settings-out-of-the-repository" /></p>
 <h3 id="keep-personal-settings-out-of-a-repository">Keep personal settings out of a repository</h3>
 <p>To change a setting for yourself in one project without changing it for your teammates, save it in <code>.claude/settings.local.json</code> inside the project. Claude Code applies that file over the committed <code>.claude/settings.json</code>, so if your team's file sets <code>"model": "claude-sonnet-5"</code> and you want Opus, put <code>"model": "claude-opus-5-5"</code> in your local file and only your sessions change.</p>
 <p>Claude Code also writes to this file, keeps it out of your commits, and applies its allow rules without the trust step:</p>
@@ -7630,9 +7264,6 @@ height: ring.h + 'px'
 <li><strong>You don't need to gitignore it yourself, unless you created it by hand.</strong> The first time Claude Code writes the file in a git repository that doesn't already ignore it, it adds <code>**/.claude/settings.local.json</code> to your global git excludes file, so the file stays out of your commits in every repository. That file is <code>core.excludesFile</code> when your global git config sets it to an absolute or <code>~</code>-prefixed path; otherwise it's <code>$XDG_CONFIG_HOME/git/ignore</code>, or <code>~/.config/git/ignore</code> when <code>XDG_CONFIG_HOME</code> is unset. If you created the file by hand and Claude Code hasn't written to it yet, add it to <code>.gitignore</code> yourself.</li>
 <li><strong>Its allow rules don't wait for trust while the file stays untracked.</strong> Because the file is yours and not the repository's, Claude Code applies its <code>allow</code> rules without the <a href="/docs/en/permissions#project-allow-rules-and-workspace-trust">workspace trust</a> step it requires for the committed file. If the file is tracked by git, the trust step applies to it too; see <a href="/docs/en/permissions#when-your-local-settings-file-needs-trust">When your local settings file needs trust</a>.</li>
 </ul>
-<p><span id="where-claude-code-looks-for-each-file" /></p>
-<p><span id="how-claude-code-keeps-the-local-file-out-of-git" /></p>
-<p><span id="local-allow-rules-dont-wait-for-workspace-trust" /></p>
 <h4 id="where-claude-code-keeps-the-local-file-in-a-git-repository">Where Claude Code keeps the local file in a git repository</h4>
 <p>When Claude asks permission to run a Bash command and you choose "Yes, and don't ask again", Claude Code saves that approval as an <code>allow</code> rule in <code>.claude/settings.local.json</code>. If you start Claude Code in a subdirectory of a git repository, it reads and writes that file at the repository root and applies the approval across the whole repository. In a <a href="/docs/en/worktrees">worktree</a>, it uses the file at the main checkout's root.</p>
 <p>Two rules qualify the root location:</p>
@@ -7642,11 +7273,6 @@ height: ring.h + 'px'
 </ul>
 <p>Before v2.1.211, Claude Code kept the file in the starting directory. It still reads a file an earlier version left there alongside the root file; where both set the same key, the root's value applies, and permission rules from both files apply. The Agent SDK's <a href="/docs/en/agent-sdk/typescript#resolvesettings"><code>resolveSettings()</code></a> helper always reads the file from the starting directory.</p>
 <p>Claude Code reads the shared <code>.claude/settings.json</code> from the session's <a href="/docs/en/permissions#working-directories">primary working directory</a>, so to use a file committed at the repository root, start Claude Code there. After you <a href="/docs/en/permissions#move-the-session-to-another-directory">move the session with <code>/cd</code></a>, Claude Code reads both project files from the new directory instead, placing the local file by the same rules. Reading them from the directory you moved to requires Claude Code v2.1.246 or later. For a worktree session that you start from the desktop app, see <a href="/docs/en/worktrees#what-worktrees-share-with-the-main-checkout">What worktrees share with the main checkout</a>.</p>
-<p><span id="managed-settings-delivery" /></p>
-<p><span id="precedence-within-the-managed-tier" /></p>
-<p><span id="parent-settings-from-embedding-hosts" /></p>
-<p><span id="enforce-settings-for-an-organization" /></p>
-<p><span id="settings-your-organization-manages" /></p>
 <h3 id="check-what-your-organization-enforces">Check what your organization enforces</h3>
 <p>If your organization manages Claude Code, some settings are decided for you and nothing you put in your own files changes them. To see which, run <code>/status</code>: the <code>Setting sources</code> line names the managed source that applies to you. Managed settings apply wherever Claude Code runs on this machine; <a href="/docs/en/managed-settings#what-a-developer-can-change">What a developer can change</a> covers local admin rights and tools other than Claude Code.</p>
 <p>Managed settings reach you through the <a href="/docs/en/managed-settings#delivery-mechanisms">delivery mechanisms</a> on the managed settings page, most commonly:</p>
@@ -7659,7 +7285,6 @@ height: ring.h + 'px'
 <p>If you're the administrator, <a href="/docs/en/admin-setup">Set up Claude Code for your organization</a> walks through choosing what to enforce, and <a href="/docs/en/managed-settings">Deploy managed settings</a> covers delivery and how to confirm a policy is in force. For the warning the managed settings editor in the claude.ai admin console can show, see <a href="/docs/en/server-managed-settings#configure-server-managed-settings">Configure server-managed settings</a>.</p>
 <h2 id="change-a-setting">Change a setting</h2>
 <p>You can change a setting from the <code>/config</code> menu, by editing a settings file, or for one session from the command line.</p>
-<p><span id="system-prompt" /></p>
 <p>Claude Code's system prompt isn't published. To give Claude standing instructions, use <a href="/docs/en/memory"><code>CLAUDE.md</code> files</a> or the <code>--append-system-prompt</code> flag.</p>
 <h3 id="use-the-config-menu">Use the /config menu</h3>
 <p>Run <code>/config</code> inside Claude Code and open the <strong>Config</strong> tab. It lists a short set of personal options such as theme, editor mode, and verbose output, not every settings key. Select an option to change it; Claude Code saves it for you:</p>
@@ -7669,9 +7294,10 @@ height: ring.h + 'px'
 <li><strong>The <a href="/docs/en/settings-reference#global-config-settings">global config options</a></strong>: <code>~/.claude.json</code></li>
 </ul>
 <p>To set one option without the menu, pass <code>key=value</code>, such as <code>/config verbose=true</code>.</p>
-<p><Note>
-  <code>/config</code> is part of the terminal interface. The <a href="/docs/en/vs-code">VS Code</a> chat panel and the <a href="/docs/en/desktop">desktop app</a> don't open it; change settings there by editing a settings file or through those apps' own settings.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p><code>/config</code> is part of the terminal interface. The <a href="/docs/en/vs-code">VS Code</a> chat panel and the <a href="/docs/en/desktop">desktop app</a> don't open it; change settings there by editing a settings file or through those apps' own settings.</p>
+</blockquote>
 <h3 id="edit-a-settings-file">Edit a settings file</h3>
 <p>Open the settings file for the scope you want in your editor and add or change a key. Settings files are strict JSON: a <code>//</code> comment or a trailing comma is a syntax error, and Claude Code reports the file as a <a href="#fix-a-broken-settings-file">Settings Error</a> at the next start. For example, to let Claude Code run your lint and test commands without asking and stop it reading <code>.env</code> files, add this to <code>~/.claude/settings.json</code>:</p>
 <p>```json ~/.claude/settings.json theme={null}
@@ -7693,8 +7319,6 @@ height: ring.h + 'px'
 After you save, run `/status` inside Claude Code to confirm the file loaded; [Confirm what loaded](#check-what-loaded) says what the `Setting sources` line shows and how a broken file is reported.
 
 For a complete personal file, team file, and organization file, each shown with a comment on every key it sets, see the [example settings files](/docs/en/settings-example).
-
-&lt;span id="pass-settings-for-one-session" /&gt;
 
 ### Change a setting for one session
 
@@ -7723,8 +7347,6 @@ claude --settings '{"model": "claude-opus-5-5"}'
 <li><a href="/docs/en/settings-reference#model"><code>model</code></a>: use <a href="/docs/en/model-config#setting-your-model"><code>/model</code></a> to switch mid-session. Each model has its own prompt cache, so the first request after a switch re-reads the whole conversation uncached; see <a href="/docs/en/prompt-caching#switching-models">Switching models</a></li>
 <li><a href="/docs/en/settings-reference#effortlevel"><code>effortLevel</code></a> and <a href="/docs/en/settings-reference#modelsettings"><code>modelSettings</code></a>: use <a href="/docs/en/model-config#adjust-effort-level"><code>/effort</code></a> to change effort mid-session</li>
 </ul>
-<p><span id="verify-active-settings" /></p>
-<p><span id="check-what-loaded" /></p>
 <h3 id="confirm-what-loaded">Confirm what loaded</h3>
 <p>Run <code>/status</code> inside Claude Code to see which settings sources are active. The <strong>Status</strong> tab includes a <code>Setting sources</code> line that lists each settings file Claude Code loaded for the current session, such as <code>User settings</code> or <code>Project local settings</code>. When <a href="/docs/en/admin-setup#decide-how-settings-reach-devices">managed settings</a> are in effect, the managed settings entry shows in parentheses how they reached your machine.</p>
 <p>The line confirms which files Claude Code read; it doesn't show which file supplied each key. To list entries Claude Code rejected, run <a href="/docs/en/debug-your-config"><code>claude doctor</code></a>; for a model that project or managed settings set, the startup header names the file that set it. <code>/status</code> and <code>/config</code> open the same dialog on different tabs, and the <strong>Config</strong> tab isn't a view of your <code>settings.json</code> contents.</p>
@@ -7738,13 +7360,9 @@ claude --settings '{"model": "claude-opus-5-5"}'
 </ul>
 <p>After you continue, run <code>/status</code> to see the affected files and <code>claude doctor</code> for the details of each error.</p>
 <p>A <code>-p</code> run shows no dialog. Unless <a href="/docs/en/errors#managed-settings-document-could-not-be-parsed">a managed settings document can't be parsed</a>, Claude Code skips the broken file or values and continues with the rest, so after a <code>-p</code> run that ignores a setting, run <code>claude doctor</code> to see what it dropped.</p>
-<p><span id="how-scopes-interact" /></p>
-<p><span id="key-points-about-the-configuration-system" /></p>
-<p><span id="which-value-claude-code-uses" /></p>
-<p><span id="which-value-wins" /></p>
 <h2 id="settings-precedence">Settings precedence</h2>
 <p>When the same key appears in more than one place, Claude Code uses the value from the highest level that sets it. The stack below shows the levels, highest on top; a key at a higher level overrides the same key anywhere below it.</p>
-<p><SettingsPrecedence /></p>
+<p>Settings precedence, highest first: managed settings, command line, project local, shared project, user. A key set at a higher level overrides the same key set lower down.</p>
 <p>In order, highest precedence first:</p>
 <ol>
 <li><strong>Managed settings</strong>: settings your organization deploys, by a <code>managed-settings.json</code> file, an MDM policy, or <a href="/docs/en/server-managed-settings">server-managed settings</a> from the claude.ai console. Nothing in your own settings files or <code>--settings</code> overrides a managed key, and a flag such as <code>--model</code> picks only from the models your organization allows. A managed <a href="/docs/en/settings-reference#model"><code>model</code></a> is a starting default, not a lock; the locks are <a href="/docs/en/settings-reference#availablemodels"><code>availableModels</code></a> and <a href="/docs/en/settings-reference#deniedmodels"><code>deniedModels</code></a>. When your organization delivers more than one managed source, the rules for <a href="/docs/en/managed-settings#precedence-within-the-managed-tier">precedence within the managed tier</a> say what Claude Code reads from each.</li>
@@ -7763,7 +7381,6 @@ claude --settings '{"model": "claude-opus-5-5"}'
 <li><a href="/docs/en/settings-reference#availablemodels"><code>availableModels</code></a>: when the managed settings Claude Code applies define it, Claude Code applies that list as-is and ignores entries you add in user, project, or local settings, unless an app that embeds Claude Code supplies its own model list; see <a href="#exceptions-to-managed-settings-precedence">Exceptions to managed settings precedence</a>. Across managed sources the list never merges either; <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">how Claude Code combines managed sources</a> says which source's list applies. Across non-managed scopes Claude Code merges the arrays as usual.</li>
 <li><a href="/docs/en/settings-reference#modelsettings"><code>modelSettings</code></a>: Claude Code resolves it one model at a time, together with <a href="/docs/en/settings-reference#effortlevel"><code>effortLevel</code></a>. The <code>modelSettings</code> entry states which file's value applies to a model.</li>
 </ul>
-<p><span id="examples" /></p>
 <h3 id="precedence-examples">Precedence examples</h3>
 <p>While Claude works, Claude Code shows a one-line tip under the spinner, such as "Use /config to change your default permission mode (including Plan Mode)". Suppose you want those tips off, so you set <a href="/docs/en/settings-reference#spinnertipsenabled"><code>spinnerTipsEnabled</code></a> to <code>false</code> in <code>~/.claude/settings.json</code>. Each scenario below is something that can turn them back on, and what you can do about it.</p>
 <h4 id="team-settings-override-personal-settings">Team settings override personal settings</h4>
@@ -7778,10 +7395,6 @@ claude --settings '{"model": "claude-opus-5-5"}'
 <h4 id="a-flag-or-environment-variable-sets-the-same-thing">A flag or environment variable sets the same thing</h4>
 <p>Some keys have a command line flag or an environment variable that overrides the settings value regardless of which file set it: <code>ANTHROPIC_MODEL</code> overrides the <a href="/docs/en/settings-reference#model"><code>model</code></a> setting, and <code>--model</code> overrides both for a session.</p>
 <p>Whether you can get your value back depends on the key: unset the variable or drop the flag, and check the key's entry on the <a href="/docs/en/settings-reference">settings reference</a> and the variable's row on the <a href="/docs/en/env-vars">environment variables reference</a> for which one Claude Code uses.</p>
-<p><span id="keys-ignored-in-a-repository-file" /></p>
-<p><span id="keys-only-you-or-your-organization-can-set" /></p>
-<p><span id="common-cases" /></p>
-<p><span id="which-value-applies-in-common-situations" /></p>
 <h3 id="troubleshoot-a-setting-that-doesnt-apply">Troubleshoot a setting that doesn't apply</h3>
 <p>When you set a key and Claude Code doesn't behave as if you had, start with <code>/status</code> to see which files it loaded, then find your symptom below. <a href="/docs/en/debug-your-config">Debug your configuration</a> covers the wider checks, including a clean-configuration test.</p>
 <h4 id="a-value-you-set-is-ignored">A value you set is ignored</h4>
@@ -7810,7 +7423,6 @@ claude --settings '{"model": "claude-opus-5-5"}'
 <li><strong>You chose "Yes, and don't ask again" on a permission prompt but still get prompted for the same tool.</strong> That choice saved an <code>allow</code> rule to your local file, and an <code>allow</code> rule there doesn't outrank an <code>ask</code> rule from a project or managed file; <a href="/docs/en/permissions#settings-precedence">how permission rules combine</a> explains the order. In the VS Code extension the approval card lets you pick the destination file, including the project's shared file, which changes the rule for everyone; in the CLI, Claude Code writes only to your local file.</li>
 <li><strong>Your organization's allow rules still apply alongside yours.</strong> That's expected: Claude Code merges <a href="/docs/en/settings-reference#permissions-allow"><code>permissions.allow</code></a> across scopes, unless your organization sets <a href="/docs/en/settings-reference#allowmanagedpermissionrulesonly"><code>allowManagedPermissionRulesOnly</code></a>.</li>
 </ul>
-<p><span id="security-keys-where-the-stricter-value-applies" /></p>
 <h3 id="exceptions-to-managed-settings-precedence">Exceptions to managed settings precedence</h3>
 <p>For a few keys whose values restrict a session, Claude Code honors a restrictive value from a scope that otherwise couldn't override managed settings. Find the key in this table to see which value it honors and from where.</p>
 <table>

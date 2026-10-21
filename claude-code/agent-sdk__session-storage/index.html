@@ -1705,7 +1705,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6798,37 +6798,35 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <h2 id="the-sessionstore-interface">The <code>SessionStore</code> interface</h2>
 <p>A <code>SessionStore</code> is an object with two required methods, <code>append</code> and <code>load</code>, and four optional methods. The SDK calls <code>append</code> to write transcript entries during a query and <code>load</code> to read them back for resume.</p>
-<p><CodeGroup>
-  ```typescript TypeScript theme={null}
-  // Exported from @anthropic-ai/claude-agent-sdk as
-  // SessionStore, SessionKey, SessionStoreEntry, SessionSummaryEntry.</p>
+<p>```typescript TypeScript theme={null}
+// Exported from @anthropic-ai/claude-agent-sdk as
+// SessionStore, SessionKey, SessionStoreEntry, SessionSummaryEntry.</p>
 <p>type SessionKey = {
-    projectKey: string;
-    sessionId: string;
-    subpath?: string;
-  };</p>
-<p>type SessionStore = {
-    // Required
-    append(key: SessionKey, entries: SessionStoreEntry[]): Promise<void>;
-    load(key: SessionKey): Promise<SessionStoreEntry[] | null>;</p>
-<pre><code>// Optional
-listSessions?(
-  projectKey: string,
-): Promise&lt;Array&lt;{ sessionId: string; mtime: number }&gt;&gt;;
-listSessionSummaries?(projectKey: string): Promise&lt;SessionSummaryEntry[]&gt;;
-delete?(key: SessionKey): Promise&lt;void&gt;;
-listSubkeys?(key: {
   projectKey: string;
   sessionId: string;
-}): Promise&lt;string[]&gt;;
-</code></pre>
-<p>};</p>
-<p>type SessionSummaryEntry = {
+  subpath?: string;
+};</p>
+<p>type SessionStore = {
+  // Required
+  append(key: SessionKey, entries: SessionStoreEntry[]): Promise<void>;
+  load(key: SessionKey): Promise<SessionStoreEntry[] | null>;</p>
+<p>// Optional
+  listSessions?(
+    projectKey: string,
+  ): Promise&lt;Array&lt;{ sessionId: string; mtime: number }&gt;&gt;;
+  listSessionSummaries?(projectKey: string): Promise<SessionSummaryEntry[]>;
+  delete?(key: SessionKey): Promise<void>;
+  listSubkeys?(key: {
+    projectKey: string;
     sessionId: string;
-    mtime: number;
-    data: Record<string, unknown>;
-  };
-  <div class="highlight"><pre><span></span><code>```python Python theme={null}
+  }): Promise<string[]>;
+};</p>
+<p>type SessionSummaryEntry = {
+  sessionId: string;
+  mtime: number;
+  data: Record<string, unknown>;
+};
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 # Exported from claude_agent_sdk as
 # SessionStore, SessionKey, SessionStoreEntry, SessionSummaryEntry.
 
@@ -6858,8 +6856,7 @@ class SessionSummaryEntry(TypedDict):
     session_id: str
     mtime: int
     data: dict[str, Any]
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <p><code>SessionKey</code> addresses one transcript. <code>projectKey</code> is a stable, filesystem-safe encoding of the working directory, <code>sessionId</code> is the session UUID, and <code>subpath</code> is set when the entry belongs to a subagent transcript or sidecar file rather than the main conversation.</p>
 <p>Because <code>projectKey</code> encodes the working directory, resume or continue from the store from a working directory matching the original run's. In TypeScript, if you set <a href="/docs/en/sessions#name-the-project-directory-yourself"><code>CLAUDE_CODE_PROJECT_DIR_NAME</code></a> beside <code>CLAUDE_CONFIG_DIR</code> in a query's <a href="/docs/en/agent-sdk/typescript#options"><code>env</code> option</a>, the SDK keys that query's entries, and its <code>resume</code> and <code>continue</code> lookups, by that name instead. Because standalone helpers such as <code>listSessions</code> and <code>deleteSession</code> take no <code>env</code> and read the process environment, set <code>CLAUDE_CONFIG_DIR</code> and the same name in the host process environment too. Requires Agent SDK v0.3.234 or later.</p>
 <p>Treat <code>subpath</code> as an opaque key suffix; it follows the on-disk layout, for example <code>subagents/agent-&lt;id&gt;</code>. When <code>subpath</code> is undefined the key refers to the main transcript.</p>
@@ -6909,36 +6906,35 @@ class SessionSummaryEntry(TypedDict):
 <p>For what the SDK does with the transcript <code>load</code> returns, see <a href="#resume-from-the-store">Resume from the store</a>.</p>
 <h2 id="quick-start">Quick start</h2>
 <p>The SDK ships an <code>InMemorySessionStore</code> for development and testing. The example below runs a query with the store attached, captures the session ID from the result message, then resumes from the store in a second <code>query()</code> call. The second call passes the same store instance plus <code>resume</code>, so the SDK loads the transcript from the store instead of the local filesystem:</p>
-<p><CodeGroup>
-  ```typescript TypeScript theme={null}
-  import { query, InMemorySessionStore } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>```typescript TypeScript theme={null}
+import { query, InMemorySessionStore } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>const store = new InMemorySessionStore();</p>
 <p>let sessionId: string | undefined;
-  try {
-    for await (const message of query({
-      prompt: "List the TypeScript files under src/",
-      options: { sessionStore: store },
-    })) {
-      if (message.type === "result") {
-        sessionId = message.session_id;
-      }
-    }
-  } catch (error) {
-    // A single-shot query() throws after yielding an error result. If the
-    // failure was an error result, sessionId was already captured by the loop
-    // above; connection or process failures yield no result message.
-    console.error(<code>Session ended with an error: ${error}</code>);
-  }</p>
-<p>// Resume from the store. The agent has full context from the first call.
+try {
   for await (const message of query({
-    prompt: "Summarize what those files do",
-    options: { sessionStore: store, resume: sessionId },
+    prompt: "List the TypeScript files under src/",
+    options: { sessionStore: store },
   })) {
-    if (message.type === "result" &amp;&amp; message.subtype === "success") {
-      console.log(message.result);
+    if (message.type === "result") {
+      sessionId = message.session_id;
     }
   }
-  <div class="highlight"><pre><span></span><code>```python Python theme={null}
+} catch (error) {
+  // A single-shot query() throws after yielding an error result. If the
+  // failure was an error result, sessionId was already captured by the loop
+  // above; connection or process failures yield no result message.
+  console.error(<code>Session ended with an error: ${error}</code>);
+}</p>
+<p>// Resume from the store. The agent has full context from the first call.
+for await (const message of query({
+  prompt: "Summarize what those files do",
+  options: { sessionStore: store, resume: sessionId },
+})) {
+  if (message.type === "result" &amp;&amp; message.subtype === "success") {
+    console.log(message.result);
+  }
+}
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 import asyncio
 from claude_agent_sdk import (
     ClaudeAgentOptions,
@@ -6975,8 +6971,7 @@ async def main():
 
 
 asyncio.run(main())
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <p>The second query prints a summary of the files from the first query, which shows the agent resumed with full context from the store.</p>
 <h2 id="write-your-own-adapter">Write your own adapter</h2>
 <p>Implement <code>append</code> and <code>load</code> against your backend. Add <code>listSessions</code>, <code>listSessionSummaries</code>, <code>delete</code>, and <code>listSubkeys</code> if you want <code>listSessions()</code>, one-call metadata reads, <code>deleteSession()</code>, and subagent resume to work against the store.</p>

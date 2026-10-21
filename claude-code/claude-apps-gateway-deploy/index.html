@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7100,12 +7100,11 @@ Use this file to discover all available pages before exploring further.</p>
 <h1 id="claude-apps-gateway-deployment-and-operations">Claude apps gateway deployment and operations</h1>
 <blockquote>
 <p>Register the gateway with your IdP, build the container, deploy on Kubernetes or Cloud Run, and operate it: health checks, secret rotation, upgrades, and security.</p>
-</blockquote>
-<p><Info>
-  <strong>Plan your gateway's network first.</strong> At sign-in, Claude Code refuses a Claude apps gateway whose hostname resolves to a public IP address, even one the internet can't reach.</p>
+<p>[!NOTE]</p>
+<p><strong>Plan your gateway's network first.</strong> At sign-in, Claude Code refuses a Claude apps gateway whose hostname resolves to a public IP address, even one the internet can't reach.</p>
 <p>A Claude apps gateway can push settings to users' machines, including hooks that run shell commands. The check helps keep users from accidentally signing in to a malicious gateway on the public internet. Keep your own gateway off the internet too.</p>
-<p>Choose the gateway's address before you choose where it runs. Usually that's a private address that users reach on your internal network or over a VPN. If your internal network uses public IPv4 ranges, you can list one range that holds both the gateway and your users' machines. Claude Code takes that match as a sign that the gateway is on your internal network. See <a href="#choose-an-address-for-the-gateway">Choose an address for the gateway</a>. If neither fits your network, contact your Anthropic account team.
-</Info></p>
+<p>Choose the gateway's address before you choose where it runs. Usually that's a private address that users reach on your internal network or over a VPN. If your internal network uses public IPv4 ranges, you can list one range that holds both the gateway and your users' machines. Claude Code takes that match as a sign that the gateway is on your internal network. See <a href="#choose-an-address-for-the-gateway">Choose an address for the gateway</a>. If neither fits your network, contact your Anthropic account team.</p>
+</blockquote>
 <p>This page covers the operational side of running <a href="/docs/en/claude-apps-gateway">Claude apps gateway</a>: registering an OAuth client in your identity provider (IdP), deploying the gateway as a container, and running it day-to-day. For every option in the <code>gateway.yaml</code> file the gateway reads at boot, see the <a href="/docs/en/claude-apps-gateway-config">Configuration reference</a>.</p>
 <p>A production deployment follows four steps in order, and the sections below match them. The first two are where you make choices; the second two are reference material to consult once it's running.</p>
 <ol>
@@ -7130,10 +7129,11 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Microsoft Entra ID</strong>: <code>issuer</code> = <code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code>. Entra emits group Object IDs rather than names, so use the GUIDs in <code>managed.policies.match.groups</code>, or use App Roles for human-readable names. If your tenant emits roles under <code>roles</code> instead of <code>groups</code>, set <code>oidc.groups_claim: roles</code>.</li>
 <li><strong>Google Workspace</strong>: <code>issuer</code> = <code>https://accounts.google.com</code>. Google's id_token doesn't carry groups. To use group-based <code>allowed_groups</code> or <code>managed.policies</code> with Google as the IdP, configure <a href="/docs/en/claude-apps-gateway-config#oidc"><code>oidc.google_groups</code></a>, which looks up each user's groups through the Admin SDK Directory API using a service account with domain-wide delegation. Without it, use <code>oidc.allowed_email_domains</code> for membership gating and <code>managed.policies.match.email_domain</code> for policy assignment. Google also ignores the standard <code>offline_access</code> scope. For refresh tokens, set <code>oidc.scopes: [openid, profile, email]</code> and <code>oidc.extra_auth_params: { access_type: offline, prompt: consent }</code>.</li>
 </ul>
-<p><Warning>
-  Refresh tokens let the gateway renew a developer's session silently, without sending the developer back to the browser. They also drive deprovisioning, because when the IdP disables a user, the next refresh fails and the session ends within <code>ttl_hours</code>. The gateway requests <code>offline_access</code> by default to get a refresh token. If your IdP requires explicit consent for offline access, configure the OAuth client to allow it.</p>
-<p>If your IdP can't issue refresh tokens at all, the gateway still works, but there is no silent renewal, so developers re-run the browser login when their session expires. To keep that from happening every hour, raise <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a> to <code>8</code> or <code>12</code>. The tradeoff is deprovisioning latency, because without refresh tokens a disabled user keeps access until the longer TTL elapses.
-</Warning></p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Refresh tokens let the gateway renew a developer's session silently, without sending the developer back to the browser. They also drive deprovisioning, because when the IdP disables a user, the next refresh fails and the session ends within <code>ttl_hours</code>. The gateway requests <code>offline_access</code> by default to get a refresh token. If your IdP requires explicit consent for offline access, configure the OAuth client to allow it.</p>
+<p>If your IdP can't issue refresh tokens at all, the gateway still works, but there is no silent renewal, so developers re-run the browser login when their session expires. To keep that from happening every hour, raise <a href="/docs/en/claude-apps-gateway-config#session"><code>session.ttl_hours</code></a> to <code>8</code> or <code>12</code>. The tradeoff is deprovisioning latency, because without refresh tokens a disabled user keeps access until the longer TTL elapses.</p>
+</blockquote>
 <h2 id="deployment">Deployment</h2>
 <p>The gateway is a single stateless Linux binary that coordinates through Postgres, so deploy it the way you deploy any other stateless service in your environment. Keep it inside your network, where your developers can reach it over HTTPS and it can reach your IdP, and treat it like any service holding a production credential.</p>
 <p>A few decisions shape the deployment beyond where it runs:</p>
@@ -7245,9 +7245,10 @@ rate_limits:
 </ul>
 <p>A replica fills its limit at a request rate of about the limit divided by the average number of seconds a request stays open. For example, if requests stay open for 10 seconds on average, a replica at the default limit of 256 fills it at about 26 requests a second.</p>
 <p>If you autoscale on CPU, a replica at the limit queues requests without triggering a scale-out, so set the target below the CPU level your replicas show when they log the <code>client requests are open</code> warning.</p>
-<p><Warning>
-  Every open request holds memory in the gateway process while it streams and while it waits for a slot. If you keep the limit at 256, memory on an overloaded replica still grows, because waiting requests keep their request bodies. Size the container's memory for the number of requests open at peak, and watch memory when you change the limit. A replica that runs out of memory is killed and drops every stream it holds.
-</Warning></p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Every open request holds memory in the gateway process while it streams and while it waits for a slot. If you keep the limit at 256, memory on an overloaded replica still grows, because waiting requests keep their request bodies. Size the container's memory for the number of requests open at peak, and watch memory when you change the limit. A replica that runs out of memory is killed and drops every stream it holds.</p>
+</blockquote>
 <h3 id="outage-behavior">Outage behavior</h3>
 <p>If Postgres goes down, the gateway itself keeps serving signed-in developers and new sign-ins fail. Whether developers actually keep working depends on how your orchestrator handles readiness:</p>
 <ul>

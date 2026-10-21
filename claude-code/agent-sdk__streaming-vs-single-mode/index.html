@@ -1645,7 +1645,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6689,60 +6689,57 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <h3 id="implementation-example">Implementation Example</h3>
 <p>These examples read an image named <code>diagram.png</code> from the working directory. Create one there first, or change the filename to point at your own image.</p>
-<p><CodeGroup>
-  ```typescript TypeScript theme={null}
-  import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-  import { readFile } from "fs/promises";</p>
+<p>```typescript TypeScript theme={null}
+import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { readFile } from "fs/promises";</p>
 <p>async function* generateMessages(): AsyncGenerator<SDKUserMessage> {
-    // First message
-    yield {
-      type: "user",
-      message: {
-        role: "user",
-        content: "Analyze this codebase for security issues"
-      },
-      parent_tool_use_id: null
-    };</p>
-<pre><code>// Wait for conditions or user input
-await new Promise((resolve) =&gt; setTimeout(resolve, 2000));
-
-// Follow-up with image
-yield {
-  type: "user",
-  message: {
-    role: "user",
-    content: [
-      {
-        type: "text",
-        text: "Review this architecture diagram"
-      },
-      {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/png",
-          data: await readFile("diagram.png", "base64")
+  // First message
+  yield {
+    type: "user",
+    message: {
+      role: "user",
+      content: "Analyze this codebase for security issues"
+    },
+    parent_tool_use_id: null
+  };</p>
+<p>// Wait for conditions or user input
+  await new Promise((resolve) =&gt; setTimeout(resolve, 2000));</p>
+<p>// Follow-up with image
+  yield {
+    type: "user",
+    message: {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: "Review this architecture diagram"
+        },
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: "image/png",
+            data: await readFile("diagram.png", "base64")
+          }
         }
-      }
-    ]
-  },
-  parent_tool_use_id: null
-};
-</code></pre>
-<p>}</p>
+      ]
+    },
+    parent_tool_use_id: null
+  };
+}</p>
 <p>// Process streaming responses
-  for await (const message of query({
-    prompt: generateMessages(),
-    options: {
-      maxTurns: 10,
-      allowedTools: ["Read", "Grep"]
-    }
-  })) {
-    if (message.type === "result" &amp;&amp; message.subtype === "success") {
-      console.log(message.result);
-    }
+for await (const message of query({
+  prompt: generateMessages(),
+  options: {
+    maxTurns: 10,
+    allowedTools: ["Read", "Grep"]
   }
-  <div class="highlight"><pre><span></span><code>```python Python theme={null}
+})) {
+  if (message.type === "result" &amp;&amp; message.subtype === "success") {
+    console.log(message.result);
+  }
+}
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 from claude_agent_sdk import (
     ClaudeSDKClient,
     ClaudeAgentOptions,
@@ -6805,14 +6802,14 @@ async def streaming_analysis():
 
 
 asyncio.run(streaming_analysis())
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <p>When you run the example, the TypeScript version prints each response as it completes. The Python version's <code>receive_response()</code> loop ends at the first result message, so it prints the security analysis; to read both responses, use one <code>query()</code> and <code>receive_response()</code> pair per message as shown in the <a href="/docs/en/agent-sdk/python#example-continuing-a-conversation">Python reference's example of continuing a conversation</a>.</p>
 <p>If an image block's <code>source</code> is missing or isn't an object, the SDK doesn't report an error. Claude Code sends Claude a text note in place of the image, such as <code>[Image could not be processed: image block has no source object]</code>, and the session continues.</p>
-<p><Note>
-  In the TypeScript SDK, if your message generator throws, for example when a file it reads is missing, the stream ends with an error that reads <code>Claude Code process aborted by user</code> instead of the original error, so check the code inside your generator first when you see that message. The error may also be preceded by a long minified line of bundled SDK source, so read to the end of the output for the error text.</p>
-<p>In the Python SDK, a generator exception is logged at debug level and the session stalls without raising, so if a streaming session hangs with no output, enable debug logging and check your generator.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>In the TypeScript SDK, if your message generator throws, for example when a file it reads is missing, the stream ends with an error that reads <code>Claude Code process aborted by user</code> instead of the original error, so check the code inside your generator first when you see that message. The error may also be preceded by a long minified line of bundled SDK source, so read to the end of the output for the error text.</p>
+<p>In the Python SDK, a generator exception is logged at debug level and the session stalls without raising, so if a streaming session hangs with no output, enable debug logging and check your generator.</p>
+</blockquote>
 <h2 id="single-message-input">Single Message Input</h2>
 <p>Single message input is simpler but more limited.</p>
 <h3 id="when-to-use-single-message-input">When to Use Single Message Input</h3>
@@ -6823,54 +6820,54 @@ asyncio.run(streaming_analysis())
 <li>You need to operate in a stateless environment, such as a lambda function</li>
 </ul>
 <h3 id="limitations">Limitations</h3>
-<p><Warning>
-  Single message input mode does <strong>not</strong> support:</p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Single message input mode does <strong>not</strong> support:</p>
 <ul>
 <li>Direct image attachments in messages</li>
 <li>Dynamic message queueing</li>
 <li>Real-time interruption</li>
-<li>Natural multi-turn conversations
-</Warning></li>
+<li>Natural multi-turn conversations</li>
 </ul>
+</blockquote>
 <p>If a query ends with an error result, such as <code>error_max_turns</code>, a single message <code>query()</code> call raises an error that includes the failure text after yielding the final result message, so wrap the loop in a try block if your code needs to continue. See <a href="/docs/en/agent-sdk/agent-loop#handle-the-result">Handle the result</a> for the result subtypes.</p>
 <h3 id="implementation-example_1">Implementation Example</h3>
-<p><CodeGroup>
-  ```typescript TypeScript theme={null}
-  import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>```typescript TypeScript theme={null}
+import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>// Simple one-shot query
-  // query() throws after an error result, such as error_max_turns
-  try {
-    for await (const message of query({
-      prompt: "Explain the authentication flow",
-      options: {
-        maxTurns: 5,
-        allowedTools: ["Read", "Grep"]
-      }
-    })) {
-      if (message.type === "result" &amp;&amp; message.subtype === "success") {
-        console.log(message.result);
-      }
+// query() throws after an error result, such as error_max_turns
+try {
+  for await (const message of query({
+    prompt: "Explain the authentication flow",
+    options: {
+      maxTurns: 5,
+      allowedTools: ["Read", "Grep"]
     }
-  } catch (error) {
-    console.error(<code>Query failed: ${error}</code>);
-  }</p>
-<p>// Continue conversation with session management
-  try {
-    for await (const message of query({
-      prompt: "Now explain the authorization process",
-      options: {
-        continue: true,
-        maxTurns: 5
-      }
-    })) {
-      if (message.type === "result" &amp;&amp; message.subtype === "success") {
-        console.log(message.result);
-      }
+  })) {
+    if (message.type === "result" &amp;&amp; message.subtype === "success") {
+      console.log(message.result);
     }
-  } catch (error) {
-    console.error(<code>Query failed: ${error}</code>);
   }
-  <div class="highlight"><pre><span></span><code>```python Python theme={null}
+} catch (error) {
+  console.error(<code>Query failed: ${error}</code>);
+}</p>
+<p>// Continue conversation with session management
+try {
+  for await (const message of query({
+    prompt: "Now explain the authorization process",
+    options: {
+      continue: true,
+      maxTurns: 5
+    }
+  })) {
+    if (message.type === "result" &amp;&amp; message.subtype === "success") {
+      console.log(message.result);
+    }
+  }
+} catch (error) {
+  console.error(<code>Query failed: ${error}</code>);
+}
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 import asyncio
 
@@ -6901,8 +6898,7 @@ async def single_message_example():
 
 
 asyncio.run(single_message_example())
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <p>When you run the example, each query prints its final result text: first the authentication explanation, then the authorization explanation.</p>
 
 

@@ -1650,7 +1650,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6688,9 +6688,10 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <p>The Agent SDK can export this data as OpenTelemetry traces, metrics, and log events to any backend that accepts the OpenTelemetry Protocol (OTLP), whether a hosted observability platform or a self-hosted collector.</p>
 <p>This guide explains how the SDK emits telemetry, how to configure the export, and how to tag and filter the data once it reaches your backend. To read token usage and cost directly from the SDK response stream instead of exporting to a backend, see <a href="/docs/en/agent-sdk/cost-tracking">Track cost and usage</a>.</p>
-<p><Note>
-  For the Claude API or Managed Agents, see <a href="https://platform.claude.com/docs/en/manage-claude/opentelemetry">OpenTelemetry for the Claude API</a>.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>For the Claude API or Managed Agents, see <a href="https://platform.claude.com/docs/en/manage-claude/opentelemetry">OpenTelemetry for the Claude API</a>.</p>
+</blockquote>
 <h2 id="how-telemetry-flows-from-the-sdk">How telemetry flows from the SDK</h2>
 <p>The Agent SDK runs the Claude Code CLI as a child process and communicates with it over a local pipe. The CLI has OpenTelemetry instrumentation built in: it records spans around each model request and tool execution, emits metrics for token and cost counters, and emits structured log events for prompts and tool results. The SDK does not produce telemetry of its own. Instead, it passes configuration through to the CLI process, and the CLI exports directly to your collector.</p>
 <p>Configuration is passed as environment variables. By default, the child process inherits your application's environment, so you can configure telemetry in either of two places:</p>
@@ -6729,31 +6730,30 @@ Use this file to discover all available pages before exploring further.</p>
 <h2 id="enable-telemetry-export">Enable telemetry export</h2>
 <p>Telemetry is off until you set <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> and choose at least one exporter. The most common configuration sends all three signals over OTLP HTTP to a collector.</p>
 <p>The following example sets the variables in a dictionary and passes them through <code>options.env</code>. The agent runs a single task, and the CLI exports spans, metrics, and events to the collector at <code>collector.example.com</code> while the loop consumes the response stream:</p>
-<p><CodeGroup>
-  ```python Python theme={null}
-  import asyncio
-  from claude_agent_sdk import query, ClaudeAgentOptions</p>
+<p>```python Python theme={null}
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions</p>
 <p>OTEL_ENV = {
-      "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-      # Required for traces, which are in beta. Metrics and log events do not need this.
-      "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
-      # Choose an exporter per signal. Use otlp for the SDK; see the Note below.
-      "OTEL_TRACES_EXPORTER": "otlp",
-      "OTEL_METRICS_EXPORTER": "otlp",
-      "OTEL_LOGS_EXPORTER": "otlp",
-      # Standard OTLP transport configuration.
-      "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
-      "OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector.example.com:4318",
-      "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer your-token",
-  }</p>
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    # Required for traces, which are in beta. Metrics and log events do not need this.
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    # Choose an exporter per signal. Use otlp for the SDK; see the Note below.
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    # Standard OTLP transport configuration.
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector.example.com:4318",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer your-token",
+}</p>
 <p>async def main():
-      options = ClaudeAgentOptions(env=OTEL_ENV)
-      async for message in query(
-          prompt="List the files in this directory", options=options
-      ):
-          print(message)</p>
+    options = ClaudeAgentOptions(env=OTEL_ENV)
+    async for message in query(
+        prompt="List the files in this directory", options=options
+    ):
+        print(message)</p>
 <p>asyncio.run(main())
-  <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 const otelEnv = {
@@ -6778,36 +6778,34 @@ for await (const message of query({
 })) {
   console.log(message);
 }
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <p>Because the child process inherits your application's environment by default, you can achieve the same result by exporting these variables in a Dockerfile, Kubernetes manifest, or shell profile and omitting <code>options.env</code> entirely.</p>
 <p>To confirm that export is working, check your collector's logs for incoming spans, metrics, and log events after the task completes. The CLI fails silently on export errors by default: if the endpoint is unreachable or rejects the data, the agent still runs normally and the CLI drops the telemetry without surfacing an error in your application. To surface exporter errors, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_OTEL_DIAG_STDERR=1</code></a> alongside the exporter variables and read the diagnostics through the SDK's <code>stderr</code> callback (Python) or <code>stderr</code> option (TypeScript). Requires Claude Code v2.1.179 or later.</p>
-<p><Note>
-  The <code>console</code> exporter writes telemetry to standard output, which the SDK uses
-  as its message channel. Do not set <code>console</code> as an exporter value when running
-  through the SDK. To inspect telemetry locally, point
-  <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> at a local OpenTelemetry Collector instead.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>The <code>console</code> exporter writes telemetry to standard output, which the SDK uses
+as its message channel. Do not set <code>console</code> as an exporter value when running
+through the SDK. To inspect telemetry locally, point
+<code>OTEL_EXPORTER_OTLP_ENDPOINT</code> at a local OpenTelemetry Collector instead.</p>
+</blockquote>
 <h3 id="flush-telemetry-from-short-lived-calls">Flush telemetry from short-lived calls</h3>
 <p>The CLI batches telemetry and exports on an interval. On a clean process exit it attempts to flush pending data, but the flush is bounded by a short timeout, so spans can still be dropped if the collector is slow to respond. If your process is killed before the CLI shuts down, anything still in the batch buffer is lost. Lowering the export intervals reduces both windows.</p>
 <p>By default, metrics export every 60 seconds and traces and logs export every 5 seconds. The following example shortens all three intervals so that data reaches the collector while a short task is still running:</p>
-<p><CodeGroup>
-  ```python Python theme={null}
-  OTEL_ENV = {
-      # ... exporter configuration from the previous example ...
-      "OTEL_METRIC_EXPORT_INTERVAL": "1000",
-      "OTEL_LOGS_EXPORT_INTERVAL": "1000",
-      "OTEL_TRACES_EXPORT_INTERVAL": "1000",
-  }
-  <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+<p>```python Python theme={null}
+OTEL_ENV = {
+    # ... exporter configuration from the previous example ...
+    "OTEL_METRIC_EXPORT_INTERVAL": "1000",
+    "OTEL_LOGS_EXPORT_INTERVAL": "1000",
+    "OTEL_TRACES_EXPORT_INTERVAL": "1000",
+}
+<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 const otelEnv = {
   // ... exporter configuration from the previous example ...
   OTEL_METRIC_EXPORT_INTERVAL: "1000",
   OTEL_LOGS_EXPORT_INTERVAL: "1000",
   OTEL_TRACES_EXPORT_INTERVAL: "1000",
 };
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <h2 id="read-agent-traces">Read agent traces</h2>
 <p>Traces give you the most detailed view of an agent run. With <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code> set, each step of the agent loop becomes a span you can inspect in your tracing backend:</p>
 <ul>
@@ -6818,11 +6816,12 @@ const otelEnv = {
 </ul>
 <p>The <code>llm_request</code>, <code>tool</code>, and <code>hook</code> spans are children of the enclosing <code>claude_code.interaction</code> span. When the agent spawns a subagent through the Agent tool, the subagent's <code>llm_request</code> and <code>tool</code> spans nest under the parent agent's <code>claude_code.tool</code> span, so the full delegation chain appears as one trace.</p>
 <p>Spans carry a <code>session.id</code> attribute by default. When you make several <code>query()</code> calls against the same <a href="/docs/en/agent-sdk/sessions">session</a>, filter on <code>session.id</code> in your backend to see them as one timeline. Claude Code omits the attribute if you set <code>OTEL_METRICS_INCLUDE_SESSION_ID</code> to a falsy value.</p>
-<p><Note>
-  Tracing is in beta. Span names and attributes may change between releases. See
-  <a href="/docs/en/monitoring-usage#traces-beta">Traces (beta)</a> in the Monitoring reference
-  for the trace exporter configuration variables.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Tracing is in beta. Span names and attributes may change between releases. See
+<a href="/docs/en/monitoring-usage#traces-beta">Traces (beta)</a> in the Monitoring reference
+for the trace exporter configuration variables.</p>
+</blockquote>
 <h2 id="link-traces-to-your-application">Link traces to your application</h2>
 <p>The SDK automatically propagates W3C trace context into the CLI subprocess. When you call <code>query()</code> while an OpenTelemetry span is active in your application, the SDK injects <code>TRACEPARENT</code> and <code>TRACESTATE</code> into the child process environment, and the CLI reads them so its <code>claude_code.interaction</code> span becomes a child of your span. The agent run then appears inside your application's trace instead of as a disconnected root.</p>
 <p>OTLP event log records emitted during the run carry the same trace context: with <code>TRACEPARENT</code> set, each record's <code>trace_id</code> and <code>span_id</code> match your application's trace, so you can join <a href="/docs/en/monitoring-usage#events">events</a> to spans in your backend. Before v2.1.212, event records emitted outside an active span didn't carry <code>trace_id</code> or <code>span_id</code>.</p>
@@ -6831,16 +6830,15 @@ const otelEnv = {
 <h2 id="tag-telemetry-from-your-agent">Tag telemetry from your agent</h2>
 <p>By default, the CLI reports <code>service.name</code> as <code>claude-code</code>. If you run several agents, or run the SDK alongside other services that export to the same collector, override the service name and add resource attributes so you can filter by agent in your backend.</p>
 <p>The following example renames the service and attaches deployment metadata. These values are applied as OpenTelemetry resource attributes on every span, metric, and event the agent emits:</p>
-<p><CodeGroup>
-  ```python Python theme={null}
-  options = ClaudeAgentOptions(
-      env={
-          # ... exporter configuration from the Enable telemetry export example ...
-          "OTEL_SERVICE_NAME": "support-triage-agent",
-          "OTEL_RESOURCE_ATTRIBUTES": "service.version=1.4.0,deployment.environment=production",
-      },
-  )
-  <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+<p>```python Python theme={null}
+options = ClaudeAgentOptions(
+    env={
+        # ... exporter configuration from the Enable telemetry export example ...
+        "OTEL_SERVICE_NAME": "support-triage-agent",
+        "OTEL_RESOURCE_ATTRIBUTES": "service.version=1.4.0,deployment.environment=production",
+    },
+)
+<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 const options = {
   env: {
     ...process.env,
@@ -6850,22 +6848,20 @@ const options = {
       "service.version=1.4.0,deployment.environment=production",
   },
 };
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <h2 id="attribute-actions-to-your-end-users">Attribute actions to your end users</h2>
 <p>The CLI attaches <a href="/docs/en/monitoring-usage#standard-attributes">identity attributes</a> to every event based on the credential it uses to call Anthropic. When you build an application that serves many end users from one deployment, these attributes identify your service's credential, not the end user on whose behalf the agent acted.</p>
 <p>To make tool calls and MCP activity attributable to your application's end users, inject end-user identity as resource attributes on each <code>query()</code> call. Percent-encode values before interpolating them, since <code>OTEL_RESOURCE_ATTRIBUTES</code> <a href="/docs/en/monitoring-usage#multi-team-organization-support">reserves commas, spaces, and equals signs</a>. The following example attaches the requesting user and tenant to every span and event from one request. It assumes a <code>request</code> object from your web framework carrying the user and tenant IDs:</p>
-<p><CodeGroup>
-  ```python Python theme={null}
-  from urllib.parse import quote</p>
+<p>```python Python theme={null}
+from urllib.parse import quote</p>
 <p>options = ClaudeAgentOptions(
-      env={
-          # ... exporter configuration from the Enable telemetry export example ...
-          # request is the incoming request object from your web framework.
-          "OTEL_RESOURCE_ATTRIBUTES": f"enduser.id={quote(request.user_id)},tenant.id={quote(request.tenant_id)}",
-      },
-  )
-  <div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+    env={
+        # ... exporter configuration from the Enable telemetry export example ...
+        # request is the incoming request object from your web framework.
+        "OTEL_RESOURCE_ATTRIBUTES": f"enduser.id={quote(request.user_id)},tenant.id={quote(request.tenant_id)}",
+    },
+)
+<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
 const options = {
   env: {
     ...process.env,
@@ -6874,8 +6870,7 @@ const options = {
     OTEL_RESOURCE_ATTRIBUTES: `enduser.id=${encodeURIComponent(request.userId)},tenant.id=${encodeURIComponent(request.tenantId)}`,
   },
 };
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <p>With end-user identity attached, the <code>tool_decision</code>, <code>tool_result</code>, <code>mcp_server_connection</code>, and <code>permission_mode_changed</code> events, which export as log records named with a <code>claude_code.</code> prefix, become a per-user audit trail you can forward to a Security Information and Event Management (SIEM) platform. See <a href="/docs/en/monitoring-usage#audit-security-events">Audit security events</a> in the Monitoring reference for the full list of security-relevant events and the attributes each one carries.</p>
 <h2 id="control-sensitive-data-in-exports">Control sensitive data in exports</h2>
 <p>Telemetry is structural by default. Durations, model names, and tool names are recorded on every span; token counts are recorded when the underlying API request returns usage data, so spans for failed or aborted requests may omit them. The content your agent reads and writes is not recorded by default. These opt-in variables add content to the exported data:</p>

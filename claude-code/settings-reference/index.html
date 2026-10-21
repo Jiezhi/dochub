@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -10153,573 +10153,10 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Complete reference for every Claude Code settings.json key: where each one goes, its type and default, and a paste-ready example, with an index of every key.</p>
 </blockquote>
-<p>export const BackToIndex = ({href = '#all-settings', label = 'Back to index'}) =&gt; {
-  const [show, setShow] = useState(false);
-  useEffect(() =&gt; {
-    const onScroll = () =&gt; setShow(window.scrollY &gt; window.innerHeight);
-    onScroll();
-    window.addEventListener('scroll', onScroll, {
-      passive: true
-    });
-    return () =&gt; window.removeEventListener('scroll', onScroll);
-  }, []);
-  return <div className="not-prose">
-      <style>{<code>.bti-btn {
-          position: fixed; right: 20px; bottom: 20px; z-index: 40;
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 8px 12px; border-radius: 999px;
-          font-size: 13px; font-weight: 500; line-height: 1; text-decoration: none;
-          color: #1f1f1f; background: #ffffff; border: 1px solid #d9d9d9;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-          opacity: 0; pointer-events: none; transform: translateY(6px);
-          transition: opacity 160ms ease, transform 160ms ease;
-        }
-        .bti-btn.bti-show { opacity: 1; pointer-events: auto; transform: translateY(0); }
-        .bti-btn:hover { border-color: #b3b3b3; }
-        .dark .bti-btn { color: #ececec; background: #1e1e1e; border-color: #3a3a3a; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-        .dark .bti-btn:hover { border-color: #5a5a5a; }
-        @media (max-width: 1279px) { .bti-btn { bottom: 112px; } }
-        @media print { .bti-btn { display: none; } }</code>}</style>
-      &lt;a className={'bti-btn' + (show ? ' bti-show' : '')} href={href} aria-hidden={!show} tabIndex={show ? 0 : -1}&gt;
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" /></svg>
-        {label}
-      </a>
-    </div>;
-};</p>
-<p>export const ReferenceFilter = ({placeholder, noun, facets, facetOrder, columnHelp, children}) =&gt; {
-  const useLive = init =&gt; {
-    const [v, setV] = useState(init);
-    const ref = useRef(init);
-    return [v, ref, x =&gt; {
-      ref.current = x;
-      setV(x);
-    }];
-  };
-  const cap = s =&gt; s.charAt(0).toUpperCase() + s.slice(1);
-  const plural = s =&gt; s.endsWith('y') ? s.slice(0, -1) + 'ies' : s + 's';
-  const facetNames = facets || ['category', 'topic', 'scope', 'where'];
-  const orderOf = {};
-  Object.keys(facetOrder || ({})).forEach(k =&gt; {
-    orderOf[k] = facetOrder[k].map(x =&gt; String(x).toLowerCase());
-  });
-  const rankIn = (col, v) =&gt; {
-    const list = orderOf[col];
-    if (!list) return -1;
-    const i = list.indexOf(String(v).toLowerCase());
-    return i &lt; 0 ? list.length : i;
-  };
-  const cmpValues = col =&gt; (a, b) =&gt; {
-    const ra = rankIn(col, a);
-    const rb = rankIn(col, b);
-    if (ra !== rb) return ra - rb;
-    return a &lt; b ? -1 : a &gt; b ? 1 : 0;
-  };
-  const help = columnHelp || ({});
-  const FIRST_COL_HELP = 'Click an entry to open it.';
-  const optionLabel = (f, c) =&gt; c === 'All' ? 'All ' + plural(f.label.toLowerCase()) : c;
-  const nounText = noun || 'entries';
-  const placeholderText = placeholder || 'Filter this reference';
-  const rootRef = useRef(null);
-  const tablesRef = useRef(null);
-  const searchRef = useRef(null);
-  const menuRef = useRef({});
-  const [q, qRef, setQ] = useLive('');
-  const [sel, selRef, setSel] = useLive({});
-  const [sortBy, sortRef, setSortBy] = useLive(null);
-  const [menuOpen, menuOpenRef, setMenu] = useLive(null);
-  const [facetList, setFacetList] = useState([]);
-  const [firstHead, setFirstHead] = useState('');
-  const [counts, setCounts] = useState({
-    shown: 0,
-    total: 0
-  });
-  const [disabled, setDisabled] = useState(false);
-  const menuBtn = name =&gt; menuRef.current[name] ? menuRef.current[name].querySelector(':scope &gt; button') : null;
-  const menuList = name =&gt; menuRef.current[name] ? menuRef.current[name].querySelector('[role="listbox"]') : null;
-  const closeMenu = name =&gt; {
-    setMenu(null);
-    const btn = menuBtn(name);
-    if (btn) btn.focus();
-  };
-  const focusSelected = name =&gt; {
-    const list = menuList(name);
-    if (!list) return;
-    const btn = list.querySelector('button[aria-selected="true"]') || list.querySelector('button');
-    if (btn) btn.focus();
-  };
-  const setFacet = (name, value) =&gt; {
-    setSel(Object.assign({}, selRef.current, {
-      [name]: value
-    }));
-    apply(qRef.current);
-    closeMenu(name);
-  };
-  const sortTables = by =&gt; {
-    (tablesRef.current || []).forEach(tab =&gt; {
-      const t = tab.el;
-      const idx = tab.heads.indexOf(by);
-      const body = t.querySelector('tbody');
-      if (idx &lt; 0 || !body) return;
-      const rows = [...body.querySelectorAll('tr')];
-      const keyOf = r =&gt; r.children[idx] ? r.children[idx].textContent.trim().toLowerCase() : '';
-      const cmp = cmpValues(by);
-      rows.map((r, i) =&gt; ({
-        r,
-        i: Number(r.dataset.sfIndex !== undefined ? r.dataset.sfIndex : i),
-        k: keyOf(r)
-      })).sort((a, b) =&gt; cmp(a.k, b.k) || a.i - b.i).forEach(x =&gt; body.appendChild(x.r));
-      [...t.querySelectorAll('thead th')].forEach((h, i) =&gt; {
-        const sortable = tab.heads[i] === tab.heads[0] || facetNames.indexOf(tab.heads[i]) &gt; -1;
-        if (sortable) h.setAttribute('aria-sort', i === idx ? 'ascending' : 'none'); else h.removeAttribute('aria-sort');
-      });
-    });
-  };
-  const scan = () =&gt; {
-    const tables = [];
-    let el = rootRef.current ? rootRef.current.nextElementSibling : null;
-    while (el) {
-      if (el.tagName === 'H2' || el.querySelector(':scope &gt; h2')) break;
-      const found = el.tagName === 'TABLE' ? [el] : [...el.querySelectorAll('table')];
-      found.forEach(t =&gt; {
-        const headCells = [...t.querySelectorAll('thead th, thead td')];
-        const heads = headCells.map(h =&gt; h.textContent.trim().toLowerCase());
-        if (heads.length === 0) return;
-        const facetIdx = {};
-        heads.forEach((h, i) =&gt; {
-          if (facetNames.indexOf(h) &gt; -1) facetIdx[h] = i;
-        });
-        if (!t.dataset.sfDecorated) {
-          t.dataset.sfDecorated = '1';
-          headCells.forEach((h, i) =&gt; {
-            const text = i === 0 ? help[heads[0]] || FIRST_COL_HELP : help[heads[i]];
-            if (text) h.title = text;
-          });
-        }
-        const rows = [...t.querySelectorAll('tbody tr')].map((r, i) =&gt; {
-          if (r.dataset.sfIndex === undefined) r.dataset.sfIndex = String(i);
-          const cells = r.querySelectorAll('td');
-          const fv = {};
-          Object.keys(facetIdx).forEach(h =&gt; {
-            fv[h] = cells[facetIdx[h]] ? cells[facetIdx[h]].textContent.trim() : '';
-          });
-          return {
-            el: r,
-            text: [...cells].map(c =&gt; c.textContent).join(' ').toLowerCase(),
-            facets: fv,
-            anchors: [...r.querySelectorAll('a[href^="#"]')].map(a =&gt; a.getAttribute('href').slice(1)),
-            ids: [...r.querySelectorAll('[id]')].map(n =&gt; n.id)
-          };
-        });
-        tables.push({
-          el: t,
-          box: t.closest('[data-table-wrapper]') || t,
-          rows,
-          heads
-        });
-      });
-      el = el.nextElementSibling;
-    }
-    tablesRef.current = tables;
-    if (sortRef.current) sortTables(sortRef.current);
-    return tables;
-  };
-  const apply = query =&gt; {
-    let tables = tablesRef.current || scan();
-    if (tables.some(t =&gt; !t.el.isConnected)) tables = scan();
-    const needle = query.trim().toLowerCase();
-    const sel = selRef.current;
-    const activeFacets = Object.keys(sel).filter(h =&gt; sel[h] &amp;&amp; sel[h] !== 'All');
-    const show = (el, on) =&gt; {
-      const want = on ? '' : 'none';
-      if (el.style.display !== want) el.style.display = want;
-    };
-    let total = 0;
-    let shown = 0;
-    const visibleTargets = new Set();
-    tables.forEach(t =&gt; {
-      let tableVisible = 0;
-      t.rows.forEach(row =&gt; {
-        total += 1;
-        const catOk = activeFacets.every(h =&gt; {
-          const v = row.facets[h];
-          return v === sel[h] || v === '' || v === undefined;
-        });
-        const match = catOk &amp;&amp; (needle === '' || row.text.includes(needle));
-        show(row.el, match);
-        if (match) {
-          tableVisible += 1;
-          row.anchors.forEach(a =&gt; visibleTargets.add(a));
-        }
-      });
-      show(t.box, !(t.rows.length &gt; 0 &amp;&amp; tableVisible === 0));
-      shown += tableVisible;
-    });
-    if (shown &lt; total &amp;&amp; visibleTargets.size &gt; 0) {
-      tables.forEach(t =&gt; {
-        t.rows.forEach(row =&gt; {
-          if (row.el.style.display === 'none' &amp;&amp; row.ids.some(id =&gt; visibleTargets.has(id))) {
-            show(row.el, true);
-            show(t.box, true);
-            shown += 1;
-          }
-        });
-      });
-    }
-    setCounts({
-      shown,
-      total
-    });
-    return total;
-  };
-  const deriveFacets = tables =&gt; {
-    const seen = {};
-    tables.forEach(t =&gt; t.rows.forEach(r =&gt; {
-      Object.keys(r.facets).forEach(h =&gt; {
-        if (!seen[h]) seen[h] = [];
-        if (r.facets[h] &amp;&amp; seen[h].indexOf(r.facets[h]) === -1) seen[h].push(r.facets[h]);
-      });
-    }));
-    const list = facetNames.filter(h =&gt; seen[h] &amp;&amp; seen[h].length &gt; 0).map(h =&gt; ({
-      name: h,
-      label: cap(h),
-      values: seen[h].sort(cmpValues(h))
-    }));
-    setFacetList(list);
-    const first = tables[0] ? tables[0].heads[0] : '';
-    setFirstHead(first);
-    if (!sortRef.current &amp;&amp; first) {
-      setSortBy(first);
-      sortTables(first);
-    }
-    const init = {};
-    list.forEach(f =&gt; {
-      init[f.name] = selRef.current[f.name] || 'All';
-    });
-    setSel(init);
-  };
-  const onChange = value =&gt; {
-    setQ(value);
-    apply(value);
-  };
-  const clearAll = () =&gt; {
-    const next = {};
-    Object.keys(selRef.current).forEach(k =&gt; {
-      next[k] = 'All';
-    });
-    setSel(next);
-    setQ('');
-    apply('');
-    if (searchRef.current) searchRef.current.focus();
-  };
-  useEffect(() =&gt; {
-    const tables = scan();
-    deriveFacets(tables);
-    const total = apply('');
-    let retryTimer;
-    if (total === 0) {
-      retryTimer = setTimeout(() =&gt; {
-        tablesRef.current = null;
-        if (apply(qRef.current) &gt; 0) deriveFacets(tablesRef.current); else setDisabled(true);
-      }, 500);
-    }
-    const onKey = e =&gt; {
-      if (e.key === 'Escape' &amp;&amp; menuOpenRef.current !== null) closeMenu(menuOpenRef.current);
-      if (!searchRef.current) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const active = document.activeElement;
-      const tag = active &amp;&amp; active.tagName;
-      const editable = active &amp;&amp; active.isContentEditable;
-      const interactive = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A' || editable || active &amp;&amp; active.getAttribute &amp;&amp; active.getAttribute('role');
-      if (e.key === '/' &amp;&amp; !interactive) {
-        const r = rootRef.current ? rootRef.current.getBoundingClientRect() : null;
-        if (r &amp;&amp; r.bottom &gt; 0 &amp;&amp; r.top &lt; (window.innerHeight || 0)) {
-          e.preventDefault();
-          setMenu(null);
-          searchRef.current.focus();
-        }
-      }
-      if (e.key === 'Escape' &amp;&amp; menuOpenRef.current === null &amp;&amp; active === searchRef.current) {
-        onChange('');
-        searchRef.current.blur();
-      }
-    };
-    const onDocClick = e =&gt; {
-      const open = menuOpenRef.current;
-      if (open !== null &amp;&amp; menuRef.current[open] &amp;&amp; !menuRef.current[open].contains(e.target)) setMenu(null);
-    };
-    window.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onDocClick);
-    return () =&gt; {
-      if (retryTimer) clearTimeout(retryTimer);
-      window.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDocClick);
-      (tablesRef.current || []).forEach(t =&gt; {
-        t.box.style.display = '';
-        t.rows.forEach(row =&gt; {
-          row.el.style.display = '';
-        });
-      });
-    };
-  }, []);
-  useEffect(() =&gt; {
-    if (menuOpen !== null) focusSelected(menuOpen);
-  }, [menuOpen]);
-  if (disabled) return null;
-  const facetActive = Object.keys(sel).some(h =&gt; sel[h] &amp;&amp; sel[h] !== 'All');
-  const sortOptions = [firstHead].concat(facetList.map(f =&gt; f.name)).filter((h, i, a) =&gt; h &amp;&amp; a.indexOf(h) === i);
-  return &lt;&gt;
-      <style>{<code>.sf-root {
-          --sf-accent: #D97757;
-          --sf-bg: #fff;
-          --sf-border: #E8E6DC;
-          --sf-text: #141413;
-          --sf-text-3: #73726C;
-          --sf-text-4: #9C9A92;
-        }
-        .dark .sf-root {
-          --sf-bg: #1a1918;
-          --sf-border: #3a3936;
-          --sf-text: #e8e6dc;
-          --sf-text-3: #9c9a92;
-          --sf-text-4: #73726c;
-        }
-        .sf-root .sf-end {
-          position: absolute;
-          right: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-        }
-        .sf-root .sf-x {
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: var(--sf-text-3);
-          font-size: 14px;
-          padding: 2px 4px;
-          line-height: 1;
-        }</code>}</style>
-      &lt;div ref={rootRef} className="sf-root" style={{
-    margin: '16px 0 8px'
-  }}&gt;
-        &lt;div style={{
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    alignItems: 'center'
-  }}&gt;
-        &lt;div style={{
-    position: 'relative',
-    flex: '1 1 260px',
-    maxWidth: '480px'
-  }}&gt;
-          &lt;input ref={searchRef} value={q} onChange={e =&gt; onChange(e.target.value)} placeholder={placeholderText} aria-label={placeholderText} style={{
-    width: '100%',
-    padding: '8px 56px 8px 12px',
-    borderRadius: '8px',
-    border: '1px solid var(--sf-border)',
-    background: 'var(--sf-bg)',
-    color: 'var(--sf-text)',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box'
-  }} /&gt;
-          {q ? &lt;button type="button" onClick={() =&gt; {
-    onChange('');
-    if (searchRef.current) searchRef.current.focus();
-  }} aria-label="Clear text" className="sf-end sf-x"&gt;
-              ×
-            </button> : &lt;span className="sf-end" style={{
-    fontFamily: 'var(--font-mono, ui-monospace, monospace)',
-    fontSize: '11px',
-    color: 'var(--sf-text-4)',
-    border: '1px solid var(--sf-border)',
-    borderRadius: '3px',
-    padding: '0 5px',
-    pointerEvents: 'none'
-  }}&gt;
-              /
-            </span>}
-        </div>
-        {facetList.map(f =&gt; {
-    const cur = sel[f.name] || 'All';
-    const isOpen = menuOpen === f.name;
-    return &lt;div key={f.name} ref={el =&gt; {
-      menuRef.current[f.name] = el;
-    }} style={{
-      position: 'relative'
-    }}&gt;
-            &lt;button type="button" onClick={() =&gt; setMenu(isOpen ? null : f.name)} onKeyDown={e =&gt; {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (!isOpen) setMenu(f.name); else focusSelected(f.name);
-      }
-    }} aria-haspopup="listbox" aria-expanded={isOpen} style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      padding: cur !== 'All' ? '8px 30px 8px 12px' : '8px 12px',
-      borderRadius: '8px',
-      border: '1px solid ' + (cur !== 'All' ? 'var(--sf-accent)' : 'var(--sf-border)'),
-      background: 'var(--sf-bg)',
-      color: cur === 'All' ? 'var(--sf-text-3)' : 'var(--sf-text)',
-      fontSize: '13.5px',
-      cursor: 'pointer',
-      whiteSpace: 'nowrap',
-      maxWidth: '260px'
-    }}&gt;
-              &lt;span style={{
-      overflow: 'hidden',
-      textOverflow: 'ellipsis'
-    }}&gt;
-                {f.label + ': ' + optionLabel(f, cur)}
-              </span>
-              &lt;span aria-hidden="true" style={{
-      fontSize: '9px',
-      color: 'var(--sf-text-4)',
-      transform: isOpen ? 'rotate(180deg)' : 'none',
-      transition: 'transform 120ms'
-    }}&gt;
-                ▼
-              </span>
-            </button>
-            {cur !== 'All' &amp;&amp; &lt;button type="button" onClick={() =&gt; setFacet(f.name, 'All')} aria-label={'Clear ' + f.label + ' filter'} title={'Clear ' + f.label + ' filter'} className="sf-end sf-x"&gt;
-                ×
-              </button>}
-            {isOpen &amp;&amp; &lt;div role="listbox" aria-label={f.label} onKeyDown={e =&gt; {
-      const items = [...e.currentTarget.querySelectorAll('button')];
-      const idx = items.indexOf(document.activeElement);
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        (items[idx + 1] || items[0]).focus();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        (items[idx - 1] || items[items.length - 1]).focus();
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        if (items[0]) items[0].focus();
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        if (items[items.length - 1]) items[items.length - 1].focus();
-      } else if (e.key === 'Tab') {
-        closeMenu(f.name);
-      }
-    }} style={{
-      position: 'absolute',
-      top: 'calc(100% + 6px)',
-      left: 0,
-      zIndex: 1000,
-      minWidth: '260px',
-      maxHeight: '340px',
-      overflowY: 'auto',
-      background: 'var(--sf-bg)',
-      border: '1px solid var(--sf-border)',
-      borderRadius: '10px',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-      padding: '5px'
-    }}&gt;
-                {['All'].concat(f.values).map(c =&gt; {
-      const selected = cur === c;
-      return &lt;button key={c} role="option" aria-selected={selected} tabIndex={-1} onClick={() =&gt; setFacet(f.name, c)} style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        width: '100%',
-        textAlign: 'left',
-        padding: '7px 10px',
-        borderRadius: '6px',
-        border: 'none',
-        background: 'transparent',
-        color: selected ? 'var(--sf-accent)' : 'var(--sf-text)',
-        fontWeight: selected ? 600 : 400,
-        fontSize: '13.5px',
-        cursor: 'pointer'
-      }}&gt;
-                      &lt;span aria-hidden="true" style={{
-        width: '14px',
-        color: 'var(--sf-accent)',
-        flexShrink: 0
-      }}&gt;
-                        {selected ? '✓' : ''}
-                      </span>
-                      {optionLabel(f, c)}
-                    </button>;
-    })}
-              </div>}
-          </div>;
-  })}
-        {sortOptions.length &gt; 1 &amp;&amp; &lt;div role="group" aria-label="Sort by" style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    fontSize: '13px',
-    color: 'var(--sf-text-3)',
-    whiteSpace: 'nowrap'
-  }}&gt;
-            &lt;span style={{
-    marginRight: '4px'
-  }}&gt;Sort by</span>
-            {sortOptions.map(o =&gt; {
-    const on = sortBy === o;
-    return &lt;button key={o} type="button" aria-pressed={on} onClick={() =&gt; {
-      setSortBy(o);
-      sortTables(o);
-    }} style={{
-      padding: '6px 10px',
-      borderRadius: '8px',
-      border: '1px solid ' + (on ? 'var(--sf-accent)' : 'var(--sf-border)'),
-      background: 'var(--sf-bg)',
-      color: on ? 'var(--sf-text)' : 'var(--sf-text-3)',
-      fontSize: '13px',
-      cursor: 'pointer'
-    }}&gt;
-                  {o.charAt(0).toUpperCase() + o.slice(1)}
-                </button>;
-  })}
-          </div>}
-        </div>
-        &lt;div aria-live="polite" style={{
-    margin: '8px 0 0',
-    fontSize: '13px',
-    color: 'var(--sf-text-3)',
-    minHeight: '1px'
-  }}&gt;
-          {q.trim() === '' &amp;&amp; !facetActive ? &lt;&gt;{counts.total} {nounText}&lt;/&gt; : counts.shown === 0 ? &lt;&gt;
-                {q.trim() === '' ? 'No ' + nounText + ' match the selected filters.' : facetActive ? 'No ' + nounText + ' match \u201c' + q + '\u201d with the selected filters.' : 'No ' + nounText + ' match \u201c' + q + '\u201d.'}{' '}
-                &lt;button type="button" onClick={clearAll} style={{
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    color: 'var(--sf-accent)',
-    cursor: 'pointer',
-    font: 'inherit',
-    textDecoration: 'underline'
-  }}&gt;
-                  Clear filters
-                </button>
-                {children ? &lt;&gt; {children}&lt;/&gt; : null}
-              &lt;/&gt; : &lt;&gt;
-                Showing {counts.shown} of {counts.total} {nounText}
-              &lt;/&gt;}
-        </div>
-      </div>
-    &lt;/&gt;;
-};</p>
-<p><BackToIndex href="#all-settings" label="Back to index" /></p>
+<p><a href="#all-settings">Back to index</a></p>
 <p>This reference page lists each key Claude Code reads from a settings file, plus the <a href="#global-config-settings">short group of keys</a> it keeps in <code>~/.claude.json</code> instead. To pick a file, or check precedence, start with <a href="/docs/en/settings">Settings files and precedence</a>.</p>
-<p><span id="available-settings" /></p>
-<p><span id="scopes" /></p>
-<p><span id="all-settings" /></p>
 <h2 id="settings-index">Settings index</h2>
 <p>Every key below links to its entry. Scope lists the <a href="/docs/en/settings#settings-files-and-who-they-affect">files</a> it can go in: <code>User</code> is <code>~/.claude/settings.json</code>, <code>Project</code> is <code>.claude/settings.json</code>, <code>Local</code> is <code>.claude/settings.local.json</code>, and <code>Managed</code> is <a href="/docs/en/managed-settings">what your organization deploys</a>. <code>Any file</code> means all four, and <code>Global config</code> means <a href="#global-config-settings"><code>~/.claude.json</code></a>.</p>
-<p>&lt;ReferenceFilter
-  noun="settings"
-  placeholder="Filter settings by key or purpose"
-  facetOrder={{ scope: ["Any file", "User, local, or managed", "User or managed", "User", "Managed", "Global config"] }}
-  columnHelp={{
-topic: "The section of this page that holds the entry. Use Sort by to group the table by topic.",
-scope: "Which settings files can set the key: user (~/.claude/settings.json), project (.claude/settings.json), local (.claude/settings.local.json), or managed (deployed by your organization). Global config keys are in ~/.claude.json instead.",
-}}
-/&gt;</p>
 <table>
 <thead>
 <tr>
@@ -12471,11 +11908,7 @@ This example routes every call for Opus 4.6 to the named Bedrock inference profi
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>&lt;span id="modelpicker-options" /&gt;
-
-&lt;span id="modelpicker-replacebuiltinoptions" /&gt;
-
-#### Fields for `modelPicker`
+<div class="highlight"><pre><span></span><code>#### Fields for `modelPicker`
 
 The key takes two fields, one for the rows themselves and one for whether they replace the built-in lineup or add to it.
 
@@ -12525,8 +11958,6 @@ This example sets contracted rates for Sonnet 4.6 and then reduces every figure,
 </code></pre></div></p>
 <p>Set <code>multiplier</code> above 1, up to 10, to mark every figure up. A markup requires Claude Code v2.1.271 or later. Earlier versions ignore a <code>multiplier</code> above 1 with a warning and keep the rest of the setting.</p>
 <p>For the steps, including how to confirm the rates are in effect, see <a href="/docs/en/costs#report-spend-at-your-contracted-rates">Report spend at your contracted rates</a>.</p>
-<p><span id="modelpricing-multiplier" /></p>
-<p><span id="modelpricing-overrides" /></p>
 <h4 id="fields-for-modelpricing">Fields for <code>modelPricing</code></h4>
 <table>
 <thead>
@@ -12620,7 +12051,7 @@ This example selects the built-in Explanatory style, which adds educational insi
 
 ### `showThinkingSummaries`
 
-See summaries of Claude's [extended thinking](/docs/en/model-config#extended-thinking) in interactive sessions. Set it if you want the full summaries when you expand thinking with `Ctrl+O`. When unset or `false`, the Anthropic API redacts thinking blocks and Claude Code shows a collapsed stub; third-party providers don't redact.
+See summaries of Claude's [extended thinking](/docs/en/model-config#extended-thinking) in interactive sessions. Set it if you want the full summaries when you expand thinking with `Ctrl+O`. When unset or `false`, the Anthropic API redacts thinking blocks and Claude Code shows a collapsed stub.
 
 * **Scope**: [`Any file`](#scopes)
 * **Type**: Boolean
@@ -12859,9 +12290,7 @@ This example approves `git diff` and lets Claude Code read your `.zshrc` without
     "ask": ["Bash(git push *)"]
   }
 }
-<div class="highlight"><pre><span></span><code>&lt;span id="exclude-sensitive-files" /&gt;
-
-### `permissions.deny`
+<div class="highlight"><pre><span></span><code>### `permissions.deny`
 
 List the tool uses Claude Code blocks. Use it for files that hold API keys, secrets, or environment values: Claude Code excludes matching files from file discovery and search results, denies reads of them, and blocks the [Edit and Write tools](/docs/en/permissions#read-and-edit) on the matching paths.
 
@@ -13199,6 +12628,8 @@ Claude Code also removes a trailing `/**`, so `~/build/**` and `~/build` cover t
 * **`allowWrite` and `denyWrite`**: on macOS, wildcards work. On Linux and WSL2, the sandbox mounts concrete paths, so Claude Code skips an entry that contains `*`, `?`, or `[` once the trailing `/**` is removed, and that entry has no effect. Claude Code adds the paths from your `Edit` permission rules to these lists, so the same limit applies to them, and the **Config** tab of `/sandbox` warns about `Edit` and `Read` permission rules that contain wildcards.
 * **`denyRead` and `allowRead`**: wildcards work on every platform. On Linux and WSL2, Claude Code expands a read entry to the concrete paths it matches, which it doesn't do for the write lists.
 
+Braces match as ordinary characters in a name, so `~/data/{keys,tokens}` covers a directory literally named `{keys,tokens}`, not two alternatives. To cover `~/data/keys` and `~/data/tokens`, add each as its own entry.
+
 ### `sandbox.filesystem.allowWrite`
 
 Add paths where sandboxed commands can write, beyond the working directory, the per-user temp directory, and the directories you've added with `--add-dir`, `/add-dir`, or `permissions.additionalDirectories`. Use it when a subprocess such as `kubectl` or a build tool needs to write outside the project.
@@ -13497,12 +12928,6 @@ This hides your AWS credentials file and masks the `gh` hosts file, substituting
 </code></pre></div></p>
 <p>Paths use the same <a href="#sandbox-path-prefixes">prefixes</a> as the <code>sandbox.filesystem.*</code> settings, and Claude Code merges the arrays from every settings scope the session loads. <a href="/docs/en/sandboxing#protect-credentials">Protect credentials</a> covers what still applies from sources you exclude with <code>--setting-sources</code>. <code>mask</code> entries require Claude Code v2.1.221 or later.</p>
 <p><code>mask</code> substitution runs only through the sandbox proxy, so set <a href="#sandbox-network-tlsterminate"><code>sandbox.network.tlsTerminate</code></a>, or <a href="#sandbox-credentials-allowplaintextinject"><code>allowPlaintextInject</code></a> for plain-HTTP test networks. <code>mask</code> applies to a single file, so list each credential file individually. Claude Code accepts but ignores the <code>mask</code> fields on a <code>deny</code> entry. <a href="/docs/en/sandboxing#mask-credentials">Mask credentials</a> covers which settings sources are honored, and <a href="/docs/en/sandboxing#mask-credential-files">Mask credential files</a> covers when an entry falls back to <code>deny</code>.</p>
-<p><span id="sandbox-credentials-files-extract" /></p>
-<p><span id="sandbox-credentials-files-onextractnomatch" /></p>
-<p><span id="sandbox-credentials-files-decode" /></p>
-<p><span id="sandbox-credentials-files-maskclaims" /></p>
-<p><span id="sandbox-credentials-files-maskduplicates" /></p>
-<p><span id="sandbox-credentials-files-injecthosts" /></p>
 <h4 id="mask-fields-for-files">Mask fields for files</h4>
 <p>A <code>mask</code> entry accepts these optional fields. Without <code>extract</code> or <code>decode</code>, Claude Code replaces the entire file content with one sentinel. On macOS with filesystem isolation on, Claude Code applies a <code>mask</code> entry as <code>deny</code> before <code>extract</code> or <code>decode</code> runs; see <a href="/docs/en/sandboxing#mask-credential-files">Mask credential files</a>.</p>
 <table>
@@ -13588,11 +13013,6 @@ This removes `NPM_TOKEN` from sandboxed commands and masks `GITHUB_TOKEN`, subst
 </code></pre></div></p>
 <p>The <code>name</code> must start with a letter or underscore and contain only letters, digits, and underscores. Claude Code merges the arrays from every settings scope the session loads, and applies <code>deny</code> when the same variable appears with both modes. <a href="/docs/en/sandboxing#protect-credentials">Protect credentials</a> covers what still applies from sources you exclude with <code>--setting-sources</code>.</p>
 <p><code>mask</code> substitution runs only through the sandbox proxy, so set <a href="#sandbox-network-tlsterminate"><code>sandbox.network.tlsTerminate</code></a>, or <a href="#sandbox-credentials-allowplaintextinject"><code>allowPlaintextInject</code></a> for plain-HTTP test networks; see <a href="/docs/en/sandboxing#mask-credentials">Mask credentials</a>. Claude Code accepts but ignores the <code>mask</code> fields on a <code>deny</code> entry.</p>
-<p><span id="sandbox-credentials-envvars-extract" /></p>
-<p><span id="sandbox-credentials-envvars-onextractnomatch" /></p>
-<p><span id="sandbox-credentials-envvars-decode" /></p>
-<p><span id="sandbox-credentials-envvars-maskclaims" /></p>
-<p><span id="sandbox-credentials-envvars-injecthosts" /></p>
 <h4 id="mask-fields-for-environment-variables">Mask fields for environment variables</h4>
 <p>A <code>mask</code> entry accepts these optional fields. Without <code>extract</code> or <code>decode</code>, Claude Code replaces the entire value with one sentinel. <code>extract</code> and <code>decode</code> can't be combined on the same entry.</p>
 <table>
@@ -13951,7 +13371,6 @@ Make the sandbox proxy terminate TLS so it can read the contents of HTTPS reques
 }
 </code></pre></div></p>
 <p>When more than one honored source sets it, Claude Code uses the value from the highest-precedence source: managed settings, then the <code>--settings</code> flag, then user settings.</p>
-<p><span id="context-and-memory" /></p>
 <h2 id="memory-and-context">Memory and context</h2>
 <p>Control what Claude Code loads into context, how it compacts, and where it keeps memory and plans. See <a href="/docs/en/context-window">Manage context</a> and <a href="/docs/en/memory">Memory</a>.</p>
 <h3 id="autocompactenabled"><code>autoCompactEnabled</code></h3>
@@ -14056,8 +13475,6 @@ This example deploys two rules as a short Markdown list:
 }
 <div class="highlight"><pre><span></span><code>Exclusions apply only to user, project, and local memory files; managed policy CLAUDE.md files can't be excluded.
 
-&lt;span id="environment-variables" /&gt;
-
 ### `env`
 
 Set environment variables for every session and for the subprocesses Claude Code starts from it. Most variables in the [environment variables reference](/docs/en/env-vars) can go here, which is how you apply one to every session or roll it out to your team. Project and local settings can't set [some of them](#variables-claude-code-ignores-in-env).
@@ -14114,7 +13531,7 @@ This example turns off automatic compaction and routes API requests through a pr
 <p>When a project or local settings file sets a variable in this group, a local interactive session shows a notice at startup. Run <code>/status</code> or <code>claude doctor</code> to see which ones Claude Code ignored and which turned telemetry off; both list names, never values. A non-interactive run with <code>-p</code> or an Agent SDK session shows no notice, so check that your collector still receives data after you upgrade. If it doesn't, set the variables in your user settings, managed settings, the job's environment, or a file you pass with <code>--settings</code>.</p>
 <p>Ignoring this group in project and local settings requires Claude Code v2.1.282 or later.
   * Variables that change how Claude Code starts or syncs, such as <code>CLAUDE_CODE_PROCESS_WRAPPER</code>, <code>CLAUDE_CODE_SYNC_SKILLS</code>, <code>CLAUDE_CODE_SYNC_PLUGINS</code>, <code>CLAUDE_CODE_PLUGIN_CACHE_DIR</code>, and <code>CLAUDE_CODE_PLUGIN_SEED_DIR</code>.
-  * Variables that set the timers on an unanswered dialog: <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_USER_DIALOG_TIMEOUT_MS</code>, <code>CLAUDE_AFK_TIMEOUT_MS</code>, and <code>CLAUDE_AFK_COUNTDOWN_MS</code></a>.
+  * <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_USER_DIALOG_TIMEOUT_MS</code></a>, which sets the timer on an unanswered dialog.
   * <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_ATTACHMENTS</code></a>, which turns off attachment processing.
   * <a href="/docs/en/env-vars#variables"><code>CLAUDE_CODE_DISABLE_FILE_MENTIONS</code></a>, which stops Claude Code from expanding <code>@</code> mentions of files and directories.</p>
 </li>
@@ -14144,7 +13561,7 @@ This example turns off automatic compaction and routes API requests through a pr
 
 ### `idleCompaction`
 
-Idle compaction [compacts](/docs/en/context-window#what-survives-compaction) a long conversation that you've stepped away from, shortly before its prompt cache expires. Your next message then sends a summary instead of the whole conversation. When you come back, the conversation shows `Compacted while idle, before the prompt cache expired`.
+Idle compaction [compacts](/docs/en/context-window#what-survives-compaction) a long conversation that you've stepped away from, shortly before its prompt cache expires. Your next message then sends a summary instead of the whole conversation. When you come back, the conversation shows a line that starts with `Compacted while idle, before the prompt cache expired`.
 
 Idle compaction is on by default for conversations that meet all of these conditions:
 
@@ -14168,6 +13585,11 @@ To turn idle compaction off, set this key to `false`.
   "idleCompaction": false
 }
 </code></pre></div></p>
+<p>To turn idle compaction off or on from inside a session, run <code>/config</code> and change the <strong>Idle compaction</strong> row. Your choice is saved to your user settings and applies right away. The row requires Claude Code v2.1.302 or later. If you run one of those versions and <code>/config</code> doesn't show the row, check for these causes:</p>
+<ul>
+<li><strong>Another settings source sets the key</strong>: a value in managed settings, the <code>--settings</code> flag, or a project or local settings file overrides your user settings. Change the key in that source instead</li>
+<li><strong>Feature flags are unavailable</strong>: where Claude Code can't <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">fetch feature flags from Anthropic</a>, idle compaction doesn't run, so there is nothing to turn off</li>
+</ul>
 <p>The key requires Claude Code v2.1.290 or later. On an earlier version, which ignores this key, turn off <a href="#autocompactenabled"><code>autoCompactEnabled</code></a> to stop idle compaction.</p>
 <h4 id="change-the-idle-compaction-threshold">Change the idle compaction threshold</h4>
 <p>Set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS</code></a> to the number of tokens a conversation's context must reach before idle compaction applies to it. Use a positive whole number. Values below <code>100000</code> are raised to <code>100000</code>, the lowest threshold.</p>
@@ -14224,9 +13646,10 @@ Each turn, Claude sees a [listing of your skills](/docs/en/skills#skill-descript
 </code></pre></div></p>
 <p>Raise it to keep long descriptions intact at the cost of more context per turn; lower it to fit more skills under <a href="#skilllistingbudgetfraction"><code>skillListingBudgetFraction</code></a>.</p>
 <h3 id="taskoutputmaxchars"><code>taskOutputMaxChars</code></h3>
-<p><Warning>
-  Removed in v2.1.277, together with the <code>TaskOutput</code> tool it sized. Setting it has no effect on current versions. Claude reads a background task's <a href="/docs/en/tools-reference#background-commands">output file</a> with <code>Read</code> instead.
-</Warning></p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Removed in v2.1.277, together with the <code>TaskOutput</code> tool it sized. Setting it has no effect on current versions. Claude reads a background task's <a href="/docs/en/tools-reference#background-commands">output file</a> with <code>Read</code> instead.</p>
+</blockquote>
 <p>Through v2.1.276, you set this key to the number of characters of a <a href="/docs/en/tools-reference#background-commands">background task's</a> output that Claude received inline when it read the task with the <code>TaskOutput</code> tool.</p>
 <h2 id="interface-and-terminal">Interface and terminal</h2>
 <p>Change how Claude Code looks and behaves in your terminal: theme, editor mode, status line, spinner, notifications inside the session, and accessibility. See <a href="/docs/en/terminal-config">Terminal configuration</a>.</p>
@@ -14236,7 +13659,6 @@ Each turn, Claude sees a [listing of your skills](/docs/en/skills#skill-descript
 <li><strong>Scope</strong>: <a href="#scopes"><code>User or managed</code></a></li>
 <li><strong>Type</strong>: string, one of <code>"60s"</code>, <code>"5m"</code>, <code>"10m"</code>, or <code>"never"</code></li>
 <li><strong>Default</strong>: <code>"never"</code></li>
-<li><strong>Per-session overrides</strong>: <a href="/docs/en/env-vars"><code>CLAUDE_AFK_TIMEOUT_MS</code></a> takes precedence over this key for one session</li>
 </ul>
 <p>```json settings.json theme={null}
 {
@@ -14382,7 +13804,6 @@ Show emoji suggestions when you type `:` plus a shortcode in the prompt input, a
 }
 </code></pre></div></p>
 <p>See <a href="/docs/en/interactive-mode#emoji-shortcodes">Emoji shortcodes</a>. Requires Claude Code v2.1.217 or later.</p>
-<p><span id="file-suggestion-settings" /></p>
 <h3 id="filesuggestion"><code>fileSuggestion</code></h3>
 <p>Run your own command to supply <code>@</code> file path autocomplete instead of the built-in file suggestion. The built-in suggestion uses fast filesystem traversal; a large monorepo may do better with project-specific indexing such as a pre-built file index.</p>
 <ul>
@@ -14419,7 +13840,6 @@ query=$(cat | jq -r '.query')
 # Replace your-repo-file-index with your own file search command
 your-repo-file-index --query "$query" | head -20
 </code></pre></div></p>
-<p><span id="footer-link-badges" /></p>
 <h3 id="footerlinksregexes"><code>footerLinksRegexes</code></h3>
 <p>Render extra clickable badges in the footer below the input box when a regex matches turn output: tool results, including file contents and fetched pages, and Claude's own responses. Use it to turn IDs printed by project CLIs, such as review tools and issue trackers, into session links.</p>
 <ul>
@@ -14459,9 +13879,9 @@ Footer badges render alongside a [custom status line](/docs/en/statusline) when 
 
 ### `keybindingFlavor`
 
-&lt;Warning&gt;
-  Deprecated since v2.1.261 and has no effect. The prompt's word-editing keys always [follow readline conventions](/docs/en/interactive-mode#make-ctrl-w-delete-back-to-whitespace), as in Bash. Claude Code still accepts `keybindingFlavor`, so a settings file that sets it stays valid.
-&lt;/Warning&gt;
+&gt; [!WARNING]
+&gt;
+&gt; Deprecated since v2.1.261 and has no effect. The prompt's word-editing keys always [follow readline conventions](/docs/en/interactive-mode#make-ctrl-w-delete-back-to-whitespace), as in Bash. Claude Code still accepts `keybindingFlavor`, so a settings file that sets it stays valid.
 
 In v2.1.238 through v2.1.260, setting it to `"readline"` made `Ctrl+W` delete back to the previous whitespace instead of only the previous word.
 
@@ -14922,9 +14342,9 @@ Map two-key INSERT-mode sequences to Escape in [vim editor mode](/docs/en/intera
 
 ### `voiceEnabled`
 
-&lt;Warning&gt;
-  Deprecated since v2.1.92, when the [`voice`](#voice) object replaced it. Claude Code still reads it so older settings files keep working, but new configurations should set `voice.enabled`.
-&lt;/Warning&gt;
+&gt; [!WARNING]
+&gt;
+&gt; Deprecated since v2.1.92, when the [`voice`](#voice) object replaced it. Claude Code still reads it so older settings files keep working, but new configurations should set `voice.enabled`.
 
 Turn voice dictation on with the single Boolean form that predates the `voice` object. When both are set, `voice.enabled` applies.
 
@@ -14956,8 +14376,6 @@ Turn voice dictation on with the single Boolean form that predates the `voice` o
 
 Control the attribution Claude Code adds to commits and pull requests and how it works with git.
 
-&lt;span id="attribution-settings" /&gt;
-
 ### `attribution`
 
 Customize the attribution Claude Code adds to git commits and pull requests. Commits get a [git trailer](https://git-scm.com/docs/git-interpret-trailers) such as `Co-Authored-By` by default; pull request descriptions get plain text. Set each part separately with the sub-keys below.
@@ -14982,9 +14400,10 @@ This example replaces the commit attribution, removes pull request attribution, 
 <p>Once you set <code>commit</code> or <code>pr</code>, Claude Code ignores the deprecated <code>includeCoAuthoredBy</code> setting and uses its default text for whichever of the two you left unset.</p>
 <p>Claude Code tells Claude that your own instructions about attribution, such as a CLAUDE.md or <a href="/docs/en/memory">memory</a> rule, take precedence over these commit and PR lines, unless the line is set in <a href="/docs/en/managed-settings">managed settings</a>.</p>
 <h3 id="includecoauthoredby"><code>includeCoAuthoredBy</code></h3>
-<p><Warning>
-  Deprecated since v2.0.62, when <a href="#attribution"><code>attribution</code></a> replaced it. Claude Code still reads it, but new configurations should set <code>attribution</code>.
-</Warning></p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Deprecated since v2.0.62, when <a href="#attribution"><code>attribution</code></a> replaced it. Claude Code still reads it, but new configurations should set <code>attribution</code>.</p>
+</blockquote>
 <p>Use <a href="#attribution"><code>attribution</code></a> instead, which replaces this key and lets you change or hide the commit trailer, the pull request text, and the session link separately. Claude Code still honors <code>includeCoAuthoredBy: false</code> from settings files that predate <code>attribution</code>, but ignores it once you set <code>attribution.commit</code> or <code>attribution.pr</code>.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Any file</code></a></li>
@@ -15084,8 +14503,6 @@ Choose whether Claude Code appends the claude.ai session link when it commits or
   }
 }
 </code></pre></div></p>
-<p><span id="hook-configuration" /></p>
-<p><span id="hook-and-skill-settings" /></p>
 <h2 id="hooks-and-automation">Hooks and automation</h2>
 <p>Register hooks, restrict which hooks run, and control workflows. For hook events and payloads, see the <a href="/docs/en/hooks">hooks reference</a>.</p>
 <h3 id="allowedhttphookurls"><code>allowedHttpHookUrls</code></h3>
@@ -15269,12 +14686,6 @@ Choose whether typing the keyword `ultracode` in a prompt triggers a [dynamic wo
   "workflowSizeGuideline": "small"
 }
 <div class="highlight"><pre><span></span><code>Requires Claude Code v2.1.219 or later; on v2.1.202 through v2.1.218, set the guideline in `/config` instead.
-
-&lt;span id="plugin-configuration" /&gt;
-
-&lt;span id="manage-plugins" /&gt;
-
-&lt;span id="plugin-settings" /&gt;
 
 ## Plugins and skills
 
@@ -15655,7 +15066,14 @@ Lock the `skills` surface. Claude Code stops loading skills from `~/.claude/skil
 }
 <div class="highlight"><pre><span></span><code>### `strictPluginOnlyCustomization.hooks`
 
-Lock the `hooks` surface. Claude Code stops running hooks from user, project, and local `settings.json`, and keeps running plugin hooks and hooks in managed settings.
+Lock the `hooks` surface:
+
+* **Stops running**:
+  * Hooks from user, project, and local `settings.json`
+  * Frontmatter hooks in skills, custom commands, and agents, from the sources that a [`skills`](#strictpluginonlycustomization-skills) or [`agents`](#strictpluginonlycustomization-agents) lock would block
+* **Keeps running**: plugin hooks and hooks in managed settings
+
+Skills, custom commands, and agents whose frontmatter hooks stop running still load while their own surface isn't locked.
 
 * **Scope**: [`Managed`](#scopes)
 * **Type**: the string `"hooks"` in the [`strictPluginOnlyCustomization`](#strictpluginonlycustomization) array
@@ -16129,9 +15547,7 @@ On macOS and Linux, place a corporate launcher command in front of the [backgrou
 {
   "teammateMode": "auto"
 }
-<div class="highlight"><pre><span></span><code>&lt;span id="worktree-settings" /&gt;
-
-### `worktree`
+<div class="highlight"><pre><span></span><code>### `worktree`
 
 Configure how Claude Code creates and manages [git worktrees](/docs/en/worktrees) for `--worktree`, the `EnterWorktree` tool, and isolated subagents and background sessions.
 
@@ -16272,9 +15688,9 @@ Allow Claude to send a push notification to your phone when it decides one is wo
 
 ### `disableArtifact`
 
-&lt;Warning&gt;
-  Deprecated, and replaced by [`enableArtifact`](#enableartifact). Claude Code still honors `disableArtifact: true` as equivalent to `enableArtifact: false`, and ignores `disableArtifact: false`.
-&lt;/Warning&gt;
+&gt; [!WARNING]
+&gt;
+&gt; Deprecated, and replaced by [`enableArtifact`](#enableartifact). Claude Code still honors `disableArtifact: true` as equivalent to `enableArtifact: false`, and ignores `disableArtifact: false`.
 
 Use [`enableArtifact`](#enableartifact) instead to turn off the [Artifact](/docs/en/artifacts) tool, which publishes session output as a private web page on claude.ai. When you turn the **Artifacts** row off in `/config`, Claude Code writes `enableArtifact` to your user settings and clears this key.
 
@@ -16372,7 +15788,7 @@ Turn off the [Artifact](/docs/en/artifacts) tool, which publishes session output
 
 ### `preferredNotifChannel`
 
-Choose how Claude Code notifies you when a task completes or a permission prompt is waiting. Appears in `/config` as **Local notifications**.
+Choose how Claude Code notifies you when a task completes or a permission prompt is waiting. A [mod's notifications](/docs/en/plugins/mods/api#show-something-without-starting-a-turn) use the same setting. Appears in `/config` as **Local notifications**.
 
 * **Scope**: [`Any file`](#scopes). Claude Code also reads a value left in `~/.claude.json` by older versions.
 * **Type**: string, one of:
@@ -16459,7 +15875,6 @@ This example allows `devboxes.example.com` and its subdomains, plus the exact ho
 </code></pre></div></p>
 <p>A value that Desktop can't read as a list of hosts, such as <code>true</code> or an object, counts as an empty array until you correct it, except <code>null</code>, which counts as unset. Requires Claude Desktop v2.26454.0 or later.</p>
 <p>If you set <a href="#managedsourcesbehavior"><code>managedSourcesBehavior</code></a> to <code>"merge"</code> in your highest-ranked source, Desktop combines the lists from every <a href="/docs/en/managed-settings#how-claude-code-combines-managed-sources">admin source</a> and allows a host that matches any of them. If you set an empty array in one source, SSH sessions stay on for the hosts another source lists.</p>
-<p><span id="authentication-and-login" /></p>
 <h2 id="authentication-and-providers">Authentication and providers</h2>
 <p>Supply credentials through helper scripts and, for organizations, force a login method or organization. See <a href="/docs/en/authentication">Authentication</a>.</p>
 <h3 id="allowedproviders"><code>allowedProviders</code></h3>
@@ -16751,8 +16166,6 @@ Turn off external browsing in the desktop app's [Browser pane](/docs/en/desktop#
 }
 <div class="highlight"><pre><span></span><code>The desktop app ignores any other value, and a value that isn't a Boolean, such as the string `"true"` or `1`, also logs a warning.
 
-&lt;span id="data-and-privacy" /&gt;
-
 ## Privacy and telemetry
 
 Control how long Claude Code keeps session data and what it sends. The switches that turn off usage metrics and error reports are environment variables, not settings keys: set `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING`, or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` in the [`env`](#env) key or in the shell. [Telemetry services](/docs/en/data-usage#telemetry-services) says what each one stops. Two exceptions turn off from a settings file: [`feedbackDrafts`](#feedbackdrafts) below for Claude-drafted feedback, and [`feedbackSurveyRate`](#feedbacksurveyrate) below for the session survey.
@@ -16830,7 +16243,6 @@ Skip the [WebFetch domain safety check](/docs/en/data-usage#webfetch-domain-safe
 }
 </code></pre></div></p>
 <p>With the check skipped, WebFetch attempts any URL without consulting the blocklist, so pair it with <a href="/docs/en/permissions#webfetch"><code>WebFetch</code> permission rules</a> if you need to restrict which domains Claude can reach.</p>
-<p><span id="managed-policy" /></p>
 <h2 id="enterprise-and-managed-settings">Enterprise and managed settings</h2>
 <p>Keys an organization uses to compute, refresh, and combine managed settings. See <a href="/docs/en/admin-setup">Set up managed settings</a>.</p>
 <h3 id="disablesideloadflags"><code>disableSideloadFlags</code></h3>
@@ -16930,7 +16342,6 @@ Choose whether Claude Code applies managed settings supplied by an embedding hos
 }
 </code></pre></div></p>
 <p>This key has no effect when no admin-deployed managed tier exists: the host's settings then apply as the only managed tier, still filtered to restrictive values. For the filter's limits and how the managed sources interact, see <a href="/docs/en/managed-settings#parent-settings-from-embedding-hosts">Parent settings from embedding hosts</a> and <a href="/docs/en/claude-apps-gateway#restrict-parent-settings">Restrict parent settings</a>.</p>
-<p><span id="compute-managed-settings-with-a-policy-helper" /></p>
 <h3 id="policyhelper"><code>policyHelper</code></h3>
 <p>Run an executable you deploy that computes managed settings at startup, so you can derive policy from device posture, identity, or a remote service instead of a static file. Claude Code runs the helper before it accepts the first prompt and treats the settings it emits as the managed settings for the session.</p>
 <ul>
@@ -17198,9 +16609,10 @@ Press `←` on an empty prompt to [background the session and open agent view](/
 </code></pre></div></p>
 <p>Claude Code ignores this key in <code>settings.json</code>.</p>
 <h3 id="permissionexplainerenabled"><code>permissionExplainerEnabled</code></h3>
-<p><Warning>
-  Removed in v2.1.257, together with the <code>Ctrl+E</code> command explanation on Bash and PowerShell permission prompts. Setting it has no effect on current versions.
-</Warning></p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Removed in v2.1.257, together with the <code>Ctrl+E</code> command explanation on Bash and PowerShell permission prompts. Setting it has no effect on current versions.</p>
+</blockquote>
 <p>Through v2.1.256, you could press <code>Ctrl+E</code> on a Bash or PowerShell permission prompt to see a model-generated explanation of the command, and set this key to <code>false</code> to turn that shortcut off.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Global config</code></a>. On v2.1.256 and earlier.</li>
@@ -17222,9 +16634,10 @@ Press `←` on an empty prompt to [background the session and open agent view](/
 }</code></p>
 <p>Claude Code ignores this key in <code>settings.json</code>.</p>
 <h3 id="teammatedefaultmodel"><code>teammateDefaultModel</code></h3>
-<p><Warning>
-  Removed in v2.1.234, together with its <code>/config</code> row <strong>Default teammate model</strong>. Setting it has no effect on current versions.
-</Warning></p>
+<blockquote>
+<p>[!WARNING]</p>
+<p>Removed in v2.1.234, together with its <code>/config</code> row <strong>Default teammate model</strong>. Setting it has no effect on current versions.</p>
+</blockquote>
 <p>Through v2.1.233, you set this key to the model for <a href="/docs/en/agent-teams#specify-teammates-and-models">agent team</a> teammates your prompt didn't name a model for: an alias such as <code>"sonnet"</code>, or <code>null</code> to follow the lead's model. For the model Claude Code picks for such teammates now, see <a href="/docs/en/agent-teams#specify-teammates-and-models">specify teammates and models</a>.</p>
 <ul>
 <li><strong>Scope</strong>: <a href="#scopes"><code>Global config</code></a>. On v2.1.233 and earlier.</li>

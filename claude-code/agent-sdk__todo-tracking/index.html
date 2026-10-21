@@ -1628,7 +1628,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6638,8 +6638,9 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Claude Code provides the <a href="/docs/en/tools-reference#task-tool-availability">task-tracking tools</a> by default only on the models listed under <a href="#model-availability">Model availability</a>. Newer models track multi-step work without a written todo list, so on those you don't need anything on this page for Claude to work through multi-step tasks.</p>
 <p>In a session that has the task-tracking tools, Claude keeps a written todo list, updating each item's status as it works. You see each change in the message stream as a structured tool call. Opt a session in only when your application reads those tool calls, whether to log task activity or to render its own progress display.</p>
 <h2 id="model-availability">Model availability</h2>
-<p><Note>
-  The following tools are available by default only on Claude Opus 4.7, Claude Sonnet 4.6, Claude Haiku 4.5, and earlier models. On every other model, including model IDs Claude Code doesn't recognize, they aren't available unless you opt in:</p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>The following tools are available by default only on Claude Opus 4.7, Claude Sonnet 4.6, Claude Haiku 4.5, and earlier models. On every other model, including model IDs Claude Code doesn't recognize, they aren't available unless you opt in:</p>
 <ul>
 <li><code>TodoWrite</code></li>
 <li><code>TaskCreate</code></li>
@@ -6648,8 +6649,8 @@ Use this file to discover all available pages before exploring further.</p>
 <li><code>TaskList</code></li>
 </ul>
 <p>Wherever the tools are available, Claude Code provides the four Task tools, or <code>TodoWrite</code> instead when you set <code>CLAUDE_CODE_ENABLE_TASKS=0</code>.</p>
-<p>This default set applies in Claude Code v2.1.268 and later, which the TypeScript Agent SDK bundles from v0.3.268.
-</Note></p>
+<p>This default set applies in Claude Code v2.1.268 and later, which the TypeScript Agent SDK bundles from v0.3.268.</p>
+</blockquote>
 <p>On a model that doesn't have the tools by default, unless you opt a session in, you see no <code>tool_use</code> blocks for them in the message stream. The Agent SDK applies these defaults through the Claude Code binary that it bundles. If you point <code>pathToClaudeCodeExecutable</code> (TypeScript) or <code>cli_path</code> (Python) at your own Claude Code install, you get whichever tools that install provides, under its own defaults. To see the exact set in a running session, <a href="/docs/en/tools-reference#check-which-tools-are-available">check which tools are available</a>. To opt a session in, do one of the following:</p>
 <ul>
 <li>Name one of the tools in the <a href="/docs/en/agent-sdk/permissions#allow-and-deny-rules"><code>allowedTools</code></a> (TypeScript) or <code>allowed_tools</code> (Python) option</li>
@@ -6680,44 +6681,44 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Turn limit</strong>: each example runs until the agent finishes and yields its final result message. If a session reaches its turn limit first, that result message has the <code>error_max_turns</code> subtype. Check <code>subtype</code> to detect that ending.</li>
 <li><strong>Error handling</strong>: these examples use single-shot <code>query()</code> calls. After yielding an <code>error_max_turns</code> result, <code>query()</code> raises an error that includes <code>Reached maximum number of turns</code>. Each example wraps its loop in a try block to exit cleanly when that happens. See <a href="/docs/en/agent-sdk/agent-loop#handle-the-result">Handle the result</a> for the result subtypes.</li>
 </ul>
-<p><Note>
-  The task system messages, <a href="/docs/en/agent-sdk/typescript#sdktasknotificationmessage"><code>SDKTaskNotificationMessage</code></a> (TypeScript) or <a href="/docs/en/agent-sdk/python#tasknotificationmessage"><code>TaskNotificationMessage</code></a> (Python) among them, report background tasks such as backgrounded commands and subagents. In the message stream, you see todo activity as <code>tool_use</code> blocks in the assistant messages.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>The task system messages, <a href="/docs/en/agent-sdk/typescript#sdktasknotificationmessage"><code>SDKTaskNotificationMessage</code></a> (TypeScript) or <a href="/docs/en/agent-sdk/python#tasknotificationmessage"><code>TaskNotificationMessage</code></a> (Python) among them, report background tasks such as backgrounded commands and subagents. In the message stream, you see todo activity as <code>tool_use</code> blocks in the assistant messages.</p>
+</blockquote>
 <h3 id="monitor-todo-changes">Monitor todo changes</h3>
 <p>The following example watches the assistant stream for <code>TaskCreate</code> and <code>TaskUpdate</code> <code>tool_use</code> blocks and prints a <code>+</code> line with each new task's subject and an update line with each status change's task ID and new status. Use this shape when you want a log of task activity rather than a rendered display. The <code>+</code> lines don't include the assigned IDs, so this log can't match updates back to their creates. To keep that correlation, capture the IDs as <a href="#display-progress-in-real-time">Display progress in real time</a> does.</p>
 <p>The streamed <code>tool_use</code> input is the raw shape the model emitted. Claude Code repairs some close-but-incorrect key names before execution, mapping <code>id</code> or <code>task_id</code> to <code>taskId</code> and <code>active_form</code> to <code>activeForm</code>, but that repair is not reflected in the stream. Read <code>TaskUpdate</code> input fields defensively, as both examples on this page do, rather than assuming the canonical name is always present.</p>
-<p><CodeGroup>
-  ```typescript TypeScript theme={null}
-  import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>```typescript TypeScript theme={null}
+import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>try {
-    for await (const message of query({
-      prompt: "Create a static website with a home page, an about page, and a shared stylesheet, and track progress with todos",
-      // Keeps the Task tools on models where Claude Code otherwise doesn't provide them.
-      options: { maxTurns: 15, permissionMode: "acceptEdits", env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } },
-    })) {
-      if (message.type !== "assistant") continue;
-      for (const block of message.message.content) {
-        if (block.type !== "tool_use") continue;
-        if (block.name === "TaskCreate") {
-          const input = block.input as { subject: string };
-          console.log(<code>+ ${input.subject}</code>);
-        } else if (block.name === "TaskUpdate") {
-          const input = block.input as {
-            taskId?: string;
-            id?: string;
-            task_id?: string;
-            status?: string;
-          };
-          const taskId = input.taskId ?? input.id ?? input.task_id;
-          if (taskId &amp;&amp; input.status) console.log(<code>${taskId} -&gt; ${input.status}</code>);
-        }
+  for await (const message of query({
+    prompt: "Create a static website with a home page, an about page, and a shared stylesheet, and track progress with todos",
+    // Keeps the Task tools on models where Claude Code otherwise doesn't provide them.
+    options: { maxTurns: 15, permissionMode: "acceptEdits", env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } },
+  })) {
+    if (message.type !== "assistant") continue;
+    for (const block of message.message.content) {
+      if (block.type !== "tool_use") continue;
+      if (block.name === "TaskCreate") {
+        const input = block.input as { subject: string };
+        console.log(<code>+ ${input.subject}</code>);
+      } else if (block.name === "TaskUpdate") {
+        const input = block.input as {
+          taskId?: string;
+          id?: string;
+          task_id?: string;
+          status?: string;
+        };
+        const taskId = input.taskId ?? input.id ?? input.task_id;
+        if (taskId &amp;&amp; input.status) console.log(<code>${taskId} -&gt; ${input.status}</code>);
       }
     }
-  } catch (error) {
-    // A single-shot query() throws after yielding an error result.
-    console.log(<code>Session ended with an error: ${error}</code>);
   }
-  <div class="highlight"><pre><span></span><code>```python Python theme={null}
+} catch (error) {
+  // A single-shot query() throws after yielding an error result.
+  console.log(<code>Session ended with an error: ${error}</code>);
+}
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 import asyncio
 
 from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, ToolUseBlock
@@ -6750,114 +6751,108 @@ async def main():
 
 
 asyncio.run(main())
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <h3 id="display-progress-in-real-time">Display progress in real time</h3>
 <p>The following example watches the assistant stream for <code>TaskCreate</code> and <code>TaskUpdate</code> <code>tool_use</code> blocks and keeps a map of tasks keyed by task ID in a <code>TaskTracker</code> class, rerendering a progress summary on every change. The summary counts completed and in-progress tasks and shows each active item's <code>activeForm</code> label in place of its <code>subject</code>. Use this shape when your application maintains a progress display instead of logging each event.</p>
 <p>The assigned task ID isn't in the <code>TaskCreate</code> input. Claude Code delivers each tool's structured output on the user message that carries its <code>tool_result</code> block, in the <code>tool_use_result</code> field. For <code>TaskCreate</code>, that object is documented for TypeScript as <code>TaskCreateOutput</code> under <a href="/docs/en/agent-sdk/typescript#tool-output-types">Tool Output Types</a>, and in Python the field is a plain dict of the same shape. The tracker pairs each <code>tool_result</code> block with its <code>tool_use</code> call by <code>tool_use_id</code> and reads <code>task.id</code> from the paired message's <code>tool_use_result</code>. Claude can read the list back with <code>TaskList</code> and one task's full details with <code>TaskGet</code>.</p>
-<p><CodeGroup>
-  ```typescript TypeScript theme={null}
-  import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>```typescript TypeScript theme={null}
+import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>type Task = { subject: string; activeForm?: string; status: string };</p>
 <p>class TaskTracker {
-    private tasks = new Map<string, Task>();
-    private pendingCreates = new Map<string, { subject: string; activeForm?: string }>();</p>
-<pre><code>displayProgress() {
-  if (this.tasks.size === 0) {
-    console.log("\nProgress: no open tasks\n");
-    return;
-  }
-
-  const items = [...this.tasks.values()];
-  const completed = items.filter((t) =&gt; t.status === "completed").length;
-  const inProgress = items.filter((t) =&gt; t.status === "in_progress").length;
-
-  console.log(`\nProgress: ${completed}/${this.tasks.size} completed`);
-  console.log(`Currently working on: ${inProgress} task(s)\n`);
-
-  for (const [id, task] of this.tasks) {
-    const icon =
-      task.status === "completed" ? "✅" : task.status === "in_progress" ? "🔧" : "❌";
-    const text = task.status === "in_progress" &amp;&amp; task.activeForm ? task.activeForm : task.subject;
-    console.log(`${id}. ${icon} ${text}`);
-  }
-}
-
-handleToolUse(block: { id: string; name: string; input: unknown }) {
-  if (block.name === "TaskCreate") {
-    const input = block.input as { subject: string; activeForm?: string; active_form?: string };
-    this.pendingCreates.set(block.id, {
-      subject: input.subject,
-      activeForm: input.activeForm ?? input.active_form,
-    });
-  } else if (block.name === "TaskUpdate") {
-    const input = block.input as {
-      taskId?: string;
-      id?: string;
-      task_id?: string;
-      status?: string;
-      activeForm?: string;
-      active_form?: string;
-    };
-    const taskId = input.taskId ?? input.id ?? input.task_id;
-    if (!taskId) return;
-    if (input.status === "deleted") {
-      this.tasks.delete(taskId);
-      this.displayProgress();
+  private tasks = new Map<string, Task>();
+  private pendingCreates = new Map<string, { subject: string; activeForm?: string }>();</p>
+<p>displayProgress() {
+    if (this.tasks.size === 0) {
+      console.log("\nProgress: no open tasks\n");
       return;
-    }
-    const task = this.tasks.get(taskId);
-    if (!task) return;
-    if (input.status) task.status = input.status;
-    const active = input.activeForm ?? input.active_form;
-    if (active) task.activeForm = active;
-    this.displayProgress();
-  }
-}
+    }</p>
+<pre><code>const items = [...this.tasks.values()];
+const completed = items.filter((t) =&gt; t.status === "completed").length;
+const inProgress = items.filter((t) =&gt; t.status === "in_progress").length;
 
-handleToolResult(block: { tool_use_id: string; is_error?: boolean }, result: unknown) {
-  const create = this.pendingCreates.get(block.tool_use_id);
-  if (!create) return;
-  this.pendingCreates.delete(block.tool_use_id);
-  if (block.is_error) return;
-  // The result's user message carries the tool's structured output as
-  // tool_use_result; for TaskCreate that's TaskCreateOutput,
-  // { task: { id, subject } }.
-  const out = result as { task?: { id: string } };
-  if (!out?.task?.id) return;
-  this.tasks.set(out.task.id, { ...create, status: "pending" });
-  this.displayProgress();
-}
+console.log(`\nProgress: ${completed}/${this.tasks.size} completed`);
+console.log(`Currently working on: ${inProgress} task(s)\n`);
 
-async trackQuery(prompt: string) {
-  try {
-    for await (const message of query({
-      prompt,
-      options: { maxTurns: 20, permissionMode: "acceptEdits", env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } },
-    })) {
-      if (message.type === "assistant") {
-        for (const block of message.message.content) {
-          if (block.type === "tool_use") this.handleToolUse(block);
-        }
-      }
-      if (message.type === "user" &amp;&amp; Array.isArray(message.message.content)) {
-        for (const block of message.message.content) {
-          if (block.type === "tool_result") this.handleToolResult(block, message.tool_use_result);
-        }
-      }
-    }
-  } catch (error) {
-    // A single-shot query() throws after yielding an error result,
-    // such as when the maxTurns limit is hit.
-    console.log(`Session ended with an error: ${error}`);
-  }
+for (const [id, task] of this.tasks) {
+  const icon =
+    task.status === "completed" ? "✅" : task.status === "in_progress" ? "🔧" : "❌";
+  const text = task.status === "in_progress" &amp;&amp; task.activeForm ? task.activeForm : task.subject;
+  console.log(`${id}. ${icon} ${text}`);
 }
 </code></pre>
 <p>}</p>
+<p>handleToolUse(block: { id: string; name: string; input: unknown }) {
+    if (block.name === "TaskCreate") {
+      const input = block.input as { subject: string; activeForm?: string; active_form?: string };
+      this.pendingCreates.set(block.id, {
+        subject: input.subject,
+        activeForm: input.activeForm ?? input.active_form,
+      });
+    } else if (block.name === "TaskUpdate") {
+      const input = block.input as {
+        taskId?: string;
+        id?: string;
+        task_id?: string;
+        status?: string;
+        activeForm?: string;
+        active_form?: string;
+      };
+      const taskId = input.taskId ?? input.id ?? input.task_id;
+      if (!taskId) return;
+      if (input.status === "deleted") {
+        this.tasks.delete(taskId);
+        this.displayProgress();
+        return;
+      }
+      const task = this.tasks.get(taskId);
+      if (!task) return;
+      if (input.status) task.status = input.status;
+      const active = input.activeForm ?? input.active_form;
+      if (active) task.activeForm = active;
+      this.displayProgress();
+    }
+  }</p>
+<p>handleToolResult(block: { tool_use_id: string; is_error?: boolean }, result: unknown) {
+    const create = this.pendingCreates.get(block.tool_use_id);
+    if (!create) return;
+    this.pendingCreates.delete(block.tool_use_id);
+    if (block.is_error) return;
+    // The result's user message carries the tool's structured output as
+    // tool_use_result; for TaskCreate that's TaskCreateOutput,
+    // { task: { id, subject } }.
+    const out = result as { task?: { id: string } };
+    if (!out?.task?.id) return;
+    this.tasks.set(out.task.id, { ...create, status: "pending" });
+    this.displayProgress();
+  }</p>
+<p>async trackQuery(prompt: string) {
+    try {
+      for await (const message of query({
+        prompt,
+        options: { maxTurns: 20, permissionMode: "acceptEdits", env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } },
+      })) {
+        if (message.type === "assistant") {
+          for (const block of message.message.content) {
+            if (block.type === "tool_use") this.handleToolUse(block);
+          }
+        }
+        if (message.type === "user" &amp;&amp; Array.isArray(message.message.content)) {
+          for (const block of message.message.content) {
+            if (block.type === "tool_result") this.handleToolResult(block, message.tool_use_result);
+          }
+        }
+      }
+    } catch (error) {
+      // A single-shot query() throws after yielding an error result,
+      // such as when the maxTurns limit is hit.
+      console.log(<code>Session ended with an error: ${error}</code>);
+    }
+  }
+}</p>
 <p>// Usage
-  const tracker = new TaskTracker();
-  await tracker.trackQuery("Build a complete authentication system with todos");
-  <div class="highlight"><pre><span></span><code>```python Python theme={null}
+const tracker = new TaskTracker();
+await tracker.trackQuery("Build a complete authentication system with todos");
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 import asyncio
 
 from claude_agent_sdk import (
@@ -6972,8 +6967,7 @@ async def main():
 
 
 asyncio.run(main())
-</code></pre></div>
-</CodeGroup></p>
+</code></pre></div></p>
 <h2 id="related-documentation">Related documentation</h2>
 <ul>
 <li><a href="/docs/en/agent-sdk/typescript">Agent SDK reference - TypeScript</a>: the options, types, and tool schemas for the TypeScript SDK, including the Task tool input and output types</li>

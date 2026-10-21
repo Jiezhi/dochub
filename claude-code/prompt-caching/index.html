@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7282,8 +7282,7 @@ Use this file to discover all available pages before exploring further.</p>
 <h2 id="how-the-cache-is-organized">How the cache is organized</h2>
 <p>Each time you send a message in Claude Code, it makes a new API request. The model doesn't remember anything between requests, so Claude Code re-sends the full context: the system prompt, your project context, every prior message and tool result, and your new message. New content is appended at the end, which means most of each request is identical to the one before it. Prompt caching is how the API avoids reprocessing the part that didn't change.</p>
 <p>The API caches by matching the start of each request, called the prefix, against content it recently processed. On a normal turn, the prefix is the entire previous request and only the latest exchange is new. The match is exact, so a change anywhere in the prefix recomputes everything after it. There is no per-file or per-segment caching. See <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching#how-prompt-caching-works">how prompt caching works</a> in the API reference for the underlying mechanism.</p>
-<p><img src="https://mintcdn.com/claude-code/VbDJw--l6T9a9Wvm/images/prompt-caching-prefix.svg?fit=max&auto=format&n=VbDJw--l6T9a9Wvm&q=85&s=f2e8f0b8298a50305fe428ca3f1d1594" className="dark:hidden" alt="Four turns shown as growing horizontal bars. Each turn's request contains everything from the previous turn plus the latest exchange appended at the end. On turns two and three, the unchanged prefix is read from cache and only the new exchange is processed. On turn four, the system prompt changed, so the prefix no longer matches and the entire request is reprocessed and written." width="720" height="454" data-path="images/prompt-caching-prefix.svg" /></p>
-<p><img src="https://mintcdn.com/claude-code/_xqph1dUOslCOwsj/images/prompt-caching-prefix-dark.svg?fit=max&auto=format&n=_xqph1dUOslCOwsj&q=85&s=297dc1c639f0915cae858d0c4b6f3be5" className="hidden dark:block" alt="Four turns shown as growing horizontal bars. Each turn's request contains everything from the previous turn plus the latest exchange appended at the end. On turns two and three, the unchanged prefix is read from cache and only the new exchange is processed. On turn four, the system prompt changed, so the prefix no longer matches and the entire request is reprocessed and written." width="720" height="454" data-path="images/prompt-caching-prefix-dark.svg" /></p>
+<p><img alt="Four turns shown as growing horizontal bars. Each turn's request contains everything from the previous turn plus the latest exchange appended at the end. On turns two and three, the unchanged prefix is read from cache and only the new exchange is processed. On turn four, the system prompt changed, so the prefix no longer matches and the entire request is reprocessed and written." src="https://mintcdn.com/claude-code/VbDJw--l6T9a9Wvm/images/prompt-caching-prefix.svg?fit=max\&amp;auto=format\&amp;n=VbDJw--l6T9a9Wvm\&amp;q=85\&amp;s=f2e8f0b8298a50305fe428ca3f1d1594" /></p>
 <p>To get the most out of prefix matching, Claude Code orders each request so content that rarely changes between turns comes first:</p>
 <table>
 <thead>
@@ -7318,9 +7317,10 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Model</strong>: each model has its own cache. Switching models recomputes the entire request even when the content is identical. See <a href="#switching-models">Switching models</a> below.</li>
 <li><strong>Effort level</strong>: on most models, each effort level has its own cache, so changing effort mid-session recomputes the entire request. On Opus 5.5, Sonnet 5.5, Haiku 5.5, and Fable 5.1 with an API key or a Claude subscription, the cache stays intact by default. See <a href="#changing-effort-level">Changing effort level</a> below.</li>
 </ul>
-<p><Tip>
-  Pick your model and effort level at the top of a session, then save <code>/compact</code> for natural breaks between tasks. The fewer changes you make mid-task, the higher your cache hit rate.
-</Tip></p>
+<blockquote>
+<p>[!TIP]</p>
+<p>Pick your model and effort level at the top of a session, then save <code>/compact</code> for natural breaks between tasks. The fewer changes you make mid-task, the higher your cache hit rate.</p>
+</blockquote>
 <h3 id="where-the-cache-lives">Where the cache lives</h3>
 <p>Caching happens server-side, in whichever infrastructure serves your model. Where that is depends on how you authenticate:</p>
 <ul>
@@ -7334,7 +7334,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>When your requests pass through an <a href="/docs/en/llm-gateway">LLM gateway</a>, a custom <code>ANTHROPIC_BASE_URL</code>, or a cloud provider base-URL override such as <a href="/docs/en/env-vars"><code>ANTHROPIC_BEDROCK_BASE_URL</code></a>, what stays cached depends on how the gateway handles the <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching#explicit-cache-breakpoints"><code>cache_control</code> markers</a> Claude Code sends:</p>
 <ul>
 <li><strong>Forwards them unchanged</strong>: the block and your conversation cache the same as at the provider's own endpoint.</li>
-<li><strong>Rejects the marked request with a <code>400</code> error naming <code>cache_control</code></strong>: Claude Code re-sends the request with the marker moved off the block and onto your last conversation message, and keeps it there for the rest of the conversation. The block bills as uncached input; your conversation stays cached.</li>
+<li><strong>Rejects the marked request with a <code>400</code> error naming <code>cache_control</code></strong>: Claude Code re-sends the request with the marker moved off the block and onto your last conversation message, and keeps it there until Claude Code exits. The block bills as uncached input; your conversation stays cached.</li>
 <li><strong>Removes the markers while returning success</strong>: your entire conversation history bills as uncached input on every turn. A gateway that converts block-form system content to a plain string drops the marker the same way.</li>
 </ul>
 <p>For what each provider stores and processes, see <a href="/docs/en/data-usage">data usage</a>. Wherever the cache lives, entries expire after a period of inactivity, and <a href="#cache-lifetime">Cache lifetime</a> below covers the TTL and how to extend it.</p>
@@ -7370,7 +7370,9 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Tool definitions sit in the system prompt layer, so the cache invalidates when the set of tool definitions in the request changes between turns. Toggling the <a href="/docs/en/advisor">advisor tool</a> is an exception: its definition sits after the cache breakpoint, so enabling or disabling <code>/advisor</code> keeps the cached prefix intact. Whether an <a href="/docs/en/mcp">MCP server</a> change does this depends on whether <a href="/docs/en/mcp#scale-with-mcp-tool-search">tool search</a> defers the session's MCP tools, the default on supported models:</p>
 <ul>
 <li><strong>Tools deferred</strong>: Claude Code keeps the tool list from the conversation's first request for the whole conversation, so a server connecting or disconnecting mid-session doesn't disturb anything already cached. A server that finishes connecting after the first request supplies its tools as deferred definitions that Claude loads on demand.</li>
-<li><strong>Tools loaded upfront</strong>: adding a definition invalidates the cache, and so does removing one on purpose. This applies when tool search is <a href="/docs/en/mcp#configure-tool-search">below its <code>auto</code> threshold, disabled, or unavailable</a>, such as on Google Cloud's Agent Platform models earlier than Opus 4.5, Sonnet 4.5, and Haiku 4.5, with a custom <code>ANTHROPIC_BASE_URL</code> gateway, or on a Microsoft Foundry <a href="https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry#hosting-options">deployment hosted on Azure</a> once Claude Code detects that the deployment rejects tool search.</li>
+<li><strong>Tools loaded upfront</strong>: adding a definition invalidates the cache, and so does removing one on purpose. This applies when tool search is <a href="/docs/en/mcp#configure-tool-search">off or unavailable</a>, such as on:</li>
+<li>Google Cloud's Agent Platform models earlier than Opus 4.5, Sonnet 4.5, and Haiku 4.5</li>
+<li>A Microsoft Foundry <a href="https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry#hosting-options">deployment hosted on Azure</a> once Claude Code detects that the deployment rejects tool search</li>
 </ul>
 <p>Without tool search, whether a mid-session server change invalidates the cache depends on what changed. For each change, this table gives whether the cache is kept and what happens to the tool definitions in the next request.</p>
 <table>
@@ -7435,9 +7437,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p><a href="/docs/en/context-window#what-survives-compaction">Compaction</a> replaces your message history with a summary. By design, this invalidates the conversation layer, since the next request has a new, shorter history that doesn't share a prefix with the old one. Claude Code reuses the system prompt layer unless the conversation was <a href="#resuming-a-session">resumed while keeping a system prompt that would otherwise have changed</a>; in that case the first compaction switches to the current prompt and that layer rebuilds once. It reloads project context from disk, which cache-hits only if CLAUDE.md and memory are unchanged since the session started.</p>
 <p>To produce the summary, Claude Code sends a separate request with the same system prompt, tools, and history as your conversation, plus a summarization instruction appended as a final user message. While the cache is warm, that request reads your prefix from the cache, so a mid-session <code>/compact</code> costs a fraction of what the context size suggests and spends most of its time generating the summary.</p>
 <p>After a break longer than the <a href="#cache-lifetime">cache lifetime</a>, there is no cache left to read, so the summarization request reprocesses the full history as uncached input. This is why <code>/compact</code> costs the most when you <a href="/docs/en/sessions#resume-a-session">resume an old session</a>. In both the warm and cold cases, the turn after compaction rebuilds the conversation cache for only the much shorter summary, so that turn is not the slow part.</p>
-<p><Tip>
-  Compaction works in your favor when the context you discard is content you no longer need. To choose when its overhead happens, run <code>/compact</code> at a natural break in your work, such as between tasks, instead of waiting for auto-compaction to trigger mid-task. If you've gone down a path you want to abandon entirely, <a href="#rewinding-the-conversation"><code>/rewind</code></a> to an earlier turn instead. Rewinding truncates back to a prefix that is already cached, rather than building a new one as compaction does.
-</Tip></p>
+<blockquote>
+<p>[!TIP]</p>
+<p>Compaction works in your favor when the context you discard is content you no longer need. To choose when its overhead happens, run <code>/compact</code> at a natural break in your work, such as between tasks, instead of waiting for auto-compaction to trigger mid-task. If you've gone down a path you want to abandon entirely, <a href="#rewinding-the-conversation"><code>/rewind</code></a> to an earlier turn instead. Rewinding truncates back to a prefix that is already cached, rather than building a new one as compaction does.</p>
+</blockquote>
 <p>If you leave a long conversation idle in a terminal session while it is on the <a href="#which-ttl-each-request-gets">one-hour TTL</a>, Claude Code can compact it shortly before the cache expires. To turn idle compaction off, set <a href="/docs/en/settings-reference#idlecompaction"><code>idleCompaction</code></a> to <code>false</code>, which requires Claude Code v2.1.290 or later.</p>
 <h3 id="accumulating-many-images">Accumulating many images</h3>
 <p>The API limits how many images and PDFs each request can carry. For the current numbers, see <a href="https://platform.claude.com/docs/en/build-with-claude/vision#request-limits">Request limits</a> in the API docs. Claude Code also caps the total size of the images and PDFs in a request, so large screenshots reach the limit with fewer images than small ones.</p>
@@ -7445,9 +7448,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Removing images changes the messages that held them, so the next request reprocesses the conversation from the earliest of those messages onward. Because Claude Code removes a batch at a time, you see one slower turn per batch rather than one with each new screenshot.</p>
 <h3 id="upgrading-claude-code">Upgrading Claude Code</h3>
 <p>A new Claude Code version typically updates the system prompt or tool definitions, so the first conversation you start after an upgrade builds its cache from the top. <a href="/docs/en/setup#auto-updates">Auto-update</a> downloads new versions in the background but applies them on the next launch, never mid-session, so you see this as an uncached first turn after restarting rather than a surprise during a session. Set <code>DISABLE_AUTOUPDATER=1</code> to control when upgrades apply.</p>
-<p><Note>
-  For what it costs to resume a conversation you started before the upgrade, see <a href="#resuming-a-session">Resuming a session</a>.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>For what it costs to resume a conversation you started before the upgrade, see <a href="#resuming-a-session">Resuming a session</a>.</p>
+</blockquote>
 <h2 id="actions-that-keep-the-cache">Actions that keep the cache</h2>
 <p>These actions either append to the end of the conversation or don't touch the request at all. Some of them, such as editing CLAUDE.md, keep the cache for the same reason the change doesn't reach the running session until <code>/clear</code>, <code>/compact</code>, or a restart.</p>
 <ul>

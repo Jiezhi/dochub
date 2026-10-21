@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6946,9 +6946,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Centrally configure Claude Code for your organization through server-delivered settings, without requiring device management infrastructure.</p>
 </blockquote>
 <p>Server-managed settings let organization Owners centrally configure Claude Code from <a href="https://claude.ai/admin-settings/claude-code"><strong>Organization settings &gt; Claude Code &gt; Managed settings</strong></a> in the claude.ai console. Claude Code clients fetch these settings automatically when users authenticate with an eligible credential on a platform where server-managed delivery is supported. See <a href="#platform-availability">Platform availability</a> for the credentials and platforms that qualify.</p>
-<p><Note>
-  Server-managed settings are available for <a href="https://claude.com/pricing?utm_source=claude_code\&amp;utm_medium=docs\&amp;utm_content=server_settings_teams#team-&amp;-enterprise">Claude for Teams</a> and <a href="https://anthropic.com/contact-sales?utm_source=claude_code\&amp;utm_medium=docs\&amp;utm_content=server_settings_enterprise">Claude for Enterprise</a> customers.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Server-managed settings are available for <a href="https://claude.com/pricing?utm_source=claude_code\&amp;utm_medium=docs\&amp;utm_content=server_settings_teams#team-&amp;-enterprise">Claude for Teams</a> and <a href="https://anthropic.com/contact-sales?utm_source=claude_code\&amp;utm_medium=docs\&amp;utm_content=server_settings_enterprise">Claude for Enterprise</a> customers.</p>
+</blockquote>
 <h2 id="requirements">Requirements</h2>
 <p>To use server-managed settings, you need:</p>
 <ul>
@@ -6981,32 +6982,26 @@ Use this file to discover all available pages before exploring further.</p>
 </table>
 <p>If your devices are enrolled in an MDM or endpoint management solution, endpoint-managed settings provide stronger security guarantees because the settings file can be protected from user modification at the OS level. Endpoint-managed settings don't reach <a href="/docs/en/model-config#surface-coverage">cloud sessions</a> in Anthropic-hosted environments, so organizations whose developers run cloud sessions should configure server-managed settings as well. Sessions in a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> also read the managed settings file in the runner image. The <a href="#settings-precedence">settings precedence</a> below says when that file applies.</p>
 <h2 id="configure-server-managed-settings_1">Configure server-managed settings</h2>
-<p><Steps>
-  <Step title="Open the admin console">
-    In the claude.ai console, go to <a href="https://claude.ai/admin-settings/claude-code"><strong>Organization settings &gt; Claude Code &gt; Managed settings</strong></a>.</p>
-<pre><code>In a Team or Enterprise organization, if the page says you don't have access, ask an [Owner or Primary Owner](#access-control) to make the change.
-</code></pre>
-<p></Step></p>
-<p><Step title="Define your settings">
-    Add your configuration as JSON. All <a href="/docs/en/settings-reference#all-settings">settings available in <code>settings.json</code></a> are supported except those restricted to OS-level policy delivery; see <a href="#current-limitations">Current limitations</a> for that short list. This includes <a href="/docs/en/hooks">hooks</a>, <a href="/docs/en/env-vars">environment variables</a>, and <a href="/docs/en/managed-settings#managed-only-settings">managed-only settings</a> like <code>allowManagedPermissionRulesOnly</code>.</p>
-<pre><code>This example enforces a permission deny list, prevents users from bypassing permissions, and restricts permission rules to those defined in managed settings. The `Bash(curl *)` rule matches `curl` [as Claude writes it](/docs/en/permissions#bash-rule-limits), not `/usr/bin/curl` or `sh -c 'curl …'`; for network enforcement that doesn't depend on the command text, add a [`sandbox` block with `allowManagedDomainsOnly`](/docs/en/sandboxing#configure-the-sandbox-for-your-organization).
-
-```json theme={null}
+<p><strong>1. Open the admin console</strong></p>
+<p>In the claude.ai console, go to <a href="https://claude.ai/admin-settings/claude-code"><strong>Organization settings &gt; Claude Code &gt; Managed settings</strong></a>.</p>
+<p>In a Team or Enterprise organization, if the page says you don't have access, ask an <a href="#access-control">Owner or Primary Owner</a> to make the change.</p>
+<p><strong>2. Define your settings</strong></p>
+<p>Add your configuration as JSON. All <a href="/docs/en/settings-reference#all-settings">settings available in <code>settings.json</code></a> are supported except those restricted to OS-level policy delivery; see <a href="#current-limitations">Current limitations</a> for that short list. This includes <a href="/docs/en/hooks">hooks</a>, <a href="/docs/en/env-vars">environment variables</a>, and <a href="/docs/en/managed-settings#managed-only-settings">managed-only settings</a> like <code>allowManagedPermissionRulesOnly</code>.</p>
+<p>This example enforces a permission deny list, prevents users from bypassing permissions, and restricts permission rules to those defined in managed settings. The <code>Bash(curl *)</code> rule matches <code>curl</code> <a href="/docs/en/permissions#bash-rule-limits">as Claude writes it</a>, not <code>/usr/bin/curl</code> or <code>sh -c 'curl …'</code>; for network enforcement that doesn't depend on the command text, add a <a href="/docs/en/sandboxing#configure-the-sandbox-for-your-organization"><code>sandbox</code> block with <code>allowManagedDomainsOnly</code></a>.</p>
+<p>```json theme={null}
 {
   "permissions": {
     "deny": [
-      "Bash(curl *)",
+      "Bash(curl <em>)",
       "Read(./.env)",
-      "Read(./.env.*)",
+      "Read(./.env.</em>)",
       "Read(./secrets/**)"
     ],
     "disableBypassPermissionsMode": "disable"
   },
   "allowManagedPermissionRulesOnly": true
 }
-```
-
-Hooks use the same format as in `settings.json`.
+<div class="highlight"><pre><span></span><code>Hooks use the same format as in `settings.json`.
 
 This example runs an audit script after every file edit across the organization:
 
@@ -7023,21 +7018,13 @@ This example runs an audit script after every file edit across the organization:
     ]
   }
 }
-```
-
-Because hooks execute shell commands, users in interactive sessions see a [security approval dialog](#security-approval-dialogs) before Claude Code applies them.
-
-To configure the [auto mode](/docs/en/permission-modes#eliminate-prompts-with-auto-mode) classifier so it knows which repos, buckets, and domains your organization trusts, deliver an `autoMode` block the same way; see [Configure auto mode](/docs/en/auto-mode-config) for how the `autoMode` entries affect what the classifier blocks and important warnings about the `environment`, `allow`, `soft_deny`, and `hard_deny` fields.
-</code></pre>
-<p></Step></p>
-<p><Step title="Save and deploy">
-    Save your changes. Claude Code clients receive the updated settings on their next startup or hourly polling cycle.</p>
-<pre><code>The editor checks your JSON against the published JSON schema for Claude Code settings. If it finds a problem in JSON that parses, it shows a warning and relabels the save button. The label is **Update with errors** when settings are already saved, and **Add with errors** when no settings are saved yet. That button still saves, because a schema warning doesn't block the save.
-
-The schema [can lag behind the newest releases](/docs/en/settings#edit-a-settings-file), so the editor can flag a key or value that the [settings reference](/docs/en/settings-reference#all-settings) documents. Claude Code receives the keys and values you saved and runs [its own validation](#invalid-entries-in-delivered-settings) when it loads them.
-</code></pre>
-<p></Step>
-</Steps></p>
+</code></pre></div></p>
+<p>Because hooks execute shell commands, users in interactive sessions see a <a href="#security-approval-dialogs">security approval dialog</a> before Claude Code applies them.</p>
+<p>To configure the <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a> classifier so it knows which repos, buckets, and domains your organization trusts, deliver an <code>autoMode</code> block the same way; see <a href="/docs/en/auto-mode-config">Configure auto mode</a> for how the <code>autoMode</code> entries affect what the classifier blocks and important warnings about the <code>environment</code>, <code>allow</code>, <code>soft_deny</code>, and <code>hard_deny</code> fields.</p>
+<p><strong>3. Save and deploy</strong></p>
+<p>Save your changes. Claude Code clients receive the updated settings on their next startup or hourly polling cycle.</p>
+<p>The editor checks your JSON against the published JSON schema for Claude Code settings. If it finds a problem in JSON that parses, it shows a warning and relabels the save button. The label is <strong>Update with errors</strong> when settings are already saved, and <strong>Add with errors</strong> when no settings are saved yet. That button still saves, because a schema warning doesn't block the save.</p>
+<p>The schema <a href="/docs/en/settings#edit-a-settings-file">can lag behind the newest releases</a>, so the editor can flag a key or value that the <a href="/docs/en/settings-reference#all-settings">settings reference</a> documents. Claude Code receives the keys and values you saved and runs <a href="#invalid-entries-in-delivered-settings">its own validation</a> when it loads them.</p>
 <h3 id="verify-settings-delivery">Verify settings delivery</h3>
 <p>To confirm that settings are being applied, ask a user to restart Claude Code. If the configuration includes settings that trigger the <a href="#security-approval-dialogs">security approval dialog</a>, the user sees a prompt describing the managed settings the next time Claude Code fetches them: at the next start, or within an hour in a running interactive session. You can also verify that managed permission rules are active by having a user run <code>/permissions</code> to view their effective permission rules.</p>
 <p>To check the fetch outcome on a specific machine, have the user run <code>claude doctor</code> and read the <code>Managed settings (remote)</code> line. Requires Claude Code v2.1.248 or later. The line reports one of four outcomes:</p>

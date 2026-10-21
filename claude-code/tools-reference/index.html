@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -7128,9 +7128,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Claude Code has access to a set of built-in tools that help it understand and modify your codebase. The tool names are the exact strings you use in <a href="/docs/en/permissions#tool-specific-permission-rules">permission rules</a>, <a href="/docs/en/sub-agents">subagent tool lists</a>, and <a href="/docs/en/hooks">hook matchers</a>.</p>
 <p>To control which tools Claude can use and when it asks first, configure <a href="/docs/en/permissions#tool-specific-permission-rules">permission rules</a> in your settings, <a href="/docs/en/hooks">hooks</a>, or a <a href="/docs/en/sub-agents#supported-frontmatter-fields">subagent's tool list</a>. See <a href="#configure-tools-with-permission-rules-and-hooks">Configure tools with permission rules and hooks</a> for each place that accepts a tool name.</p>
 <p>To add custom tools, connect an <a href="/docs/en/mcp">MCP server</a>. To extend Claude with reusable prompt-based workflows, write a <a href="/docs/en/skills">skill</a>, which runs through the existing <code>Skill</code> tool rather than adding a new tool entry.</p>
-<p><Info>
-  In <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, a classifier decides most permission prompts instead of you. The <code>Permission required</code> column shows whether the tool prompts in <a href="/docs/en/permission-modes">Manual mode</a> for paths inside the working directory. File-access tools marked No, including <code>Read</code>, <code>Grep</code>, and <code>Glob</code>, still prompt for paths outside the <a href="/docs/en/permissions#working-directories">working directory and additional directories</a>. <code>Bash</code> is marked Yes but runs a built-in set of <a href="/docs/en/permissions#read-only-commands">read-only commands</a> without prompting.
-</Info></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>In <a href="/docs/en/permission-modes#eliminate-prompts-with-auto-mode">auto mode</a>, a classifier decides most permission prompts instead of you. The <code>Permission required</code> column shows whether the tool prompts in <a href="/docs/en/permission-modes">Manual mode</a> for paths inside the working directory. File-access tools marked No, including <code>Read</code>, <code>Grep</code>, and <code>Glob</code>, still prompt for paths outside the <a href="/docs/en/permissions#working-directories">working directory and additional directories</a>. <code>Bash</code> is marked Yes but runs a built-in set of <a href="/docs/en/permissions#read-only-commands">read-only commands</a> without prompting.</p>
+</blockquote>
 <table>
 <thead>
 <tr>
@@ -7779,6 +7780,8 @@ Read handles several file types beyond plain text:
 * **Images**: PNG, JPEG, GIF, and WebP files are returned as visual content that Claude can see, not as raw bytes. Claude Code resizes and recompresses large images to fit the model's image size limits before sending them, so Claude may see a downscaled version of a large screenshot.
 
   If Claude misses fine pixel-level detail in a large image, ask it to crop the region you care about, such as with ImageMagick via Bash, and then read the crop.
+
+  Read refuses an image file larger than 128 MB with an error that tells Claude to resize the image or export a smaller copy, then read that copy. If Claude stops at the error instead of doing so, see [File is too large to read as an image](/docs/en/errors#file-is-too-large-to-read-as-an-image).
 * **PDFs**: Claude reads short `.pdf` files whole. For PDFs longer than 10 pages, it reads in ranges with a `pages` parameter, such as `"1-5"`, up to 20 pages at a time. Page-range reads render pages with `pdftoppm` from poppler-utils, so install it with `brew install poppler` on macOS or `apt-get install poppler-utils` on Debian and Ubuntu. On Windows and other platforms, install a poppler build that puts `pdftoppm` on your `PATH`. Without it, a page-range read fails with `pdftoppm is not installed`.
 * **Jupyter notebooks**: `.ipynb` files return all cells with their outputs, including code, markdown, and visualizations. A notebook whose cells come to more than 256 KB, or more than the [token limit](#large-files), returns an error instead. Claude Code refuses to read a notebook file over 100 MB; the error tells Claude how to read a portion of the notebook instead, such as a slice of cells, with a shell command.
 
@@ -7833,7 +7836,7 @@ The report carries:
 
 Claude Code keeps your working directory in the local draft so it can find the transcript, and doesn't send the directory.
 
-In [organizations with Zero Data Retention](/docs/en/zero-data-retention#features-disabled-under-zdr), and in organizations with the [HIPAA configuration](/docs/en/hipaa-setup) applied, Claude Code leaves the tool out, as it does for `/feedback`. If a session in an organization with Zero Data Retention still offers the tool, drafts stay on your machine, and sending fails with `Feedback collection is not available for organizations with custom data retention policies.`
+In [organizations with Zero Data Retention](/docs/en/zero-data-retention#features-disabled-under-zdr), and in organizations with the [HIPAA configuration](/docs/en/hipaa-setup) applied, Claude Code leaves the SendFeedback tool out of your sessions. If a session in an organization with Zero Data Retention still offers the tool, drafts stay on your machine, and sending fails with `Feedback collection is not available for organizations with custom data retention policies.`
 
 ### Discard or keep a draft
 
@@ -7924,9 +7927,9 @@ WebSearch permission rules take no specifier. A bare `WebSearch` entry in `allow
 
 The search backend is not configurable. To search with a different provider, add an [MCP server](/docs/en/mcp) that exposes a search tool.
 
-&lt;Note&gt;
-  WebSearch is available on the Claude API, [Claude Platform on AWS](/docs/en/claude-platform-on-aws), and Microsoft Foundry. On Google Cloud's Agent Platform it works with Opus 4, Sonnet 4, Haiku 4.5, and later models. Amazon Bedrock doesn't expose the server-side web search tool.
-&lt;/Note&gt;
+&gt; [!NOTE]
+&gt;
+&gt; WebSearch is available on the Claude API, [Claude Platform on AWS](/docs/en/claude-platform-on-aws), and Microsoft Foundry. On Google Cloud's Agent Platform it works with Opus 4, Sonnet 4, Haiku 4.5, and later models. Amazon Bedrock doesn't expose the server-side web search tool.
 
 ### Session search limit
 
@@ -7939,6 +7942,8 @@ To get more searches, raise the cap, wait for the limit to refill, or start a ne
 * **Raise the cap**: set the [`CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION`](/docs/en/env-vars#variables) environment variable to a positive whole number, such as `500`. The cap can be raised but not turned off.
 * **Wait for the refill**: on Claude Code v2.1.290 or later, an interactive terminal session's limit refills at about 100 calls per hour. To change the rate, set [`CLAUDE_CODE_WEB_SEARCH_REFILLS_PER_HOUR`](/docs/en/env-vars#variables) to a number of calls per hour, such as `50`.
 * **Start a new conversation**: running [`/clear`](/docs/en/commands#all-commands) at the Claude Code prompt also resets the count. If work that can still spawn subagents survives the clear, such as a running workflow, the count carries over instead.
+
+In [non-interactive mode](/docs/en/headless) with `-p` and in the [Agent SDK](/docs/en/agent-sdk/overview), the limit applies per turn, not per session. A turn lasts from a message you send until Claude finishes responding. The limit resets when you send the next message after that or start a new `claude -p` run, even with [`--continue` or `--resume`](/docs/en/headless#continue-conversations). For more searches, raise [`CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION`](/docs/en/env-vars#variables) or set a refill rate with [`CLAUDE_CODE_WEB_SEARCH_REFILLS_PER_HOUR`](/docs/en/env-vars#variables).
 
 ## Write tool behavior
 
@@ -7964,9 +7969,10 @@ Your exact tool set depends on your provider, platform, and settings. To check w
 What tools do you have access to?
 </code></pre></div></p>
 <p>Claude gives a conversational summary. For exact MCP tool names, run <code>/mcp</code>.</p>
-<p><Note>
-  The <a href="/docs/en/advisor">advisor tool</a> is a <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool">server tool</a> that the API runs, rather than a tool that Claude Code implements. It has no name you can reference in permission rules or hook matchers.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>The <a href="/docs/en/advisor">advisor tool</a> is a <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool">server tool</a> that the API runs, rather than a tool that Claude Code implements. It has no name you can reference in permission rules or hook matchers.</p>
+</blockquote>
 <h2 id="see-also">See also</h2>
 <ul>
 <li><a href="/docs/en/mcp">MCP servers</a>: add custom tools by connecting external servers</li>

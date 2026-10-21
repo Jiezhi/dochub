@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6715,9 +6715,10 @@ Use this file to discover all available pages before exploring further.</p>
 </blockquote>
 <p>Code Review is a managed service that an Owner in your Claude organization turns on for a set of GitHub repositories. Once it's on, Claude reviews pull requests in those repositories and posts its findings as inline comments, a summary in the review body, and a check run named <strong>Claude Code Review</strong>. A review never approves or blocks your pull request, and the check run never concludes as a failure.</p>
 <p>An Owner controls <a href="/docs/en/code-review-setup#set-when-reviews-run">when reviews run</a> and <a href="/docs/en/code-review-setup#set-the-default-review-level">how thorough they are</a> for each repository.</p>
-<p><Note>
-  If your plan doesn't include Code Review, you can still have Claude review your branch from a Claude Code session: see <a href="/docs/en/code-review-local">Review locally with <code>/code-review</code></a>.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>If your plan doesn't include Code Review, you can still have Claude review your branch from a Claude Code session: see <a href="/docs/en/code-review-local">Review locally with <code>/code-review</code></a>.</p>
+</blockquote>
 <h2 id="severity-levels">Severity levels</h2>
 <p>Claude posts each finding as an inline comment on the lines concerned and marks it with one of three severity levels:</p>
 <table>
@@ -6783,32 +6784,32 @@ Use this file to discover all available pages before exploring further.</p>
 <p>A finding that has a line but wasn't posted as an inline comment appears as an annotation in the <strong>Files changed</strong> tab, on the lines concerned. Important findings show in red, nits in yellow, and pre-existing bugs in gray.</p>
 <p>The check run concludes as neutral, or as skipped when an automatic review didn't run because a push changed no files. It never concludes as a failure, so a finished review doesn't fail a required check. If you don't see findings, or a review didn't run, see <a href="/docs/en/code-review-troubleshooting">Troubleshoot Code Review</a>.</p>
 <h3 id="read-the-result-from-a-script">Read the result from a script</h3>
-<p>To gate a merge or post a summary from your own CI, parse the last line of the Details text with <code>gh</code> and jq. That line is a machine-readable comment.</p>
-<p><Steps>
-  <Step title="Find the check run ID">
-    From your shell, list the commit's check runs and take the <code>id</code> of the <code>Claude Code Review</code> run. Replace <code>OWNER</code> and <code>REPO</code> with your repository owner and name, and <code>&lt;commit-sha&gt;</code> with the pull request's head commit:</p>
-<pre><code>```bash theme={null}
-gh api repos/OWNER/REPO/commits/&lt;commit-sha&gt;/check-runs --jq '.check_runs[] | {id, name}'
-```
-</code></pre>
-<p></Step></p>
-<p><Step title="Read the severity counts">
-    Read the counts from that check run, replacing <code>CHECK_RUN_ID</code> with the ID:</p>
-<pre><code>```bash theme={null}
-gh api repos/OWNER/REPO/check-runs/CHECK_RUN_ID \
-  --jq '.output.text | split("bughunter-severity: ")[1] | split(" --&gt;")[0] | fromjson'
-```
+<p>To gate a merge or post a summary from your own CI, parse the last line of the Details text with <code>gh</code> and jq. That line is an HTML comment that holds the severity counts as JSON:</p>
+<p>```text theme={null}</p>
+<!-- bughunter-severity: {"nit":1,"normal":2,"pre_existing":0} -->
+<div class="highlight"><pre><span></span><code>The lines above it can include file names from the pull request. If you parse the text your own way, take the counts from the last line only, as the command in these steps does.
 
-This prints a JSON object with a count per severity and its keys in alphabetical order, for example `{"nit": 1, "normal": 2, "pre_existing": 0}`. The counts include findings from earlier reviews of the pull request whose threads are still open.
-</code></pre>
-<p></Step></p>
-<p><Step title="Act on the result">
-    Have your script handle these cases:</p>
-<pre><code>* **`normal` is above zero**: fail the job if you want to gate the merge. The `normal` key holds the count of Important findings, so Claude found at least one bug worth fixing before merge.
-* **The line is missing**: treat it as no verdict rather than as zero findings. A check run for a review that failed, timed out, was canceled, or was superseded by a newer one has no such line, and some completed reviews have none either.
-</code></pre>
-<p></Step>
-</Steps></p>
+**1. Find the check run ID**
+
+From your shell, list the commit's check runs and take the `id` of the `Claude Code Review` run. Replace `OWNER` and `REPO` with your repository owner and name, and `&lt;commit-sha&gt;` with the pull request's head commit:
+
+```bash theme={null}
+gh api repos/OWNER/REPO/commits/&lt;commit-sha&gt;/check-runs --jq '.check_runs[] | {id, name}'
+</code></pre></div>
+<p><strong>2. Read the severity counts</strong></p>
+<p>Read the counts from the check run's <code>output.text</code> field, which holds the Details text. Replace <code>CHECK_RUN_ID</code> with the ID:</p>
+<p><code>bash theme={null}
+gh api repos/OWNER/REPO/check-runs/CHECK_RUN_ID --jq '
+  (.output.text | split("\n") | last
+    | scan("^&lt;!-- bughunter-severity: (.*) --&gt;$")[0] | fromjson)?
+  // error("no severity line")'</code></p>
+<p>This prints a JSON object with a count per severity and its keys in alphabetical order, for example <code>{"nit": 1, "normal": 2, "pre_existing": 0}</code>. The counts include findings from earlier reviews of the pull request whose threads are still open.</p>
+<p><strong>3. Act on the result</strong></p>
+<p>Have your script handle these cases:</p>
+<ul>
+<li><strong><code>normal</code> is above zero</strong>: fail the job if you want to gate the merge. The <code>normal</code> key holds the count of Important findings, so Claude found at least one bug worth fixing before merge. To print only that count, add <code>| .normal</code> before the closing single quote.</li>
+<li><strong>The line is missing</strong>: the command prints an error that contains <code>no severity line</code> instead of counts, and exits with a non-zero status. Treat that as no verdict rather than as zero findings. A check run for a review that failed, timed out, was canceled, or was superseded by a newer one has no such line, and some completed reviews have none either.</li>
+</ul>
 <h2 id="request-a-review">Request a review</h2>
 <p>If your pull request is a draft or comes from a fork, automatic reviews skip it, so <a href="#review-drafts-and-pull-requests-from-forks">request the review with a comment command</a>. To get a review on your pull request, do one of these:</p>
 <ul>
@@ -6832,32 +6833,44 @@ This prints a JSON object with a count per severity and its keys in alphabetical
 <tr>
 <td style="text-align: left;"><code>@claude review</code></td>
 <td style="text-align: left;">Starts a single review without subscribing the PR to future pushes</td>
-<td style="text-align: left;">You want one review now, such as on a pull request in a repository set to Manual, or another review right away in the other modes</td>
+<td style="text-align: left;">You want one review now, such as on a pull request in a repository set to <strong>Manual</strong>, or another review right away in the other modes</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>@claude review always</code></td>
 <td style="text-align: left;">Starts a review and subscribes the PR to push-triggered reviews going forward</td>
-<td style="text-align: left;">You want every subsequent push to start a fresh review, such as on a high-priority PR in a repository set to Manual</td>
+<td style="text-align: left;">You want every subsequent push to start a fresh review, such as on a high-priority PR in a repository set to <strong>Manual</strong></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>@claude review once</code></td>
 <td style="text-align: left;">Same as <code>@claude review</code>: starts a single review without subscribing</td>
 <td style="text-align: left;">The same cases as <code>@claude review</code></td>
 </tr>
+<tr>
+<td style="text-align: left;"><code>@claude review stop</code></td>
+<td style="text-align: left;">Ends the PR's subscription to push-triggered reviews, without starting a review or canceling one that's already queued or running. Claude replies with a comment instead of a check run.</td>
+<td style="text-align: left;">You subscribed a PR with <code>@claude review always</code> in a repository set to <strong>Manual</strong> or <strong>Once after PR creation</strong>, and no longer want each push to start a review</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>@claude review off</code> or <code>@claude review pause</code></td>
+<td style="text-align: left;">Same as <code>@claude review stop</code></td>
+<td style="text-align: left;">The same cases as <code>@claude review stop</code></td>
+</tr>
 </tbody>
 </table>
-<p>For any of these commands to start a review, all of these conditions have to hold:</p>
+<p>In a repository set to <strong>After every push</strong>, you can't stop reviews with a comment, because pushes there start reviews with or without a subscription. To stop pushes from starting reviews on one pull request there, convert it to a <a href="#review-drafts-and-pull-requests-from-forks">draft</a>. When you mark it ready for review again, a review starts.</p>
+<p>For any comment command to take effect, all of these conditions have to hold:</p>
 <ul>
 <li>Post it as a new top-level pull request comment, not an inline comment on a diff line and not the body of a review. Editing an earlier comment doesn't count.</li>
-<li>Put the command at the start of the comment, with <code>always</code> on the same line as the rest of the command. Capitalization doesn't matter.</li>
+<li>Put the whole command on one line at the start of the comment. Other text can follow it. If <code>always</code> or <code>stop</code> is misspelled or on a later line, Claude reads the comment as a plain <code>@claude review</code> and starts a single review. Capitalization doesn't matter.</li>
 <li>You need write, maintain, or admin permission on the repository. Claude checks this with GitHub for each person who comments, and comments from bots don't start reviews.</li>
 <li>The pull request must be open.</li>
 </ul>
-<p>When the command is accepted, a <strong>Claude Code Review</strong> check run appears on the pull request with the title <strong>Code review queued...</strong>. The title changes to <strong>Code review in progress...</strong> when the review starts. Claude may also react to your comment with 👀, but that reaction can appear when no review starts, so look for the check run instead.</p>
+<p>When a command that starts a review is accepted, a <strong>Claude Code Review</strong> check run appears on the pull request with the title <strong>Code review queued...</strong>. The title changes to <strong>Code review in progress...</strong> when the review starts. Claude may also react to your comment with 👀, but that reaction can appear when no review starts, so look for the check run instead.</p>
 <p>If a review is already running on the pull request's latest commit, a new request doesn't start a second one.</p>
-<p><Note>
-  Before a July 2026 update, <code>@claude review</code> subscribed the PR to push-triggered reviews. If you relied on that behavior, comment <code>@claude review always</code> instead.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Before a July 2026 update, <code>@claude review</code> subscribed the PR to push-triggered reviews. If you relied on that behavior, comment <code>@claude review always</code> instead.</p>
+</blockquote>
 <h3 id="what-a-later-review-covers">What a later review covers</h3>
 <p>A later review that starts on its own, such as after a push, focuses on what changed since the last review and posts fewer nits and pre-existing findings. Its summary counts what it left out, in a line that ends "found and not posted" or "outside the scope of this re-review and not posted."</p>
 <p>To get a review that leaves none of these out, comment <a href="#comment-commands"><code>@claude review</code></a>. It covers the whole pull request again.</p>

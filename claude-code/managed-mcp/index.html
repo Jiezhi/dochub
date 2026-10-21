@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6746,9 +6746,10 @@ Use this file to discover all available pages before exploring further.</p>
 <li><a href="#how-restrictions-appear-to-users">Tell users what to expect</a> when a restriction blocks a server</li>
 <li><a href="#monitor-mcp-usage">Monitor which servers your organization actually uses</a></li>
 </ul>
-<p><Note>
-  The <a href="/docs/en/security">Security</a> page covers the MCP threat model and how to evaluate a server before approving it. <a href="/docs/en/admin-setup#decide-what-to-enforce">Decide what to enforce</a> covers MCP restrictions alongside the other administrative controls.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>The <a href="/docs/en/security">Security</a> page covers the MCP threat model and how to evaluate a server before approving it. <a href="/docs/en/admin-setup#decide-what-to-enforce">Decide what to enforce</a> covers MCP restrictions alongside the other administrative controls.</p>
+</blockquote>
 <h2 id="choose-a-pattern">Choose a pattern</h2>
 <p>Claude Code supports a range of restriction levels. Each pattern uses one or more of the mechanisms covered below: <code>managed-mcp.json</code> for deploying a fixed set, the <code>managedMcpServers</code> managed setting for providing servers alongside the ones users add, and <code>allowedMcpServers</code>/<code>deniedMcpServers</code> for filtering what users configure.</p>
 <table>
@@ -6802,9 +6803,10 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 </tbody>
 </table>
-<p><Note>
-  Claude Code doesn't have a built-in MCP server registry that users can browse and install from. For the approved-catalog pattern, share the approved list and its <code>claude mcp add</code> commands somewhere your users will find them, such as an internal wiki, or distribute the servers as plugins through a <a href="/docs/en/plugins/org#restrict-what-users-can-install">managed plugin marketplace</a> so users can browse and install them from <code>/plugin</code>.
-</Note></p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Claude Code doesn't have a built-in MCP server registry that users can browse and install from. For the approved-catalog pattern, share the approved list and its <code>claude mcp add</code> commands somewhere your users will find them, such as an internal wiki, or distribute the servers as plugins through a <a href="/docs/en/plugins/org#restrict-what-users-can-install">managed plugin marketplace</a> so users can browse and install them from <code>/plugin</code>.</p>
+</blockquote>
 <h2 id="exclusive-control-with-managed-mcpjson">Exclusive control with managed-mcp.json</h2>
 <p>When you deploy a <code>managed-mcp.json</code> file, Claude Code loads only these MCP servers:</p>
 <ul>
@@ -7014,9 +7016,9 @@ The lock applies from every admin-controlled managed source, so a lockdown in a 
 
 Without `allowManagedMcpServersOnly`, allowlists from every settings scope merge, including a user's own `~/.claude/settings.json`, so a user can broaden what your allowlist permits. Denylists merge from every scope regardless.
 
-&lt;Note&gt;
-  `allowManagedMcpServersOnly` is separate from `allowManagedPermissionRulesOnly`, which locks down [permission rules](/docs/en/permissions#managed-settings) only. Setting that flag does not enforce the MCP allowlist.
-&lt;/Note&gt;
+&gt; [!NOTE]
+&gt;
+&gt; `allowManagedMcpServersOnly` is separate from `allowManagedPermissionRulesOnly`, which locks down [permission rules](/docs/en/permissions#managed-settings) only. Setting that flag does not enforce the MCP allowlist.
 
 ### Match servers by URL, command, or name
 
@@ -7041,9 +7043,9 @@ See [Invalid entries in managed settings](/docs/en/managed-settings#invalid-entr
 
 A `serverName` entry matches the user-assigned label exactly, with no wildcards.
 
-&lt;Warning&gt;
-  A `serverName` entry, in either list, is not a security control. The name is the label a user assigns when running `claude mcp add` or editing a config file, not the underlying server, so a user can call any server `github`. For claude.ai connectors the name is the display name returned by claude.ai, which can change. To enforce which servers actually run, add `serverCommand` or `serverUrl` entries.
-&lt;/Warning&gt;
+&gt; [!WARNING]
+&gt;
+&gt; A `serverName` entry, in either list, is not a security control. The name is the label a user assigns when running `claude mcp add` or editing a config file, not the underlying server, so a user can call any server `github`. For claude.ai connectors the name is the display name returned by claude.ai, which can change. To enforce which servers actually run, add `serverCommand` or `serverUrl` entries.
 
 The `serverName` validation differs between the two lists:
 
@@ -7084,9 +7086,7 @@ Entries in `deniedMcpServers` match ports the same way, so choose an entry for `
 * `https://staging.example.com:*/*`: blocks `https` servers on that host on every port
 * `*://staging.example.com:*/*`: blocks that host over any scheme and on any port
 
-&lt;h4 id="how-policy-entries-expand"&gt;
-  Environment variables in `serverCommand` and `serverUrl` entries
-&lt;/h4&gt;
+#### Environment variables in `serverCommand` and `serverUrl` entries
 
 `serverCommand` and `serverUrl` values expand before matching. Both the policy entry and the server's configured value go through [`${VAR}` and `${VAR:-default}` expansion](/docs/en/mcp#environment-variable-expansion-in-mcp-json), so an entry written as `["${HOME}/bin/server"]` matches a server config that uses either the same reference or the expanded path. `serverName` values match literally and never expand.
 
@@ -7159,51 +7159,31 @@ The configuration below sets up a hard allowlist with a denylist. The highlighte
 </ul>
 <p>A <code>serverName</code> entry in this allowlist would never match anything, since both transport types already have stricter entries.</p>
 <p>The accordions below walk through how a server is evaluated against other allowlist and denylist combinations.</p>
-<p><Accordion title="URL-only allowlist">
-  <code>json theme={null}
-  {
-    "allowedMcpServers": [
-      { "serverUrl": "https://mcp.example.com/*" },
-      { "serverUrl": "https://*.internal.example.com/*" }
-    ]
-  }</code></p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Server</th>
-<th style="text-align: left;">Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">HTTP server at <code>https://mcp.example.com/api</code></td>
-<td style="text-align: left;">Allowed: matches URL pattern</td>
-</tr>
-<tr>
-<td style="text-align: left;">HTTP server at <code>https://api.internal.example.com/mcp</code></td>
-<td style="text-align: left;">Allowed: matches wildcard subdomain</td>
-</tr>
-<tr>
-<td style="text-align: left;">HTTP server at <code>https://external.example.com/mcp</code></td>
-<td style="text-align: left;">Blocked: doesn't match any URL pattern</td>
-</tr>
-<tr>
-<td style="text-align: left;">Stdio server with any command</td>
-<td style="text-align: left;">Blocked: no name or command entries to match</td>
-</tr>
-<tr>
-<td style="text-align: left;"></Accordion></td>
-<td style="text-align: left;"></td>
-</tr>
-</tbody>
-</table>
-<p><Accordion title="Command-only allowlist">
-  <code>json theme={null}
-  {
-    "allowedMcpServers": [
-      { "serverCommand": ["npx", "-y", "approved-package"] }
-    ]
-  }</code></p>
+<blockquote>
+<p><strong>URL-only allowlist</strong></p>
+<p>```json theme={null}
+{
+  "allowedMcpServers": [
+    { "serverUrl": "https://mcp.example.com/<em>" },
+    { "serverUrl": "https://</em>.internal.example.com/*" }
+  ]
+}
+<div class="highlight"><pre><span></span><code>| Server | Result |
+| :- | :- |
+| HTTP server at `https://mcp.example.com/api` | Allowed: matches URL pattern |
+| HTTP server at `https://api.internal.example.com/mcp` | Allowed: matches wildcard subdomain |
+| HTTP server at `https://external.example.com/mcp` | Blocked: doesn't match any URL pattern |
+| Stdio server with any command | Blocked: no name or command entries to match |
+
+**Command-only allowlist**
+
+```json theme={null}
+{
+  "allowedMcpServers": [
+    { "serverCommand": ["npx", "-y", "approved-package"] }
+  ]
+}
+</code></pre></div></p>
 <table>
 <thead>
 <tr>
@@ -7224,62 +7204,34 @@ The configuration below sets up a hard allowlist with a denylist. The highlighte
 <td style="text-align: left;">HTTP server named <code>my-api</code></td>
 <td style="text-align: left;">Blocked: no name entries to match</td>
 </tr>
-<tr>
-<td style="text-align: left;"></Accordion></td>
-<td style="text-align: left;"></td>
-</tr>
 </tbody>
 </table>
-<p><Accordion title="Mixed name and command allowlist">
-  <code>json theme={null}
-  {
-    "allowedMcpServers": [
-      { "serverName": "github" },
-      { "serverCommand": ["npx", "-y", "approved-package"] }
-    ]
-  }</code></p>
-<table>
-<thead>
-<tr>
-<th style="text-align: left;">Server</th>
-<th style="text-align: left;">Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align: left;">Stdio server named <code>local-tool</code> with <code>["npx", "-y", "approved-package"]</code></td>
-<td style="text-align: left;">Allowed: matches command</td>
-</tr>
-<tr>
-<td style="text-align: left;">Stdio server named <code>local-tool</code> with <code>["node", "server.js"]</code></td>
-<td style="text-align: left;">Blocked: command entries exist but doesn't match</td>
-</tr>
-<tr>
-<td style="text-align: left;">Stdio server named <code>github</code> with <code>["node", "server.js"]</code></td>
-<td style="text-align: left;">Blocked: stdio servers must match commands when command entries exist</td>
-</tr>
-<tr>
-<td style="text-align: left;">HTTP server named <code>github</code></td>
-<td style="text-align: left;">Allowed: matches name</td>
-</tr>
-<tr>
-<td style="text-align: left;">HTTP server named <code>other-api</code></td>
-<td style="text-align: left;">Blocked: name doesn't match</td>
-</tr>
-<tr>
-<td style="text-align: left;"></Accordion></td>
-<td style="text-align: left;"></td>
-</tr>
-</tbody>
-</table>
-<p><Accordion title="Name-only allowlist">
-  <code>json theme={null}
-  {
-    "allowedMcpServers": [
-      { "serverName": "github" },
-      { "serverName": "internal-tool" }
-    ]
-  }</code></p>
+<p><strong>Mixed name and command allowlist</strong></p>
+<p>```json theme={null}
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    { "serverCommand": ["npx", "-y", "approved-package"] }
+  ]
+}
+<div class="highlight"><pre><span></span><code>| Server | Result |
+| :- | :- |
+| Stdio server named `local-tool` with `["npx", "-y", "approved-package"]` | Allowed: matches command |
+| Stdio server named `local-tool` with `["node", "server.js"]` | Blocked: command entries exist but doesn't match |
+| Stdio server named `github` with `["node", "server.js"]` | Blocked: stdio servers must match commands when command entries exist |
+| HTTP server named `github` | Allowed: matches name |
+| HTTP server named `other-api` | Blocked: name doesn't match |
+
+**Name-only allowlist**
+
+```json theme={null}
+{
+  "allowedMcpServers": [
+    { "serverName": "github" },
+    { "serverName": "internal-tool" }
+  ]
+}
+</code></pre></div></p>
 <table>
 <thead>
 <tr>
@@ -7304,22 +7256,18 @@ The configuration below sets up a hard allowlist with a denylist. The highlighte
 <td style="text-align: left;">Any server named <code>other</code></td>
 <td style="text-align: left;">Blocked: name doesn't match</td>
 </tr>
-<tr>
-<td style="text-align: left;"></Accordion></td>
-<td style="text-align: left;"></td>
-</tr>
 </tbody>
 </table>
-<p><Accordion title="Allowlist with denylist override">
-  <code>json theme={null}
-  {
-    "allowedMcpServers": [
-      { "serverUrl": "https://*.example.com/*" }
-    ],
-    "deniedMcpServers": [
-      { "serverUrl": "https://staging.example.com/*" }
-    ]
-  }</code></p>
+<p><strong>Allowlist with denylist override</strong></p>
+<p><code>json theme={null}
+{
+  "allowedMcpServers": [
+    { "serverUrl": "https://*.example.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverUrl": "https://staging.example.com/*" }
+  ]
+}</code></p>
 <table>
 <thead>
 <tr>
@@ -7344,12 +7292,9 @@ The configuration below sets up a hard allowlist with a denylist. The highlighte
 <td style="text-align: left;">HTTP server at <code>https://other.com/mcp</code></td>
 <td style="text-align: left;">Blocked: doesn't match the allowlist</td>
 </tr>
-<tr>
-<td style="text-align: left;"></Accordion></td>
-<td style="text-align: left;"></td>
-</tr>
 </tbody>
 </table>
+</blockquote>
 <h3 id="restrict-the-allowlist-to-managed-settings-only">Restrict the allowlist to managed settings only</h3>
 <p>To make the managed allowlist the only one that applies, set <code>allowManagedMcpServersOnly</code> in the managed settings file:</p>
 <p><code>json theme={null}
