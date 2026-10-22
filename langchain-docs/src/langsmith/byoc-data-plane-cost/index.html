@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Rough AWS cost of a LangSmith BYOC data plane, with a ClickHouse footprint and SmithDB node, metastore, and storage estimates.">
+        <meta name="description" content="Rough AWS cost of a LangSmith BYOC data plane running SmithDB, with a legacy estimate for data planes created with ClickHouse.">
       
       
       
@@ -4845,6 +4845,34 @@
     
   
     How to compare experiment results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatible-decision-model-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connect to a compatible decision model provider
   
 
     
@@ -13853,6 +13881,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../self-host-restricted-network-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up a build machine on a restricted network
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../self-host-sandbox-architecture/" class="md-nav__link">
         
   
@@ -17521,34 +17577,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../typesafe-compatible-model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Connect to a TypeSafe-compatible model provider
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../upload-existing-experiments/" class="md-nav__link">
         
   
@@ -18005,10 +18033,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_539" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_540" >
         
           
-          <label class="md-nav__link" for="__nav_6_6_539" id="__nav_6_6_539_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_6_540" id="__nav_6_6_540_label" tabindex="0">
             
   
   
@@ -18026,8 +18054,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_539_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_6_539">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_540_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_6_540">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -77597,9 +77625,42 @@ These are estimates, not a quote. AWS changes its prices without notice. Your bi
 Scaling capacity for any resource can be lowered when required, as long as the deployment remains within safe operating limits. For cost-conscious or pre-production deployments, Multi-AZ can be turned off. That lowers monthly cost but reduces fault tolerance.
 </Note></p>
 <p><Tabs>
-  <Tab title="ClickHouse">
-    ClickHouse can also run as a single node instead of a replicated cluster. That lowers monthly cost but reduces fault tolerance.</p>
+  <Tab title="SmithDB">
+    Data planes created on or after October 21, 2026 run SmithDB only. Running without ClickHouse and ZooKeeper saves about <strong>\$980 per month</strong> compared with a three-replica ClickHouse cluster, and about <strong>\$325 per month</strong> compared with a single replica of each. By default, SmithDB runs the Small tier from <a href="/langsmith/self-host-smithdb-scale">Configure SmithDB for scale</a>: about 10 runs per second and 10 queries per second. LangSmith increases that tier as tracing volume requires it.</p>
 <pre><code>| Area | Rough monthly estimate | Notes |
+| --- | --- | --- |
+| RDS PostgreSQL | \$100–\$150 | `db.t4g.medium`, Multi-AZ, 50 GB starting storage. |
+| ElastiCache Redis | \$140–\$280 | Lower end without read replicas. Higher end if read replicas are enabled. |
+| EKS control plane | ~\$75 | One EKS cluster at standard hourly pricing. |
+| System node group | ~\$210 | 3 `m6i.large` on-demand nodes. |
+| Application worker nodes | ~\$325 | LangSmith pods. |
+| EBS volumes | \$200–\$350 | Node volumes and gp3 performance settings. |
+| Networking | \$150–\$300 | NAT gateways, load balancers, PrivateLink or VPC endpoints, and low-volume data processing. |
+| S3, Secrets Manager, CloudWatch | \$50–\$200 | Low-volume baseline. Grows with trace payloads, logs, and retention. |
+| SmithDB compute | \$1,550 | 2 x `m7gd.4xlarge` across two availability zones, plus a 100 GiB gp3 boot volume on each node. |
+| SmithDB metastore | \$210 | Aurora PostgreSQL 18 Serverless v2, writer and reader, 1 ACU minimum, 50 GB. |
+| SmithDB bucket | \$5–\$120 | S3 storage costs, would largely be dictated by trace payload size and retention. |
+
+Estimated monthly total: **\$3,015–\$3,770**
+
+### SmithDB object store pricing
+
+| Stored size per trace | 14-day retention | 400-day retention |
+| --- | --- | --- |
+| 10 KB | \$2 per year | \$74 per year |
+| 50 KB | \$15 per year | \$368 per year |
+| 200 KB | \$52 per year | \$1,472 per year |
+
+See [Prepare SmithDB supporting infrastructure](/langsmith/self-host-smithdb-infrastructure) for details of SmithDB infrastructure.
+</code></pre>
+<p></Tab>
+  <Tab title="ClickHouse (deprecated)">
+    <Warning>
+    ClickHouse is deprecated, and support ends in LangSmith v0.19. Data planes created on or after October 21, 2026 run SmithDB only. This estimate applies to data planes created with ClickHouse before that date that have not yet migrated to SmithDB.
+    </Warning></p>
+<pre><code>ClickHouse can also run as a single node instead of a replicated cluster. That lowers monthly cost but reduces fault tolerance.
+
+| Area | Rough monthly estimate | Notes |
 | --- | --- | --- |
 | RDS PostgreSQL | \$100–\$150 | `db.t4g.medium`, Multi-AZ, 50 GB starting storage. |
 | ElastiCache Redis | \$140–\$280 | Lower end without read replicas. Higher end if read replicas are enabled. |
@@ -77611,41 +77672,6 @@ Scaling capacity for any resource can be lowered when required, as long as the d
 | S3, Secrets Manager, CloudWatch | \$50–\$200 | Low-volume baseline. Grows with trace payloads, logs, and retention. |
 
 Estimated monthly total: **\$1,925–\$3,065**
-</code></pre>
-<p></Tab>
-  <Tab title="SmithDB">
-    By default, SmithDB runs the Small tier from <a href="/langsmith/self-host-smithdb-scale">Configure SmithDB for scale</a>: about 10 runs per second and 10 queries per second. LangSmith increases that tier as tracing volume requires it.</p>
-<pre><code>&lt;Warning&gt;
-After the SmithDB migration, ClickHouse and ZooKeeper are scaled down. If cost is a concern, ClickHouse can be turned off. That lowers monthly cost but reduces reliability, because there is no ClickHouse fallback.
-&lt;/Warning&gt;
-
-| Area | Rough monthly estimate | Notes |
-| --- | --- | --- |
-| RDS PostgreSQL | \$100–\$150 | `db.t4g.medium`, Multi-AZ, 50 GB starting storage. |
-| ElastiCache Redis | \$140–\$280 | Lower end without read replicas. Higher end if read replicas are enabled. |
-| EKS control plane | ~\$75 | One EKS cluster at standard hourly pricing. |
-| System node group | ~\$210 | 3 `m6i.large` on-demand nodes. |
-| Application, ClickHouse, and ZooKeeper worker nodes | \$650 | Scaled down ClickHouse costs. |
-| EBS volumes | \$200–\$350 | ClickHouse, ZooKeeper, node volumes, and gp3 performance settings. Lower once those volumes shrink. |
-| Networking | \$150–\$300 | NAT gateways, load balancers, PrivateLink or VPC endpoints, and low-volume data processing. |
-| S3, Secrets Manager, CloudWatch | \$50–\$200 | Low-volume baseline. Grows with trace payloads, logs, and retention. |
-| SmithDB compute | \$1,550 | 2 x `m7gd.4xlarge` across two availability zones, plus a 100 GiB gp3 boot volume on each node. |
-| SmithDB metastore | \$210 | Aurora PostgreSQL 18 Serverless v2, writer and reader, 1 ACU minimum, 50 GB. |
-| SmithDB bucket | \$5–\$120 | S3 storage costs, would largely be dictated by trace payload size and retention. |
-
-Estimated monthly total: **\$3,340–\$4,095**
-
-### SmithDB object store pricing
-
-| Stored size per trace | 14-day retention | 400-day retention |
-| --- | --- | --- |
-| 10 KB | \$2 per year | \$74 per year |
-| 50 KB | \$15 per year | \$368 per year |
-| 200 KB | \$52 per year | \$1,472 per year |
-
-A [ClickHouse backfill](/langsmith/self-host-smithdb-migrate) needs an extra `m7gd.4xlarge` for the migration job at about **\$24 per day**. That cost stops when the backfill finishes (Job finishes in a few days depending on tracing volume).
-
-See [Prepare SmithDB supporting infrastructure](/langsmith/self-host-smithdb-infrastructure) for details of SmithDB infrastructure.
 </code></pre>
 <p></Tab>
 </Tabs></p>

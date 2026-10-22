@@ -7558,14 +7558,14 @@ Add this to your [settings.json](/docs/en/settings#where-settings-live) to run t
 <p>input=$(cat)
 cmd=$(echo "$input" | jq -r '.tool_input.command')</p>
 <h1 id="if-running-tests-filter-to-show-only-failures">If running tests, filter to show only failures</h1>
-<p>if [[ "$cmd" =~ ^(npm test|pytest|go test) ]]; then
+<p>pattern='^(npm test|pytest|go test)( [^;&amp;|&lt;&gt;<code>\\[:cntrl:]]*)?$'
+if [[ "$cmd" =~ $pattern ]]; then
   filtered_cmd="$cmd 2&gt;&amp;1 | grep -A 5 -E '(FAIL|ERROR|error:)' | head -100"
   echo "$input" | jq --arg filtered "$filtered_cmd" \
-    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: (.tool_input + {command: $filtered})}}'
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: (.tool_input + {command: $filtered})}}'
 else
   echo "{}"
-fi
-```</p>
+fi</code></p>
 <p>To verify the setup, run <code>/hooks</code> and check that the hook appears under PreToolUse. You can also start Claude Code with <code>claude --debug-file ./claude-debug.txt</code> and ask Claude to run <code>npm test</code>. When the hook rewrites the command, that log file contains a <code>modified tool input keys</code> line listing <code>command</code> and the other Bash input fields.</p>
 <h3 id="move-instructions-from-claudemd-to-skills">Move instructions from CLAUDE.md to skills</h3>
 <p>Your <a href="/docs/en/memory">CLAUDE.md</a> file is loaded into context at session start. If it contains detailed instructions for specific workflows (like PR reviews or database migrations), those tokens are present even when you're doing unrelated work. <a href="/docs/en/skills">Skills</a> load on-demand only when invoked, so moving specialized instructions into skills keeps your base context smaller. Aim to keep CLAUDE.md under 200 lines by including only essentials.</p>

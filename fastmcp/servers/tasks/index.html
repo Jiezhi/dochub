@@ -10760,6 +10760,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#rotating-redis-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rotating Redis Credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#credentials-at-rest" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -20016,6 +20027,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#rotating-redis-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rotating Redis Credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#credentials-at-rest" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -20273,6 +20295,38 @@ If your server defines any synchronous tools, you will need to explicitly set <c
 - <strong>Persistent</strong>: Tasks survive server restarts
 - <strong>Fast</strong>: Single-digit millisecond task pickup latency
 - <strong>Scalable</strong>: Add workers to distribute load across processes or machines</p>
+<h3 id="rotating-redis-credentials">Rotating Redis Credentials</h3>
+<p>For backends with expiring credentials, pass a redis-py <code>CredentialProvider</code> to <code>TasksExtension</code>. Use a URL without a username or password. Docket passes the provider to its Redis connections so a reconnect can obtain fresh credentials.</p>
+<p>This example reads credentials from a file on each new connection. Your deployment can replace the file when the password or token changes:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">redis.credentials</span><span class="w"> </span><span class="kn">import</span> <span class="n">CredentialProvider</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp_tasks</span><span class="w"> </span><span class="kn">import</span> <span class="n">TasksExtension</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FileCredentials</span><span class="p">(</span><span class="n">CredentialProvider</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="n">password</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"/run/secrets/redis-password"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="s2">"tasks-user"</span><span class="p">,</span> <span class="n">password</span>
+
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"MyServer"</span><span class="p">)</span>
+<span class="n">mcp</span><span class="o">.</span><span class="n">add_extension</span><span class="p">(</span>
+    <span class="n">TasksExtension</span><span class="p">(</span>
+        <span class="n">url</span><span class="o">=</span><span class="s2">"rediss://redis.example.com:6379/0"</span><span class="p">,</span>
+        <span class="n">credential_provider</span><span class="o">=</span><span class="n">FileCredentials</span><span class="p">(),</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">double</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">value</span> <span class="o">*</span> <span class="mi">2</span>
+</code></pre></div>
+<p>You can also supply a provider that implements <code>get_credentials_async()</code>, or a provider from your cloud authentication library. FastMCP does not generate or refresh cloud tokens itself. Docket manages connection authentication, including refresh notifications from streaming providers; see <a href="https://docket.lol/en/latest/production/#credential-providers">Docket credential providers</a> for details about long-lived connections and provider ownership.</p>
+<p>Configure the provider in your server module. <a href="#workers">Additional workers</a> load that same module and use its registered extension, so no separate worker flag is needed. Provider objects are runtime configuration, not <code>FASTMCP_DOCKET_*</code> environment settings. The default <code>memory://</code> backend ignores them.</p>
 <h3 id="credentials-at-rest">Credentials at Rest</h3>
 <p>A background task runs long after the request that submitted it has ended, but it still needs to know who asked for the work. FastMCP captures that identity at submission time in a <strong>task context snapshot</strong>: the caller's access token and every inbound HTTP header, including <code>Authorization</code>. The worker restores the snapshot before the tool body runs, so <code>get_access_token()</code> and <code>get_http_headers()</code> return the submitting caller.</p>
 <p>That snapshot lives in the backend for the task's TTL. With <code>memory://</code> it never leaves the process. With Redis or Valkey it is a stored value, and by default it is stored as plaintext JSON. A <code>rediss://</code> URL encrypts the connection, not the data the backend holds. Anyone who can read the backend can read the tokens.</p>

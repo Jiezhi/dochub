@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Describes repository CI, event trust boundaries, and review-gated GitHub Actions writers. Covers maintainer-gated integration submissions, weekly changelog proposals, credentials, concurrency, and human review.">
+        <meta name="description" content="Describes repository CI, event trust boundaries, review-gated GitHub Actions writers, and scheduled metadata maintenance. Covers integration-repository liveness scanning, generated evidence, standing PRs, and relationships among metadata generators.">
       
       
       
@@ -1582,6 +1582,17 @@
     <span class="md-ellipsis">
       
         Scheduled maintenance and generated review changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weekly-integration-repository-liveness-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weekly integration-repository liveness scan
       
     </span>
   </a>
@@ -5035,6 +5046,34 @@
     
   
     How to compare experiment results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../src/langsmith/compatible-decision-model-provider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connect to a compatible decision model provider
   
 
     
@@ -14043,6 +14082,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../src/langsmith/self-host-restricted-network-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Set up a build machine on a restricted network
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../src/langsmith/self-host-sandbox-architecture/" class="md-nav__link">
         
   
@@ -17711,34 +17778,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../src/langsmith/typesafe-compatible-model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Connect to a TypeSafe-compatible model provider
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../../src/langsmith/upload-existing-experiments/" class="md-nav__link">
         
   
@@ -18195,10 +18234,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_539" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_540" >
         
           
-          <label class="md-nav__link" for="__nav_6_6_539" id="__nav_6_6_539_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_6_540" id="__nav_6_6_540_label" tabindex="0">
             
   
   
@@ -18216,8 +18255,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_539_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_6_539">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_540_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_6_540">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -77870,6 +77909,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#weekly-integration-repository-liveness-scan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weekly integration-repository liveness scan
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#credentialed-code-sample-execution-and-trace-refresh" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -78033,6 +78083,25 @@
 <h3 id="scheduled-maintenance-and-generated-review-changes">Scheduled maintenance and generated review changes</h3>
 <p><code>update-package-downloads.yml</code> runs Sundays at 23:59 UTC or manually. Its first job is read-only: it refreshes package counts only when their download timestamp is older than 24 hours, regenerates provider and integration download surfaces, and hands candidate files to a second job in a one-day artifact. The second job alone has contents and pull-request write permission; it exits successfully on no candidate diff or creates a timestamped PR and enables squash auto-merge when there is one.</p>
 <p>Hosted-documentation candidate detection creates Linear issues only when both the required issue-service credential and team configuration are available; otherwise it deliberately detects candidates in dry-run mode. It uses the default 50,000 monthly-download threshold and does not create a duplicate while a matching Linear issue remains open.</p>
+<h3 id="weekly-integration-repository-liveness-scan">Weekly integration-repository liveness scan</h3>
+<p><code>check-integration-repos.yml</code> runs Mondays at 09:15 UTC or by manual dispatch. It is a trusted scheduled writer with a 45-minute limit and only <code>contents: write</code> and <code>pull-requests: write</code> permissions. It checks out shallow history, installs Python 3.13 through the repository uv action, then runs <code>scripts/check_integration_repos.py --write --evidence "$RUNNER_TEMP/evidence.md"</code> with the workflow token. The token is used at the external-network boundary for authenticated GitHub API repository checks; the checker also makes outbound requests to GitHub, PyPI, npm, GitLab, and partner documentation URLs. Its inputs are external metadata and remote HTTP results, so a successful scan is a proposed maintenance change, not an authorization to remove a listing from the published catalogue.</p>
+<p>The checker skips <code>langchain-ai/*</code> package homes. For a dead third-party GitHub <code>repo</code>, it can normalize a live malformed slug or adopt a different live <strong>third-party</strong> GitHub home evidenced by PyPI project URLs, the npm repository field, or existing external <code>docs_url</code> metadata. It also updates external documentation URLs only for permanent HTTP <code>301</code> or <code>308</code> redirects. A live GitLab project, live partner documentation/homepage, invalid or missing repository metadata, request failure, or first-party replacement is reported as attention rather than delisted. Only when no live GitHub, GitLab, or partner-docs alternative is found does it propose a full delist.</p>
+<p>A write-mode delist removes the package from <code>packages.yml</code>, matching external-listing rows, generated download-table rows, and an <code>all_providers.mdx</code> card only if no remaining package shares its normalized provider key. Repository and permanent-redirect fixes are also propagated to matching listing links. The script always renders a Markdown evidence report: applied renames, URL redirects, proposed full delists, unchanged attention cases, and errors. The workflow appends that report to the job summary and uses it as the PR body, so reviewers have the observed basis and exceptions beside the proposed diff.</p>
+<div class="highlight"><pre><span></span><code>flowchart TD
+  Trigger["Monday schedule or manual dispatch"] --&gt; Scan["Scan packages and external metadata"]
+  Scan --&gt; Check["Check repository and docs homes"]
+  Check --&gt; Decision{"Disposition"}
+  Decision --&gt;|"live or attention"| Evidence["Record evidence without mutation"]
+  Decision --&gt;|"fix or delist"| Write["Apply scoped metadata and listing changes"]
+  Evidence --&gt; Changed{"Working tree changed"}
+  Write --&gt; Changed
+  Changed --&gt;|"no"| Stop["Exit without a PR"]
+  Changed --&gt;|"yes"| Branch["Restore changes on standing branch"]
+  Branch --&gt; Draft["Create or append draft review PR"]
+</code></pre></div>
+<p><em>The liveness scan records evidence for every actionable decision, but only a changed working tree reaches the single standing draft PR.</em></p>
+<p>The workflow first snapshots changed files, restores a clean tree, then either checks out the open <code>chore/dead-integration-repos</code> branch or creates it from the initial checkout. It reapplies the snapshot, exits if no diff remains, and commits all resulting files. An existing open PR receives an appended commit and refreshed evidence body; otherwise the workflow force-pushes the unreferenced standing branch and creates a draft PR against <code>main</code>. It does <strong>not</strong> enable auto-merge. Maintainers must review evidence and every removal, especially delists, before marking the PR ready and merging. Use a dry run without <code>--write</code> to inspect the report when changing classification policy, and review focused generator validation for any touched metadata surface.</p>
+<p>This scan complements rather than replaces <code>update-package-downloads.yml</code>. The download workflow refreshes counts and regenerates derived tables on its artifact-mediated path; the liveness workflow repairs or removes stale package/listing metadata and may edit generated table rows only as part of a delist. After either workflow changes shared integration metadata, review the affected provider overview and snippets and retain CI's generated-overview check. See <a href="/openwiki/workflows/integration-listing-automation.md">Integration Listing Automation</a> for source ownership and generator behavior, and <a href="/openwiki/workflows/langsmith-openapi-refresh.md">LangSmith OpenAPI Refresh</a> for the analogous single-standing-PR pattern for a different generated artifact.</p>
 <p><code>openwiki-update.yml</code> runs daily at 08:00 UTC and can be dispatched manually. It performs a full-history checkout so <code>openwiki code --update</code> can compare the current revision with the revision it last documented. Repository-scoped provider, source-connector, and optional tracing credentials are supplied only to the generator; the PR creation step is restricted to <code>openwiki</code>, <code>AGENTS.md</code>, and its own workflow file on the fixed <code>openwiki/update</code> branch. Review the resulting <code>docs: update OpenWiki</code> PR like any other generated change.</p>
 <p><code>docs-release-watch</code> is separate from GitHub Actions: it is a Managed Deep Agent project. It considers releases published 7–30 days earlier and creates one Linear DOC ticket and one draft documentation PR per needed feature. Its OpenWiki coverage is <code>src/oss/openwiki/</code>, not this repository's generated <code>/openwiki</code> tree, so the systems have different inputs, outputs, credentials, and review queues.</p>
 <h3 id="credentialed-code-sample-execution-and-trace-refresh">Credentialed code-sample execution and trace refresh</h3>

@@ -7166,7 +7166,7 @@ A [self-hosted environment](/docs/en/self-hosted-environments) ID, which has the
 
 ### Archive an environment
 
-To archive one of your own environments, open it for editing, select **Archive environment**, and confirm. If the environment is [shared with your organization](#organization-shared-environments), an Owner archives it from the **Cloud environments** page in [admin settings](https://claude.ai/admin-settings) instead, so ask an Owner unless you are one. You can't delete an environment, only archive it.
+To archive one of your own environments, open it for editing, then select **Archive environment** and confirm. If the environment is [shared with your organization](#organization-shared-environments), an Owner archives it from the **Cloud environments** page in [admin settings](https://claude.ai/admin-settings) instead, so ask an Owner unless you are one.
 
 Archiving affects new sessions, not running ones:
 
@@ -7176,6 +7176,8 @@ Archiving affects new sessions, not running ones:
 * No new session can start in an archived environment, on any surface:
   * **Saved CLI default**: if the environment was your saved [CLI default](#select-an-environment-from-the-cli), Claude Code starts CLI cloud sessions in the Anthropic-hosted environment when your list has one. Otherwise, it starts them in the first environment in your list that isn't a [Remote Control bridge environment](#the-default-environment).
   * **Configured explicitly**: anything configured with the environment explicitly, such as a [cloud scheduled task](/docs/en/routines#environments-and-network-access), can't start new sessions in it. Point it at another environment.
+
+When you no longer need an Anthropic-hosted environment, archive it. Neither the environment dialog nor the **Cloud environments** admin page has an option to delete an Anthropic-hosted environment. If the environment is [self-hosted](/docs/en/self-hosted-environments), an Owner can delete it from the **Cloud environments** page in admin settings. If you aren't an Owner, ask one to delete it.
 
 ### Organization-shared environments
 
@@ -7268,6 +7270,10 @@ registry.example.com
 <p>Sessions your organization routes to a <a href="/docs/en/self-hosted-environments">self-hosted environment</a> run on your own runners instead, with the tools your runner image provides.</p>
 </blockquote>
 <h3 id="what-carries-over-from-your-setup">What carries over from your setup</h3>
+<blockquote>
+<p>[!NOTE]</p>
+<p>Of the repository configuration in this table, a cloud thread in a <a href="/docs/en/claude-projects">project</a> loads only the repository root's <code>CLAUDE.md</code>, <code>.claude/CLAUDE.md</code>, and <code>.claude/rules/</code> files that aren't <a href="/docs/en/memory#path-specific-rules">path-specific</a>. See <a href="/docs/en/claude-projects#what-threads-pick-up-from-your-repositories">What threads pick up from your repositories</a>.</p>
+</blockquote>
 <p>Cloud sessions start from a fresh clone of your repository. Anything you commit to the repo is available. Anything you've installed or configured only on your own machine isn't available in the session. Your organization's policy arrives separately through <a href="/docs/en/server-managed-settings">server-managed settings</a>.</p>
 <table>
 <thead>
@@ -7489,12 +7495,12 @@ Setup scripts and SessionStart hooks run in a fixed order when a cloud session s
 
 If you have SessionStart hooks in your user-level `~/.claude/settings.json`, don't expect them in the cloud. User-level settings stay on your machine. Which other hooks run depends on where the session runs:
 
-* **Anthropic-hosted environment**: Claude Code runs hooks from the repository and from your organization's [server-managed settings](/docs/en/server-managed-settings). [Claude Tag](https://claude.com/docs/claude-tag/overview) sessions don't receive server-managed settings, so hooks from server-managed settings don't run there.
+* **Anthropic-hosted environment**: Claude Code runs hooks from your organization's [server-managed settings](/docs/en/server-managed-settings) and, outside a [project](/docs/en/claude-projects#what-threads-pick-up-from-your-repositories) thread, from the repository. [Claude Tag](https://claude.com/docs/claude-tag/overview) sessions don't receive server-managed settings, so hooks from server-managed settings don't run there.
 * **[Self-hosted environment](/docs/en/self-hosted-environments-configuration#permissions-and-tool-approval)**: Claude Code also runs the hooks the operator seeded from the runner host's `~/.claude/`, and the hooks in the runner image's managed settings file when that file is one of the [managed sources Claude Code applies](/docs/en/managed-settings#how-claude-code-combines-managed-sources).
 
 ### Install dependencies with a SessionStart hook
 
-To install dependencies only in cloud sessions, pair a SessionStart hook with a script that checks where it's running.
+To install dependencies only in cloud sessions outside a [project](/docs/en/claude-projects#what-threads-pick-up-from-your-repositories)'s threads, pair a SessionStart hook with a script that checks where it's running.
 
 First, add a SessionStart hook to your repo's `.claude/settings.json`. This configuration tells Claude Code to run `scripts/install_pkgs.sh` from your repository whenever a session starts or resumes:
 
@@ -7545,6 +7551,7 @@ exit 0
 <p>SessionStart hooks behave the same in the cloud as locally, with these caveats:</p>
 <ul>
 <li><strong>One repository per session</strong>: in an Anthropic-hosted environment, a session with several repositories doesn't load hooks from any repository's <code>.claude/settings.json</code>, so a SessionStart hook you define there doesn't run. Install dependencies for those sessions with a <a href="#setup-scripts">setup script</a> instead. For a self-hosted environment, see <a href="/docs/en/self-hosted-environments-configuration#repository-settings-in-sessions-with-several-repositories">which repository's settings apply</a>.</li>
+<li><strong>Not in a project's cloud threads</strong>: a cloud thread in a <a href="/docs/en/claude-projects#what-threads-pick-up-from-your-repositories">project</a> doesn't run hooks from a repository's <code>.claude/settings.json</code>, whatever the number of repositories. In an Anthropic-hosted environment, install dependencies for threads with a <a href="#setup-scripts">setup script</a>. In a self-hosted environment, use a hook in the <a href="/docs/en/self-hosted-environments-configuration#repository-settings-in-sessions-with-several-repositories">runner host's settings</a> instead.</li>
 <li><strong>No cloud-only scoping</strong>: hooks run in both local and cloud sessions. To skip local execution, exit early unless the <code>CLAUDE_CODE_REMOTE</code> environment variable is <code>true</code>, the way the <a href="#install-dependencies-with-a-sessionstart-hook">dependency install script</a> does.</li>
 <li><strong>Requires network access</strong>: install commands need to reach package registries. If your environment uses <strong>None</strong> network access, these hooks fail. The <a href="#default-allowed-domains">default allowlist</a> under <strong>Trusted</strong> covers npm, PyPI, RubyGems, and crates.io.</li>
 <li><strong>Proxy compatibility</strong>: in Anthropic-hosted environments, all outbound traffic passes through a <a href="#security-proxy">security proxy</a>, and some package managers don't work correctly with it; Bun is a known example. In a <a href="/docs/en/self-hosted-environments-deploy#default-deny-egress">self-hosted environment</a>, outbound traffic goes through your own network boundary instead.</li>

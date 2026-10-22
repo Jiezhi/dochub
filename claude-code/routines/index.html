@@ -7202,6 +7202,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Two other features schedule work on your machine instead of in the cloud: <a href="/docs/en/desktop-scheduled-tasks">Desktop scheduled tasks</a> and <a href="/docs/en/scheduled-tasks"><code>/loop</code></a>. To choose among all three, see <a href="/docs/en/scheduled-tasks#compare-scheduling-options">Compare scheduling options</a>.</p>
 </blockquote>
 <p>Team and Enterprise Owners can turn off scheduled tasks for all members with the <strong>Scheduled tasks (Was Routines)</strong> toggle at <a href="https://claude.ai/admin-settings/capabilities"><strong>Organization settings &gt; Capabilities &gt; Remote sessions</strong></a>. When the toggle is off, existing scheduled tasks stop running and members can't create new ones.</p>
+<p>If your Enterprise organization manages your access with <a href="https://support.claude.com/en/articles/13930452">custom roles</a>, you also need a role that includes the scheduled tasks permission. An Owner can add it in a role's <strong>Remote sessions</strong> section at <a href="https://claude.ai/admin-settings/roles"><strong>Organization settings &gt; Roles</strong></a>.</p>
 <h2 id="example-use-cases">Example use cases</h2>
 <p>Each example pairs a trigger type with the kind of work scheduled tasks are suited to: unattended, repeatable, and tied to a clear outcome.</p>
 <ul>
@@ -7214,7 +7215,7 @@ Use this file to discover all available pages before exploring further.</p>
 </ul>
 <h2 id="create-a-scheduled-task">Create a scheduled task</h2>
 <p>Create a scheduled task from the web at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a>, from the Desktop app, or from the CLI. All three surfaces write to the same cloud account, so a scheduled task you create in one shows up in the others immediately. In the Desktop app's <strong>Code</strong> tab, click <strong>Scheduled</strong> in the sidebar or in the sidebar's <strong>More</strong> menu, then <strong>New task</strong>, and continue with <a href="#create-from-the-web">Create from the web</a>.</p>
-<p>Scheduled tasks run autonomously as full Claude Code cloud sessions. You don't choose a permission mode. The session runs shell commands, uses <a href="/docs/en/skills">skills</a> committed to the cloned repository, and calls any connectors you include, all without stopping for approval apart from some <a href="#when-a-run-publishes-an-artifact-without-asking">artifact actions</a>.</p>
+<p>Scheduled tasks run autonomously as full Claude Code cloud sessions. You don't choose a permission mode. The session runs shell commands, uses <a href="/docs/en/skills">skills</a>, and calls any connectors you include, all without stopping for approval apart from some <a href="#when-a-run-publishes-an-artifact-without-asking">artifact actions</a>. Outside a <a href="/docs/en/claude-projects#what-threads-pick-up-from-your-repositories">project</a>'s threads, those skills include the ones committed to the cloned repository.</p>
 <p>What a scheduled task can reach is determined by:</p>
 <ul>
 <li>The repositories you select</li>
@@ -7254,7 +7255,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Switch to the <strong>Connectors</strong> tab of <strong>Advanced settings</strong>. All of your connected <a href="/docs/en/mcp">MCP connectors</a> are included by default. Remove any the task doesn't need: Claude can use every tool from an included connector, including writes, without asking for permission during a run.</p>
 <p><strong>7. Create the task</strong></p>
 <p>Click <strong>Create</strong>. The dialog closes and the new task's detail page opens. The task runs the next time one of its triggers matches. To start a run immediately, click <strong>Run now</strong> on the detail page.</p>
-<p>Each run creates a new session alongside your other sessions, where you can see what Claude did, review changes, and create a pull request.</p>
+<p>To see what a run did, click it in the <strong>History</strong> list on the detail page. The run <a href="#view-and-interact-with-runs">opens as a full session</a>, a new one for each run, where you can see what Claude did, review changes, and create a pull request.</p>
 <h4 id="dialog-with-repositories-and-environment-in-the-main-view">Dialog with Repositories and Environment in the main view</h4>
 <p>Follow the <a href="#create-from-the-web">steps to create from the web</a>, and fill in each field in the dialog's main view rather than under <strong>Advanced settings</strong>. This dialog creates only Claude Code tasks.</p>
 <p>Select the repository before you add a GitHub event trigger, because that trigger is unavailable until a repository is selected.</p>
@@ -7273,9 +7274,9 @@ Use this file to discover all available pages before exploring further.</p>
 <h3 id="add-a-schedule-trigger">Add a schedule trigger</h3>
 <p>A schedule trigger runs the task on a recurring cadence, or once at a specific future time. In the task's creation or edit dialog on the web, pick a preset frequency such as hourly, daily, or weekly:</p>
 <ul>
-<li><strong>Time zone</strong>: times are entered in your local zone and converted automatically, so the task runs at that wall-clock time regardless of where the cloud infrastructure is located.</li>
 <li><strong>Runs on the hour</strong>: if you schedule a run exactly on the hour, such as 9:00, it can start several minutes late. To start close to the scheduled time, pick a few minutes past the hour, for example 9:07.</li>
-<li><strong>Custom intervals</strong>: for a custom interval such as every two hours, pick the closest preset in the dialog, then run <code>/schedule update</code> in the CLI to set a specific cron expression. The minimum interval is one hour; expressions that run more frequently are rejected.</li>
+<li><strong>Custom intervals</strong>: for a cadence the presets lack, create the task and select <strong>Custom</strong> in its <a href="#edit-and-control-scheduled-tasks">edit dialog</a>. Then enter a cron expression, such as <code>0 */2 * * *</code> for every two hours. To set one from the CLI, run <a href="#manage-scheduled-tasks-from-the-cli"><code>/schedule update</code></a>. Expressions that run more often than once per hour are rejected.</li>
+<li><strong>Time zone</strong>: when you pick a preset frequency, enter the time in your local time zone.</li>
 </ul>
 <h4 id="schedule-a-one-off-run">Schedule a one-off run</h4>
 <p>A one-off schedule runs the task a single time at a specific timestamp. For example, use it to:</p>
@@ -7284,14 +7285,13 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Open a cleanup PR after a rollout finishes</li>
 <li>Start follow-up work after an upstream change ships</li>
 </ul>
-<p>After the task runs, it turns itself off and the web UI marks it as <strong>Completed</strong>. To run it again, open the task's edit dialog on the web, which offers <strong>One-time</strong> for a one-off task, and set a new time.</p>
+<p>After the task runs, it turns itself off and the web UI marks it as <strong>Completed</strong>. To run it again, open the task's <a href="#edit-and-control-scheduled-tasks">edit dialog</a> on the web and select <strong>One-time</strong> or <strong>Once</strong>, whichever label your dialog shows. Then set a new date and time in your local time zone and save.</p>
 <p>Create a one-off run from the CLI by describing the time in natural language. Claude resolves the phrase against the current time and confirms the absolute timestamp before saving.</p>
 <p>```text theme={null}
 /schedule tomorrow at 9am, summarize yesterday's merged PRs
 <div class="highlight"><pre><span></span><code>```text theme={null}
 /schedule in 2 weeks, open a cleanup PR that removes the feature flag
 </code></pre></div></p>
-<p>The same local-to-UTC conversion as recurring schedules applies to one-off timestamps.</p>
 <p>One-off runs count against the same hourly limit as other scheduled runs. See <a href="#usage-and-limits">Usage and limits</a> for details.</p>
 <h3 id="add-an-api-trigger">Add an API trigger</h3>
 <p>An API trigger gives a scheduled task a dedicated HTTP endpoint. POSTing to the endpoint with the task's bearer token starts a new session and returns a session URL. Use this to wire Claude Code into alerting systems, deploy pipelines, internal tools, or anywhere you can make an authenticated HTTP request.</p>
@@ -7465,7 +7465,7 @@ curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJK
 <p>Connectors are the <a href="/docs/en/mcp#use-mcp-servers-from-claude-ai">claude.ai integrations</a> on your account. MCP servers you added locally in the CLI with <code>claude mcp add</code> are stored on your machine rather than your claude.ai account, so they do not appear in the connectors list. To use one of those servers in a scheduled task:</p>
 <ul>
 <li><strong>As a connector</strong>: add it as a connector at <a href="https://claude.ai/customize/connectors">claude.ai/customize/connectors</a></li>
-<li><strong>In the repository</strong>: for a scheduled task with one repository, you can instead declare the server in a committed <a href="/docs/en/mcp#project-scope"><code>.mcp.json</code></a> so it is part of the cloned repository</li>
+<li><strong>In the repository</strong>: for a scheduled task with one repository, you can instead declare the server in a committed <a href="/docs/en/mcp#project-scope"><code>.mcp.json</code></a>, unless the task runs as threads in a <a href="/docs/en/claude-projects#what-threads-pick-up-from-your-repositories">project</a>. If it does, add the server as a connector.</li>
 </ul>
 <p>When you create a scheduled task, all of your currently connected connectors are included by default. Remove any that aren't needed to limit which tools Claude has access to during the run. You can also add connectors directly from the task's creation or edit dialog.</p>
 <p>To manage or add connectors outside of that dialog, visit <a href="https://claude.ai/customize/connectors">claude.ai/customize/connectors</a> or use <code>/schedule update</code> in the CLI.</p>
@@ -7564,8 +7564,9 @@ curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJK
 <li>You are inside a cloud session, where submitting <code>/schedule</code> answers that the command isn't available in that environment. Manage scheduled tasks from the <a href="https://claude.ai/code/routines">web UI</a> instead</li>
 <li>Your organization's policy disables <a href="/docs/en/claude-code-on-the-web">cloud sessions</a>, which scheduled tasks require. In this case, submitting <code>/schedule</code> answers <a href="/docs/en/errors#cloud-sessions-are-disabled-by-your-organizations-policy"><code>Cloud sessions are disabled by your organization's policy</code></a> instead. Before v2.1.268, it returned <code>Unknown command: /schedule</code></li>
 <li>An Owner <a href="#routines-are-disabled-by-your-organizations-policy">turned off scheduled tasks</a> for your Team or Enterprise organization. Before v2.1.227, the command still appeared in this case, and claude.ai rejected the task when Claude tried to create or run it</li>
+<li>Your Enterprise organization manages your access with <a href="https://support.claude.com/en/articles/13930452">custom roles</a>, and none of your roles includes the scheduled tasks permission under <strong>Remote sessions</strong>. Ask an Owner to add it to one of your roles</li>
 </ul>
-<p>Unless your organization's policy disables scheduled tasks or cloud sessions, you can create and manage scheduled tasks at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a> regardless of how the CLI is configured.</p>
+<p>If the cause is your CLI sign-in or being inside a cloud session, you can still create and manage scheduled tasks at <a href="https://claude.ai/code/routines">claude.ai/code/routines</a>. You need a Pro, Max, Team, or Enterprise account there. If scheduled tasks or cloud sessions are off for your organization or missing from your roles, you can't create them on the web either.</p>
 <h3 id="routines-are-disabled-by-your-organizations-policy">"Routines are disabled by your organization's policy"</h3>
 <p>An Owner in your Team or Enterprise organization has likely turned off the <strong>Scheduled tasks (Was Routines)</strong> toggle at <a href="https://claude.ai/admin-settings/capabilities"><strong>Organization settings &gt; Capabilities &gt; Remote sessions</strong></a>. On Claude Code v2.1.227 or later, the same toggle also hides <code>/schedule</code> in the CLI. This is a server-side organization setting, so it cannot be overridden from your local configuration. Ask an Owner to turn scheduled tasks back on for your organization.</p>
 <h2 id="related-resources">Related resources</h2>

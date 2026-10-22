@@ -4920,6 +4920,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Stop a loop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#detach-without-stopping-a-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detach without stopping a loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -6675,6 +6692,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Stop a loop">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#detach-without-stopping-a-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detach without stopping a loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -6901,14 +6935,14 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;">Customizable schedule</td>
-<td style="text-align: left;">Via <code>/schedule</code> in the CLI</td>
+<td style="text-align: left;">Yes</td>
 <td style="text-align: left;">Yes</td>
 <td style="text-align: left;">Yes</td>
 </tr>
 <tr>
 <td style="text-align: left;">Minimum interval</td>
 <td style="text-align: left;">1 hour</td>
-<td style="text-align: left;">1 minute</td>
+<td style="text-align: left;">1 minute when Claude sets it, <a href="/docs/en/desktop-scheduled-tasks#schedule-options">1 hour in the forms</a></td>
 <td style="text-align: left;">1 minute</td>
 </tr>
 </tbody>
@@ -7008,9 +7042,13 @@ quiet, say so in one line.
 </code></pre></div></p>
 <p>Edits to <code>loop.md</code> take effect on the next iteration, so you can refine the instructions while a loop is running. When no <code>loop.md</code> exists in either location, the loop falls back to the built-in maintenance prompt. Keep the file concise: content beyond 25,000 bytes is truncated.</p>
 <h3 id="stop-a-loop">Stop a loop</h3>
-<p>To stop a <a href="#let-claude-choose-the-interval">self-paced <code>/loop</code></a> while it is waiting for the next iteration, press <code>Esc</code>. This clears the pending wakeup so the loop does not fire again. Tasks you scheduled by <a href="#manage-scheduled-tasks">asking Claude directly</a> are not affected by <code>Esc</code> and stay in place until you delete them.</p>
+<ul>
+<li><strong><a href="#let-claude-choose-the-interval">Self-paced loop</a></strong>: while the loop is waiting for its next iteration, press <code>Esc</code> to stop it. You can also stop it with <code>Ctrl+C</code> while Claude is idle, except in a <a href="#detach-without-stopping-a-loop">background session you've attached to</a>. A <code>Pending wakeup cancelled</code> notice confirms that the loop won't fire again.</li>
+<li><strong><a href="#run-on-a-fixed-interval">Fixed-interval loop</a></strong>: to stop a loop such as <code>/loop 5m</code>, ask Claude to cancel it, for example <code>cancel the deploy check loop</code>. <code>Esc</code> and <code>Ctrl+C</code> don't stop it, or any task you <a href="#manage-scheduled-tasks">scheduled by asking Claude directly</a>. A loop you don't cancel ends when <a href="#seven-day-expiry">seven days elapse</a>.</li>
+</ul>
 <p>In <a href="#let-claude-choose-the-interval">self-paced mode</a>, Claude can also end the loop on its own once the task is complete. Claude calls the <a href="/docs/en/tools-reference"><code>ScheduleWakeup</code> tool</a> with <code>stop: true</code>, which cancels the pending wakeup immediately. If an iteration ends without either rescheduling or stopping, Claude Code schedules one fallback wakeup about 20 minutes later and ends the loop when that iteration doesn't reschedule either.</p>
-<p>Loops on a fixed interval keep running until you <a href="#manage-scheduled-tasks">cancel them like any other scheduled task</a> or <a href="#seven-day-expiry">seven days elapse</a>.</p>
+<h4 id="detach-without-stopping-a-loop">Detach without stopping a loop</h4>
+<p>When you're <a href="/docs/en/agent-view#attach-to-a-session">attached to a background session</a> and Claude is idle, press <code>Ctrl+C</code> twice on an empty prompt to detach. A self-paced loop waiting there for its next iteration keeps running, and that iteration starts on schedule. To stop the loop instead, press <code>Esc</code> before you detach. Detaching with <code>Ctrl+C</code> without stopping the loop requires Claude Code v2.1.295 or later.</p>
 <h2 id="set-a-one-time-reminder">Set a one-time reminder</h2>
 <p>For one-shot reminders, describe what you want in natural language instead of using <code>/loop</code>. Claude schedules a single-fire task that deletes itself after running.</p>
 <p>```text theme={null}
@@ -7140,7 +7178,10 @@ cancel the deploy check job
 <ul>
 <li>Tasks only fire while Claude Code is running and idle. Closing the terminal or letting the session exit stops them firing. <a href="/docs/en/agent-view#from-inside-a-session">Backgrounding the session</a> carries <code>/loop</code> tasks over to a background session, which keeps running without a terminal.</li>
 <li>No catch-up for missed fires. If a task's scheduled time passes while Claude is busy on a long-running request, it fires once when Claude becomes idle, not once per missed interval.</li>
-<li>When you resume a session with <code>claude --resume</code> or <code>claude --continue</code>, Claude Code restores the tasks scheduled with <code>CronCreate</code>, except recurring tasks that have <a href="#seven-day-expiry">expired</a> and one-shot tasks whose scheduled time has passed. A <a href="#let-claude-choose-the-interval">self-paced <code>/loop</code></a> isn't restored, so run <code>/loop</code> again to restart it. Background Bash and monitor tasks are never restored on resume.</li>
+<li>In a <a href="/docs/en/agent-view#from-inside-a-session">background session</a>, a <a href="#let-claude-choose-the-interval">self-paced loop</a> stops if its next wakeup comes due while the session's process isn't running, such as after a crash. When the process starts again, the transcript shows a <a href="/docs/en/errors#restarted-after-its-next-loop-wakeup-was-due">notice that the wakeup won't fire</a>. To continue the loop, <a href="/docs/en/agent-view#peek-and-reply">reply to the session</a> and ask Claude to keep it running.</li>
+<li>When you resume a session with <code>claude --resume</code> or <code>claude --continue</code>, Claude Code restores the tasks scheduled with <code>CronCreate</code>, except recurring tasks that have <a href="#seven-day-expiry">expired</a> and one-shot tasks whose scheduled time has passed. A <a href="#let-claude-choose-the-interval">self-paced <code>/loop</code></a> isn't restored, so run <code>/loop</code> again to restart it.</li>
+<li>A restored recurring task doesn't fire for the runs it missed while the session wasn't running. Its next run is the first one due after you resume, and <a href="#jitter">jitter</a> applies to that run.</li>
+<li>When you resume with <code>claude --resume</code> or <code>claude --continue</code>, Claude Code doesn't restart the background Bash commands and monitors that were running when the session ended. If you still need one, ask Claude to start it again.</li>
 <li>With <a href="/docs/en/env-vars#features-that-need-feature-flag-fetching">feature-flag fetching off</a>, Claude Code stores a task you asked to keep across sessions in the project's <code>.claude/scheduled_tasks.json</code> file. When the <code>.claude</code> directory or that file is a symlink, Claude Code returns an error instead of scheduling the task. A saved task runs only in the project folder where you created it. If you copy the file into another folder, such as a new worktree, sessions there list the copied tasks but don't run them, so create the task again in that folder.</li>
 </ul>
 <p>For cron-driven automation that needs to run unattended:</p>

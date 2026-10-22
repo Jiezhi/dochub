@@ -7269,7 +7269,7 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Run Claude Code sessions in the cloud from your browser, phone, Desktop app, or terminal, move them with <code>--cloud</code> and <code>--teleport</code>, and auto-fix pull requests.</p>
 <p>[!NOTE]</p>
-<p>Cloud sessions are available on Pro, Max, and Team plans, and for Enterprise users with premium seats or Chat + Claude Code seats.</p>
+<p>Cloud sessions are available on Pro, Max, and Team plans, and for Enterprise users with premium seats or Chat + Claude Code seats. If your Enterprise organization manages your access with <a href="https://support.claude.com/en/articles/13930452">custom roles</a>, you also need a role that includes the cloud sessions permission. Ask an Owner to check your roles and add it at <a href="https://claude.ai/admin-settings/roles"><strong>Organization settings &gt; Roles</strong></a> if it's missing.</p>
 </blockquote>
 <p>A cloud session is a Claude Code session that runs on cloud infrastructure instead of on your machine. By default it runs on infrastructure Anthropic manages, or on your organization's <a href="/docs/en/self-hosted-environments">self-hosted environment</a> when routed there. The session keeps running after you close your laptop, and you can check on it or steer it from any device. It counts toward your plan's usage limits alongside the rest of your Claude and Claude Code usage, and there's no separate charge for the cloud VM.</p>
 <p>To let cloud sessions clone your code from GitHub and push branches, connect GitHub with one of the <a href="#github-authentication-options">GitHub connection methods</a>. If your repository is on GitLab, Bitbucket, or another host, see <a href="#limitations">Platform restrictions</a> for what works.</p>
@@ -7510,7 +7510,7 @@ View: https://claude.ai/code/session_01DiUkqY2kzbUbDmW1w96rfi?from=cli&amp;m=0
 <ul>
 <li><strong><code>/model</code>, <code>/effort</code>, <code>/color</code>, and <code>/rename</code></strong>: pass the value as an argument, for example <code>/model sonnet</code>, instead of opening the terminal picker or slider. The argument forms follow each command's <a href="/docs/en/commands#all-commands">availability notes</a>.</li>
 <li><strong><code>/fast</code></strong>: toggles <a href="/docs/en/fast-mode#use-fast-mode-in-cloud-sessions">fast mode</a> for the session when fast mode is <a href="/docs/en/fast-mode#requirements">available on your account</a>. Requires Claude Code v2.1.271 or later in the session's environment.</li>
-<li><strong><code>/config</code></strong>: in your browser at claude.ai/code, opens the Claude Code section of your settings instead of setting a value, and text after the command, including <code>key=value</code>, is ignored. To change a setting for a cloud session, set an <a href="/docs/en/cloud-environments#set-environment-variables">environment variable</a> on the environment, or in a session with one repository, commit the key to that repository's <code>.claude/settings.json</code>. <a href="/docs/en/settings#settings-in-cloud-sessions">Settings in cloud sessions</a> lists what each session reads.</li>
+<li><strong><code>/config</code></strong>: in your browser at claude.ai/code, opens the Claude Code section of your settings instead of setting a value, and text after the command, including <code>key=value</code>, is ignored. To change a setting for a cloud session, set an <a href="/docs/en/cloud-environments#set-environment-variables">environment variable</a> on the environment. In a session with one repository outside a <a href="/docs/en/claude-projects">project</a>'s threads, commit the key to that repository's <code>.claude/settings.json</code> instead. <a href="/docs/en/settings#settings-in-cloud-sessions">Settings in cloud sessions</a> lists what each session reads.</li>
 </ul>
 <p>For context management specifically:</p>
 <table>
@@ -7541,7 +7541,7 @@ View: https://claude.ai/code/session_01DiUkqY2kzbUbDmW1w96rfi?from=cli&amp;m=0
 </table>
 <p>Auto-compaction runs automatically when the context window approaches capacity. Cloud sessions set <a href="/docs/en/env-vars"><code>CLAUDE_AUTOCOMPACT_PCT_OVERRIDE</code></a> themselves, so compaction triggers partway through the <a href="/docs/en/model-config#set-the-auto-compact-window">auto-compact window</a> rather than when the window fills. That value overrides one you add in your <a href="/docs/en/cloud-environments#set-environment-variables">environment variables</a>, so adding the variable there doesn't change when compaction triggers.</p>
 <p>To change the auto-compact window instead, set <a href="/docs/en/env-vars"><code>CLAUDE_CODE_AUTO_COMPACT_WINDOW</code></a> in your environment variables, or run <a href="/docs/en/commands#all-commands"><code>/autocompact</code></a> with a token count in a session where the variable isn't set.</p>
-<p><a href="/docs/en/sub-agents">Subagents</a> work the same way they do locally. Claude can spawn them with the Agent tool to offload research or parallel work into a separate context window, keeping the main conversation lighter. Subagents defined in your repo's <code>.claude/agents/</code> are picked up automatically.</p>
+<p><a href="/docs/en/sub-agents">Subagents</a> work the same way they do locally. Claude can spawn them with the Agent tool to offload research or parallel work into a separate context window, keeping the main conversation lighter. Outside a <a href="/docs/en/claude-projects#what-threads-pick-up-from-your-repositories">project</a>'s threads, subagents defined in your repo's <code>.claude/agents/</code> load automatically.</p>
 <p><a href="/docs/en/agent-teams">Agent teams</a> are off by default but can be enabled by adding <code>CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</code> to your <a href="/docs/en/cloud-environments#set-environment-variables">environment variables</a>.</p>
 <h3 id="take-back-a-queued-message">Take back a queued message</h3>
 <p>If you send a message while Claude is working, the message queues until Claude reads it. To take a queued message back, click the ✕ on it. The text returns to the message box so you can edit it or send something else.</p>
@@ -7683,7 +7683,10 @@ View: https://claude.ai/code/session_01DiUkqY2kzbUbDmW1w96rfi?from=cli&amp;m=0
 <p>Reopen the session from <a href="https://claude.ai/code">claude.ai/code</a> to provision a fresh VM:</p>
 <ul>
 <li><strong>Restored</strong>: your conversation history</li>
-<li><strong>Not restored</strong>: background work that was still running when the VM was reclaimed, such as subagents and shell commands, and the pending wakeup of a <a href="/docs/en/scheduled-tasks#let-claude-choose-the-interval">self-paced <code>/loop</code></a>. To restart the loop, run <code>/loop</code> again.</li>
+<li><strong>Not restored</strong>: background work that was still running or pending when the VM was reclaimed, including:</li>
+<li><strong>Shell commands</strong>: Claude Code tells Claude which commands stopped. Ask Claude to rerun the ones you still need.</li>
+<li><strong>Subagents</strong>: Claude Code tells Claude which subagents stopped, and which of those can be <a href="/docs/en/sub-agents#resume-subagents">resumed</a> instead of started over. Ask Claude to continue their work.</li>
+<li><strong>Session-scoped scheduled tasks</strong>: tasks you <a href="/docs/en/scheduled-tasks">scheduled in the session</a> and a <code>/loop</code> waiting for its next iteration don't carry over to the reopened session. Ask Claude to schedule the tasks again, or run <code>/loop</code> again to restart the loop.</li>
 </ul>
 <h2 id="limitations">Limitations</h2>
 <p>Before relying on cloud sessions for a workflow, account for these constraints:</p>

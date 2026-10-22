@@ -20108,8 +20108,13 @@
 <h3 id="custom-endpoints">Custom Endpoints</h3>
 <p>You can extend <code>RemoteAuthProvider</code> to add additional endpoints beyond the standard OAuth protected resource metadata. These don't have to be OAuth-specific - you can add any endpoints your authentication integration requires.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">httpx2</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnyHttpUrl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONResponse</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.routing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Route</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth</span><span class="w"> </span><span class="kn">import</span> <span class="n">RemoteAuthProvider</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.auth.providers.jwt</span><span class="w"> </span><span class="kn">import</span> <span class="n">JWTVerifier</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">CompanyAuthProvider</span><span class="p">(</span><span class="n">RemoteAuthProvider</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -20125,11 +20130,11 @@
             <span class="n">base_url</span><span class="o">=</span><span class="s2">"https://api.yourcompany.com"</span>  <span class="c1"># Your server base URL</span>
         <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_routes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Route</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_routes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mcp_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Route</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""Add custom endpoints to the standard protected resource routes."""</span>
 
         <span class="c1"># Get the standard OAuth protected resource routes</span>
-        <span class="n">routes</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_routes</span><span class="p">()</span>
+        <span class="n">routes</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_routes</span><span class="p">(</span><span class="n">mcp_path</span><span class="p">)</span>
 
         <span class="c1"># Add authorization server metadata forwarding for client convenience</span>
         <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">authorization_server_metadata</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
@@ -20148,7 +20153,7 @@
 
 <span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Company API"</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">CompanyAuthProvider</span><span class="p">())</span>
 </code></pre></div>
-<p>This pattern uses <code>super().get_routes()</code> to get the standard protected resource routes, then adds additional endpoints as needed. A common use case is providing authorization server metadata forwarding, which allows MCP clients to discover your identity provider's capabilities through your MCP server rather than contacting the identity provider directly.</p>
+<p>This pattern uses <code>super().get_routes(mcp_path)</code> to get the standard protected resource routes, then adds additional endpoints as needed. <code>http_app()</code> passes the MCP path into <code>get_routes</code>, and the base implementation uses that path for the protected-resource metadata URL. A common use case is providing authorization server metadata forwarding, which allows MCP clients to discover your identity provider's capabilities through your MCP server rather than contacting the identity provider directly.</p>
 <h2 id="workos-authkit-integration">WorkOS AuthKit Integration</h2>
 <p>WorkOS AuthKit provides an excellent example of remote OAuth integration. The <code>AuthKitProvider</code> demonstrates how to implement both token validation and OAuth metadata forwarding in a production-ready package.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
