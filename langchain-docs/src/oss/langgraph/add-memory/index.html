@@ -1294,7 +1294,7 @@
   <span class="md-ellipsis">
     
   
-    Preprocessing and Link Resolution
+    Markdown Preprocessing and Cross-References
   
 
     
@@ -1322,7 +1322,7 @@
   <span class="md-ellipsis">
     
   
-    Language Variants and Route Ownership
+    Documentation Route and Language Versioning
   
 
     
@@ -1461,7 +1461,7 @@
   <span class="md-ellipsis">
     
   
-    Mintlify Integration and Link Validation
+    Mintlify Integration
   
 
     
@@ -1517,7 +1517,7 @@
   <span class="md-ellipsis">
     
   
-    Reference Documentation Boundaries
+    API Reference and OpenAPI Surfaces
   
 
     
@@ -1656,7 +1656,7 @@
   <span class="md-ellipsis">
     
   
-    Agent Skills and Authoring Guardrails
+    Agent Skills and Automation Procedures
   
 
     
@@ -2102,7 +2102,7 @@
   <span class="md-ellipsis">
     
   
-    Local Development and Validation Workflow
+    Local Documentation Development
   
 
     
@@ -10458,6 +10458,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../langsmith/managed-deep-agents-custom-frontend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a custom frontend for a Managed Deep Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../langsmith/managed-deep-agents-deploy/" class="md-nav__link">
         
   
@@ -18026,10 +18054,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_540" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_6_541" >
         
           
-          <label class="md-nav__link" for="__nav_6_6_540" id="__nav_6_6_540_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_6_541" id="__nav_6_6_541_label" tabindex="0">
             
   
   
@@ -18047,8 +18075,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_540_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_6_540">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_6_541_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_6_541">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -38303,6 +38331,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../python/integrations/providers/browser_use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Use integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../python/integrations/providers/browserbase/" class="md-nav__link">
         
   
@@ -40747,10 +40803,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_7_14_2_17_101" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_7_14_2_17_102" >
         
           
-          <label class="md-nav__link" for="__nav_6_7_14_2_17_101" id="__nav_6_7_14_2_17_101_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6_7_14_2_17_102" id="__nav_6_7_14_2_17_102_label" tabindex="0">
             
   
   
@@ -40768,8 +40824,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="6" aria-labelledby="__nav_6_7_14_2_17_101_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_7_14_2_17_101">
+        <nav class="md-nav" data-md-level="6" aria-labelledby="__nav_6_7_14_2_17_102_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_7_14_2_17_102">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -79084,7 +79140,191 @@ You need to call `store.setup()` the first time you're using Postgres store
   :::
 </Accordion></p>
 <p><Accordion title="Example: using MongoDB store">
-  :::js
+  :::python
+  <div class="highlight"><pre><span></span><code>pip install -U langgraph-store-mongodb langgraph-checkpoint-mongodb
+</code></pre></div></p>
+<pre><code>&lt;Tip&gt;
+Semantic search with `query` needs MongoDB Vector Search (`$vectorSearch`), which runs on [MongoDB Atlas](https://www.mongodb.com/docs/atlas/) or on self-managed MongoDB with [Search and Vector Search](https://www.mongodb.com/docs/search/self-managed/current/) (`mongot`). A plain `mongod` without `mongot` is not enough. Pass `index_config` from `create_vector_index_config` when you open the store. Index creation can exceed the default 15 second wait, so set `auto_index_timeout` higher on first run. For Atlas cluster setup, see [this guide](https://www.mongodb.com/docs/guides/atlas/cluster/). For vector index setup and an agent-focused walkthrough, see [long-term memory with MongoDB Atlas](/oss/integrations/memory/mongodb-long-term-memory).
+&lt;/Tip&gt;
+
+&lt;Tabs&gt;
+    &lt;Tab title="Async"&gt;
+  ```python
+  import os
+  from collections.abc import Sequence
+  from dataclasses import dataclass
+  from uuid import uuid4
+
+  from langchain.chat_models import init_chat_model
+  from langgraph.checkpoint.mongodb import MongoDBSaver  # [!code highlight]
+  from langgraph.graph import StateGraph, MessagesState, START
+  from langgraph.runtime import Runtime  # [!code highlight]
+  from langgraph.store.mongodb import MongoDBStore, create_vector_index_config  # [!code highlight]
+
+  model = init_chat_model(model="claude-haiku-4-5-20251001")
+
+  def embed(texts: Sequence[str]) -&gt; list[list[float]]:
+      # Replace with an embeddings model or LangChain Embeddings instance
+      return [[1.0, 2.0] for _ in texts]
+
+  @dataclass
+  class Context:
+      user_id: str
+
+  async def call_model(  # [!code highlight]
+      state: MessagesState,
+      runtime: Runtime[Context],  # [!code highlight]
+  ):
+      user_id = runtime.context.user_id  # [!code highlight]
+      namespace = ("memories", user_id)
+      memories = await runtime.store.asearch(namespace, query=str(state["messages"][-1].content))  # [!code highlight]
+      info = "\n".join([d.value["data"] for d in memories])
+      system_msg = f"You are a helpful assistant talking to the user. User info: {info}"
+
+      # Store new memories if the user asks the model to remember
+      last_message = state["messages"][-1]
+      if "remember" in last_message.content.lower():
+          memory = "User name is Bob"
+          await runtime.store.aput(namespace, str(uuid4()), {"data": memory})  # [!code highlight]
+
+      response = await model.ainvoke(
+          [{"role": "system", "content": system_msg}] + state["messages"]
+      )
+      return {"messages": response}
+
+  MONGODB_ATLAS_URI = os.environ["MONGODB_ATLAS_URI"]
+  index_config = create_vector_index_config(embed=embed, dims=2, fields=["data"])  # [!code highlight]
+
+  with (
+      MongoDBStore.from_conn_string(  # [!code highlight]
+          MONGODB_ATLAS_URI,
+          index_config=index_config,  # [!code highlight]
+          auto_index_timeout=120,
+      ) as store,
+      MongoDBSaver.from_conn_string(MONGODB_ATLAS_URI) as checkpointer,
+  ):
+      builder = StateGraph(MessagesState, context_schema=Context)  # [!code highlight]
+      builder.add_node(call_model)
+      builder.add_edge(START, "call_model")
+
+      graph = builder.compile(
+          checkpointer=checkpointer,
+          store=store,  # [!code highlight]
+      )
+
+      import asyncio
+
+      async def run():
+          config = {"configurable": {"thread_id": "1"}}
+          stream = await graph.astream_events(
+              {"messages": [{"role": "user", "content": "Hi! Remember: my name is Bob"}]},
+              config,
+              version="v3",
+              context=Context(user_id="1"),  # [!code highlight]
+          )
+          async for snapshot in stream.values:
+              snapshot["messages"][-1].pretty_print()
+
+          config = {"configurable": {"thread_id": "2"}}
+          stream = await graph.astream_events(
+              {"messages": [{"role": "user", "content": "what is my name?"}]},
+              config,
+              version="v3",
+              context=Context(user_id="1"),  # [!code highlight]
+          )
+          async for snapshot in stream.values:
+              snapshot["messages"][-1].pretty_print()
+
+      asyncio.run(run())
+</code></pre>
+<p><code>&lt;/Tab&gt;
+        &lt;Tab title="Sync"&gt;</code>python
+      import os
+      from collections.abc import Sequence
+      from dataclasses import dataclass
+      from uuid import uuid4</p>
+<pre><code>  from langchain.chat_models import init_chat_model
+  from langgraph.checkpoint.mongodb import MongoDBSaver  # [!code highlight]
+  from langgraph.graph import StateGraph, MessagesState, START
+  from langgraph.runtime import Runtime  # [!code highlight]
+  from langgraph.store.mongodb import MongoDBStore, create_vector_index_config  # [!code highlight]
+
+  model = init_chat_model(model="claude-haiku-4-5-20251001")
+
+  def embed(texts: Sequence[str]) -&gt; list[list[float]]:
+      # Replace with an embeddings model or LangChain Embeddings instance
+      return [[1.0, 2.0] for _ in texts]
+
+  @dataclass
+  class Context:
+      user_id: str
+
+  def call_model(  # [!code highlight]
+      state: MessagesState,
+      runtime: Runtime[Context],  # [!code highlight]
+  ):
+      user_id = runtime.context.user_id  # [!code highlight]
+      namespace = ("memories", user_id)
+      memories = runtime.store.search(namespace, query=str(state["messages"][-1].content))  # [!code highlight]
+      info = "\n".join([d.value["data"] for d in memories])
+      system_msg = f"You are a helpful assistant talking to the user. User info: {info}"
+
+      # Store new memories if the user asks the model to remember
+      last_message = state["messages"][-1]
+      if "remember" in last_message.content.lower():
+          memory = "User name is Bob"
+          runtime.store.put(namespace, str(uuid4()), {"data": memory})  # [!code highlight]
+
+      response = model.invoke(
+          [{"role": "system", "content": system_msg}] + state["messages"]
+      )
+      return {"messages": response}
+
+  MONGODB_ATLAS_URI = os.environ["MONGODB_ATLAS_URI"]
+  index_config = create_vector_index_config(embed=embed, dims=2, fields=["data"])  # [!code highlight]
+
+  with (
+      MongoDBStore.from_conn_string(  # [!code highlight]
+          MONGODB_ATLAS_URI,
+          index_config=index_config,  # [!code highlight]
+          auto_index_timeout=120,
+      ) as store,
+      MongoDBSaver.from_conn_string(MONGODB_ATLAS_URI) as checkpointer,
+  ):
+      builder = StateGraph(MessagesState, context_schema=Context)  # [!code highlight]
+      builder.add_node(call_model)
+      builder.add_edge(START, "call_model")
+
+      graph = builder.compile(
+          checkpointer=checkpointer,
+          store=store,  # [!code highlight]
+      )
+
+      config = {"configurable": {"thread_id": "1"}}
+      stream = graph.stream_events(
+          {"messages": [{"role": "user", "content": "Hi! Remember: my name is Bob"}]},
+          config,
+          version="v3",
+          context=Context(user_id="1"),  # [!code highlight]
+      )
+      for snapshot in stream.values:
+          snapshot["messages"][-1].pretty_print()
+
+      config = {"configurable": {"thread_id": "2"}}
+      stream = graph.stream_events(
+          {"messages": [{"role": "user", "content": "what is my name?"}]},
+          config,
+          version="v3",
+          context=Context(user_id="1"),  # [!code highlight]
+      )
+      for snapshot in stream.values:
+          snapshot["messages"][-1].pretty_print()
+</code></pre>
+<p>```
+        </Tab>
+    </Tabs>
+  :::</p>
+<p>:::js
   <div class="highlight"><pre><span></span><code>npm install @langchain/langgraph-checkpoint-mongodb
 </code></pre></div></p>
 <p><Tip>
@@ -79838,7 +80078,7 @@ To trim message history, use the <a href="https://reference.langchain.com/python
 </code></pre></div>
 :::</p>
 <p>:::js
-To trim message history, use the <a href="https://js.langchain.com/docs/how_to/trim_messages/"><code>trimMessages</code></a> function:</p>
+To trim message history, use the <a href="https://reference.langchain.com/javascript/langchain-core/messages/trimMessages"><code>trimMessages</code></a> function:</p>
 <p><div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">State</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">StateSchema</span><span class="p">({</span>
 <span class="w">  </span><span class="nx">messages</span><span class="o">:</span><span class="w"> </span><span class="kt">MessagesValue</span><span class="p">,</span>
 <span class="p">});</span>

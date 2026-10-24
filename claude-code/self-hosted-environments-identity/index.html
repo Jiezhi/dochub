@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6691,9 +6691,9 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>Verify the CLAUDE_CODE_SESSION_ACCESS_TOKEN JWT so services on your network can trust requests from sessions in your self-hosted environment.</p>
 <p>[!NOTE]</p>
-<p>Self-hosted environments are in public beta on Team and Enterprise plans; an <a href="/docs/en/cloud-environments#organization-shared-environments">Owner</a> enables them by turning on <strong>Allow self-hosted environments</strong> on the <a href="https://claude.ai/admin-settings/cloud-environments"><strong>Cloud environments</strong> admin page</a>. This page covers session identity verification; see the <a href="/docs/en/self-hosted-environments-quickstart">quickstart</a> for setup and <a href="/docs/en/self-hosted-environments-deploy">Deploy to production</a> for the fleet recipes.</p>
+<p>Self-hosted environments are in public beta on Team and Enterprise plans; an <a href="https://code.claude.com/docs/en/cloud-environments.md#organization-shared-environments">Owner</a> enables them by turning on <strong>Allow self-hosted environments</strong> on the <a href="https://claude.ai/admin-settings/cloud-environments"><strong>Cloud environments</strong> admin page</a>. This page covers session identity verification; see the <a href="https://code.claude.com/docs/en/self-hosted-environments-quickstart.md">quickstart</a> for setup and <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md">Deploy to production</a> for the fleet recipes.</p>
 </blockquote>
-<p>A <a href="/docs/en/self-hosted-environments">self-hosted environment</a> lets Claude Code <a href="/docs/en/claude-code-on-the-web">cloud sessions</a> run on infrastructure you operate instead of on Anthropic's. Because the session runs inside your network, Claude can call your internal services directly. Those services need a way to confirm that a request came from a Claude Code session in your environment, and to identify the user or service identity that created that session.</p>
+<p>A <a href="https://code.claude.com/docs/en/self-hosted-environments">self-hosted environment</a> lets Claude Code <a href="https://code.claude.com/docs/en/claude-code-on-the-web.md">cloud sessions</a> run on infrastructure you operate instead of on Anthropic's. Because the session runs inside your network, Claude can call your internal services directly. Those services need a way to confirm that a request came from a Claude Code session in your environment, and to identify the user or service identity that created that session.</p>
 <p>Every session in a self-hosted environment receives a signed JSON Web Token (JWT) in the <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code> environment variable. A session presents the token like any bearer credential; for example, a script Claude runs can call your service with <code>curl -H "Authorization: Bearer $CLAUDE_CODE_SESSION_ACCESS_TOKEN"</code>. Anthropic signs the token and publishes the verification keys at a public JWKS endpoint. Your services fetch those keys, verify the signature, and read the claims to decide what access to grant.</p>
 <h2 id="the-session-token">The session token</h2>
 <p>Before you write verification code, know what the token establishes and the shape your JWT library will see.</p>
@@ -6814,7 +6814,7 @@ def verify_session_token(raw: str) -&gt; dict:
     }
 </code></pre></div></p>
 <h3 id="verify-the-token-inside-the-session">Verify the token inside the session</h3>
-<p><a href="/docs/en/self-hosted-environments-configuration#wrapper-scripts">Wrapper scripts</a> run inside the session, before Claude starts. Instead of calling a JWT library, they can run the runner binary's <code>self-hosted-runner decode-token</code> subcommand. The subcommand reads the token from a positional argument, from <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code>, or from piped stdin, in that order, then strips the prefix, verifies the signature against the JWKS endpoint, checks expiry, and prints the claims as JSON. The subcommand performs the signature and expiry checks only; it doesn't check <code>iss</code>, <code>aud</code>, or <code>ccr:role</code>. When your wrapper's auth decision depends on those claims, read them from the printed JSON and compare them explicitly.</p>
+<p><a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#wrapper-scripts">Wrapper scripts</a> run inside the session, before Claude starts. Instead of calling a JWT library, they can run the runner binary's <code>self-hosted-runner decode-token</code> subcommand. The subcommand reads the token from a positional argument, from <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code>, or from piped stdin, in that order, then strips the prefix, verifies the signature against the JWKS endpoint, checks expiry, and prints the claims as JSON. The subcommand performs the signature and expiry checks only; it doesn't check <code>iss</code>, <code>aud</code>, or <code>ccr:role</code>. When your wrapper's auth decision depends on those claims, read them from the printed JSON and compare them explicitly.</p>
 <p>This command extracts the creator identity, preferring the email address, then the creator's <code>act.sub</code> subject, <code>user:&lt;id&gt;</code> or <code>agent:&lt;id&gt;</code>:</p>
 <p><code>bash theme={null}
 "$CLAUDE_RUNNER_CLAUDE_BIN" self-hosted-runner decode-token | jq -re '.act.email // .act.sub'</code></p>
@@ -6870,7 +6870,7 @@ def verify_session_token(raw: str) -&gt; dict:
 <tr>
 <td style="text-align: left;"><code>ccr:session_id</code></td>
 <td style="text-align: left;">string</td>
-<td style="text-align: left;">The session ID. Same value as the suffix of <code>sub</code>.</td>
+<td style="text-align: left;">The session ID in <code>cse_...</code> form. Same value as the suffix of <code>sub</code>, and the same string as <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration#wrapper-scripts"><code>CLAUDE_CODE_REMOTE_SESSION_ID</code></a>. To match it to the <code>CLAUDE_RUNNER_SESSION_ID</code> that <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#lifecycle-hooks">lifecycle hooks</a> receive, replace the <code>cse_</code> prefix with <code>session_</code>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>ccr:pool_id</code></td>
@@ -6885,7 +6885,7 @@ def verify_session_token(raw: str) -&gt; dict:
 <tr>
 <td style="text-align: left;"><code>ccr:account_id</code></td>
 <td style="text-align: left;">string</td>
-<td style="text-align: left;">The creating user's Anthropic account ID: the value of <code>act.sub</code> without the <code>user:</code> prefix, a tagged <code>user_...</code> ID. The same value the <a href="/docs/en/self-hosted-environments-configuration#the-spawn-runner-hook">spawn-runner hook</a>'s <code>CLAUDE_RUNNER_ACCOUNT_ID</code> carries and <a href="/docs/en/self-hosted-environments-reference#runner-cli-flags"><code>--lock-to-account</code></a> accepts, so the three compare as equal strings.</td>
+<td style="text-align: left;">The creating user's Anthropic account ID: the value of <code>act.sub</code> without the <code>user:</code> prefix, a tagged <code>user_...</code> ID. The same value the <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#the-spawn-runner-hook">spawn-runner hook</a>'s <code>CLAUDE_RUNNER_ACCOUNT_ID</code> carries and <a href="https://code.claude.com/docs/en/self-hosted-environments-reference#runner-cli-flags"><code>--lock-to-account</code></a> accepts, so the three compare as equal strings.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>account_email</code></td>
@@ -6910,7 +6910,7 @@ def verify_session_token(raw: str) -&gt; dict:
 </tbody>
 </table>
 <h3 id="the-act-chain">The <code>act</code> chain</h3>
-<p>The <code>act</code> claim records the full delegation path from the user or service identity that created the session down to the <a href="/docs/en/self-hosted-environments#key-concepts">environment</a> whose secret admitted the runner, and the identity that created that secret. The creator is the outermost actor, so <code>act.sub</code> identifies them directly.</p>
+<p>The <code>act</code> claim records the full delegation path from the user or service identity that created the session down to the <a href="https://code.claude.com/docs/en/self-hosted-environments#key-concepts">environment</a> whose secret admitted the runner, and the identity that created that secret. The creator is the outermost actor, so <code>act.sub</code> identifies them directly.</p>
 <table>
 <thead>
 <tr>
@@ -6957,15 +6957,15 @@ def verify_session_token(raw: str) -&gt; dict:
 <h2 id="related-environment-variables">Related environment variables</h2>
 <p>The creator identity also appears in plain environment variables on two surfaces that never verify the token:</p>
 <ul>
-<li><strong>The <a href="/docs/en/self-hosted-environments-configuration#the-spawn-runner-hook"><code>spawn-runner</code> hook</a>, on the orchestrator</strong>: the hook runs before any runner exists for a queued session and receives the creator identity in variables such as <code>CLAUDE_RUNNER_ACCOUNT_EMAIL</code> and <code>CLAUDE_RUNNER_ACCOUNT_ID</code>. The orchestrator reads them from the work order, the signed single-use token that authorizes spawning one runner, without verifying the work order's signature itself; the claims are trusted because the work order arrives over the orchestrator's connection to Anthropic, which the environment secret authenticates.</li>
-<li><strong><a href="/docs/en/self-hosted-environments-configuration#wrapper-scripts">Wrapper scripts</a>, inside the session</strong>: wrappers receive <code>CCR_SESSION_ACCOUNT_EMAIL</code>, the creator's email pre-extracted from the token without signature verification. The variable is suitable for labelling, such as commit trailers, not for auth decisions.</li>
+<li><strong>The <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration#the-spawn-runner-hook"><code>spawn-runner</code> hook</a>, on the orchestrator</strong>: the hook runs before any runner exists for a queued session and receives the creator identity in variables such as <code>CLAUDE_RUNNER_ACCOUNT_EMAIL</code> and <code>CLAUDE_RUNNER_ACCOUNT_ID</code>. The orchestrator reads them from the work order, the signed single-use token that authorizes spawning one runner, without verifying the work order's signature itself; the claims are trusted because the work order arrives over the orchestrator's connection to Anthropic, which the environment secret authenticates.</li>
+<li><strong><a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#wrapper-scripts">Wrapper scripts</a>, inside the session</strong>: wrappers receive <code>CCR_SESSION_ACCOUNT_EMAIL</code>, the creator's email pre-extracted from the token without signature verification. The variable is suitable for labelling, such as commit trailers, not for auth decisions.</li>
 </ul>
 <p>Use the plain variables for orchestrator-side decisions such as selecting a machine image. Use <code>CLAUDE_CODE_SESSION_ACCESS_TOKEN</code> when a downstream service needs independent cryptographic proof rather than trusting the runner's environment.</p>
 <h2 id="whats-next">What's next</h2>
 <ul>
-<li><a href="/docs/en/self-hosted-environments">Self-hosted environments</a>: the environment, runner, and session model; the <a href="/docs/en/self-hosted-environments-quickstart">quickstart</a> and <a href="/docs/en/self-hosted-environments-deploy">Deploy to production</a> hold setup and operations</li>
-<li><a href="/docs/en/self-hosted-environments-configuration">Customize sessions</a>: wrapper scripts that consume the token, and the <code>spawn-runner</code> hook</li>
-<li><a href="/docs/en/self-hosted-environments-reference">Reference</a>: CLI flags, environment variables, and metrics</li>
+<li><a href="https://code.claude.com/docs/en/self-hosted-environments">Self-hosted environments</a>: the environment, runner, and session model; the <a href="https://code.claude.com/docs/en/self-hosted-environments-quickstart.md">quickstart</a> and <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md">Deploy to production</a> hold setup and operations</li>
+<li><a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md">Customize sessions</a>: wrapper scripts that consume the token, and the <code>spawn-runner</code> hook</li>
+<li><a href="https://code.claude.com/docs/en/self-hosted-environments-reference.md">Reference</a>: CLI flags, environment variables, and metrics</li>
 </ul>
 
 
