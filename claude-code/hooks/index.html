@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
       
 
@@ -3515,6 +3515,17 @@
   
     <nav class="md-nav" aria-label="!/bin/bash">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#powershell-started-no-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PowerShell started no program
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#exit-code-2-behavior-per-event" class="md-nav__link">
@@ -8176,6 +8187,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#powershell-started-no-program" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PowerShell started no program
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#exit-code-2-behavior-per-event" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10452,16 +10474,24 @@ If the error for a blocked tool call includes this text, a `PreToolUse` or `Perm
 ```text theme={null}
 blocking because Git Bash wasn't found, so only exit code 0 or 2 counts as this hook's verdict.
 </code></pre></div></p>
-<p>To find out why the hook failed, check the <a href="#debug-hooks">debug log</a>. Pick the fix that matches your hook:</p>
+<p>If the error also says <code>PowerShell started no program</code>, start with <a href="#powershell-started-no-program">the fixes for a <code>command</code> that is only quoted strings</a>, which PowerShell prints instead of running.</p>
+<p>Without Git Bash, any exit code other than 0 or 2 from that hook counts as a <a href="#block-the-action-when-a-hook-fails">failure</a>, even when it prints JSON that doesn't deny the call. To find out why the hook failed, check the <a href="#debug-hooks">debug log</a>. Then pick the fix that matches your hook:</p>
 <ul>
-<li><strong>The action should go ahead when the hook fails</strong>: add <a href="#block-the-action-when-a-hook-fails"><code>"onFailure": "continue"</code></a> to the hook</li>
-<li><strong>The hook is written for Bash</strong>: a <a href="#exec-form-and-shell-form">shell-form</a> hook with no <code>shell</code> set runs in PowerShell when Git Bash isn't installed, where a script written for Bash may not run as written. Install <a href="https://git-scm.com/downloads/win">Git for Windows</a>, or set <a href="https://code.claude.com/docs/en/env-vars"><code>CLAUDE_CODE_GIT_BASH_PATH</code></a> if Git Bash is installed where Claude Code doesn't find it, then start a new session</li>
+<li><strong>The call should go ahead when the hook fails</strong>: add <a href="#block-the-action-when-a-hook-fails"><code>"onFailure": "continue"</code></a> to the hook</li>
+<li><strong>The hook exits 1 to warn but must block when it crashes</strong>: with <code>"onFailure": "continue"</code>, the call goes ahead on exit code 1, warning or crash alike. Add <code>"onFailure": "block"</code> instead, and have the script exit 0 where it warns, so those calls go ahead. To still show the warning on <code>PreToolUse</code>, print it to stdout as the <a href="#json-output"><code>systemMessage</code></a> field of one JSON object.</li>
+<li><strong>The hook is written for Bash</strong>: without Git Bash, a <a href="#exec-form-and-shell-form">shell-form</a> hook with no <code>shell</code> set runs in PowerShell, where it can fail. Install <a href="https://git-scm.com/downloads/win">Git for Windows</a>, or set <a href="https://code.claude.com/docs/en/env-vars"><code>CLAUDE_CODE_GIT_BASH_PATH</code></a> if Git Bash is installed where Claude Code doesn't find it. Then start a new session.</li>
 <li><strong>The hook runs one <code>.exe</code>, not a <code>.cmd</code> or <code>.bat</code> file</strong>: put the program in <code>command</code> and its arguments in <code>args</code> to use exec form, and add <code>"onFailure": "block"</code>. Claude Code then starts the program with no shell. Without <code>"onFailure": "block"</code>, the call can go ahead when the program fails, is missing, or times out</li>
-<li><strong>The hook exits 1 to warn but must block when it crashes</strong>: with <code>"onFailure": "continue"</code>, the call goes ahead on exit code 1, warning or crash alike. Add <code>"onFailure": "block"</code> instead, and end the script with exit code 0 where it warns, so those calls go ahead. To show the warning on <code>PreToolUse</code> after exit code 0, print it to stdout in the <a href="#json-output"><code>systemMessage</code></a> field of one JSON object</li>
 <li><strong>A PowerShell guard hook that must block on failure</strong>: with <code>onFailure</code> unset, it stops doing so once Git for Windows is installed and Claude Code finds Git Bash. Add <code>"onFailure": "block"</code> so a failure or a timeout blocks the call with or without Git Bash. Also set <code>"shell": "powershell"</code> so the hook keeps running in PowerShell from then on instead of in Git Bash</li>
 </ul>
-<p>For a hook that shows this error, any exit code other than 0 or 2 counts as a <a href="#block-the-action-when-a-hook-fails">failure</a>, even when the hook prints JSON that doesn't deny the call.</p>
 <p>Before v2.1.309, the message read <code>blocking because Git Bash wasn't found and this hook doesn't set "shell" to "powershell", so only exit code 0 or 2 counts as its verdict.</code></p>
+<h4 id="powershell-started-no-program">PowerShell started no program</h4>
+<p>A hook with this error ran in PowerShell, which prints a <code>command</code> that is only quoted strings, such as <code>"command": "\"C:\\Tools\\guard.exe\""</code>, instead of running it.</p>
+<ul>
+<li><strong>To print text, such as JSON</strong>: set <code>"shell": "powershell"</code>, and the hook exits 0</li>
+<li><strong>To run a <code>.ps1</code>, <code>.cmd</code>, or <code>.bat</code> file, or a <code>.exe</code> whose path has a variable</strong>: set <code>"shell": "powershell"</code> and put <code>&amp;</code> before the quoted path. Leave <code>$HOME</code> as written, and spell environment variables as the <a href="#reference-scripts-by-path-in-powershell-hooks"><code>check.ps1</code> example</a> spells <code>$env:CLAUDE_PROJECT_DIR</code></li>
+<li><strong>To run one <code>.exe</code> at a path without <code>$</code></strong>: remove the inner quotes from <code>command</code>, then apply the <a href="#failed-hooks-on-windows-without-git-bash">fix for a hook that runs one <code>.exe</code></a>, writing <code>"args": []</code> if the program takes no arguments</li>
+<li><strong>To run a script written for Bash</strong>: apply the <a href="#failed-hooks-on-windows-without-git-bash">fix for a hook written for Bash</a></li>
+</ul>
 <h4 id="exit-code-2-behavior-per-event">Exit code 2 behavior per event</h4>
 <p>Exit code 2 is the way a hook signals "stop, don't do this." The effect depends on the event, because some events represent actions that can be blocked (like a tool call that hasn't happened yet) and others represent things that already happened or can't be prevented.</p>
 <table>
@@ -11071,7 +11101,7 @@ In addition to the [common input fields](#common-input-fields), Setup hooks rece
 </code></pre></div></p>
 <h4 id="setup-decision-control">Setup decision control</h4>
 <p>Setup hooks can't block; execution continues on any exit code. On every exit code, Claude Code discards a Setup hook's <a href="#json-output">JSON output fields</a>, such as <code>systemMessage</code>, <code>continue</code>, and <code>hookSpecificOutput.additionalContext</code>. With <code>-p</code>, a Setup hook's stdout, stderr, and exit code appear in the run's output only as <a href="https://code.claude.com/docs/en/headless#read-session-metadata"><code>hook_response</code> events</a> when you launch with <code>--output-format stream-json --verbose</code>.</p>
-<p>Setup hooks have access to <code>CLAUDE_ENV_FILE</code>. Variables written to that file persist into subsequent Bash commands for the session, as in <a href="#persist-environment-variables">SessionStart hooks</a>. Only <code>type: "command"</code> hooks run on <code>Setup</code>. A <code>type: "mcp_tool"</code> hook on <code>Setup</code> is always skipped, as described under <a href="#mcp-tool-hook-fields">MCP tool hook fields</a>.</p>
+<p>Setup hooks have access to <code>CLAUDE_ENV_FILE</code>. If your hook writes variables to that file, they persist into subsequent Bash commands for the session, as in <a href="#persist-environment-variables">SessionStart hooks</a>. Only <code>type: "command"</code> hooks run on <code>Setup</code>. A <code>type: "mcp_tool"</code> hook on <code>Setup</code> is always skipped, as described under <a href="#mcp-tool-hook-fields">MCP tool hook fields</a>.</p>
 <h3 id="instructionsloaded">InstructionsLoaded</h3>
 <p>Fires when a <code>CLAUDE.md</code> or <code>.claude/rules/*.md</code> file is loaded into context. This event fires at session start for eagerly loaded files and again later when files are lazily loaded, for example when Claude accesses a subdirectory that contains a nested <code>CLAUDE.md</code> or when conditional rules with <code>paths:</code> frontmatter match. The hook doesn't support blocking or decision control. It runs asynchronously for observability purposes.</p>
 <p>This event doesn't fire when Claude <a href="https://code.claude.com/docs/en/memory#agents-md">reads <code>AGENTS.md</code> directly</a> through the <strong>Project instructions</strong> setting. It does fire when a <code>CLAUDE.md</code> imports your <code>AGENTS.md</code>, with <code>load_reason</code> set to <code>include</code> as for any other imported file, and when <code>CLAUDE.md</code> is a symlink to it, as a normal <code>CLAUDE.md</code> load.</p>
@@ -11143,6 +11173,12 @@ block certain types of prompts.
 Apart from a command hook you run with [`async: true`](#run-hooks-in-the-background), a `UserPromptSubmit` command, HTTP, or MCP tool hook that reaches its timeout is canceled and its output, including any `additionalContext`, is discarded. The prompt still reaches Claude without that context. To block the prompt instead, set [`onFailure: "block"`](#block-the-action-when-a-hook-fails) on a command or HTTP hook. The transcript shows a notice naming the hook, the timeout that fired, and that the output was discarded.
 
 An [Agent SDK callback hook](https://code.claude.com/docs/en/agent-sdk/hooks.md) on `UserPromptSubmit` that reaches its timeout blocks the prompt with a message naming the hook and the timeout, because a callback there can be acting as a policy gate that must not fail open. The session continues.
+
+#### `Esc` during a prompt check
+
+If you press `Esc` or interrupt the session while hooks are still checking a prompt, the check stops and the prompt doesn't reach Claude. Text you typed at the terminal returns to the prompt input, and the hooks check it again when you resend it.
+
+A hook can block the prompt at the same moment you interrupt. The prompt then stays blocked: you see that hook's [block message](#what-a-blocked-prompt-leaves-behind), and the text doesn't return to the input.
 
 #### UserPromptSubmit input
 
@@ -12708,7 +12744,7 @@ Claude Code acts on the blocking decision from a ConfigChange hook's JSON output
 
 Runs when a shell command in the main conversation changes the working directory, for example when Claude executes a `cd` command. Use this to react to directory changes: reload environment variables, activate project-specific toolchains, or run setup scripts automatically. Pairs with [FileChanged](#filechanged) for tools like [direnv](https://direnv.net/) that manage per-directory environment.
 
-CwdChanged hooks have access to [`CLAUDE_ENV_FILE`](#persist-environment-variables). Variables written to that file persist into subsequent Bash commands until the next CwdChanged event, when Claude Code clears them.
+CwdChanged hooks have access to [`CLAUDE_ENV_FILE`](#persist-environment-variables). If your hook writes variables to that file, they persist into subsequent Bash commands until the next CwdChanged event, when Claude Code clears them.
 
 CwdChanged doesn't support matchers and fires on every occurrence.
 
@@ -12895,7 +12931,11 @@ In addition to the [common input fields](#common-input-fields), FileChanged hook
 <li>Claude Code isolates a <a href="https://code.claude.com/docs/en/agent-view.md#how-file-edits-are-isolated">background session</a> in its own worktree</li>
 <li><a href="https://code.claude.com/docs/en/remote-control#start-a-remote-control-session"><code>claude remote-control</code></a> in <code>worktree</code> mode starts a session in its own worktree</li>
 </ul>
-<p>When Claude runs <code>git worktree add</code> through the Bash tool rather than calling <code>EnterWorktree</code>, your WorktreeCreate hook doesn't run. To inspect or block that command, add a <a href="#pretooluse"><code>PreToolUse</code></a> hook with the <code>Bash</code> matcher.</p>
+<p>A WorktreeCreate hook doesn't run for a worktree Claude adds through Bash, and a plugin's hook doesn't run for the one created when you launch with <code>--worktree</code> and <a href="https://code.claude.com/docs/en/cli-reference#cli-flags"><code>--tmux</code></a>:</p>
+<ul>
+<li><strong><code>git worktree add</code> through Bash</strong>: to inspect or block that command, add a <a href="#pretooluse"><code>PreToolUse</code></a> hook with the <code>Bash</code> matcher.</li>
+<li><strong><code>--worktree</code> with <code>--tmux</code></strong>: Claude Code creates the worktree before it loads plugins, so a WorktreeCreate hook from a plugin doesn't run. To have your hook run with both flags, define it in a <a href="#configuration">settings file</a> instead. Before v2.1.300, a plugin's WorktreeCreate hook didn't run with <code>--worktree</code> alone either.</li>
+</ul>
 <p>By default Claude Code creates the isolated working copy with <code>git worktree</code>. Configuring a WorktreeCreate hook replaces that default git behavior, letting you use a different version control system like SVN, Perforce, or Mercurial.</p>
 <p>Because the hook replaces the default behavior entirely, <a href="https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees"><code>.worktreeinclude</code></a> is not processed. If you need to copy local configuration files like <code>.env</code> into the new worktree, do it inside your hook script.</p>
 <p>The hook must return the path to the created worktree directory. Claude Code uses this path as the working directory for the isolated session. See <a href="#worktreecreate-output">WorktreeCreate output</a> for how each hook type returns the path.</p>
@@ -13931,7 +13971,9 @@ jq -nc --arg msg "$MSG" '{hookSpecificOutput: {hookEventName: "PostToolUse", add
     ]
   }
 }
-<div class="highlight"><pre><span></span><code>To reference the project root from a PowerShell shell-form command, write `${CLAUDE_PROJECT_DIR}` or `$env:CLAUDE_PROJECT_DIR`. Claude Code rewrites the `${CLAUDE_PROJECT_DIR}`, `${CLAUDE_PLUGIN_ROOT}`, and `${CLAUDE_PLUGIN_DATA}` placeholders in a PowerShell shell-form command to PowerShell's `${env:NAME}` form, whether the hook is defined in `settings.json`, a plugin, or a skill. PowerShell then resolves the value from the exported environment after parsing, so the placeholder works inside double-quoted strings but not inside single-quoted strings, where PowerShell never expands variables.
+<div class="highlight"><pre><span></span><code>### Reference scripts by path in PowerShell hooks
+
+To reference the project root from a PowerShell shell-form command, write `${CLAUDE_PROJECT_DIR}` or `$env:CLAUDE_PROJECT_DIR`. Claude Code rewrites the `${CLAUDE_PROJECT_DIR}`, `${CLAUDE_PLUGIN_ROOT}`, and `${CLAUDE_PLUGIN_DATA}` placeholders in a PowerShell shell-form command to PowerShell's `${env:NAME}` form, whether the hook is defined in `settings.json`, a plugin, or a skill. PowerShell then resolves the value from the exported environment after parsing, so the placeholder works inside double-quoted strings but not inside single-quoted strings, where PowerShell never expands variables.
 
 Don't write the bare `$CLAUDE_PROJECT_DIR` spelling in a PowerShell hook. PowerShell parses it as an undefined local variable and resolves it to `$null`, which leaves the script path without its project-root prefix. Claude Code doesn't rewrite that form; it logs a warning in the [debug log](#debug-hooks) instead.
 
@@ -14002,10 +14044,10 @@ The example below shows a `settings.json` hook that runs a project script with t
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

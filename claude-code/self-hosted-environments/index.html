@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
       
 
@@ -6716,7 +6716,7 @@ Use this file to discover all available pages before exploring further.</p>
 <p>When a developer starts a cloud session, the session-start UI shows an environment picker listing Anthropic-hosted environments alongside any your organization has created. If they choose yours, Anthropic's control plane places the session on your environment's queue, where a runner claims it, clones the repository the developer chose, and starts a Claude Code process on your host to run it. The runner authenticates to your git host with credentials you configure; <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#configure-git">Configure git</a> covers the options. Sessions reach your internal services from inside your network, and your git host the same way when it's internal; the traffic to Anthropic, queue polling, the session's event stream, and by default model inference, is outbound HTTPS to <code>api.anthropic.com</code>, with the short list of further hosts sessions can reach in <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#network-requirements">Network requirements</a>. Anthropic never connects into your network.</p>
 <p><img alt="Architecture diagram of a self-hosted environment: your network boundary contains a runner, two Claude Code session processes inside it, and your git host, with api.anthropic.com outside holding queue, session stream, and inference. The runner polls the queue and reaches the git host, each session process opens its own stream, inference, and git connections, and every connection is outbound from your network, with none inbound." src="https://mintcdn.com/claude-code/Y0sJ2uDoOVbOVZrQ/images/self-hosted-network-paths.svg?fit=max\&amp;auto=format\&amp;n=Y0sJ2uDoOVbOVZrQ\&amp;q=85\&amp;s=8056103fc1c5564c7f0ef219d260b99d" /></p>
 <p>The two Claude Code boxes in the diagram are session processes: one runner executing two sessions at once, up to its configured capacity. A runner serves one <a href="#key-concepts">owner</a> at a time and locks to that owner when it claims its first session, so checked-out code never mixes between owners; <a href="#runner-lifecycle">Runner lifecycle</a> covers the rule.</p>
-<p>You can start runners yourself and keep them running, or run the <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#on-demand-runners">autoscaling orchestrator</a>, a second process you host, which starts runners as sessions queue; each runner exits on its own when its work finishes. Either way, you set the environment up once, and it appears in the picker on every supported surface.</p>
+<p>You can start runners yourself and keep them running, or run the <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#on-demand-runners">autoscaling orchestrator</a>, a second process you host, which starts runners as sessions queue. Either way, you set the environment up once, and it appears in the picker on every supported surface.</p>
 <h2 id="availability-and-limitations">Availability and limitations</h2>
 <p>Check these before planning a rollout:</p>
 <ul>
@@ -6808,7 +6808,10 @@ Use this file to discover all available pages before exploring further.</p>
 <p>See <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#network-requirements">Network requirements</a> for the full egress list. The <a href="#how-self-hosted-environments-work">diagram above</a> shows these paths, apart from the optional SCM connector and the Anthropic-managed git connection.</p>
 <p>By default, model inference uses the Anthropic API. The control plane delivers the API endpoint to each session, and the session authenticates with an Anthropic-issued, session-scoped OAuth token. To send model requests to your own cloud account instead, see <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#send-model-requests-to-bedrock-or-agent-platform">Send model requests to Bedrock or Agent Platform</a>.</p>
 <p>Corporate egress proxies are supported. The runner and the optional <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#on-demand-runners">autoscaling orchestrator</a> honor the proxy and mTLS environment variables described in <a href="https://code.claude.com/docs/en/network-config.md">Network configuration</a>, such as <code>HTTPS_PROXY</code> and <code>NO_PROXY</code>; set them in each process's environment. The variables cover control-plane calls, the orchestrator's <a href="https://code.claude.com/docs/en/self-hosted-environments-reference.md#scm-connector-flags">SCM connector</a> WebSocket, and the built-in clone for HTTPS remotes, and sessions inherit them from the runner. Session streaming uses server-sent events over HTTPS, so a proxy in the path must not buffer responses.</p>
-<p>If your proxy also requires a <code>Proxy-Authorization</code> header, the runner can add it to each connection it opens to the proxy; see <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#authenticate-to-an-egress-proxy">Authenticate to an egress proxy</a>.</p>
+<ul>
+<li><strong>Proxy authentication</strong>: if your proxy also requires a <code>Proxy-Authorization</code> header, the runner can add it to each connection it opens to the proxy; see <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#authenticate-to-an-egress-proxy">Authenticate to an egress proxy</a>.</li>
+<li><strong>Long-lived responses</strong>: if a runner picks up a session but Claude never answers its first message, your proxy may be the cause. See <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#when-a-sessions-first-message-is-never-answered">A session is picked up, but Claude never answers its first message</a>.</li>
+</ul>
 <h2 id="what-stays-on-your-infrastructure">What stays on your infrastructure</h2>
 <p>Repository checkouts, build artifacts, secrets, and any files a session creates or modifies stay on the machines you provision. The conversation itself, including prompts, responses, and tool results, goes to <code>api.anthropic.com</code>, and Anthropic stores the session transcript so you can resume the session from another <a href="#availability-and-limitations">supported surface</a>. When a runner <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#send-model-requests-to-bedrock-or-agent-platform">sends model requests to Amazon Bedrock or Google Cloud's Agent Platform</a>, the conversation still goes to <code>api.anthropic.com</code> in the session's event stream.</p>
 <p>A self-hosted environment moves session execution into your network. The control plane remains Anthropic-hosted: session orchestration, queueing, and the claude.ai interface continue to run on Anthropic's infrastructure.</p>
@@ -6871,10 +6874,10 @@ Use this file to discover all available pages before exploring further.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
