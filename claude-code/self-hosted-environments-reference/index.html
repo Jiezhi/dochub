@@ -5212,34 +5212,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#pass-through-session-child-metrics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pass through session-child metrics
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Pass through session-child metrics">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#join-a-sessions-metrics-to-the-runners" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Join a session's metrics to the runner's
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#session-lifecycle-counter-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6801,34 +6773,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#pass-through-session-child-metrics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pass through session-child metrics
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Pass through session-child metrics">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#join-a-sessions-metrics-to-the-runners" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Join a session's metrics to the runner's
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#session-lifecycle-counter-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7476,7 +7420,7 @@ groups:
 </ul>
 <h4 id="alert-when-sessions-wait-for-on-demand-runners">Alert when sessions wait for on-demand runners</h4>
 <p><code>ClaudeOrchestratorSessionsWaiting</code> fires when the number of sessions waiting for a runner stays above 0 for 10 minutes. <code>ClaudeOrchestratorQueueWaitHigh</code> fires when over 1% of queue waits in the last 10 minutes exceeded 160 seconds, and that holds for 5 minutes:</p>
-<p><code>yaml theme={null}
+<p>```yaml theme={null}
 groups:
   # On-demand runners only. Needs no edit for the namespace.
   - name: claude-code-self-hosted-on-demand-capacity
@@ -7500,19 +7444,32 @@ groups:
         for: 5m
         labels: {severity: warning}
         annotations:
-          summary: "Over 1% of queue waits in the last 10 minutes exceeded 160 seconds. Check whether ClaudeOrchestratorDisconnected is firing, then claude_code_self_hosted_orchestrator_spawn_hooks_total by result and claude_code_self_hosted_orchestrator_spawn_hook_duration_seconds."</code></p>
+          summary: "Over 1% of queue waits in the last 10 minutes exceeded 160 seconds. Check whether ClaudeOrchestratorDisconnected is firing, then claude_code_self_hosted_orchestrator_spawn_hooks_total by result and claude_code_self_hosted_orchestrator_spawn_hook_duration_seconds."
+<div class="highlight"><pre><span></span><code>* **Threshold**: if some session is always waiting, raise the `&gt; 0` in `ClaudeOrchestratorSessionsWaiting` above the number you usually see
+* **`ClaudeOrchestratorDisconnected`**: keep it loaded from the [sample alert rules](#sample-alert-rules), because `ClaudeOrchestratorSessionsWaiting` stops firing about 2 minutes after the last orchestrator in the namespace disconnects
+
+### Pass through session-child metrics
+
+Each session runs in its own child process with its own OpenTelemetry metrics; at `--capacity` above one, the runner rewrites how those child metrics are exposed. Setting `OTEL_METRICS_EXPORTER=prometheus` on the runner host and `CLAUDE_CODE_ENABLE_TELEMETRY=1` in the session's environment, for example from your [wrapper script](https://code.claude.com/docs/en/self-hosted-environments-configuration.md#wrapper-scripts) or the runner's own environment, which sessions inherit, re-exposes each child's counter and gauge instruments on the runner's own `/metrics` endpoint, alongside the runner's series. The runner rewrites the child's exporter to push over OTLP to a loopback-only receiver on the health port, tags each series with `session_id` and `client_platform` labels, and evicts a session's series when that session ends. Histograms don't pass through, and a child metric whose name would collide with the runner's own prefix is dropped.
+
+At the default `--capacity 1`, the rewrite doesn't apply: the session's child binds its own Prometheus endpoint on port 9464 as usual.
+
+#### Join a session's metrics to the runner's
+
+To see what idle sessions have cost, join the runner's `claude_code_self_hosted_runner_session_idle_seconds` to Claude Code's cost metric on `ccr_session_id`. The runner's metric doesn't carry that label, so give it one with `label_replace`, as in this query:
+
+```text theme={null}
+sum by (ccr_session_id) (claude_code_cost_usage_total)
+and on (ccr_session_id)
+label_replace(
+  claude_code_self_hosted_runner_session_idle_seconds &gt; 600,
+  "ccr_session_id", "cse_$1", "session_id", "session_(.*)"
+)
+</code></pre></div></p>
+<p>The query returns one result per session idle for over ten minutes: the cost in US dollars its Claude Code process has counted so far. To join another Claude Code metric, replace <code>claude_code_cost_usage_total</code> in the query. The query works at any <code>--capacity</code>.</p>
 <ul>
-<li><strong>Threshold</strong>: if some session is always waiting, raise the <code>&gt; 0</code> in <code>ClaudeOrchestratorSessionsWaiting</code> above the number you usually see</li>
-<li><strong><code>ClaudeOrchestratorDisconnected</code></strong>: keep it loaded from the <a href="#sample-alert-rules">sample alert rules</a>, because <code>ClaudeOrchestratorSessionsWaiting</code> stops firing about 2 minutes after the last orchestrator in the namespace disconnects</li>
-</ul>
-<h3 id="pass-through-session-child-metrics">Pass through session-child metrics</h3>
-<p>Each session runs in its own child process with its own OpenTelemetry metrics; at <code>--capacity</code> above one, the runner rewrites how those child metrics are exposed. Setting <code>OTEL_METRICS_EXPORTER=prometheus</code> on the runner host and <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> in the session's environment, for example from your <a href="https://code.claude.com/docs/en/self-hosted-environments-configuration.md#wrapper-scripts">wrapper script</a> or the runner's own environment, which sessions inherit, re-exposes each child's counter and gauge instruments on the runner's own <code>/metrics</code> endpoint, alongside the runner's series. The runner rewrites the child's exporter to push over OTLP to a loopback-only receiver on the health port, tags each series with <code>session_id</code> and <code>client_platform</code> labels, and evicts a session's series when that session ends. Histograms don't pass through, and a child metric whose name would collide with the runner's own prefix is dropped.</p>
-<p>At the default <code>--capacity 1</code>, the rewrite doesn't apply: the session's child binds its own Prometheus endpoint on port 9464 as usual.</p>
-<h4 id="join-a-sessions-metrics-to-the-runners">Join a session's metrics to the runner's</h4>
-<p>To put a session's own metrics beside <code>claude_code_self_hosted_runner_session_idle_seconds</code>, join on the runner's <code>session_id</code>:</p>
-<ul>
-<li><strong>At <code>--capacity</code> above one</strong>: join directly. On the runner's <code>/metrics</code>, the session's series carry the same <code>session_id</code> as that metric, in <code>session_...</code> form.</li>
-<li><strong>At <code>--capacity 1</code></strong>: join on a converted <code>ccr_session_id</code>. By default, each Claude Code metric on port 9464 carries that label, which holds the session ID in <code>cse_...</code> form. In a new label, replace its <code>cse_</code> prefix with <code>session_</code> to get the runner's <code>session_id</code>. The metric's own <code>session_id</code> holds Claude Code's own <a href="https://code.claude.com/docs/en/monitoring-usage#standard-attributes"><code>session.id</code></a>, which matches no runner series.</li>
+<li><strong><code>session_id</code></strong>: on port 9464, that label on Claude Code metrics holds Claude Code's own <a href="https://code.claude.com/docs/en/monitoring-usage#standard-attributes"><code>session.id</code></a>, which matches no runner series. A join on it returns nothing, so join on <code>ccr_session_id</code>.</li>
+<li><strong>Claude Code metrics have no <code>ccr_session_id</code></strong>: check that <a href="https://code.claude.com/docs/en/monitoring-usage#metrics-cardinality-control"><code>OTEL_METRICS_INCLUDE_SESSION_ID</code></a> isn't set to <code>false</code></li>
 </ul>
 <h3 id="session-lifecycle-counter-semantics">Session lifecycle counter semantics</h3>
 <p>The <code>sessions_started_total</code>, <code>sessions_completed_total</code>, <code>sessions_failed_total</code>, and <code>sessions_interrupted_total</code> counters classify each session by how it ended. Every spawned session child increments <code>sessions_started_total</code> at spawn time, and exactly one of the other three increments at exit, so <code>sessions_started_total</code> minus the sum of the other three equals the number of session children currently running.</p>

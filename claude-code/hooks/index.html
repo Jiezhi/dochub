@@ -11451,7 +11451,7 @@ $text = $batch.delta -replace '\*\*', '' -replace '`', ''
 </ul>
 </blockquote>
 <p>Use <a href="#pretooluse-decision-control">PreToolUse decision control</a> to allow, deny, ask, or defer the tool call.</p>
-<p>An <a href="https://code.claude.com/docs/en/agent-sdk/hooks.md">Agent SDK callback hook</a> on <code>PreToolUse</code> that exceeds its timeout blocks the tool call, and Claude receives an error result naming the timeout.</p>
+<p>An <a href="https://code.claude.com/docs/en/agent-sdk/hooks.md#hook-timeout">Agent SDK callback hook</a> on <code>PreToolUse</code> that exceeds its timeout blocks the tool call.</p>
 <h4 id="pretooluse-input">PreToolUse input</h4>
 <p>In addition to the <a href="#common-input-fields">common input fields</a>, PreToolUse hooks receive <code>tool_name</code>, <code>tool_input</code>, and <code>tool_use_id</code>.</p>
 <p>For an <a href="#match-mcp-tools">MCP tool</a>, the input also carries <code>mcp_server</code>, an object with the server's <code>name</code> and a <code>source</code> that says where the server's definition came from. The <code>source</code> values include <code>plugin</code>, <code>sdk</code>, and configuration scopes such as <code>user</code> and <code>project</code>. <a href="https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverprovenance"><code>McpServerProvenance</code></a> in the Agent SDK reference lists them all and says how to treat one you don't recognize. Base trust decisions on <code>source</code> rather than on <code>name</code> or the <code>mcp__&lt;server&gt;__</code> tool-name prefix. The <code>mcp_server</code> field requires Claude Code v2.1.274 or later.</p>
@@ -13874,7 +13874,7 @@ This hook runs a test script after every `Write` tool call. Claude continues wor
 </ul>
 <h3 id="how-async-hooks-execute">How async hooks execute</h3>
 <p>When an async hook fires, Claude Code starts the hook process and immediately continues without waiting for it to finish. The hook receives the same JSON input via stdin as a synchronous hook.</p>
-<p>After the background process exits, Claude Code delivers the <code>additionalContext</code> and <code>systemMessage</code> fields from the hook's JSON response to Claude on the next conversation turn. Unlike a synchronous hook's <code>systemMessage</code>, neither field is shown to you.</p>
+<p>After the background process exits, Claude Code delivers the <code>additionalContext</code> and <code>systemMessage</code> fields from the hook's JSON response to Claude on the next conversation turn, except for <a href="#limitations">repeated <code>SessionStart</code> output</a>. Unlike a synchronous hook's <code>systemMessage</code>, neither field is shown to you.</p>
 <p>Print the JSON response alone on stdout or on one line of its own:</p>
 <ul>
 <li><strong>Alone on stdout</strong>: when the response is the only text on stdout, it can span several lines, such as pretty-printed <code>jq</code> output. Spanning several lines requires Claude Code v2.1.295 or later.</li>
@@ -13929,6 +13929,7 @@ jq -nc --arg msg "$MSG" '{hookSpecificOutput: {hookEventName: "PostToolUse", add
 <ul>
 <li>Hook output is delivered on the next conversation turn. If the session is idle, the response waits until the next user interaction. Exception: an <code>asyncRewake</code> hook that exits with code 2 wakes Claude immediately even when the session is idle.</li>
 <li>Each execution creates a separate background process.</li>
+<li>An async <code>SessionStart</code> hook runs every time the event fires. Claude Code skips the hook's output when the <code>additionalContext</code> and <code>systemMessage</code> text matches what Claude last received from that hook, unless a synchronous <code>SessionStart</code> hook has added other text since. Claude Code delivers the text when it changes, and again the next time the hook runs after a compaction or <code>/clear</code>. Before v2.1.295, Claude Code added the same text to the conversation again on every resume.</li>
 </ul>
 <h2 id="security-considerations">Security considerations</h2>
 <h3 id="disclaimer">Disclaimer</h3>

@@ -4435,6 +4435,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#send-and-receive-messages-between-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Send and receive messages between sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reach-files-processes-and-the-network" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4442,6 +4453,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Reach files, processes, and the network">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#read-all-settings-one-source-or-one-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read all settings, one source, or one key
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -6785,6 +6813,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#send-and-receive-messages-between-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Send and receive messages between sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#reach-files-processes-and-the-network" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6792,6 +6831,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Reach files, processes, and the network">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#read-all-settings-one-source-or-one-key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read all settings, one source, or one key
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -7122,9 +7178,9 @@ For a call that rejects, such as `$.command.run`, catch the error and test its m
 
 #### What refused calls return
 
-In the results, `&lt;reason&gt;` stands for `the session was stopped and nobody has sent input since`:
+In the results, `&lt;reason&gt;` stands for the reason the call was refused. After an interruption, that's `the session was stopped and nobody has sent input since`. For other reasons, see [Calls refused in `claude -p` runs and Agent SDK sessions](#calls-refused-in-non-interactive-runs).
 
-| Some refused calls | Result until the user's next input |
+| Some refused calls | Result |
 | :- | :- |
 | `$.prompt.submit` | Resolves with `{ drop: '&lt;reason&gt;' }` and queues no prompt |
 | `$.command.run` | Rejects with an error whose message ends with `&lt;reason&gt;` |
@@ -7133,7 +7189,7 @@ In the results, `&lt;reason&gt;` stands for `the session was stopped and nobody 
 | `$.session.send` to an [agent team](https://code.claude.com/docs/en/agent-teams.md) teammate | Resolves with `{ isDelivered: false, reason: 'Teammate "&lt;name&gt;" was not messaged: &lt;reason&gt;.' }`, where `&lt;name&gt;` is the teammate's name |
 | [`$.tool.call`](https://code.claude.com/docs/en/plugins/mods/reference#mods-api-methods) of Bash with `run_in_background: true`, Monitor, or CronCreate | Resolves with `{ deny: '&lt;tool&gt; was not run: it starts background work, a schedule or a goal, and &lt;reason&gt;' }`, where `&lt;tool&gt;` is the tool's name |
 
-Along with these `$.session.send` and `$.tool.call` results, the user can see the [`Stopped:` toast](https://code.claude.com/docs/en/plugins/mods/troubleshoot#stopped-type-a-message-to-continue).
+When one of these `$.session.send` or `$.tool.call` calls is refused after an interruption in an interactive session, the user can see the [`Stopped:` toast](https://code.claude.com/docs/en/plugins/mods/troubleshoot#stopped-type-a-message-to-continue).
 
 #### Work your mod started before the interruption
 
@@ -7150,21 +7206,39 @@ After the user stops a running turn, for example with Esc, some work your mod ha
 
 When a scheduled job comes due or a monitor raises an event before the user's next input, the user can see the [`Stopped:` toast](https://code.claude.com/docs/en/plugins/mods/troubleshoot#stopped-type-a-message-to-continue).
 
-## Send and receive messages between sessions
+### Calls refused in `claude -p` runs and Agent SDK sessions
 
-A mod can send a plain-text message to another of your sessions, to one of this session's subagents, or to a teammate in its [agent team](https://code.claude.com/docs/en/agent-teams.md). It can also observe the messages that arrive and leave.
+In a `claude -p` run or an [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview.md) session, a result such as `{ drop: 'the run reached its --max-turns limit' }` means the run refused your mod's call.
 
-To send one, call `$.session.send({ to, text })`, which makes the same delivery the SendMessage tool makes. Set `to` by who receives the message:
+A refused `$.prompt.submit` resolves with `{ drop: '&lt;reason&gt;' }`. Other refused calls, such as `$.command.run` and `$.agent.spawn`, give the results shown in [What refused calls return](#what-refused-calls-return) with the reason in place of `&lt;reason&gt;`. Find your `&lt;reason&gt;` below for what to do about it:
 
-* **Another of your sessions**: `{ sessionId }`
-* **A subagent or teammate**: `{ agentId }`, with an id from `$.agent.list()`
-* **The sender of a message you received**: the string address that message came from
+* **`the run reached its --max-turns limit`**: turns from your mod's prompts and from subagents it spawns count toward [`--max-turns`](https://code.claude.com/docs/en/cli-reference#cli-flags) or the Agent SDK's [turn limit](https://code.claude.com/docs/en/agent-sdk/configuration.md#limit-turns-and-spend). For more turns, start the run with a higher limit. If you can't, have your mod stop making the refused call. If the run takes another prompt from the user or the SDK application, the turn count resets and the run accepts calls again.
+* **`the run is past its --max-budget-usd limit`**: start the run with a higher `--max-budget-usd`, or raise the Agent SDK's [spend limit](https://code.claude.com/docs/en/agent-sdk/configuration.md#limit-turns-and-spend). If you can't, have your mod stop making the refused call. The limit applies to the run's total cost so far. That total keeps adding up when the run takes another prompt, so a retry returns the same reason.
+* **`the host has ended its input`**: for example, the SDK application ended its [streaming input](https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode.md), or stdin closed on a run started with [`--input-format stream-json`](https://code.claude.com/docs/en/cli-reference#cli-flags). The run is ending and takes no more input, so a retry returns the same reason. Have your mod stop making the refused call. If you start the run yourself, next time keep that input open until your mod has no more calls to make.
+* **`the session was stopped and nobody has sent input since`**: the run was [interrupted](#calls-and-background-work-after-the-user-interrupts-a-turn), for example with the Agent SDK's [`interrupt()`](https://code.claude.com/docs/en/agent-sdk/typescript#query-object). To make the call again after the next message from the user or the SDK application, follow [Retry a refused or dropped call](#retry-a-refused-or-dropped-call).
 
-The call resolves once the message is queued, with `{ isDelivered: true }`. When nothing was delivered, it resolves with `{ isDelivered: false, reason }`, and `reason` says why.
+### A `claude -p` run with your mod never exits
 
-This hook answers a `/ping` command, [registered as a command](#add-a-command), by asking the session whose id you type after it for a status:
+If your mod submits a prompt at the end of every turn, each prompt starts another turn. Without [`--max-turns`](https://code.claude.com/docs/en/cli-reference#cli-flags) or `--max-budget-usd`, a `claude -p` run that loads the mod goes on until you stop it yourself.
 
-```javascript theme={null}
+To make the run end on its own, add either flag to the command in your shell. If other people start the run, have your mod stop submitting prompts once its work is done. This command adds `--max-turns`:
+
+```bash theme={null}
+claude -p "find the TODOs" --max-turns 5
+</code></pre></div></p>
+<p>Once the run reaches that limit, the mod's next prompt is <a href="#calls-refused-in-non-interactive-runs">refused</a> instead of starting a turn, and the run ends.</p>
+<p>If the run still goes past the limit, run <code>claude --version</code> in your shell, and <a href="https://code.claude.com/docs/en/setup.md#update-claude-code">update Claude Code</a> if yours is earlier than v2.1.304. The mod's prompts are refused at the limit from v2.1.299. If your mod spawns subagents, their turns count toward <code>--max-turns</code> from v2.1.304.</p>
+<h2 id="send-and-receive-messages-between-sessions">Send and receive messages between sessions</h2>
+<p>A mod can send a plain-text message to another of your sessions, to one of this session's subagents, or to a teammate in its <a href="https://code.claude.com/docs/en/agent-teams.md">agent team</a>. It can also observe the messages that arrive and leave.</p>
+<p>To send one, call <code>$.session.send({ to, text })</code>, which makes the same delivery the SendMessage tool makes. Set <code>to</code> by who receives the message:</p>
+<ul>
+<li><strong>Another of your sessions</strong>: <code>{ sessionId }</code></li>
+<li><strong>A subagent or teammate</strong>: <code>{ agentId }</code>, with an id from <code>$.agent.list()</code></li>
+<li><strong>The sender of a message you received</strong>: the string address that message came from</li>
+</ul>
+<p>The call resolves once the message is queued, with <code>{ isDelivered: true }</code>. When nothing was delivered, it resolves with <code>{ isDelivered: false, reason }</code>, and <code>reason</code> says why.</p>
+<p>This hook answers a <code>/ping</code> command, <a href="#add-a-command">registered as a command</a>, by asking the session whose id you type after it for a status:</p>
+<p><code>javascript theme={null}
 on('command.run', { command: 'ping' }, async ($, e) =&gt; {
   // e.args is the session id typed after /ping
   const sent = await $.session.send({ to: { sessionId: e.args }, text: 'Status? One line.' })
@@ -7172,8 +7246,7 @@ on('command.run', { command: 'ping' }, async ($, e) =&gt; {
   if (!sent.isDelivered) $.ui.toast('Not delivered: ' + sent.reason)
   // An empty result prints nothing in this session's transcript
   return {}
-})
-</code></pre></div></p>
+})</code></p>
 <p>When the message is queued, nothing appears in your session, and the other session's Claude reads <code>Status? One line.</code> When nothing was delivered, a toast notification gives the reason.</p>
 <p><code>session.receive</code> and <code>session.send</code> let a mod observe the messages. Return <code>next(e)</code> from both to pass each message through unchanged:</p>
 <table>
@@ -7231,7 +7304,7 @@ on('command.run', { command: 'ping' }, async ($, e) =&gt; {
 </tr>
 <tr>
 <td style="text-align: left;"><code>$.settings</code></td>
-<td style="text-align: left;"><code>read</code> what the settings files and managed policy hold</td>
+<td style="text-align: left;"><code>read()</code> resolves to all settings, merged into one object. With <code>{ source }</code> or <code>{ key }</code>, it resolves to <a href="#read-one-source-or-one-key">one source's settings or one key's value</a> instead.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>$.session</code></td>
@@ -7256,6 +7329,43 @@ on('command.run', { command: 'ping' }, async ($, e) =&gt; {
 <li><strong><code>$.process.spawn started, and a plugin withheld its result:</code></strong>: the refusing mod hadn't read the command's output to the end. Claude Code stops the command if it's still running.</li>
 <li><strong><code>$.process.spawn ran, and a plugin withheld its result:</code></strong>: the refusing mod had read the command's output to the end, so the command had exited</li>
 </ul>
+<h3 id="read-all-settings-one-source-or-one-key">Read all settings, one source, or one key</h3>
+<p><code>$.settings.read()</code> resolves to one object that holds the settings from all sources in use, merged by <a href="https://code.claude.com/docs/en/settings.md#settings-precedence">precedence</a>. Pass <code>{ source }</code> to read one source instead, <code>{ key }</code> to read one key, or both:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Call</th>
+<th style="text-align: left;">Resolves to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>$.settings.read()</code></td>
+<td style="text-align: left;">The merged settings as one object. Its top-level keys are those of a <code>settings.json</code> file, such as <code>permissions</code> and <code>hooks</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$.settings.read({ source: 'policy' })</code></td>
+<td style="text-align: left;">That one source's settings as one object, or <code>{}</code> when that source holds no settings</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$.settings.read({ key: 'spinnerTipsEnabled' })</code></td>
+<td style="text-align: left;">That key's value in the merged settings, or <code>undefined</code> when the key isn't set</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>$.settings.read({ key: 'spinnerTipsEnabled', source: 'user' })</code></td>
+<td style="text-align: left;">That key's value in that one source, or <code>undefined</code> when that source doesn't set it</td>
+</tr>
+</tbody>
+</table>
+<p>For <code>source</code>, pass the name of the one settings source to read:</p>
+<ul>
+<li><strong><code>user</code></strong>: <code>~/.claude/settings.json</code></li>
+<li><strong><code>project</code></strong>: <code>.claude/settings.json</code></li>
+<li><strong><code>local</code></strong>: <code>.claude/settings.local.json</code></li>
+<li><strong><code>flag</code></strong>: what you pass with <code>--settings</code>, and the SDK's inline settings</li>
+<li><strong><code>policy</code></strong>: <a href="https://code.claude.com/docs/en/managed-settings.md#how-claude-code-combines-managed-sources">managed settings</a></li>
+</ul>
+<p>For <code>key</code>, pass the exact name of one top-level key, not a dotted path into a nested object. The <code>key</code> argument requires Claude Code v2.1.304 or later.</p>
 <h2 id="next-steps">Next steps</h2>
 <ul>
 <li><a href="https://code.claude.com/docs/en/plugins/mods/events.md">React to events</a>: hook tool calls, prompts, and turns</li>

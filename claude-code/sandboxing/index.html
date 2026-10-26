@@ -5130,6 +5130,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#commands-are-refused-with-sandbox-is-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands are refused with Sandbox is required
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sandbox-fails-with-sandbox-settings-are-overridden-by-a-higher-priority-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7096,6 +7107,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#commands-are-refused-with-sandbox-is-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands are refused with Sandbox is required
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sandbox-fails-with-sandbox-settings-are-overridden-by-a-higher-priority-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7411,6 +7433,7 @@ sudo systemctl reload apparmor
 <li><strong>An ask rule for the parameter</strong>: add an <a href="https://code.claude.com/docs/en/permissions.md#match-by-input-parameter">ask rule</a> for <code>Bash(dangerouslyDisableSandbox:true)</code> to be prompted on Bash retries. You get the prompt in auto mode and <code>bypassPermissions</code> mode too, and the rule takes precedence over a matching allow rule</li>
 <li><strong><a href="https://code.claude.com/docs/en/settings-reference#permissions-blockreadsoutsideworkingdirectories"><code>permissions.blockReadsOutsideWorkingDirectories</code></a></strong>: <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">Actions no mode auto-approves</a> covers the retries that prompt while it's on</li>
 </ul>
+<p>While commands are refused with a <a href="#commands-refused-with-sandbox-is-required"><code>Sandbox is required</code> message</a>, Claude Code ignores the <code>dangerouslyDisableSandbox</code> parameter and refuses the retry too.</p>
 <h4 id="turn-off-the-retry-with-strict-sandbox-mode">Turn off the retry with strict sandbox mode</h4>
 <p>You can disable the unsandboxed retry by setting <code>"allowUnsandboxedCommands": false</code> in your <a href="https://code.claude.com/docs/en/settings-reference.md#sandbox-settings">sandbox settings</a>. With the retry disabled, Claude Code ignores the <code>dangerouslyDisableSandbox</code> parameter. While the sandbox is running, commands Claude runs are then sandboxed unless they match an <code>excludedCommands</code> entry. To keep Claude Code from running commands unsandboxed when the sandbox can't start, also set <a href="https://code.claude.com/docs/en/settings-reference#sandbox-failifunavailable"><code>failIfUnavailable</code></a>. The <code>/sandbox</code> <strong>Overrides</strong> tab shows this setting as <strong>Strict sandbox mode</strong>.</p>
 <p>A <code>false</code> in your user settings, <code>--settings</code>, or managed settings holds even when a project's settings set <code>true</code>. A <code>false</code> in your user settings doesn't make the sandbox admin-required, so a project's other sandbox settings still apply. Before v2.1.285, a project's <code>true</code> overrode a <code>false</code> in your user settings.</p>
@@ -8082,9 +8105,16 @@ In an unprivileged container, [bubblewrap](#os-level-enforcement) can't mount a 
 
 ### 0-byte read-only files appear at `.claude` settings paths, and "Yes, and don't ask again" doesn't save
 
-On Linux and WSL2, the sandbox holds a write denial on a file that doesn't exist yet by creating a 0-byte read-only placeholder there while a sandboxed command runs. The sandbox removes the placeholder afterward. If a session is killed before that cleanup runs, for example by SIGKILL, the placeholders stay behind. Later sessions bind the placeholders read-only again on every start, so a settings write such as saving a permission choice fails at a path where a placeholder remains.
+On Linux and WSL2, the sandbox holds a write denial on a file that doesn't exist yet by creating a 0-byte read-only placeholder there while a sandboxed command runs. The sandbox removes the placeholder afterward.
 
-Run `claude doctor` in your terminal to list the leftover placeholder files. The [`Sandbox mask files left behind at write-deny paths`](https://code.claude.com/docs/en/errors#stale-sandbox-mask-files-left-by-a-killed-session) warning names some of them and counts the rest. Delete each file with `rm` while no other Claude Code session is running in that project. Before v2.1.257, Claude Code left the same placeholders behind without flagging them.
+A placeholder stays behind in cases such as these:
+
+* The session is killed before that cleanup runs, for example by SIGKILL
+* The session exits while a sandboxed command is still running, such as a background command
+
+Later sessions bind the placeholders read-only again on every start, so a settings write such as saving a permission choice fails at a path where a placeholder remains.
+
+Run `claude doctor` in your terminal to list the leftover placeholder files. The [`Sandbox mask files left behind at write-deny paths`](https://code.claude.com/docs/en/errors#stale-sandbox-mask-files-left-by-a-killed-session) warning names some of them and counts the rest. Delete each file with `rm` while no other Claude Code session is running in that project. Before v2.1.257, Claude Code left the same placeholders behind when a session was killed, without flagging them.
 
 ### `git` over SSH fails with the sandbox on
 
@@ -8170,6 +8200,19 @@ Add the IP address the name resolves to alongside the hostname in `allowedDomain
 </code></pre></div></p>
 <p>An IP address entry with no port lets sandboxed commands reach every service listening on that address.</p>
 <p>Before v2.1.284, the proxy connected to whatever address an allowed hostname resolved to.</p>
+<h3 id="commands-are-refused-with-sandbox-is-required">Commands are refused with <code>Sandbox is required</code></h3>
+<p>If you require the sandbox with <a href="https://code.claude.com/docs/en/settings-reference#sandbox-failifunavailable"><code>sandbox.failIfUnavailable</code></a> and it fails in one of these ways after Claude Code starts, each sandboxed command Claude runs is refused with the message shown. The session keeps running, and the refused command doesn't run unsandboxed:</p>
+<ul>
+<li><strong><code>Sandbox is required but failed to initialize: &lt;reason&gt;</code></strong>: Claude Code started, but the sandbox then failed to initialize. Take the step the message gives: <code>Restart to retry.</code> or <code>Fix the sandbox settings to retry</code>.</li>
+<li><strong><code>Sandbox is required (sandbox.failIfUnavailable) and stopped being available in this session: &lt;reason&gt;</code></strong>: on Linux or WSL2, the sandbox started and Claude Code then found a dependency missing. Fix what the reason names, such as <a href="#set-up-linux-and-wsl2">installing a missing dependency</a>, then restart Claude Code.</li>
+</ul>
+<p>Excluded commands and commands you type yourself keep running, and Claude can't retry a refused command unsandboxed:</p>
+<ul>
+<li><strong>Excluded commands</strong>: commands that match an <a href="#run-commands-outside-the-sandbox-with-excludedcommands"><code>excludedCommands</code></a> entry keep running outside the sandbox. When one writes to a <a href="https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-allowwrite"><code>filesystem.allowWrite</code></a> path outside your working directory, that write goes through the regular permission flow. Under an <a href="#repository-settings-under-an-admin-required-sandbox">admin-required sandbox</a>, Claude Code ignores entries from the repository's settings</li>
+<li><strong>Commands you type at the <a href="https://code.claude.com/docs/en/interactive-mode#shell-mode-with-prefix"><code>!</code> shell-mode prompt</a></strong>: keep running outside the sandbox. In a <a href="https://code.claude.com/docs/en/agent-view.md">background session</a>, they're refused too</li>
+<li><strong>Unsandboxed retries</strong>: Claude Code ignores the <code>dangerouslyDisableSandbox</code> parameter of an <a href="#the-unsandboxed-retry-escape-hatch">unsandboxed retry</a></li>
+</ul>
+<p>In a Linux session with <code>CLAUDE_CODE_SUBPROCESS_ENV_SCRUB</code> set, every command runs sandboxed, so excluded commands and commands you type are refused too.</p>
 <h3 id="sandbox-fails-with-sandbox-settings-are-overridden-by-a-higher-priority-configuration"><code>/sandbox</code> fails with <code>Sandbox settings are overridden by a higher-priority configuration</code></h3>
 <p><code>/sandbox</code> prints <code>Error: Sandbox settings are overridden by a higher-priority configuration and cannot be changed locally.</code> instead of opening its panel when a higher <a href="https://code.claude.com/docs/en/settings.md#settings-precedence">settings level</a> sets <code>sandbox.enabled</code>, <code>sandbox.autoAllowBashIfSandboxed</code>, or <code>sandbox.allowUnsandboxedCommands</code>. The panel saves your choices to <code>.claude/settings.local.json</code>, and a value saved there can't override those levels.</p>
 <p>Managed settings and <code>--settings</code> rank above local settings. To see which of them this session loaded, run <code>/status</code> and read the <code>Setting sources</code> line:</p>
