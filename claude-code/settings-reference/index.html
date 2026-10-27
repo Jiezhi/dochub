@@ -12949,13 +12949,13 @@ List additional XPC and Mach service names the macOS sandbox may look up. Tools 
 * **Type**: array of strings, each a service name; a single trailing `*` matches a prefix, and `"*"` alone matches every service
 * **Default**: unset
 
-This allows every service under the `com.apple.coresimulator.` prefix:
+This allows every service under the `com.apple.CoreSimulator.` prefix:
 
 ```json settings.json theme={null}
 {
   "sandbox": {
     "network": {
-      "allowMachLookup": ["com.apple.coresimulator.*"]
+      "allowMachLookup": ["com.apple.CoreSimulator.*"]
     }
   }
 }
@@ -15352,11 +15352,11 @@ This example symlinks `node_modules` and `.cache` from the main repository into 
 <li><strong>Type</strong>: array of strings, directory paths relative to the repository root</li>
 <li><strong>Default</strong>: unset, so each worktree checks out the whole tree</li>
 </ul>
-<p>This example checks out only <code>packages/my-app</code> and <code>shared/utils</code>, plus root-level files, in each worktree:</p>
+<p>Include <code>.claude</code> in the list so that each worktree also has the repository's <code>.claude/settings.json</code> and <code>.claude/rules/</code>. This example checks out only <code>.claude</code>, <code>packages/my-app</code>, and <code>shared/utils</code>, plus root-level files, in each worktree:</p>
 <p>```json settings.json theme={null}
 {
   "worktree": {
-    "sparsePaths": ["packages/my-app", "shared/utils"]
+    "sparsePaths": [".claude", "packages/my-app", "shared/utils"]
   }
 }
 <div class="highlight"><pre><span></span><code>While a sparse worktree exists, git enables `extensions.worktreeConfig` in the repository's shared `.git/config`.
@@ -16033,7 +16033,11 @@ Reject the `--plugin-dir`, `--plugin-url`, `--agents`, and `--mcp-config` CLI fl
 }
 </code></pre></div></p>
 <p>Claude Code still accepts a <code>--mcp-config</code> whose servers are all in-process <code>type: "sdk"</code> entries, so the Agent SDK and VS Code extension keep working. Users can still add servers with <code>claude mcp add</code> or a <code>.mcp.json</code> file; for per-server control, set <a href="https://code.claude.com/docs/en/managed-mcp"><code>allowedMcpServers</code></a> as well. Requires Claude Code v2.1.193 or later.</p>
-<p>The same check covers plugin folders named in the <a href="https://code.claude.com/docs/en/env-vars#variables"><code>CLAUDE_CODE_PLUGIN_DIRS</code></a> environment variable, which requires Claude Code v2.1.280 or later. When the variable names a folder, Claude Code exits with the same error, and the error says to unset the variable.</p>
+<p><code>disableSideloadFlags</code> also rejects plugin folders from these sources:</p>
+<ul>
+<li><strong>The <a href="https://code.claude.com/docs/en/env-vars#variables"><code>CLAUDE_CODE_PLUGIN_DIRS</code></a> environment variable</strong>: when the variable names a plugin folder, Claude Code exits at startup with an error that names the variable and says to unset it. Requires Claude Code v2.1.280 or later</li>
+<li><strong>The Agent SDK <a href="https://code.claude.com/docs/en/agent-sdk/typescript#load-more-plugin-folders-with-addplugins"><code>addPlugins</code></a> option</strong>: when an application passes plugin folders to <code>reloadPlugins()</code> in <code>addPlugins</code>, that call fails with an error. The session keeps running with the plugins it already had. Requires Claude Code v2.1.301 or later</li>
+</ul>
 <p>In cloud sessions, Claude Code also ignores server-delivered mid-session MCP updates, the path behind cloud session configuration and SDK <code>setMcpServers()</code> calls that reach those sessions. In-process <code>type: "sdk"</code> entries and a Claude Tag session's Slack tools stay exempt there too. Before v2.1.268, both this drop and the startup drop also removed a Claude Tag session's Slack tools. Before v2.1.239, a server-delivered <code>--mcp-config</code> blocked a cloud session from starting.</p>
 <p>The desktop app manages some plugins itself, including plugins synced from claude.ai and plugins your organization deploys through the app. If you deploy this key to a device through MDM, OS-level policy, or a managed settings file, the desktop app doesn't pass those plugins to the following sessions on that device:</p>
 <ul>

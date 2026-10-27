@@ -3623,6 +3623,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mcp-server-rejected-the-elicitation-capability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP server rejected the elicitation capability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mcp-permission-prompt-tool-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9049,6 +9060,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mcp-server-rejected-the-elicitation-capability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP server rejected the elicitation capability
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mcp-permission-prompt-tool-not-found" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10824,6 +10846,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;"><a href="#server-rejected-the-authorization-header-minted-by-the-configured-headershelper">Command-line errors</a></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>This server (Java MCP SDK 0.17.0 or older) rejected Claude Code's elicitation capability</code></td>
+<td style="text-align: left;"><a href="#mcp-server-rejected-the-elicitation-capability">Command-line errors</a></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>Error: MCP tool &lt;name&gt; (passed via --permission-prompt-tool) not found</code></td>
 <td style="text-align: left;"><a href="#mcp-permission-prompt-tool-not-found">Command-line errors</a></td>
 </tr>
@@ -11345,7 +11371,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>kept &lt;id&gt; — its worktree is still at &lt;path&gt;</code></td>
-<td style="text-align: left;"><a href="#worktree-has-commits-that-are-not-pushed-anywhere">Background session errors</a></td>
+<td style="text-align: left;"><a href="#worktree-has-commits-that-are-not-pushed-anywhere">Background session errors</a> if the message's next line mentions unpushed commits, otherwise <a href="https://code.claude.com/docs/en/agent-view.md#what-deleting-a-session-removes">What deleting a session removes</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>kept &lt;id&gt; — &lt;n&gt; unpushed commits on &lt;branch&gt;</code></td>
@@ -14134,6 +14160,30 @@ Server rejected the Authorization header minted by the configured headersHelper 
 <li>After fixing the helper or its credential source, select the server in <code>/mcp</code> and choose <strong>Reconnect</strong></li>
 </ul>
 <p>Before v2.1.248, Claude Code ran OAuth discovery for a server whose helper supplied the <code>Authorization</code> header. That discovery could fail with <code>Incompatible auth server: does not support dynamic client registration</code> instead of reporting the rejected credential.</p>
+<h3 id="mcp-server-rejected-the-elicitation-capability">MCP server rejected the elicitation capability</h3>
+<p>An MCP server built on Java MCP SDK 0.11.0 through 0.17.0 refused the connection. Those SDK versions can't parse the <code>form</code> and <code>url</code> <a href="https://code.claude.com/docs/en/mcp.md#elicitation-modes-claude-code-declares">elicitation modes</a> that Claude Code declares in its handshake. <code>claude mcp list</code> shows the server as failed with this message in place of the server's own error:</p>
+<p>```text theme={null}
+This server (Java MCP SDK 0.17.0 or older) rejected Claude Code's elicitation capability. Set "bareElicitationCapability": true for it, or upgrade to Java MCP SDK 0.17.1+ (Spring AI 1.0.7+ or 1.1.6+).
+<div class="highlight"><pre><span></span><code>**What to do:**
+
+* Upgrade the server to Java MCP SDK 0.17.1 or later, or to one of the Spring AI releases the message names
+* Or add `"bareElicitationCapability": true` to that server's entry in your MCP configuration, then restart Claude Code. The field is accepted on stdio, `sse`, `http`, and `ws` entries and requires Claude Code v2.1.281 or later
+
+This `.mcp.json` entry sets the field for one HTTP server:
+
+```json theme={null}
+{
+  "mcpServers": {
+    "inventory": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "bareElicitationCapability": true
+    }
+  }
+}
+</code></pre></div></p>
+<p>After the restart, <code>/mcp</code> shows the server as connected. Claude Code declares form mode only to that server, so remove the field once you upgrade it.</p>
+<p>A server can also fail with its own error text, such as one containing <code>Unrecognized field "form"</code>. The same fixes apply.</p>
 <h3 id="mcp-permission-prompt-tool-not-found">MCP permission prompt tool not found</h3>
 <p>The tool you passed to <a href="https://code.claude.com/docs/en/cli-reference#cli-flags"><code>--permission-prompt-tool</code></a> wasn't among the connected MCP tools when the run first needed a permission decision, either because its server never connected or because no connected server exposes a tool by that name. Claude Code still sends your prompt: the <a href="https://code.claude.com/docs/en/headless.md">non-interactive</a> run exits with this error, and exit code 1, on the first tool call, so it produces no answer even though the request was made. Before the first prompt, Claude Code waits up to the per-server connection timeout of 30 seconds set by <a href="https://code.claude.com/docs/en/env-vars"><code>MCP_TIMEOUT</code></a> for that server to connect. Before v2.1.206, startup didn't wait for the server to finish connecting, so a slow-starting but healthy server produced this error too.</p>
 <p>```text theme={null}
@@ -15446,11 +15496,11 @@ kept 7c5dcf5d — its worktree is still at “/home/you/project/.claude/worktree
 <p><strong>What to do:</strong></p>
 <ul>
 <li>To keep the commits, push the worktree's branch, or merge it into the default branch checked out in your main checkout, then delete the session again</li>
-<li>To discard the commits, run the <code>claude rm &lt;id&gt; --discard-unpushed</code> command the message printed, or press <code>Ctrl+X</code> twice on the session's row in agent view again. This removes the session and the worktree along with its branch, the unpushed commits, and any uncommitted changes. If the worktree has gained a commit since the refusal, Claude Code keeps it again and shows the updated state</li>
+<li>To discard the commits, run the <code>claude rm &lt;id&gt; --discard-unpushed</code> command the message printed, or press <code>Ctrl+X</code> twice on the session's row in agent view again. This removes the session and the worktree along with its branch, the unpushed commits, and any uncommitted changes. If the delete is refused again, follow the new message.</li>
 <li>When the message says the worktree is also recorded by another finished session, deleting again doesn't discard it: push the commits, then delete the session again</li>
 </ul>
 <p>Before v2.1.268, <code>claude rm</code> put the commit summary on the <code>kept</code> line itself. When <code>claude rm</code> couldn't summarize the commits, the <code>kept</code> line read <code>worktree has commits that are not pushed anywhere</code> in place of the summary.</p>
-<p>Before v2.1.260, the message didn't name the branch or the commits, and deleting again was refused the same way: deleting the session without pushing meant removing the worktree yourself with <code>git worktree remove --force &lt;path&gt;</code>, then running <code>claude rm &lt;id&gt;</code> again.</p>
+<p>Before v2.1.260, the message didn't name the branch or commits, and there was no discard route. You can still delete the session, losing uncommitted changes but keeping the branch and commits. Run <code>git worktree remove --force --force &lt;path&gt;</code> with the path the refusal printed, then <code>claude rm &lt;id&gt;</code>. Git needs <code>--force</code> twice for a locked worktree.</p>
 <p>Before v2.1.248, the default branch checked out in your main checkout didn't count: a branch you had already merged there still triggered this refusal until its commits reached a remote.</p>
 <h3 id="terminal-host-process-died">Terminal host process died</h3>
 <p>Each <a href="https://code.claude.com/docs/en/agent-view.md">background session's</a> terminal runs in a host process under the background service, and that process died while the service still held its connection, so the session couldn't be reached.</p>

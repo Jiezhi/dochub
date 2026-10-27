@@ -7817,10 +7817,25 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Keep the tree valid</strong>: don't give that <code>Box</code>, or any <code>Box</code> around it, a <code>width</code>, <code>height</code>, <code>minWidth</code>, <code>minHeight</code>, <code>position</code>, <code>top</code>, <code>left</code>, <code>right</code>, <code>bottom</code>, <code>display</code>, or <code>overflow</code> prop</li>
 </ul>
 <p>To find that mod, <a href="#read-the-debug-log">write a debug log</a> and search it for <code>answered ui.render without next()</code>. A line such as <code>other-mod (user) answered ui.render without next()</code> names a mod that returned its tree without calling <code>next(e)</code>. It doesn't name the <a href="https://code.claude.com/docs/en/plugins/mods/reference.md#render-sites">render site</a>, so a pane-only mod can appear too. A mod that calls <code>next(e)</code> and drops the result gets no line, so check the hooks before yours too.</p>
-<p>After the change, you see nothing in the band if any of the mods returns a tree that doesn't validate. To read the reason, look for a <code>ui.render (AbovePrompt) refused:</code> line in the transcript of a <code>--plugin-dir</code> session, or search the debug log for <code>does not validate</code>. With several mods in the band, neither line names a mod, so check each mod's tree.</p>
+<p>A mod's band is also missing when the tree its own hook returned doesn't validate, and the other mods' bands stay. To find which mod and why, <a href="#read-the-debug-log">write a debug log</a> and search it for <a href="#a-pane-or-band-is-empty"><code>ui.render hook skipped</code></a>.</p>
 <h3 id="a-pane-or-band-is-empty-or-shows-claude-codes-usual-content">A pane or band is empty or shows Claude Code's usual content</h3>
-<p>The <a href="https://code.claude.com/docs/en/plugins/mods/interface.md#build-a-tree-from-elements">tree</a> your hook returned didn't validate. With <code>--plugin-dir</code>, the transcript says <code>ui.render (Pane) refused:</code> with the reason, as in <code>first-mod: ui.render (Pane) refused: Box prop "flexDirection" must be one of row, column, row-reverse, column-reverse; the engine drew its own</code>. The debug log has <code>a hook returned a tree that does not validate</code> with the same reason.</p>
-<p>Read the reason on that line. Common causes are a prop the element doesn't take and an element the app doesn't have.</p>
+<p>The <a href="https://code.claude.com/docs/en/plugins/mods/interface.md#build-a-tree-from-elements">tree</a> your hook returned didn't validate. A <a href="#hook-skipped"><code>hook skipped</code></a> line <a href="#find-out-why-a-mod-does-nothing">in the transcript or the debug log</a> names your mod and the reason, as in this one for a <code>Box</code> in a pane:</p>
+<p>```text theme={null}
+first-mod: ui.render hook skipped: returned the wrong shape (a tree Pane refuses: Box prop "flexDirection" must be one of row, column, row-reverse, column-reverse)
+<div class="highlight"><pre><span></span><code>Fix what the reason names. If the reason is cut short, [write a debug log](#read-the-debug-log) and search it for `a hook returned a tree that does not validate` to read the rest.
+
+If the line instead says `refused:` right after the site's name, as in `ui.render (Pane) refused:`, see [A `ui.render` line says `refused`](#ui-render-refused).
+
+### A `ui.render` line says `refused`
+
+`ui.render (&lt;site&gt;) refused:`, or `ui.render (&lt;site&gt;): the chain settled on a tree that does not validate` in the [debug log](#read-the-debug-log), means the [tree](https://code.claude.com/docs/en/plugins/mods/interface.md#build-a-tree-from-elements) at that site exceeds a [size limit](https://code.claude.com/docs/en/plugins/mods/reference.md#limits). Either line names the [render site](https://code.claude.com/docs/en/plugins/mods/reference.md#render-sites) and then the reason, and the reason names the limit.
+
+Change the mods that draw at that site so their [`ui.render`](https://code.claude.com/docs/en/plugins/mods/reference#interface) hooks return smaller trees, or ask their authors to. If the transcript line starts with `hooks`, more than one loaded mod has a `ui.render` hook for that site, so check each of those mods' trees. For several mods whose bands above the prompt nest into a tree more than 32 levels deep, the line reads:
+
+```text theme={null}
+hooks: ui.render (AbovePrompt) refused: deeper than 32; nothing was drawn
+</code></pre></div></p>
+<p>Before v2.1.307, a <code>refused:</code> line for any site reported any tree that didn't validate, and for <code>Pane</code> and <code>AbovePrompt</code> it ended <code>; the engine drew its own</code>. On those releases, fix what the reason names.</p>
 <h3 id="needs-a-key-is-drawn-twice-or-key-each-once"><code>needs a key</code>, <code>is drawn twice</code>, or <code>key each once</code></h3>
 <p>An element in the tree your <code>ui.render</code> hook returns has no valid <a href="https://code.claude.com/docs/en/plugins/mods/interface#which-controls-need-a-key"><code>key</code></a>, or two elements share one. Find the message you got:</p>
 <ul>
@@ -7947,7 +7962,7 @@ tail -f ./mod-debug.log | grep first-mod
 <p>A mod that loaded has a line that names it and lists the events it handles. A mod loaded with <code>--plugin-dir</code> appears under its name followed by <code>@inline</code>:</p>
 <p><code>text theme={null}
 hooks module first-mod@inline loaded (worker, environment 2, tier user); events: session.start,tool.call,command.run,ui.render</code></p>
-<p>A drawing that didn't validate counts as a refused result and gets a line too. To write your own lines in the log, call <a href="https://code.claude.com/docs/en/plugins/mods/api#show-something-without-starting-a-turn"><code>$.ui.log</code></a> with a second argument, as in <code>$.ui.log('message', { to: 'debug' })</code>. Without the second argument, <code>$.ui.log</code> adds a dim line to the transcript.</p>
+<p>To write your own lines in the log, call <a href="https://code.claude.com/docs/en/plugins/mods/api#show-something-without-starting-a-turn"><code>$.ui.log</code></a> with a second argument, as in <code>$.ui.log('message', { to: 'debug' })</code>. Without the second argument, <code>$.ui.log</code> adds a dim line to the transcript.</p>
 <p>While you edit a mod loaded with <code>--plugin-dir</code>, the transcript shows a line for each reload that names the mod and lists its hooks. If a save breaks the module, the line says <code>reload failed, the previous version stays loaded:</code> with the reason, and the last working version keeps running until Claude Code next reloads plugins, such as when you run <code>/reload-plugins</code>.</p>
 <h2 id="next-steps">Next steps</h2>
 <ul>

@@ -582,6 +582,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#handle-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handle errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#return-images-and-resources" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -638,43 +649,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#example-unit-converter" class="md-nav__link">
+  <a href="#return-structured-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example: unit converter
+        Return structured data
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#zenum-in-typescript-becomes-an-enum-constraint-in-json-schema" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        z.enum() in TypeScript becomes an "enum" constraint in JSON Schema.
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-dict-schema-has-no-equivalent-so-full-json-schema-is-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The dict schema has no equivalent, so full JSON Schema is required.
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="The dict schema has no equivalent, so full JSON Schema is required.">
-      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
@@ -6723,6 +6706,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#handle-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Handle errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#return-images-and-resources" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6779,43 +6773,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#example-unit-converter" class="md-nav__link">
+  <a href="#return-structured-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Example: unit converter
+        Return structured data
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#zenum-in-typescript-becomes-an-enum-constraint-in-json-schema" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        z.enum() in TypeScript becomes an "enum" constraint in JSON Schema.
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-dict-schema-has-no-equivalent-so-full-json-schema-is-required" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The dict schema has no equivalent, so full JSON Schema is required.
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="The dict schema has no equivalent, so full JSON Schema is required.">
-      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
@@ -6884,6 +6850,10 @@ Use this file to discover all available pages before exploring further.</p>
 <tr>
 <td style="text-align: left;">Pre-approve a tool</td>
 <td style="text-align: left;">Add to your allowed tools. See <a href="#configure-allowed-tools">Configure allowed tools</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Require approval for calls to a tool, or block the tool</td>
+<td style="text-align: left;">In the TypeScript SDK, add a <code>permission_policy</code> for the tool to the config object that <code>createSdkMcpServer()</code> returns. See <a href="#require-approval-for-specific-tools">Require approval for specific tools</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;">Remove a built-in tool from Claude's context</td>
@@ -7172,7 +7142,7 @@ const weatherServer = createSdkMcpServer({
 | Field | Default | Meaning |
 | :- | :- | :- |
 | `readOnlyHint` | `false` | Tool does not modify its environment. Controls whether the tool can be called in parallel with other read-only tools. |
-| `destructiveHint` | `true` | Tool may perform destructive updates. Informational only. |
+| `destructiveHint` | `true` | Tool may perform destructive updates. Set it to `true` explicitly on any tool you [mark `always_ask`](#require-approval-for-specific-tools). |
 | `idempotentHint` | `false` | Repeated calls with the same arguments have no additional effect. Informational only. |
 | `openWorldHint` | `true` | Tool reaches systems outside your process. Informational only. |
 
@@ -7224,27 +7194,58 @@ The `tools` option and the allowed/disallowed lists affect two layers: availabil
 
 To remove a built-in entirely, omit it from `tools` or list its bare name in `disallowedTools` (Python: `disallowed_tools`); both keep the tool out of context so Claude never attempts it. A scoped `disallowedTools` rule blocks matching calls but leaves the tool visible, so Claude may waste a turn trying it. See [Configure permissions](https://code.claude.com/docs/en/agent-sdk/permissions.md) for the full evaluation order.
 
-## Handle errors
+### Require approval for specific tools
 
-A handler error doesn't stop the agent loop. The SDK's in-process MCP server catches uncaught exceptions and returns them as error results, so how you report an error determines what Claude reads, not whether the query fails:
+Set a tool's `permission_policy` to `always_ask`, and `allowedTools` stops approving that tool's calls, so they can reach your [`canUseTool`](https://code.claude.com/docs/en/agent-sdk/user-input) callback even though the tool is listed. Set `always_deny` instead, and [a call to the tool is denied](https://code.claude.com/docs/en/agent-sdk/permissions.md#how-permissions-are-evaluated), but a [mod](https://code.claude.com/docs/en/plugins/mods/overview.md) in a plugin you load [can still approve it](https://code.claude.com/docs/en/permissions.md#precedence-among-rules-hooks-and-mods). The field is TypeScript-only and requires Agent SDK v0.3.301 or later.
 
-| What happens | Result |
-| :- | :- |
-| Handler throws an uncaught exception | The MCP server converts it to an error result carrying the raw exception message. Claude sees that message, and the agent loop continues. |
-| Handler catches the error and returns `isError: true` (TS) / `"is_error": True` (Python) | Claude sees the message you compose. You can add context the raw exception lacks, such as which request failed or what to try instead. |
+Put the policy entry in a `tools` array on the config object `createSdkMcpServer()` returns, not in the `tools` option you pass into that function. This example spreads `weatherServer` from the [weather tool example](#weather-tool-example) and adds a `tools` array giving `get_temperature` the `always_ask` policy:
 
-In both cases Claude can retry, try a different tool, or explain the failure. Catch errors yourself when the raw exception message isn't enough for Claude to act on.
-
-The example below catches two kinds of failures inside the handler and composes the error message Claude reads. A non-200 HTTP status is caught from the response and returned as an error result. A network error or invalid JSON is caught by the surrounding `try/except` (Python) or `try/catch` (TypeScript) and also returned as an error result. In both cases Claude receives a message that describes the failure instead of a bare exception string.
-
-```python Python theme={null}
+```typescript TypeScript theme={null}
+options: {
+  mcpServers: {
+    weather: {
+      ...weatherServer,
+      tools: [{ name: "get_temperature", permission_policy: "always_ask" as const }]
+    }
+  },
+  allowedTools: ["mcp__weather__get_temperature"],
+  permissionMode: "default",
+  canUseTool: async (toolName, input) =&gt; {
+    console.log(`Approval requested for ${toolName}`);
+    return { behavior: "allow", updatedInput: input };
+  }
+}
+</code></pre></div></p>
+<p>To try the policy, replace the <code>options</code> in the <a href="#call-a-custom-tool">Call a custom tool</a> script with this example's <code>options</code>, then run that script from your terminal. The script prints <code>Approval requested for mcp__weather__get_temperature</code>, followed by Claude's answer about the temperature. For a complete script, see the <a href="https://code.claude.com/docs/en/agent-sdk/typescript.md#mcpsdkserverconfigwithinstance">TypeScript reference</a>.</p>
+<p>If you use <code>auto</code> or <code>plan</code> <a href="https://code.claude.com/docs/en/agent-sdk/permissions.md#permission-modes">permission mode</a>, set <code>destructiveHint: true</code> in the tool's <a href="#add-tool-annotations">annotations</a> so calls to the tool still reach your callback. Otherwise the <a href="https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode">auto mode classifier</a> can approve some <code>always_ask</code> calls, under <a href="https://code.claude.com/docs/en/agent-sdk/typescript.md#permission-modes-that-can-approve-an-always_ask-call">conditions listed in the TypeScript reference</a>, and a call it approves doesn't reach your callback. Set the hint explicitly, because an unset <code>destructiveHint</code> counts as <code>false</code> for <code>always_ask</code> calls rather than defaulting to <code>true</code>.</p>
+<h2 id="handle-errors">Handle errors</h2>
+<p>A handler error doesn't stop the agent loop. The SDK's in-process MCP server catches uncaught exceptions and returns them as error results, so how you report an error determines what Claude reads, not whether the query fails:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">What happens</th>
+<th style="text-align: left;">Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Handler throws an uncaught exception</td>
+<td style="text-align: left;">The MCP server converts it to an error result carrying the raw exception message. Claude sees that message, and the agent loop continues.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Handler catches the error and returns <code>isError: true</code> (TS) / <code>"is_error": True</code> (Python)</td>
+<td style="text-align: left;">Claude sees the message you compose. You can add context the raw exception lacks, such as which request failed or what to try instead.</td>
+</tr>
+</tbody>
+</table>
+<p>In both cases Claude can retry, try a different tool, or explain the failure. Catch errors yourself when the raw exception message isn't enough for Claude to act on.</p>
+<p>The example below catches two kinds of failures inside the handler and composes the error message Claude reads. A non-200 HTTP status is caught from the response and returned as an error result. A network error or invalid JSON is caught by the surrounding <code>try/except</code> (Python) or <code>try/catch</code> (TypeScript) and also returned as an error result. In both cases Claude receives a message that describes the failure instead of a bare exception string.</p>
+<p>```python Python theme={null}
 import json
 import httpx
 from typing import Any
-from claude_agent_sdk import tool
-
-
-@tool(
+from claude_agent_sdk import tool</p>
+<p>@tool(
     "fetch_data",
     "Fetch data from an API",
     {"endpoint": str},  # Simple schema
@@ -7264,22 +7265,22 @@ async def fetch_data(args: dict[str, Any]) -&gt; dict[str, Any]:
                         }
                     ],
                     "is_error": True,
-                }
-
-            data = response.json()
-            return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
-    except Exception as e:
-        # Composes the message Claude reads. An uncaught exception would
-        # reach Claude as the raw str(e) with no context.
-        return {
-            "content": [{"type": "text", "text": f"Failed to fetch data: {str(e)}"}],
-            "is_error": True,
-        }
-</code></pre></div></p>
-<p>```typescript TypeScript theme={null}
+                }</p>
+<pre><code>        data = response.json()
+        return {"content": [{"type": "text", "text": json.dumps(data, indent=2)}]}
+except Exception as e:
+    # Composes the message Claude reads. An uncaught exception would
+    # reach Claude as the raw str(e) with no context.
+    return {
+        "content": [{"type": "text", "text": f"Failed to fetch data: {str(e)}"}],
+        "is_error": True,
+    }
+</code></pre>
+<p><code></code>typescript TypeScript theme={null}
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";</p>
-<p>tool(
+import { z } from "zod";
+
+tool(
   "fetch_data",
   "Fetch data from an API",
   {
@@ -7287,92 +7288,106 @@ import { z } from "zod";</p>
   },
   async (args) =&gt; {
     try {
-      const response = await fetch(args.endpoint);</p>
-<pre><code>  if (!response.ok) {
-    // Return the failure as a tool result so Claude can react to it.
-    // isError marks this as a failed call rather than odd-looking data.
-    return {
-      content: [
-        {
-          type: "text",
-          text: `API error: ${response.status} ${response.statusText}`
-        }
-      ],
-      isError: true
-    };
+      const response = await fetch(args.endpoint);
+
+      if (!response.ok) {
+        // Return the failure as a tool result so Claude can react to it.
+        // isError marks this as a failed call rather than odd-looking data.
+        return {
+          content: [
+            {
+              type: "text",
+              text: <code>API error: ${response.status} ${response.statusText}</code>
+            }
+          ],
+          isError: true
+        };
+      }
+
+      const data = await response.json();
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(data, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      // Composes the message Claude reads. An uncaught throw would
+      // reach Claude as the raw error message with no context.
+      return {
+        content: [
+          {
+            type: "text",
+            text: <code>Failed to fetch data: ${error instanceof Error ? error.message : String(error)}</code>
+          }
+        ],
+        isError: true
+      };
+    }
   }
-
-  const data = await response.json();
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(data, null, 2)
-      }
-    ]
-  };
-} catch (error) {
-  // Composes the message Claude reads. An uncaught throw would
-  // reach Claude as the raw error message with no context.
-  return {
-    content: [
-      {
-        type: "text",
-        text: `Failed to fetch data: ${error instanceof Error ? error.message : String(error)}`
-      }
-    ],
-    isError: true
-  };
-}
-</code></pre>
-<p>}
 );
-```
-</p>
+```</p>
 <h2 id="return-images-and-resources">Return images and resources</h2>
-<p>The <code>content</code> array in a tool result accepts <code>text</code>, <code>image</code>, <code>audio</code>, <code>resource</code>, and <code>resource_link</code> blocks. You can mix them in the same response. In TypeScript, the SDK saves audio blocks to disk and Claude receives a text block with the saved file path; in Python, the SDK drops audio blocks from the tool result and logs a warning.
-
-Claude receives each resource link block as a text block containing the link's name, URI, and description. In TypeScript, your application also receives the links themselves as <a href="https://code.claude.com/docs/en/agent-sdk/typescript#sdkmcpresourcelink"><code>resourceLinks</code></a> on the user message's <code>tool_use_result</code>; in Python, the SDK flattens them to text before the CLI sees the result, so the Python <a href="https://code.claude.com/docs/en/agent-sdk/python#usermessage"><code>resourceLinks</code> key</a> is never produced for in-process tools.
-</p>
+<p>The <code>content</code> array in a tool result accepts <code>text</code>, <code>image</code>, <code>audio</code>, <code>resource</code>, and <code>resource_link</code> blocks. You can mix them in the same response. In TypeScript, the SDK saves audio blocks to disk and Claude receives a text block with the saved file path; in Python, the SDK drops audio blocks from the tool result and logs a warning.</p>
+<p>Claude receives each resource link block as a text block containing the link's name, URI, and description. In TypeScript, your application also receives the links themselves as <a href="https://code.claude.com/docs/en/agent-sdk/typescript#sdkmcpresourcelink"><code>resourceLinks</code></a> on the user message's <code>tool_use_result</code>; in Python, the SDK flattens them to text before the CLI sees the result, so the Python <a href="https://code.claude.com/docs/en/agent-sdk/python#usermessage"><code>resourceLinks</code> key</a> is never produced for in-process tools.</p>
 <h3 id="images">Images</h3>
-<p>An image block carries the image bytes inline, encoded as base64. There is no URL field. To return an image that lives at a URL, fetch it in the handler, read the response bytes, and base64-encode them before returning. A PNG, JPEG, GIF, or WebP image reaches Claude as visual input; an image of any other type is saved to disk and Claude receives its file path as text instead.
-
-| Field | Type | Notes |
-| :- | :- | :- |
-| <code>type</code> | <code>"image"</code> | |
-| <code>data</code> | <code>string</code> | Base64-encoded bytes. Raw base64 only, no <code>data:image/...;base64,</code> prefix |
-| <code>mimeType</code> | <code>string</code> | Required. For example <code>image/png</code>, <code>image/jpeg</code>, <code>image/webp</code>, <code>image/gif</code> |
-
-```python Python theme={null}
+<p>An image block carries the image bytes inline, encoded as base64. There is no URL field. To return an image that lives at a URL, fetch it in the handler, read the response bytes, and base64-encode them before returning. A PNG, JPEG, GIF, or WebP image reaches Claude as visual input; an image of any other type is saved to disk and Claude receives its file path as text instead.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Field</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>type</code></td>
+<td style="text-align: left;"><code>"image"</code></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>data</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">Base64-encoded bytes. Raw base64 only, no <code>data:image/...;base64,</code> prefix</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>mimeType</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">Required. For example <code>image/png</code>, <code>image/jpeg</code>, <code>image/webp</code>, <code>image/gif</code></td>
+</tr>
+</tbody>
+</table>
+<p>```python Python theme={null}
 import base64
 import httpx
-from claude_agent_sdk import tool
-
-</p>
+from claude_agent_sdk import tool</p>
 <h1 id="define-a-tool-that-fetches-an-image-from-a-url-and-returns-it-to-claude">Define a tool that fetches an image from a URL and returns it to Claude</h1>
 <p>@tool("fetch_image", "Fetch an image from a URL and return it to Claude", {"url": str})
 async def fetch_image(args):
     async with httpx.AsyncClient() as client:  # Fetch the image bytes
-        response = await client.get(args["url"])
-
-    return {
-        "content": [
-            {
-                "type": "image",
-                "data": base64.b64encode(response.content).decode(
-                    "ascii"
-                ),  # Base64-encode the raw bytes
-                "mimeType": response.headers.get(
-                    "content-type", "image/png"
-                ),  # Read MIME type from the response
-            }
-        ]
-    }
-```</p>
-<p>```typescript TypeScript theme={null}
+        response = await client.get(args["url"])</p>
+<pre><code>return {
+    "content": [
+        {
+            "type": "image",
+            "data": base64.b64encode(response.content).decode(
+                "ascii"
+            ),  # Base64-encode the raw bytes
+            "mimeType": response.headers.get(
+                "content-type", "image/png"
+            ),  # Read MIME type from the response
+        }
+    ]
+}
+</code></pre>
+<p><code></code>typescript TypeScript theme={null}
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";</p>
-<p>tool(
+import { z } from "zod";
+
+tool(
   "fetch_image",
   "Fetch an image from a URL and return it to Claude",
   {
@@ -7381,35 +7396,60 @@ import { z } from "zod";</p>
   async (args) =&gt; {
     const response = await fetch(args.url); // Fetch the image bytes
     const buffer = Buffer.from(await response.arrayBuffer()); // Read into a Buffer for base64 encoding
-    const mimeType = response.headers.get("content-type") ?? "image/png";</p>
-<pre><code>return {
-  content: [
-    {
-      type: "image",
-      data: buffer.toString("base64"), // Base64-encode the raw bytes
-      mimeType
-    }
-  ]
-};
-</code></pre>
-<p>}
+    const mimeType = response.headers.get("content-type") ?? "image/png";
+
+    return {
+      content: [
+        {
+          type: "image",
+          data: buffer.toString("base64"), // Base64-encode the raw bytes
+          mimeType
+        }
+      ]
+    };
+  }
 );
-```
-</p>
+```</p>
 <h3 id="resources">Resources</h3>
-<p>A resource block embeds a piece of content identified by a URI. The actual content rides in the block's <code>text</code> or <code>blob</code> field. Use this when your tool produces a generated file or a record from an external system.
-
-| Field | Type | Notes |
-| :- | :- | :- |
-| <code>type</code> | <code>"resource"</code> | |
-| <code>resource.uri</code> | <code>string</code> | Identifier for the content. Any URI scheme |
-| <code>resource.text</code> | <code>string</code> | The content, if it's text. Provide this or <code>blob</code>, not both |
-| <code>resource.blob</code> | <code>string</code> | The content base64-encoded, if it's binary. TypeScript only: the Python SDK drops binary resources from the tool result and logs a warning |
-| <code>resource.mimeType</code> | <code>string</code> | Optional |
-
-This example shows a resource block returned from inside a tool handler. The SDK doesn't read from the example's URI, <code>file:///tmp/report.md</code>.
-
-<code>typescript TypeScript theme={null}
+<p>A resource block embeds a piece of content identified by a URI. The actual content rides in the block's <code>text</code> or <code>blob</code> field. Use this when your tool produces a generated file or a record from an external system.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Field</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>type</code></td>
+<td style="text-align: left;"><code>"resource"</code></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>resource.uri</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">Identifier for the content. Any URI scheme</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>resource.text</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">The content, if it's text. Provide this or <code>blob</code>, not both</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>resource.blob</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">The content base64-encoded, if it's binary. TypeScript only: the Python SDK drops binary resources from the tool result and logs a warning</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>resource.mimeType</code></td>
+<td style="text-align: left;"><code>string</code></td>
+<td style="text-align: left;">Optional</td>
+</tr>
+</tbody>
+</table>
+<p>This example shows a resource block returned from inside a tool handler. The SDK doesn't read from the example's URI, <code>file:///tmp/report.md</code>.</p>
+<p>```typescript TypeScript theme={null}
 return {
   content: [
     {
@@ -7421,8 +7461,8 @@ return {
       }
     }
   ]
-};</code></p>
-<p>```python Python theme={null}
+};
+<div class="highlight"><pre><span></span><code>```python Python theme={null}
 return {
     "content": [
         {
@@ -7435,15 +7475,12 @@ return {
         }
     ]
 }
-<div class="highlight"><pre><span></span><code>These block shapes come from the MCP `CallToolResult` type. See the [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-result) for the full definition.
-
-## Return structured data
-
-`structuredContent` is an optional JSON object on the result, separate from the `content` array. Use it to return raw values that Claude can read as exact fields instead of parsing them out of a text string or image.
-
-When `structuredContent` is set, Claude receives the JSON plus any image or resource blocks from `content`. Text blocks in `content` are not forwarded, since they are assumed to duplicate the structured data. The example below renders a chart as an image block and returns the data points behind it in `structuredContent` from the same handler. In the snippet, `chartPngBuffer` is a `Buffer` holding the rendered PNG bytes.
-
-```typescript TypeScript theme={null}
+</code></pre></div></p>
+<p>These block shapes come from the MCP <code>CallToolResult</code> type. See the <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-result">MCP specification</a> for the full definition.</p>
+<h2 id="return-structured-data">Return structured data</h2>
+<p><code>structuredContent</code> is an optional JSON object on the result, separate from the <code>content</code> array. Use it to return raw values that Claude can read as exact fields instead of parsing them out of a text string or image.</p>
+<p>When <code>structuredContent</code> is set, Claude receives the JSON plus any image or resource blocks from <code>content</code>. Text blocks in <code>content</code> are not forwarded, since they are assumed to duplicate the structured data. The example below renders a chart as an image block and returns the data points behind it in <code>structuredContent</code> from the same handler. In the snippet, <code>chartPngBuffer</code> is a <code>Buffer</code> holding the rendered PNG bytes.</p>
+<p>```typescript TypeScript theme={null}
 return {
   content: [
     {
@@ -7458,24 +7495,27 @@ return {
     points: [62.1, 63.4, 65.0, 64.2]
   }
 };
-</code></pre></div></p>
-<blockquote>
-<p>[!NOTE]</p>
-<p>The Python <code>@tool</code> decorator forwards only <code>content</code> and <code>is_error</code> from the handler's return dict. To return <code>structuredContent</code> from Python, run a <a href="https://code.claude.com/docs/en/agent-sdk/mcp.md">standalone MCP server</a> instead of an in-process SDK server.</p>
-</blockquote>
-<h2 id="example-unit-converter">Example: unit converter</h2>
-<p>This tool converts values between units of length, temperature, and weight. A user can ask "convert 100 kilometers to miles" or "what is 72°F in Celsius," and Claude picks the right unit type and units from the request.</p>
-<p>It demonstrates two patterns:</p>
-<ul>
-<li><strong>Enum schemas:</strong> <code>unit_type</code> is constrained to a fixed set of values. In TypeScript, use <code>z.enum()</code>. In Python, the dict schema doesn't support enums, so the full JSON Schema dict is required.</li>
-<li><strong>Unsupported input handling:</strong> when a conversion pair isn't found, the handler returns <code>isError: true</code> so Claude can tell the user what went wrong rather than treating a failure as a normal result.</li>
-</ul>
-<p>```python Python theme={null}
+<div class="highlight"><pre><span></span><code>&gt; [!NOTE]
+&gt;
+&gt; The Python `@tool` decorator forwards only `content` and `is_error` from the handler's return dict. To return `structuredContent` from Python, run a [standalone MCP server](https://code.claude.com/docs/en/agent-sdk/mcp.md) instead of an in-process SDK server.
+
+## Example: unit converter
+
+This tool converts values between units of length, temperature, and weight. A user can ask "convert 100 kilometers to miles" or "what is 72°F in Celsius," and Claude picks the right unit type and units from the request.
+
+It demonstrates two patterns:
+
+* **Enum schemas:** `unit_type` is constrained to a fixed set of values. In TypeScript, use `z.enum()`. In Python, the dict schema doesn't support enums, so the full JSON Schema dict is required.
+* **Unsupported input handling:** when a conversion pair isn't found, the handler returns `isError: true` so Claude can tell the user what went wrong rather than treating a failure as a normal result.
+
+```python Python theme={null}
 from typing import Any
-from claude_agent_sdk import tool, create_sdk_mcp_server</p>
-<h1 id="zenum-in-typescript-becomes-an-enum-constraint-in-json-schema">z.enum() in TypeScript becomes an "enum" constraint in JSON Schema.</h1>
-<h1 id="the-dict-schema-has-no-equivalent-so-full-json-schema-is-required">The dict schema has no equivalent, so full JSON Schema is required.</h1>
-<p>@tool(
+from claude_agent_sdk import tool, create_sdk_mcp_server
+
+
+# z.enum() in TypeScript becomes an "enum" constraint in JSON Schema.
+# The dict schema has no equivalent, so full JSON Schema is required.
+@tool(
     "convert_units",
     "Convert a value from one unit to another",
     {
@@ -7516,41 +7556,43 @@ async def convert_units(args: dict[str, Any]) -&gt; dict[str, Any]:
             "grams_to_ounces": lambda v: v * 0.035274,
             "ounces_to_grams": lambda v: v * 28.3495,
         },
-    }</p>
-<pre><code>key = f"{args['from_unit']}_to_{args['to_unit']}"
-fn = conversions.get(args["unit_type"], {}).get(key)
+    }
 
-if not fn:
+    key = f"{args['from_unit']}_to_{args['to_unit']}"
+    fn = conversions.get(args["unit_type"], {}).get(key)
+
+    if not fn:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Unsupported conversion: {args['from_unit']} to {args['to_unit']}",
+                }
+            ],
+            "is_error": True,
+        }
+
+    result = fn(args["value"])
     return {
         "content": [
             {
                 "type": "text",
-                "text": f"Unsupported conversion: {args['from_unit']} to {args['to_unit']}",
+                "text": f"{args['value']} {args['from_unit']} = {result:.4f} {args['to_unit']}",
             }
-        ],
-        "is_error": True,
+        ]
     }
 
-result = fn(args["value"])
-return {
-    "content": [
-        {
-            "type": "text",
-            "text": f"{args['value']} {args['from_unit']} = {result:.4f} {args['to_unit']}",
-        }
-    ]
-}
-</code></pre>
-<p>converter_server = create_sdk_mcp_server(
+
+converter_server = create_sdk_mcp_server(
     name="converter",
     version="1.0.0",
     tools=[convert_units],
 )
-<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+</code></pre></div></p>
+<p>```typescript TypeScript theme={null}
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";
-
-const convert = tool(
+import { z } from "zod";</p>
+<p>const convert = tool(
   "convert_units",
   "Convert a value from one unit to another",
   {
@@ -7562,65 +7604,65 @@ const convert = tool(
     value: z.number().describe("Value to convert")
   },
   async (args) =&gt; {
-    type Conversions = Record&lt;string, Record&lt;string, (v: number) =&gt; number&gt;&gt;;
-
-    const conversions: Conversions = {
-      length: {
-        kilometers_to_miles: (v) =&gt; v * 0.621371,
-        miles_to_kilometers: (v) =&gt; v * 1.60934,
-        meters_to_feet: (v) =&gt; v * 3.28084,
-        feet_to_meters: (v) =&gt; v * 0.3048
-      },
-      temperature: {
-        celsius_to_fahrenheit: (v) =&gt; (v * 9) / 5 + 32,
-        fahrenheit_to_celsius: (v) =&gt; ((v - 32) * 5) / 9,
-        celsius_to_kelvin: (v) =&gt; v + 273.15,
-        kelvin_to_celsius: (v) =&gt; v - 273.15
-      },
-      weight: {
-        kilograms_to_pounds: (v) =&gt; v * 2.20462,
-        pounds_to_kilograms: (v) =&gt; v * 0.453592,
-        grams_to_ounces: (v) =&gt; v * 0.035274,
-        ounces_to_grams: (v) =&gt; v * 28.3495
-      }
-    };
-
-    const key = `${args.from_unit}_to_${args.to_unit}`;
-    const fn = conversions[args.unit_type]?.[key];
-
-    if (!fn) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Unsupported conversion: ${args.from_unit} to ${args.to_unit}`
-          }
-        ],
-        isError: true
-      };
-    }
-
-    const result = fn(args.value);
-    return {
-      content: [
-        {
-          type: "text",
-          text: `${args.value} ${args.from_unit} = ${result.toFixed(4)} ${args.to_unit}`
-        }
-      ]
-    };
+    type Conversions = Record&lt;string, Record&lt;string, (v: number) =&gt; number&gt;&gt;;</p>
+<pre><code>const conversions: Conversions = {
+  length: {
+    kilometers_to_miles: (v) =&gt; v * 0.621371,
+    miles_to_kilometers: (v) =&gt; v * 1.60934,
+    meters_to_feet: (v) =&gt; v * 3.28084,
+    feet_to_meters: (v) =&gt; v * 0.3048
+  },
+  temperature: {
+    celsius_to_fahrenheit: (v) =&gt; (v * 9) / 5 + 32,
+    fahrenheit_to_celsius: (v) =&gt; ((v - 32) * 5) / 9,
+    celsius_to_kelvin: (v) =&gt; v + 273.15,
+    kelvin_to_celsius: (v) =&gt; v - 273.15
+  },
+  weight: {
+    kilograms_to_pounds: (v) =&gt; v * 2.20462,
+    pounds_to_kilograms: (v) =&gt; v * 0.453592,
+    grams_to_ounces: (v) =&gt; v * 0.035274,
+    ounces_to_grams: (v) =&gt; v * 28.3495
   }
-);
+};
 
-const converterServer = createSdkMcpServer({
+const key = `${args.from_unit}_to_${args.to_unit}`;
+const fn = conversions[args.unit_type]?.[key];
+
+if (!fn) {
+  return {
+    content: [
+      {
+        type: "text",
+        text: `Unsupported conversion: ${args.from_unit} to ${args.to_unit}`
+      }
+    ],
+    isError: true
+  };
+}
+
+const result = fn(args.value);
+return {
+  content: [
+    {
+      type: "text",
+      text: `${args.value} ${args.from_unit} = ${result.toFixed(4)} ${args.to_unit}`
+    }
+  ]
+};
+</code></pre>
+<p>}
+);</p>
+<p>const converterServer = createSdkMcpServer({
   name: "converter",
   version: "1.0.0",
   tools: [convert]
 });
-</code></pre></div></p>
-<p>Once the server is defined, pass it to <code>query</code> the same way as the weather example. This example sends three different prompts in a loop to show the same tool handling different unit types. For each response, it inspects <code>AssistantMessage</code> objects (which contain the tool calls Claude made during that turn) and prints each <code>ToolUseBlock</code> before printing the final <code>ResultMessage</code> text. This lets you see when Claude is using the tool versus answering from its own knowledge.</p>
-<p>Because <a href="https://code.claude.com/docs/en/agent-sdk/tool-search.md">tool search</a> is on by default, the output may also include a <code>ToolSearch</code> call as Claude loads the deferred tool schema.</p>
-<p>```python Python theme={null}
+<div class="highlight"><pre><span></span><code>Once the server is defined, pass it to `query` the same way as the weather example. This example sends three different prompts in a loop to show the same tool handling different unit types. For each response, it inspects `AssistantMessage` objects (which contain the tool calls Claude made during that turn) and prints each `ToolUseBlock` before printing the final `ResultMessage` text. This lets you see when Claude is using the tool versus answering from its own knowledge.
+
+Because [tool search](https://code.claude.com/docs/en/agent-sdk/tool-search.md) is on by default, the output may also include a `ToolSearch` call as Claude loads the deferred tool schema.
+
+```python Python theme={null}
 import asyncio
 from claude_agent_sdk import (
     query,
@@ -7628,44 +7670,47 @@ from claude_agent_sdk import (
     ResultMessage,
     AssistantMessage,
     ToolUseBlock,
-)</p>
-<p>async def main():
+)
+
+
+async def main():
     options = ClaudeAgentOptions(
         mcp_servers={"converter": converter_server},
         allowed_tools=["mcp__converter__convert_units"],
-    )</p>
-<pre><code>prompts = [
-    "Convert 100 kilometers to miles.",
-    "What is 72°F in Celsius?",
-    "How many pounds is 5 kilograms?",
-]
+    )
 
-for prompt in prompts:
-    try:
-        async for message in query(prompt=prompt, options=options):
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, ToolUseBlock):
-                        print(f"[tool call] {block.name}({block.input})")
-            elif isinstance(message, ResultMessage) and message.subtype == "success":
-                print(f"Q: {prompt}\nA: {message.result}\n")
-    except Exception as error:
-        # A single-shot query() raises after yielding an error result. Only success
-        # results are printed above, so handle the failure here and continue with
-        # the next prompt.
-        print(f"Call failed: {error}")
-</code></pre>
-<p>asyncio.run(main())
-<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
-import { query } from "@anthropic-ai/claude-agent-sdk";
+    prompts = [
+        "Convert 100 kilometers to miles.",
+        "What is 72°F in Celsius?",
+        "How many pounds is 5 kilograms?",
+    ]
 
-const prompts = [
+    for prompt in prompts:
+        try:
+            async for message in query(prompt=prompt, options=options):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, ToolUseBlock):
+                            print(f"[tool call] {block.name}({block.input})")
+                elif isinstance(message, ResultMessage) and message.subtype == "success":
+                    print(f"Q: {prompt}\nA: {message.result}\n")
+        except Exception as error:
+            # A single-shot query() raises after yielding an error result. Only success
+            # results are printed above, so handle the failure here and continue with
+            # the next prompt.
+            print(f"Call failed: {error}")
+
+
+asyncio.run(main())
+</code></pre></div></p>
+<p>```typescript TypeScript theme={null}
+import { query } from "@anthropic-ai/claude-agent-sdk";</p>
+<p>const prompts = [
   "Convert 100 kilometers to miles.",
   "What is 72°F in Celsius?",
   "How many pounds is 5 kilograms?"
-];
-
-for (const prompt of prompts) {
+];</p>
+<p>for (const prompt of prompts) {
   try {
     for await (const message of query({
       prompt,
@@ -7677,21 +7722,21 @@ for (const prompt of prompts) {
       if (message.type === "assistant") {
         for (const block of message.message.content) {
           if (block.type === "tool_use") {
-            console.log(`[tool call] ${block.name}`, block.input);
+            console.log(<code>[tool call] ${block.name}</code>, block.input);
           }
         }
       } else if (message.type === "result" &amp;&amp; message.subtype === "success") {
-        console.log(`Q: ${prompt}\nA: ${message.result}\n`);
+        console.log(<code>Q: ${prompt}\nA: ${message.result}\n</code>);
       }
     }
   } catch (error) {
     // A single-shot query() throws after yielding an error result. Only success
     // results are logged above, so handle the failure here and continue with
     // the next prompt.
-    console.error(`Call failed: ${error}`);
+    console.error(<code>Call failed: ${error}</code>);
   }
 }
-</code></pre></div></p>
+```</p>
 <h2 id="next-steps">Next steps</h2>
 <p>You can mix the patterns on this page in the same server: a single server can hold a database tool, an API gateway tool, and an image renderer alongside each other.</p>
 <p>From here:</p>

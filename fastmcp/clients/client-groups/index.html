@@ -1129,6 +1129,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#list-skills-across-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List skills across servers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#create-a-group-from-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -19757,6 +19768,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#list-skills-across-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List skills across servers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#create-a-group-from-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -19856,6 +19878,21 @@
         <span class="n">register_agent_tool</span><span class="p">(</span><span class="n">tool</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">client</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">route</span><span class="o">.</span><span class="n">upstream_name</span><span class="p">)</span>
 </code></pre></div>
 <p>The group aggregates names and detects collisions; it never stands between the adapter and the client, so everything a single <code>Client</code> supports keeps working per tool.</p>
+<h2 id="list-skills-across-servers">List skills across servers</h2>
+<p><code>list_skills()</code> collects <a href="/servers/skills">Skills extension</a> entries from every client that opted into it, keyed by server name, since two servers can publish the same skill URI. Clients created without <code>SkillsClientExtension()</code>, including those from <code>from_config</code>, and servers that don't advertise the extension are left out.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">ClientGroup</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillsClientExtension</span>
+
+<span class="n">docs</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://docs.example.com/mcp"</span><span class="p">,</span> <span class="n">extensions</span><span class="o">=</span><span class="p">[</span><span class="n">SkillsClientExtension</span><span class="p">()])</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"https://ops.example.com/mcp"</span><span class="p">,</span> <span class="n">extensions</span><span class="o">=</span><span class="p">[</span><span class="n">SkillsClientExtension</span><span class="p">()])</span>
+<span class="n">group</span> <span class="o">=</span> <span class="n">ClientGroup</span><span class="p">({</span><span class="s2">"docs"</span><span class="p">:</span> <span class="n">docs</span><span class="p">,</span> <span class="s2">"ops"</span><span class="p">:</span> <span class="n">ops</span><span class="p">})</span>
+
+<span class="k">async</span> <span class="k">with</span> <span class="n">group</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">server_name</span><span class="p">,</span> <span class="n">entries</span> <span class="ow">in</span> <span class="p">(</span><span class="k">await</span> <span class="n">group</span><span class="o">.</span><span class="n">list_skills</span><span class="p">())</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">server_name</span><span class="p">,</span> <span class="n">entry</span><span class="o">.</span><span class="n">uri</span><span class="p">)</span>
+    <span class="n">deploy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">group</span><span class="o">.</span><span class="n">get_skill</span><span class="p">(</span><span class="s2">"ops"</span><span class="p">,</span> <span class="s2">"skill://deploy/SKILL.md"</span><span class="p">)</span>
+</code></pre></div>
 <h2 id="create-a-group-from-configuration">Create a group from configuration</h2>
 <p><code>ClientGroup.from_config</code> creates one client per server rather than passing the entire configuration through a proxy. Each entry’s <code>timeout</code> applies to that client in milliseconds; <code>0</code> disables the request timeout. A FastMCP-specific <code>mode</code> field can select the protocol behavior for each server:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClientGroup</span>

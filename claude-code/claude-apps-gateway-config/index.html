@@ -1982,6 +1982,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#test-a-policy-before-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test a policy before deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#context-window-in-terminal-sessions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7217,6 +7228,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#test-a-policy-before-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test a policy before deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#context-window-in-terminal-sessions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8590,6 +8612,11 @@ managed:
       desktop: {}
 </code></pre></div></p>
 <p>When you switch, delete any <code>serve_to_desktop</code> line in the same edit that renames the blocks. Where an instruction names the <code>cli</code> block, use your <code>code</code> block.</p>
+<p><code>serve_to_desktop: true</code> is a legacy way to offer a policy's <code>cli</code> settings to the Code tab. It has no effect when Claude Desktop connects through <a href="#claude-desktop-overlay"><code>bootstrapUrl</code></a>. While your policies use <code>cli</code>, a boot warning that names this key means those settings aren't reaching the Code tab:</p>
+<ul>
+<li><strong>To cover the Code tab</strong>: switch to <code>code</code>, once users' machines meet the conditions in <a href="#apply-code-settings-in-the-code-tab">Apply <code>code</code> settings in the Code tab</a></li>
+<li><strong>To stay on <code>cli</code></strong>: set <code>serve_to_desktop: false</code> beside <code>cli</code> in a policy to silence the warning</li>
+</ul>
 <h4 id="what-goes-in-cli">What goes in <code>cli</code></h4>
 <p>Each <code>code</code> or <code>cli</code> value is a complete Claude Code <code>managed-settings.json</code> document, the same schema you would deploy via MDM or <code>/etc/claude-code/managed-settings.json</code>, expressed here as YAML. The CLI applies the delivered document at the managed tier, above user and project settings, in place of server-managed settings. It therefore ignores the settings <a href="https://code.claude.com/docs/en/server-managed-settings.md#current-limitations">restricted to OS-level policy sources</a>, such as <code>policyHelper</code> and <code>wslInheritsWindowsSettings</code>.</p>
 <p>The gateway validates each document against the CLI's settings schema at boot, so an unrecognized top-level key fails boot with an error naming every offending key. Deliberately open parts of the schema still accept arbitrary values, because newer clients may recognize entries the gateway's schema doesn't. These open keys include <code>env</code>, <code>pluginConfigs</code>, and keys nested under <code>permissions</code>.</p>
@@ -8632,7 +8659,7 @@ managed:
 | - | - | - |
 |</code>availableModels<code>| Gateway + CLI | Model allowlist. Also checked at</code>/v1/messages<code>, so a patched client can't bypass it. |
 | [</code>deniedModels<code>](https://code.claude.com/docs/en/settings-reference#deniedmodels), [</code>availableModelsMatch<code>](https://code.claude.com/docs/en/settings-reference#availablemodelsmatch) | Gateway + CLI | [Block specific models or versions](https://code.claude.com/docs/en/model-config.md#block-specific-models-or-versions) that</code>availableModels<code>would otherwise permit. A blocked model is rejected with a</code>400<code>at</code>/v1/messages<code>and is left out of</code>/v1/models<code>. The gateway's own check requires Claude Code v2.1.299 or later on the gateway server. The CLI's check requires v2.1.283 or later on clients, and earlier clients ignore both keys. |
-|</code>permissions.allow<code>/</code>.deny<code>| CLI | Tool and command rules. See [Permissions](https://code.claude.com/docs/en/permissions.md). |
+|</code>permissions.allow<code>/</code>.deny<code>| CLI | Tool and command rules. See [Permissions](https://code.claude.com/docs/en/permissions.md) and [what a Bash rule doesn't match](https://code.claude.com/docs/en/permissions.md#bash-rule-limits). |
 |</code>permissions.disableBypassPermissionsMode<code>| CLI | Set to</code>disable<code>to block [</code>bypassPermissions<code>](https://code.claude.com/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode), the mode that skips permission prompts, and the</code>--dangerously-skip-permissions<code>flag |
 |</code>allowManagedPermissionRulesOnly<code>| CLI | When</code>true<code>, managed settings become the only settings source of permission rules. The [</code>allowManagedPermissionRulesOnly<code>](https://code.claude.com/docs/en/settings-reference#allowmanagedpermissionrulesonly) entry lists every source Claude Code then ignores. |
 |</code>env<code>| CLI | Environment variables merged into the CLI process. Use for telemetry, auto-update, and model-name overrides. |
@@ -8657,6 +8684,9 @@ A [non-interactive run](https://code.claude.com/docs/en/server-managed-settings.
 If a developer declines, Claude Code exits that session rather than applying the policy. When you push a new hook, or any env var that triggers the dialog, to a broad policy, every matching developer therefore sees the dialog in their interactive sessions. A running interactive session shows it on the next hourly poll, and otherwise it appears at the developer's next interactive startup.
 
 The</code>cli<code>key was named</code>settings<code>in earlier releases, and the gateway still accepts that spelling as an alias. For new deployments, use [</code>code`](#choose-cli-or-code).
+</p>
+<h4 id="test-a-policy-before-deployment">Test a policy before deployment</h4>
+<p>To test a policy change, start the gateway against a throwaway Postgres database. The gateway connects to Postgres and applies its schema migrations before it checks the contents of <code>cli</code>, <code>code</code>, and <code>desktop</code> blocks. When it can't reach the database, the start stops at <code>could not connect to Postgres</code> and reports nothing about their contents.
 </p>
 <h4 id="context-window-in-terminal-sessions">Context window in terminal sessions</h4>
 <p>Terminal sessions signed in through <code>/login</code> use the 1M context window for Opus 4.7 and later, Sonnet 5 and later, and the Fable models. The model ID needs no <code>[1m]</code> suffix, and sessions compact at about 967K tokens. Before Claude Code v2.1.287 on the developer's machine, Claude Code treated the Opus and Fable models as having a 200K window unless the model ID ended in <code>[1m]</code>.
@@ -9217,7 +9247,7 @@ managed:
         # The contractors policy inherits this key.
         enforceAvailableModels: true
         permissions:
-          allow: [Read, Grep, Bash, Edit]
+          allow: [Read, Grep, Edit]
           deny: ["WebFetch"]
         env: { HTTP_PROXY: http://proxy.example.com:8080 }
 
