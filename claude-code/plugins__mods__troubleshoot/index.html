@@ -7894,7 +7894,7 @@ hooks: ui.render (AbovePrompt) refused: deeper than 32; nothing was drawn
 <p>A value resets, or a saved value is replaced by its default. Each of those commands resets <code>$.state</code> to its defaults, and <code>session.start</code> doesn't fire again.</p>
 <p><a href="https://code.claude.com/docs/en/plugins/mods/interface.md#load-a-saved-value-again-after-clear">Load the saved value again</a> in a <code>classic.SessionStart</code> hook.</p>
 <h3 id="a-key-your-settingsread-hook-returns-doesnt-take-effect">A key your <code>settings.read</code> hook returns doesn't take effect</h3>
-<p>Returned <code>env</code> entries don't become environment variables. Returned <code>allow</code>, <code>ask</code>, and <code>deny</code> rules aren't checked on tool calls. Set those in a <a href="https://code.claude.com/docs/en/settings.md">settings file</a>, or call <a href="https://code.claude.com/docs/en/plugins/mods/api#reach-files-processes-and-the-network"><code>$.env.set</code></a> for environment variables.</p>
+<p>If you return permission rules or <code>env</code> on <a href="https://code.claude.com/docs/en/plugins/mods/events.md#settings-read-hook">Claude Code's own read</a>, the rules aren't checked on tool calls and the <code>env</code> entries don't become environment variables. Use a <a href="https://code.claude.com/docs/en/settings.md">settings file</a> for both, or <a href="https://code.claude.com/docs/en/plugins/mods/api#reach-files-processes-and-the-network"><code>$.env.set</code></a> for <code>env</code>.</p>
 <p>For another key, check <a href="https://code.claude.com/docs/en/plugins/mods/events#settings-read-hook">which mods get <code>settings.read</code> and from which version</a>, then search the <a href="#read-the-debug-log">debug log</a> for <code>settings.read</code> and look for one of these lines:</p>
 <table>
 <thead>
@@ -7914,7 +7914,7 @@ hooks: ui.render (AbovePrompt) refused: deeper than 32; nothing was drawn
 </tr>
 <tr>
 <td style="text-align: left;"><code>settings.read: the answer for &lt;key&gt; is no value the key can hold</code></td>
-<td style="text-align: left;">The returned value doesn't fit the key's schema. <a href="#settings-read-key-refused">Return one it allows</a>.</td>
+<td style="text-align: left;">Claude Code refused the value a hook returned for that key. The hook may be yours or another mod's. Follow <a href="#settings-read-key-refused">the step for your case</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>settings.read: the merge never settles for &lt;key&gt;</code></td>
@@ -7922,34 +7922,41 @@ hooks: ui.render (AbovePrompt) refused: deeper than 32; nothing was drawn
 </tr>
 <tr>
 <td style="text-align: left;"><code>answered settings.read without next()</code>, after a mod's name</td>
-<td style="text-align: left;">Relevant only if that mod <a href="https://code.claude.com/docs/en/plugins/mods/events.md#the-order-mods-run-in">runs before yours</a>. Then your hook didn't run on that read. <a href="https://code.claude.com/docs/en/plugins/mods/overview.md#turn-mods-on-or-off">Turn that mod off</a>, or if your organization deployed it, ask its administrator to.</td>
+<td style="text-align: left;">Your hook is affected if the named mod <a href="https://code.claude.com/docs/en/plugins/mods/events.md#the-order-mods-run-in">runs before yours</a>. Then your hook didn't run on that read. <a href="https://code.claude.com/docs/en/plugins/mods/overview.md#turn-mods-on-or-off">Turn that mod off</a>, or if your organization deployed it, ask its administrator to.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>settings.read: refused to the engine</code></td>
-<td style="text-align: left;">The read was refused, so no hook's <code>{ value }</code> applied. <a href="#settings-read-refused">Find what refused it</a>.</td>
+<td style="text-align: left;">Your value didn't apply because Claude Code's own read was refused. <a href="#settings-read-refused">Find what refused it</a>.</td>
 </tr>
 </tbody>
 </table>
 <p>If no line explains the key, check the mods that run before yours for a <code>settings.read</code> hook that <a href="https://code.claude.com/docs/en/plugins/mods/events.md#settings-read-example">changes the key</a>. Turn that mod off, or ask your organization's administrator to. If no hook does, set the key in a settings file.</p>
 <h3 id="the-answer-for-key-is-no-value-the-key-can-hold"><code>the answer for &lt;key&gt; is no value the key can hold</code></h3>
-<p>This <a href="#read-the-debug-log">debug log</a> line means Claude Code refused the value your <a href="https://code.claude.com/docs/en/plugins/mods/events#settings-read-hook"><code>settings.read</code></a> hook returned for the named key, and that key alone:</p>
+<p>This <a href="#read-the-debug-log">debug log</a> line means Claude Code refused the value a <a href="https://code.claude.com/docs/en/plugins/mods/events#settings-read-hook"><code>settings.read</code></a> hook returned for the named key, and that key alone:</p>
 <p>```text theme={null}
 settings.read: the answer for <key> is no value the key can hold; the settings' own value stands
-<div class="highlight"><pre><span></span><code>The value you returned for the named key didn't fit that key's schema, for example by type or by range. Return a value that the key's [settings reference](https://code.claude.com/docs/en/settings-reference.md) entry allows. While your value doesn't fit, the key keeps the value merged from the settings sources before any hook answered. The line calls it the settings' own value.
+<div class="highlight"><pre><span></span><code>The value returned for the named key didn't fit that key's schema, for example by type or by range.
+
+* **Your value doesn't fit the key's schema**: return one the key's [settings reference](https://code.claude.com/docs/en/settings-reference.md) entry allows.
+* **Your value fits**: the value that doesn't fit came from another mod's `settings.read` hook. To find that mod, follow [the steps to turn off mods one at a time](#settings-read-refused). Search each new log for this line instead of `refused to the engine`.
+
+While the value doesn't fit, the key keeps the value merged from the settings sources before any hook answered. The line calls it the settings' own value.
 
 ### `settings.read: refused to the engine`
 
-This [debug log](#read-the-debug-log) line means [Claude Code's own read](https://code.claude.com/docs/en/plugins/mods/events.md#settings-read-hook) was refused, so no hook's `{ value }` applied, yours included. When a `settings.read` hook refuses that read with [`{ deny: reason }`](https://code.claude.com/docs/en/plugins/mods/events#settings-read-returns), the line carries that hook's reason:
+You see this line in the [debug log](#read-the-debug-log) when [Claude Code's own read](https://code.claude.com/docs/en/plugins/mods/events.md#settings-read-hook) is refused, and Claude Code drops every hook's value. When a `settings.read` hook refuses that read with [`{ deny: reason }`](https://code.claude.com/docs/en/plugins/mods/events#settings-read-returns), the line carries that hook's reason:
 
 ```text theme={null}
 settings.read: refused to the engine (engine: $.settings.read: &lt;reason&gt;); the settings' own values stand
 </code></pre></div></p>
-<p>Search your own hook's code for the <code>&lt;reason&gt;</code> text:</p>
+<p>Search your code for the reason in the parentheses:</p>
 <ul>
 <li><strong>Your code has it</strong>: your hook refused the read. Make it return <code>{ value }</code> when <a href="https://code.claude.com/docs/en/plugins/mods/events#settings-read-origin"><code>next.origin</code></a> shows Claude Code's own read.</li>
-<li><strong>Your code doesn't have it</strong>: <a href="https://code.claude.com/docs/en/plugins/mods/overview.md#turn-mods-on-or-off">turn off</a> your other mods one at a time. After each, rerun this session's command from your shell with one <code>--debug-file</code> on a new path, and search that file for <code>refused to the engine</code>. If the line is there, turn off the next mod. If not, the last mod you turned off refused the read, so keep it off.</li>
+<li><strong>Your code doesn't have it</strong>: <a href="https://code.claude.com/docs/en/plugins/mods/overview.md#turn-mods-on-or-off">turn off</a> your other mods one at a time. If your organization deployed a mod, ask its administrator to turn it off. After each:</li>
+<li>Start the session from your shell with <code>claude --debug-file ./settings-read-2.log</code>, followed by the flags it started with. Use a new path each time.</li>
+<li>Search that file for <code>refused to the engine</code>. If the line is there, turn off the next mod. If not, the last mod you turned off refused the read, so keep it off.</li>
 </ul>
-<p>With no other mod left, use a <a href="https://code.claude.com/docs/en/settings.md">settings file</a> for the keys your hook returns. Its values hold while the read is refused.</p>
+<p>If the line stays with no other mod left, set the keys your hook returns in a <a href="https://code.claude.com/docs/en/settings.md">settings file</a>. Its values hold while the read is refused.</p>
 <h2 id="read-the-debug-log">Read the debug log</h2>
 <p>The debug log has a line for every module Claude Code loads or refuses, every hook that fails, and every result it refuses, so it's where to look when the transcript shows nothing. To write one, in your shell start Claude Code with <code>--debug</code>, or with <code>--debug-file &lt;path&gt;</code> to choose where it goes:</p>
 <p>```bash theme={null}

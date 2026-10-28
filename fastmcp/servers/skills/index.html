@@ -19979,7 +19979,17 @@
             <span class="k">if</span> <span class="p">(</span><span class="n">folder</span> <span class="o">/</span> <span class="s2">"SKILL.md"</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
         <span class="p">]</span>
 </code></pre></div>
-<p>For recursive folder discovery that skips invalid skills, use <code>SkillsDirectoryProvider(path, experimental_skills=True)</code>. Presets like <code>ClaudeSkillsProvider</code> point it at a coding agent's own skills folder.</p>
+<p>For recursive folder discovery that skips invalid skills, use <code>SkillsDirectoryProvider(path, experimental_skills=True)</code>. To discover a coding agent's own skills folder through the extension, pass its path explicitly:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.providers.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">SkillsDirectoryProvider</span>
+
+<span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">".claude"</span> <span class="o">/</span> <span class="s2">"skills"</span>
+<span class="n">provider</span> <span class="o">=</span> <span class="n">SkillsDirectoryProvider</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">experimental_skills</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Local Skills"</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">provider</span><span class="p">])</span>
+</code></pre></div>
+<p>Presets such as <code>ClaudeSkillsProvider</code> expose ordinary resources and do not accept the <code>experimental_skills</code> option.</p>
 <h2 id="access-control">Access control</h2>
 <p>Discovery never shows a skill the caller can't read. If any of its files is hidden, denied by <code>check_resource_access</code> (what <a href="/servers/authorization"><code>AuthMiddleware</code></a> uses), or shadowed by another resource, the skill drops out of <code>skills/list</code>.</p>
 <h2 id="mounted-servers">Mounted servers</h2>
@@ -19989,11 +19999,15 @@
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server.providers.proxy</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyClient</span><span class="p">,</span> <span class="n">ProxyProvider</span>
 
-<span class="n">backend</span> <span class="o">=</span> <span class="n">ProxyProvider</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">ProxyClient</span><span class="p">(</span><span class="s2">"https://backend.example/mcp"</span><span class="p">),</span> <span class="n">skills</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">backend</span> <span class="o">=</span> <span class="n">ProxyProvider</span><span class="p">(</span>
+    <span class="k">lambda</span><span class="p">:</span> <span class="n">ProxyClient</span><span class="p">(</span><span class="s2">"https://backend.example/mcp"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">),</span>
+    <span class="n">skills</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="n">gateway</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="s2">"Gateway"</span><span class="p">)</span>
 <span class="n">gateway</span><span class="o">.</span><span class="n">add_provider</span><span class="p">(</span><span class="n">backend</span><span class="p">)</span>
 </code></pre></div>
+<p>A custom <code>ProxyClient</code> factory needs <code>mode="auto"</code> to negotiate the modern protocol used by Skills. Directly constructed <code>ProxyClient</code> instances default to the legacy handshake. <code>create_proxy(..., skills=True)</code> handles protocol mirroring for you.</p>
 <p>Backend entries pass through unchanged, and the same access rules apply: a skill shows up only if the gateway serves every one of its files from that backend to that caller. A backend without the Skills extension contributes nothing. To namespace a backend's skills, mount a proxy instead:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_proxy</span>
 
@@ -20014,7 +20028,7 @@
 </code></pre></div>
 <p>You get metadata, not content. <a href="/clients/client-groups"><code>ClientGroup.list_skills()</code></a> does the same across several servers.</p>
 <h3 id="read-a-whole-skill">Read a whole skill</h3>
-<p><code>read_skill()</code> fetches every file in the skill's manifest, checks each one's size and SHA-256 digest, and returns a <code>Skill</code>. It uses <code>skills/get</code> when the extension was negotiated, falling back to FastMCP's <code>_manifest</code> resource when the extension is unavailable or doesn't know the skill:</p>
+<p><code>read_skill()</code> fetches every file in the skill's manifest, checks each one's size and SHA-256 digest, and returns a <code>Skill</code>. When the extension supplies an entry, the downloaded frontmatter must also match it. The existing 512-file and 16 MiB limits are checked before downloading file contents. It uses <code>skills/get</code> when the extension was negotiated, falling back to FastMCP's <code>_manifest</code> resource when the extension is unavailable or doesn't know the skill:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
 <span class="k">async</span> <span class="k">with</span> <span class="n">Client</span><span class="p">(</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
@@ -20033,6 +20047,7 @@
     <span class="k">await</span> <span class="n">sync_skills</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">".claude"</span> <span class="o">/</span> <span class="s2">"skills"</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 <p>Downloads now require valid <code>SKILL.md</code> frontmatter with a <code>name</code> matching the skill's URI and a <code>description</code>; add these fields to older resource-only skills before downloading them. Digest or size mismatches raise an error before writing. <code>overwrite=True</code> replaces the existing skill folder, including removing locally added files.</p>
+<p>If a folder uses a custom main filename, create a standard <code>SKILL.md</code> with those fields and update affected relative references before exporting it as a skill. Existing resource providers can still serve the original documents through <code>resources/read</code>.</p>
 <h2 id="current-limits">Current limits</h2>
 <ul>
 <li>A provider added with a namespace or other transforms isn't discoverable; mount a server instead.</li>

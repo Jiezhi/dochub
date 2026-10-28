@@ -7403,7 +7403,6 @@ Use this file to discover all available pages before exploring further.</p>
 <p>A hook can pass a changed <code>text</code> or <code>frontmatter</code> to <code>next</code>: the hooks after it read both, and Claude reads the final <code>text</code>. A hook that changes any other field <a href="https://code.claude.com/docs/en/plugins/mods/events.md#handle-a-hook-that-fails">fails</a>.</p>
 <p>On <code>skill.prompt</code>, <code>e.source</code>, <code>e.pluginName</code>, <code>e.path</code>, <code>e.frontmatter</code>, and <code>e.frontmatterProblem</code> require Claude Code v2.1.299 or later.</p>
 <h3 id="commands-and-configuration">Commands and configuration</h3>
-<p>Command and configuration events fire when a command runs or is listed, when a <code>/config</code> row is shown or changed, and on a settings read:</p>
 <table>
 <thead>
 <tr>
@@ -7435,7 +7434,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><a href="https://code.claude.com/docs/en/plugins/mods/events#settings-read-hook"><code>settings.read</code></a></td>
-<td style="text-align: left;">A mod calls <a href="https://code.claude.com/docs/en/plugins/mods/api#reach-files-processes-and-the-network"><code>$.settings.read</code></a>, or Claude Code builds the session's merged settings</td>
+<td style="text-align: left;">A mod calls <a href="https://code.claude.com/docs/en/plugins/mods/api#reach-files-processes-and-the-network"><code>$.settings.read</code></a>, or Claude Code builds the session's merged settings. Requires Claude Code v2.1.304 or later on Claude Code's own read and for <code>e.layers</code></td>
 <td style="text-align: left;"><code>next(e)</code>, <code>{ value }</code>, or <code>{ deny: reason }</code></td>
 </tr>
 </tbody>
@@ -7443,9 +7442,8 @@ Use this file to discover all available pages before exploring further.</p>
 <h4 id="elayers-and-esource-on-settingsread"><code>e.layers</code> and <code>e.source</code> on <code>settings.read</code></h4>
 <ul>
 <li><strong><code>e.layers</code></strong>: one <code>{ source, settings }</code> object for each source in use that holds settings, lowest <a href="https://code.claude.com/docs/en/settings.md#settings-precedence">precedence</a> first. See <a href="https://code.claude.com/docs/en/plugins/mods/events#settings-read-receives">What a <code>settings.read</code> hook receives</a>.</li>
-<li><strong><code>e.source</code></strong>: the one source a mod asked for, as in <code>$.settings.read({ source: 'policy' })</code>. Absent on Claude Code's own read and on any other read of the merged settings</li>
+<li><strong><code>e.source</code></strong>: the one source a mod asked for, as in <code>$.settings.read({ source: 'policy' })</code>. Absent on Claude Code's own read and on a read of the merged settings</li>
 </ul>
-<p>On <code>settings.read</code>, the event firing on Claude Code's own read and the <code>e.layers</code> field require Claude Code v2.1.304 or later. For when the hook runs and what the hook can return, with an example, see <a href="https://code.claude.com/docs/en/plugins/mods/events.md#settings-read-hook">Change or refuse a settings read</a>.</p>
 <h3 id="turns">Turns</h3>
 <p>Turn events follow one answer from start to finish, including each request to the model within it:</p>
 <table>
@@ -7858,7 +7856,7 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><a href="https://code.claude.com/docs/en/plugins/mods/interface#respond-to-presses-and-typing"><code>Button</code></a></td>
-<td style="text-align: left;"><code>key</code>, <code>label</code>, <code>onPress</code>, <code>hotkey</code>, <code>plain</code>, <code>dimColor</code>, <code>autoFocus</code>, <code>action</code>, <code>hover</code></td>
+<td style="text-align: left;"><code>key</code>, <code>label</code>, <code>children</code>, <code>onPress</code>, <code>hotkey</code>, <code>plain</code>, <code>dimColor</code>, <code>autoFocus</code>, <code>action</code>, <code>variant</code>, <code>role</code>, <code>hover</code></td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
@@ -7934,15 +7932,28 @@ Use this file to discover all available pages before exploring further.</p>
 <li><strong>Digit hotkeys on the band</strong>: a digit <code>hotkey</code> on a button in the band also fires when the user types that digit alone into an empty prompt and pauses</li>
 <li><strong>A collapsed band</strong>: while the band is <a href="https://code.claude.com/docs/en/plugins/mods/interface.md#when-the-user-collapses-the-band">collapsed</a>, neither an <code>action</code> binding nor a hotkey presses a button in it</li>
 <li><strong>Two buttons on one hotkey</strong>: when two buttons in one drawing name the same <code>hotkey</code>, the later one gets it</li>
+<li><strong><code>variant</code></strong>: <code>primary</code> or <code>secondary</code>, and any other value throws. In the terminal, a <code>primary</code> button draws in the accent color unless it's <code>plain</code>.</li>
+<li><strong><code>role</code></strong>: <code>dismiss</code> marks a close button, and any other value throws. Do the closing in your <code>onPress</code>. In a band that holds text and a row of buttons, the Desktop app can draw the row's first <code>dismiss</code> button as its own close control. The terminal draws the button as it would without <code>role</code>.</li>
 </ul>
+<p>A <code>Button</code> can hold <code>children</code> in place of a <code>label</code>:</p>
+<ul>
+<li><strong>What children can be</strong>: strings and <code>Text</code> elements, such as a name followed by a dim detail or a colored chip. Claude Code refuses any other element inside a <code>Button</code>.</li>
+<li><strong>Naming the button</strong>: the <code>label</code> names the button and defaults to the text of its children. Give a button with children other than one string a <code>key</code> or a <code>label</code>.</li>
+<li><strong>In the terminal</strong>: the children draw where the label would be, and a press anywhere on them counts as one press, so you can make each row of a list a single button</li>
+<li><strong>In the Desktop app and the VS Code extension</strong>: the button draws its <code>label</code></li>
+</ul>
+<blockquote>
+<p>[!NOTE]</p>
+<p>A <code>Button</code> with children other than a single string requires Claude Code v2.1.295 or later.</p>
+</blockquote>
 <p><code>autoFocus</code> accepts only <code>true</code> on any control, so omit the prop to leave it off.</p>
 <p>The VS Code extension ignores some element props and draws the element as if you had left them out:</p>
 <ul>
 <li><strong><code>Box</code></strong>: <code>position</code> with its <code>top</code>, <code>left</code>, <code>right</code>, and <code>bottom</code>, <code>alignSelf</code>, <code>borderDimColor</code>, and <code>hover</code></li>
 <li><strong><code>Text</code></strong>: <code>size</code>, <code>mono</code>, <code>tabular</code>, and <code>hover</code></li>
-<li><strong><code>Button</code></strong>: <code>hotkey</code>, <code>plain</code>, <code>autoFocus</code>, <code>action</code>, and <code>hover</code>, so the user presses a button there with a click, or with Enter once it has focus</li>
+<li><strong><code>Button</code></strong>: <code>hotkey</code>, <code>plain</code>, <code>autoFocus</code>, <code>action</code>, and <code>hover</code>, so the user presses a button there with a click, or with Enter once it has focus. The extension also ignores <code>variant</code> and <code>role</code>.</li>
 <li><strong><code>Code</code></strong>: <code>language</code>, <code>path</code>, <code>startLine</code>, <code>format</code>, and <code>wrap</code>, so code draws without colors or line numbers, and a <code>format: 'diff'</code> block shows the diff's raw text</li>
-<li><strong><code>Input</code> and <code>Select</code></strong>: <code>autoFocus</code></li>
+<li><strong><code>Input</code> and <code>Select</code></strong>: <code>autoFocus</code>, and <code>rows</code> on an <code>Input</code></li>
 <li><strong><code>Svg</code></strong>: <code>isInteractive</code></li>
 </ul>
 <h3 id="box-border-styles"><code>Box</code> border styles</h3>
@@ -8118,6 +8129,10 @@ Use this file to discover all available pages before exploring further.</p>
 <td style="text-align: left;">30 seconds by default, 10 minutes at most</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>$.process.run</code> <code>stdout</code> and <code>stderr</code></td>
+<td style="text-align: left;">4 MiB each. <code>isStdoutTruncated</code> or <code>isStderrTruncated</code> is <code>true</code> when one was cut.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>$.model.complete</code> <code>maxTokens</code></td>
 <td style="text-align: left;">1024 by default, up to 64,000 or the model's output limit</td>
 </tr>
@@ -8187,11 +8202,23 @@ Use this file to discover all available pages before exploring further.</p>
 </tr>
 <tr>
 <td style="text-align: left;"><code>$.ui.toast</code></td>
-<td style="text-align: left;">Shown for 4 seconds unless you pass <code>{ timeoutMs }</code></td>
+<td style="text-align: left;">Shown for 4 seconds unless you pass <code>{ timeoutMs }</code>. In the <a href="https://code.claude.com/docs/en/fullscreen.md#enable-fullscreen-rendering">classic renderer</a>, a mod's newer toast can <a href="https://code.claude.com/docs/en/plugins/mods/troubleshoot.md#a-toast-doesn’t-appear">take the place of its older one</a> that's showing or waiting to show.</td>
 </tr>
 <tr>
 <td style="text-align: left;">A pane opened without the user asking</td>
 <td style="text-align: left;">Placed from 144 terminal columns, 110 after they've opened it once</td>
+</tr>
+<tr>
+<td style="text-align: left;">Nesting depth of a mods API call's arguments</td>
+<td style="text-align: left;">28,000 levels. Past that, the call rejects with a message ending <code>nesting deeper than 28000 levels is not supported</code>. Requires Claude Code v2.1.299 or later.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Nesting depth of a changed event passed to <code>next</code>, outside <a href="#events">async generator hooks</a> such as one on <code>turn.step</code></td>
+<td style="text-align: left;">28,000 levels. Past that, <code>next</code> rejects with a message ending <code>nesting deeper than 28000 levels is not supported</code>. Requires Claude Code v2.1.299 or later.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Nesting depth of a hook's return value, outside <code>ui.render</code>, <code>ui.resolve</code>, and async generator hooks</td>
+<td style="text-align: left;">28,000 levels. Past that, the hook's result is refused, and <a href="https://code.claude.com/docs/en/plugins/mods/troubleshoot.md#find-out-why-a-mod-does-nothing">the notice that reports it</a> includes <code>nesting deeper than 28000 levels is not supported</code>. Requires Claude Code v2.1.299 or later.</td>
 </tr>
 <tr>
 <td style="text-align: left;">Scopes, such as functions, blocks, and loops, nested inside one another in one file of a hooks module</td>

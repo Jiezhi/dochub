@@ -10104,6 +10104,7 @@ function startup(params?: {
 </table>
 <h4 id="returns">Returns</h4>
 <p>Returns a <code>Promise&lt;</code><a href="#warmquery"><code>WarmQuery</code></a><code>&gt;</code> that resolves once the subprocess has spawned and completed its initialize handshake.</p>
+<p>Of the <a href="#sdkhookprogressmessage"><code>hook_progress</code></a> messages a <code>SessionStart</code> or <code>Setup</code> hook emits before the handshake completes, you get only the newest, which carries all of the hook's output so far. <code>startup()</code> holds that message, the hook's <a href="#sdkhookstartedmessage"><code>hook_started</code></a> message, and anything else the subprocess emits before the handshake completes. The held messages reach you once you call <code>.query()</code> on the <code>WarmQuery</code> and iterate the result.</p>
 <h4 id="example">Example</h4>
 <p>Call <code>startup()</code> early, for example on application boot, then call <code>.query()</code> on the returned handle once a prompt is ready. This moves subprocess spawn and initialization out of the critical path.</p>
 <p>```typescript theme={null}
@@ -10776,7 +10777,7 @@ console.log(`Set by: ${provenance.cleanupPeriodDays?.source}`);
 <td style="text-align: left;"><code>maxTurns</code></td>
 <td style="text-align: left;"><code>number</code></td>
 <td style="text-align: left;"><code>undefined</code></td>
-<td style="text-align: left;">Maximum agentic turns (tool-use round trips)</td>
+<td style="text-align: left;">Maximum agentic <a href="https://code.claude.com/docs/en/agent-sdk/agent-loop.md#turns-and-messages">turns</a></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>mcpServers</code></td>
@@ -11993,7 +11994,9 @@ type PermissionResult =
       interrupt?: boolean;
       toolUseID?: string;
     };
-<div class="highlight"><pre><span></span><code>### `ToolConfig`
+<div class="highlight"><pre><span></span><code>If you return `allow` with more than 4,096 items in `updatedPermissions`, Claude Code treats the result as invalid and denies the tool call. Each update counts as one item, and so does each entry in its `rules` or `directories` list. The denial message ends with `updatedPermissions may hold at most 4096 updates, rules and directories in all`. To have the call allowed, return 4,096 items or fewer.
+
+### `ToolConfig`
 
 Configuration for built-in tool behavior.
 
@@ -12258,7 +12261,7 @@ type SDKAssistantMessage = {
 <li><code>'cloud_credential_error'</code>: Claude Code couldn't obtain usable AWS or Google Cloud credentials on the machine it runs on, so no request reached the cloud provider. The usual cause is a cloud sign-in that expired or was never completed on that machine, though a briefly unreachable credential service reports the same value. See <a href="https://code.claude.com/docs/en/errors.md#could-not-load-aws-or-google-cloud-credentials">Could not load AWS or Google Cloud credentials</a>. Requires TypeScript Agent SDK v0.3.267 or later, which bundles Claude Code v2.1.267</li>
 </ul>
 <p><code>aborted</code> is <code>true</code> when an interrupt or abort truncated the assistant message before the stream completed: the message has no <code>stop_reason</code> and the content may end mid-word. The field is absent on normally completed messages. It requires Agent SDK v0.3.214 or later.</p>
-<p><code>agent_id</code> identifies the subagent that produced the message and is absent on main-thread messages. The value equals the <code>task_id</code> on that subagent's <a href="#sdktaskstartedmessage"><code>task_started</code></a> and other task events, and is unchanged when the subagent is <a href="https://code.claude.com/docs/en/agent-sdk/subagents.md#resume-subagents">resumed</a>. The field requires Agent SDK v0.3.292 or later.</p>
+<p><code>agent_id</code> identifies the subagent that produced the message and is absent on main-thread messages. The value equals the <code>task_id</code> on that subagent's <a href="#sdktaskstartedmessage"><code>task_started</code></a> and other task events, and is unchanged when the subagent is <a href="https://code.claude.com/docs/en/agent-sdk/subagents.md#resume-subagents">resumed</a>. On messages from a <a href="https://code.claude.com/docs/en/sub-agents.md#let-subagents-spawn-their-own-subagents">nested subagent</a>, it names the nested subagent, not the subagent that spawned it. The field requires Agent SDK v0.3.292 or later.</p>
 <p>Match a subagent's messages to its task events on <code>agent_id</code> rather than pairing a message's <code>parent_tool_use_id</code> with a task event's <code>tool_use_id</code>. When a tool call resumes the subagent, the task events carry that call's <code>tool_use_id</code>, while the messages keep the <code>parent_tool_use_id</code> of the tool call that first started the subagent, so the two no longer match.</p>
 <p>Claude Code sets <code>user_message_uuid</code> and <code>user_message_uuids</code> on the turn's first assistant message, under the conditions in <a href="#user_message_uuid"><code>user_message_uuid</code></a>. When the turn continues one that a restart interrupted, the assistant messages that carry those fields also carry <a href="#resume_reason"><code>resume_reason</code></a>.</p>
 <p><code>timestamp</code> is the ISO 8601 time when the message's content finished generating on the process that produced it. The value comes from that machine's clock, so use it for display only and don't order messages by it. One API turn can produce several assistant messages that share a <code>message.id</code>, each with its own <code>timestamp</code>. When the field is absent, fall back to the time you received the message.</p>
@@ -13858,7 +13861,9 @@ type ToolInputSchemas =
   | WorkflowInput;
 <div class="highlight"><pre><span></span><code>### Agent
 
-**Tool name:** `Agent`. The previous name `Task` is still accepted as an alias, and the `tools` array in the [`SDKSystemMessage`](#sdksystemmessage) init message currently lists this tool as `Task` for backward compatibility.
+**Tool name:** `Agent`. The previous name `Task` is still accepted as an alias when this tool is available to the session.
+
+The `tools` array in the [`SDKSystemMessage`](#sdksystemmessage) init message lists this tool as `Task` for backward compatibility.
 
 &gt; [!NOTE]
 &gt;
@@ -14471,7 +14476,7 @@ type ToolOutputSchemas =
   | WorkflowOutput;
 </code></pre></div></p>
 <h3 id="agent">Agent</h3>
-<p><strong>Tool name:</strong> <code>Agent</code>. The previous name <code>Task</code> is still accepted as an alias, and the <code>tools</code> array in the <a href="#sdksystemmessage"><code>SDKSystemMessage</code></a> init message currently lists this tool as <code>Task</code> for backward compatibility.</p>
+<p><strong>Tool name:</strong> <code>Agent</code>. The previous name <code>Task</code> is still accepted as an alias when this tool is available to the session.</p>
 <p>```typescript theme={null}
 type AgentOutput =
   | {
@@ -15930,6 +15935,8 @@ Emitted when a hook begins executing.
 
 Claude Code delivers this message, [`SDKHookProgressMessage`](#sdkhookprogressmessage), and [`SDKHookResponseMessage`](#sdkhookresponsemessage) to the message stream immediately, including while a `SessionStart` or `Setup` hook is still running during session startup. Claude Code v2.1.169 through v2.1.203 delivered these messages in one batch after a `SessionStart` or `Setup` hook completed; v2.1.204 restored live delivery.
 
+If you start the session with [`startup()`](#startup), these messages reach you once you call `.query()` and iterate the result.
+
 ```typescript theme={null}
 type SDKHookStartedMessage = {
   type: "system";
@@ -16485,7 +16492,7 @@ type SandboxNetworkConfig = {
 <td style="text-align: left;"><code>allowAllUnixSockets</code></td>
 <td style="text-align: left;"><code>boolean</code></td>
 <td style="text-align: left;"><code>false</code></td>
-<td style="text-align: left;">Allow access to all Unix sockets</td>
+<td style="text-align: left;">Allow access to all Unix sockets, and on Linux to VM sockets (<code>AF_VSOCK</code>)</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>httpProxyPort</code></td>
