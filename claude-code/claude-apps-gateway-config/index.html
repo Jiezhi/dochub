@@ -8039,7 +8039,7 @@ This example gives one model a custom id that only the isolated upstream serves:
 
 ```yaml theme={null}
 models:
-  - id: claude-opus-restricted          # a custom id, not a built-in model name
+  - id: restricted-claude-opus-4-8      # a custom id, not a built-in model name
     upstream_model:
       bedrock-isolated: us.anthropic.claude-opus-4-8   # the only upstream that serves it
 </code></pre></div></p>
@@ -8279,7 +8279,11 @@ upstreams:
 <p><code>429</code> is per-upstream capacity, so provisioned-throughput (PT) exhaustion fails over to on-demand. If you set <a href="#per-user-identity-headers-for-a-proxy-you-run"><code>forward_user_identity: true</code></a> on an upstream, a <code>429</code> to a request that carried the developer's email is a per-user denial instead and doesn't fail over.</p>
 <p>Every request starts at the first upstream. A request reaches a later upstream only when every upstream ahead of it has failed or doesn't serve the requested model.</p>
 <p>The gateway keeps no record of failed upstreams, so while an upstream is down, every request that reaches it still tries it and waits for it to fail before moving on.</p>
-<p>For an Anthropic API upstream, <a href="#http-tuning"><code>timeouts.upstream_ttfb_ms</code></a> bounds the wait on a down upstream. That setting doesn't apply to the other providers, where the gateway waits up to one hour for an upstream to start responding.</p>
+<p>The gateway waits this long for a response to start:</p>
+<ul>
+<li><strong><code>provider: anthropic</code> upstreams</strong>: <a href="#http-tuning"><code>timeouts.upstream_ttfb_ms</code></a>, 120 seconds by default</li>
+<li><strong>Other providers</strong>: up to one hour. To shorten that wait for streaming requests, set <code>timeouts.upstream_ttfb_ms</code> on gateway v2.1.295 or later. Non-streaming model requests wait up to one hour either way</li>
+</ul>
 <p><code>404</code> is per-upstream model availability, so an upstream that hasn't enabled a model doesn't block a later upstream that serves it. An upstream that can't resolve the requested model is skipped without a network round-trip.</p>
 <p>This example routes a provisioned-throughput Amazon Bedrock allotment first, overflows to on-demand and a second account, and falls back to the Anthropic API last:</p>
 <p>```yaml theme={null}
@@ -8564,9 +8568,11 @@ managed:
   policies:
     - match: { groups: [restricted-projects] }
       cli:
-        availableModels: [claude-opus-restricted]
+        availableModels: [restricted-claude-opus-4-8]
         enforceAvailableModels: true
-        model: claude-opus-restricted
+        model: restricted-claude-opus-4-8
+        env:
+          ANTHROPIC_DEFAULT_OPUS_MODEL: restricted-claude-opus-4-8   # opus and Default resolve to the ID too
 <div class="highlight"><pre><span></span><code>#### Matcher values that stop the gateway at boot
 
 At boot, the gateway checks the `match` block of every policy and the [`admin_groups`](#admin) list. Any of these values stops the gateway with an error that names the field:
@@ -8806,6 +8812,10 @@ managed:
 <h5 id="keys-that-need-a-later-gateway-or-claude-desktop-version">Keys that need a later gateway or Claude Desktop version</h5>
 <p>The gateway validates a <code>desktop</code> block against the schema bundled with its installed version, as it does the <code>cli</code> block. To deliver a setting introduced by a newer Claude Desktop release, upgrade the gateway first. For example, <code>userPluginMarketplacesEnabled</code> and <code>userPluginUploadsEnabled</code> need Claude Code v2.1.260 or later on the gateway server and Claude Desktop 1.37937.0 or later on members' machines.</p>
 <p><code>blockReadsOutsideWorkingDirectories</code>, <code>disableBypassPermissionsMode</code>, <code>configRecheckIntervalMinutes</code>, and <code>sshClientPath</code> need Claude Code v2.1.281 or later on the gateway server. So do the <code>required</code> value of <code>microsoftAuthBroker</code> and the <code>continuousAccessEvaluation</code> field of a Microsoft 365 <code>managedMcpServers</code> entry. Claude Desktop releases that predate the <code>required</code> value read it as <code>disabled</code>, so set <code>required</code> only after every member's Claude Desktop supports it. Claude Desktop's <a href="https://claude.com/docs/third-party/claude-desktop/configuration">managed configuration reference</a> lists the release that first reads each key.</p>
+<blockquote>
+<p>[!NOTE]</p>
+<p><a href="https://claude.com/docs/third-party/claude-desktop/configuration#sshtransport"><code>sshTransport</code></a> needs Claude Code v2.1.293 or later on the gateway server.</p>
+</blockquote>
 <p>If you set <code>orgPluginSettings</code> in a policy's <code>desktop</code> block, the gateway serves it in the array form that Claude Desktop 1.15200.0 and later reads. Older desktops ignore the array and enforce no plugin tool policy, so update members to 1.15200.0 or later before you rely on it.</p>
 <h5 id="how-a-role-policy-inherits-the-base-desktop-block">How a role policy inherits the base <code>desktop</code> block</h5>
 <p>The gateway fills in keys a policy's <code>desktop</code> block doesn't set from the <code>match: {}</code> catch-all's <code>desktop</code> block, the same way it fills in a policy's <code>cli</code> block from the base. If you set <code>disabledBuiltinTools</code> or <code>builtinToolPolicy</code> in both the base and a role policy, the gateway keeps the base's restriction:</p>
@@ -9044,7 +9054,7 @@ processors:
 <td><code>timeouts</code></td>
 <td><code>upstream_ttfb_ms</code></td>
 <td>120000</td>
-<td>Max wait for the upstream's response headers (time to first byte). The response body then streams with no wall-clock cap. Applies to the direct Anthropic upstream path; on every other provider the gateway waits up to one hour for the response to start.</td>
+<td>Max wait for the upstream's response headers (time to first byte). The response body then streams with no wall-clock cap. If the key is unset, the default applies to <code>provider: anthropic</code> upstreams, and on every other provider the gateway waits up to one hour for the response to start. To shorten that wait, see <a href="#multiple-upstreams">Multiple upstreams</a>.</td>
 </tr>
 <tr>
 <td><code>rate_limits</code></td>
