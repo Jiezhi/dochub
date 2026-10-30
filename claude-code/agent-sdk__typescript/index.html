@@ -3314,7 +3314,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -11230,12 +11230,13 @@ interface Query extends AsyncGenerator&lt;SDKMessage, void&gt; {
 <p>Changes <a href="https://code.claude.com/docs/en/settings.md">settings</a> on a running session without restarting the query. Use it when a setting that has no dedicated setter needs to change mid-session, such as tightening <code>permissions</code> after the agent reads untrusted input. <code>setModel()</code> and <code>setPermissionMode()</code> are dedicated setters for those two keys; <code>applyFlagSettings()</code> is the general form that accepts any subset of the settings keys, and passing <code>model</code> here behaves the same as <code>setModel()</code>.</p>
 <p>Only some keys take effect mid-session:</p>
 <ul>
-<li><strong>Applied on the next turn</strong>: <code>effortLevel</code>, <code>ultracode</code>, <code>permissions</code>, <code>hooks</code>, <code>skillOverrides</code>, <code>fastMode</code>, <code>agent</code>. Switching <code>agent</code> also applies that agent's model override and hooks on the next turn. Its system prompt applies on the next turn, or, in a session that <a href="https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts.md#change-the-prompt-of-an-existing-session">reuses a recorded system prompt</a>, once the session is compacted.</li>
+<li><strong>Applied on the next turn</strong>: <code>ultracode</code>, <code>permissions</code>, <code>hooks</code>, <code>skillOverrides</code>, <code>fastMode</code>, <code>agent</code>. Switching <code>agent</code> also applies that agent's model override and hooks on the next turn. Its system prompt applies on the next turn. In a session that <a href="https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts.md#change-the-prompt-of-an-existing-session">reuses a recorded system prompt</a>, it applies once the session is compacted.</li>
 <li><strong>Applied during the current turn</strong>: <code>model</code>. If you switch <code>model</code> while Claude is working on a turn, the response Claude is already generating finishes on the old model, and the rest of the turn, starting with the next call Claude Code makes to the model, uses the new one. Subagents keep their own model. Before v2.1.212, a mid-turn switch waited for the next turn.</li>
+<li><strong>Applied by the next turn</strong>: <code>effortLevel</code>. The level applies from Claude Code's next call to the model. If <a href="https://code.claude.com/docs/en/prompt-caching.md#changing-effort-level">changing effort keeps the prompt cache</a>, as on Claude Opus 5.5 with an API key or a Claude subscription, expect it on the next turn instead.</li>
 <li><strong>No effect mid-session</strong>: the system prompt options. These are resolved once at startup, so the running session keeps the original value even though the call succeeds. To change them, start a new session.</li>
 </ul>
 <p><code>effortLevel</code> accepts an <a href="https://code.claude.com/docs/en/model-config.md#adjust-effort-level">effort level</a> name. It also accepts <code>"ultracode"</code>, which requests <code>xhigh</code> effort with <a href="https://code.claude.com/docs/en/workflows.md#let-claude-decide-with-ultracode">ultracode</a> on. <code>applyFlagSettings()</code> declares <code>effortLevel</code> without that value, so in TypeScript pass <code>{ ultracode: true, effortLevel: "xhigh" }</code> for the same result, or the <a href="https://code.claude.com/docs/en/settings-reference#ultracode"><code>ultracode</code></a> key alone to turn ultracode on at the session's current effort level. The <code>ultracode</code> value requires Claude Code v2.1.203 or later and is accepted only by <code>applyFlagSettings()</code>, not by the <code>effortLevel</code> key in a settings file. Before v2.1.284, the <code>ultracode</code> key alone also set the level to <code>xhigh</code>.</p>
-<p>The values are written to the flag-settings layer, merged over what the inline <code>settings</code> option of <code>query()</code> set at startup. This is the same tier the <a href="#settings-precedence">on-page precedence section</a> calls programmatic options.</p>
+<p>The values are written to the flag-settings layer, merged over what the inline <code>settings</code> option of <code>query()</code> set at startup. This is the same tier the <a href="#settings-precedence">on-page precedence section</a> calls programmatic options. <code>effortLevel</code> is an exception: the level you pass replaces one from <code>--effort</code> or settings, managed settings included, as the <a href="https://code.claude.com/docs/en/model-config.md#adjust-effort-level">effort resolution order</a> shows.</p>
 <p>Successive calls shallow-merge top-level keys. A second call with <code>{ permissions: {...} }</code> replaces the entire <code>permissions</code> object from the prior call rather than deep-merging into it.</p>
 <p>To clear a key you set with <code>applyFlagSettings()</code>, pass <code>null</code> for that key. Most keys then fall back first to a value that the <code>settings</code> option of <code>query()</code> set at startup, then to lower-precedence sources. A cleared <code>model</code> resets to <a href="https://code.claude.com/docs/en/model-config.md">Claude Code's default model</a>, even when a settings file sets <code>model</code>. Passing <code>undefined</code> has no effect because JSON serialization drops it.</p>
 <p>Three keys besides <code>model</code> reset session state instead of falling back:</p>
@@ -11879,7 +11880,7 @@ const result = query({
 <li>Project settings (<code>.claude/settings.json</code>)</li>
 <li>User settings (<code>~/.claude/settings.json</code>)</li>
 </ol>
-<p>Programmatic options such as <code>agents</code>, <code>allowedTools</code>, and <code>settings</code> override user, project, and local filesystem settings. Managed policy settings take precedence over programmatic options.</p>
+<p>Programmatic options such as <code>agents</code>, <code>allowedTools</code>, and <code>settings</code> override user, project, and local filesystem settings. If a managed policy setting and a programmatic option set the same key, the managed value applies, with exceptions such as an <code>effortLevel</code> passed to <a href="#applyflagsettings"><code>applyFlagSettings()</code></a>.</p>
 <h3 id="permissionmode"><code>PermissionMode</code></h3>
 <p>```typescript theme={null}
 type PermissionMode =
@@ -12654,7 +12655,7 @@ type SDKSystemMessage = {
 <p><code>terminal_slash_commands</code> names the entries in <code>slash_commands</code> whose interface is bound to the local terminal, such as <code>exit</code>. You can send them like any other entry in <code>slash_commands</code>; the field exists so a remote or mobile client can hide them from its command menus. The field is present only when non-empty, and requires Agent SDK v0.3.229 or later.</p>
 <ul>
 <li><code>source</code> on each <code>mcp_servers</code> entry: where the server's definition came from, with the same values as <a href="#mcpserverstatus"><code>McpServerStatus</code></a>'s <code>source</code>. Requires Agent SDK v0.3.274 or later.</li>
-<li><code>effort</code>: the <a href="https://code.claude.com/docs/en/model-config.md#adjust-effort-level">effort level</a> Claude Code sends on the session's next request, or <code>null</code> when it sends none. Claude Code sets the field only on the init message it sends to <a href="https://code.claude.com/docs/en/remote-control.md">Remote Control</a> clients, and omits it from the init message your application reads. Requires Agent SDK v0.3.234 or later.</li>
+<li><code>effort</code>: the <a href="https://code.claude.com/docs/en/model-config.md#adjust-effort-level">effort level</a> set for the session's next turn, or <code>null</code> when Claude Code sends no level. Claude Code sets the field only on the init message it sends to <a href="https://code.claude.com/docs/en/remote-control.md">Remote Control</a> clients, and omits it from the init message your application reads. Requires Agent SDK v0.3.234 or later.</li>
 </ul>
 <p>The <code>capabilities</code> array names the protocol behaviors this CLI implements, so you can feature-detect instead of comparing <code>claude_code_version</code> strings. It is an open set: ignore values you don't recognize, and check for the specific capability whose behavior you rely on. The field requires Claude Code v2.1.205 or later and is absent on earlier CLIs.</p>
 <table>

@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6742,7 +6742,8 @@ https://api.anthropic.com/v1/code/.well-known/jwks.json
 <p><strong>6. Verify expiry</strong></p>
 <p>Reject the token if <code>exp</code> is in the past. Anthropic issues session tokens with a four-hour lifetime by default and a maximum of eight hours. The runner refreshes the token before expiry and pushes the new value to the session, so subprocesses that Claude starts after a refresh inherit it. One session can therefore present several distinct valid tokens to your service over its lifetime.</p>
 <p><strong>7. Read the identity</strong></p>
-<p>The creating user's identity is in the <code>act</code> claim: <code>act.sub</code> is their Anthropic user ID in the prefixed form <code>user:&lt;id&gt;</code>, and <code>act.email</code>, when the creating surface recorded one, is their email address. Sessions your organization's service identity creates, including Claude Tag channel sessions, carry an <code>agent:</code> subject instead, so treat a session as user-created only when <code>act.sub</code> carries the <code>user:</code> prefix, rather than testing whether identity claims are absent. See the <a href="#claims-reference">claims reference</a> for the full structure and the flat duplicate claims.</p>
+<p>The creating user's identity is in the <code>act</code> claim. <code>act.sub</code> is their Anthropic user ID in the prefixed form <code>user:&lt;id&gt;</code>, and <code>act.email</code>, when the creating surface recorded one, is their email address. Sessions your organization's service identity creates carry an <code>agent:</code> subject instead. Treat a session as user-created only when <code>act.sub</code> carries the <code>user:</code> prefix, rather than testing whether identity claims are absent.</p>
+<p>See the <a href="#claims-reference">claims reference</a> for the full structure and the flat duplicate claims.</p>
 <p>The checks map directly onto standard JWT libraries. The examples below implement the full sequence in Node.js with <a href="https://www.npmjs.com/package/jose"><code>jose</code></a>, which handles JWKS fetching, caching, and <code>kid</code> selection, and in Python with <a href="https://pyjwt.readthedocs.io/"><code>PyJWT</code></a> and its built-in JWKS client.</p>
 <p><strong>Node.js (jose)</strong></p>
 <p>```typescript theme={null}
@@ -6822,7 +6823,8 @@ def verify_session_token(raw: str) -&gt; dict:
 <p>Use <code>jq -re</code> rather than <code>jq -r</code> so a missing claim causes a non-zero exit. With <code>-r</code> alone, a missing claim prints the literal string <code>null</code> and exits zero, which silently passes a bad value downstream.</p>
 <p>If <code>decode-token</code> can't fetch the keys from the JWKS endpoint or can't verify the token, it prints the reason to stderr, prints no claims, and exits with code 1. Pass <code>--no-verify</code> to <code>decode-token</code> only for offline inspection where the JWKS endpoint is unreachable.</p>
 <h2 id="claims-reference">Claims reference</h2>
-<p>The table below lists the session token claims relevant to verification. Read identity from the <code>ccr:*</code> namespace and the <code>act</code> chain; the flat <code>account_email</code>, <code>organization_uuid</code>, and <code>account_uuid</code> claims are backward-compatibility duplicates that may be removed. Sessions your organization's service identity creates, including Claude Tag channel sessions, carry an <code>agent:</code> subject in <code>act.sub</code> and omit <code>act.email</code>, <code>ccr:account_id</code>, <code>account_email</code>, and <code>account_uuid</code>. The two email claims are optional for user-created sessions too: Anthropic records them at session creation only when the creating request's credentials carry an email, and a session dispatched from the CLI can lack both, so key identity on <code>act.sub</code> or <code>ccr:account_id</code> rather than on email. Tokens can also carry additional claims beyond this table; ignore claims you don't recognize.</p>
+<p>Read identity from the <code>ccr:*</code> namespace and the <code>act</code> chain; the flat <code>account_email</code>, <code>organization_uuid</code>, and <code>account_uuid</code> claims are backward-compatibility duplicates that may be removed. Sessions your organization's service identity creates carry an <code>agent:</code> subject in <code>act.sub</code> and omit <code>act.email</code>, <code>ccr:account_id</code>, <code>account_email</code>, and <code>account_uuid</code>.</p>
+<p>The two email claims are optional for user-created sessions too. Anthropic records them at session creation only when the creating request's credentials carry an email, and a session dispatched from the CLI can lack both. Key identity on <code>act.sub</code> or <code>ccr:account_id</code> rather than on email. Tokens can also carry additional claims beyond this table; ignore claims you don't recognize. The table below lists the session token claims relevant to verification.</p>
 <table>
 <thead>
 <tr>
@@ -6921,7 +6923,7 @@ def verify_session_token(raw: str) -&gt; dict:
 <tbody>
 <tr>
 <td style="text-align: left;"><code>act.sub</code></td>
-<td style="text-align: left;">The creating user's Anthropic user ID, in the form <code>user:&lt;id&gt;</code>, or <code>agent:&lt;id&gt;</code> when your organization's service identity created the session, as it does for Claude Tag channel sessions.</td>
+<td style="text-align: left;">The creating user's Anthropic user ID, in the form <code>user:&lt;id&gt;</code>, or <code>agent:&lt;id&gt;</code> when your organization's service identity created the session.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>act.email</code></td>
