@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6621,7 +6621,8 @@ Use this file to discover all available pages before exploring further.</p>
 <p>After registering the app, generate a private key and keep the downloaded <code>.pem</code> file, note the App ID from the app's settings page, and <a href="https://docs.github.com/en/apps/using-github-apps/installing-your-own-github-app">install the app</a> on the repository where the Claude Code GitHub Action runs. You add the key and the ID as secrets in the third step.</p>
 <p><strong>2. Configure cloud authentication</strong></p>
 <p>Configure your cloud to trust the OIDC token that GitHub issues to the workflow, so each workflow run gets short-lived cloud credentials. The bullets in each tab summarize what to create, and each tab links the cloud vendor's own guide for the console-level steps.</p>
-<p><strong>Amazon Bedrock</strong></p>
+<blockquote>
+<p>[tab] Amazon Bedrock</p>
 <p>Create the trust configuration in your AWS account, following the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html">AWS guide to creating OIDC identity providers</a>:</p>
 <ul>
 <li>Add a GitHub OIDC identity provider with provider URL <code>https://token.actions.githubusercontent.com</code> and audience <code>sts.amazonaws.com</code></li>
@@ -6629,7 +6630,7 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Limit the role's trust policy to your repository with a subject condition such as <code>repo:your-org/your-repo:*</code>. See <a href="https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect">GitHub's OIDC hardening guide</a> for the claim format</li>
 </ul>
 <p>Note the role's ARN. You add it as a secret in the next step.</p>
-<p><strong>Google Cloud's Agent Platform</strong></p>
+<p>[tab] Google Cloud's Agent Platform</p>
 <p>Create the federation resources in your Google Cloud project, following the <a href="https://cloud.google.com/iam/docs/workload-identity-federation">Workload Identity Federation documentation</a>:</p>
 <ul>
 <li>Enable three APIs: IAM Credentials, Security Token Service (STS), and the Agent Platform API, whose service name is <code>aiplatform.googleapis.com</code></li>
@@ -6637,13 +6638,14 @@ Use this file to discover all available pages before exploring further.</p>
 <li>Create a dedicated service account with only the <code>Vertex AI User</code> role, which is <code>roles/aiplatform.user</code>, and allow the pool to impersonate it</li>
 </ul>
 <p>Note the provider's full resource name and the service account's email address. You add them as secrets in the next step.</p>
-<p><strong>Microsoft Foundry</strong></p>
+<p>[tab] Microsoft Foundry</p>
 <p>Create a Microsoft Entra application with a federated credential for your repository, following <a href="https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect">Microsoft's guide to authenticating from GitHub Actions</a>:</p>
 <ul>
 <li>Register a Microsoft Entra application and add a federated identity credential that trusts tokens GitHub issues to your repository. A user-assigned managed identity works in place of an application. Both have the client ID you note below</li>
 <li>Assign the application the <code>Azure AI User</code> role on your Foundry resource. See <a href="https://code.claude.com/docs/en/microsoft-foundry.md#azure-rbac-configuration">Azure RBAC configuration</a> for a narrower custom role</li>
 </ul>
 <p>Note the application's client ID, your tenant ID, and your subscription ID. You add them as secrets in the next step.</p>
+</blockquote>
 <p><strong>3. Add repository secrets</strong></p>
 <p>In the repository where the Claude Code GitHub Action runs, add the secrets for your provider, plus the two app secrets if you created a custom GitHub App in the first step. See GitHub's guide to <a href="https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions">using secrets in GitHub Actions</a>.</p>
 <table>
@@ -6707,8 +6709,7 @@ Use this file to discover all available pages before exploring further.</p>
 <blockquote>
 <p>[!WARNING]</p>
 <p>On public repositories, a comment containing the trigger phrase from any user starts this workflow. The credential steps run before the Claude Code GitHub Action checks the commenter's write access, so the action rejects unauthorized users only after the workflow has generated an App token and signed in to your cloud provider, which leaves audit-log entries and consumes Actions minutes. To avoid those runs, add a step that verifies the commenter's write access before the credential steps.</p>
-</blockquote>
-<p><strong>Amazon Bedrock</strong></p>
+<p>[tab] Amazon Bedrock</p>
 <p>Replace the <code>aws-region</code> value with your own. The credentials step exports it as <code>AWS_REGION</code> for the rest of the job.</p>
 <p>```yaml theme={null}
 name: Claude PR Action</p>
@@ -6758,7 +6759,7 @@ name: Claude PR Action</p>
 <blockquote>
 <p>[!TIP]</p>
 <p>Bedrock model IDs include a cross-region inference profile prefix such as <code>us.</code>. Use the prefix for the region group where you granted model access.</p>
-<p><strong>Google Cloud's Agent Platform</strong></p>
+<p>[tab] Google Cloud's Agent Platform</p>
 <p>Replace the <code>CLOUD_ML_REGION</code> value with your own. You don't need to hardcode the project ID, because the workflow reads it from the <code>auth</code> step's output.</p>
 <p>```yaml theme={null}
 name: Claude PR Action</p>
@@ -6809,7 +6810,7 @@ name: Claude PR Action</p>
 </code></pre>
 <p>```</p>
 </blockquote>
-<p><strong>Microsoft Foundry</strong></p>
+<p>[tab] Microsoft Foundry</p>
 <p>Replace <code>your-resource-name</code> with your Foundry resource name. Claude Code builds the endpoint URL from it. The <code>azure/login</code> step signs in with the workflow's OIDC token, and Claude Code picks up the credentials through the Azure <a href="https://learn.microsoft.com/en-us/azure/developer/javascript/sdk/authentication/credential-chains#defaultazurecredential-overview">default credential chain</a>.</p>
 <p>```yaml theme={null}
 name: Claude PR Action</p>
@@ -6861,6 +6862,7 @@ name: Claude PR Action</p>
 <blockquote>
 <p>[!TIP]</p>
 <p>Use a model ID that matches a Claude deployment in your Foundry resource. See <a href="https://code.claude.com/docs/en/microsoft-foundry.md">Claude Code on Microsoft Foundry</a> for model configuration and version pinning.</p>
+</blockquote>
 </blockquote>
 <p>With any provider, you can bound run length and cost by adding <code>--max-turns</code> to <code>claude_args</code>. See <a href="https://code.claude.com/docs/en/github-actions.md#manage-costs">Manage costs</a>.</p>
 <p><strong>5. Test the setup</strong></p>

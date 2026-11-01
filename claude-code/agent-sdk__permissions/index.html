@@ -782,8 +782,41 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Allow and deny rules">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#permission-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permission modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Permission modes">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-permission-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set permission mode
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#mode-details" class="md-nav__link">
@@ -1656,7 +1689,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6569,8 +6602,41 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Allow and deny rules">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#permission-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permission modes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Permission modes">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#available-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-permission-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set permission mode
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#mode-details" class="md-nav__link">
@@ -6793,62 +6859,79 @@ Use this file to discover all available pages before exploring further.</p>
 <p>For checks that must run on every tool call, use a <a href="https://code.claude.com/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.</p>
 </blockquote>
 <p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>:</p>
-<p>```typescript theme={null}
+<p><code>typescript theme={null}
 const options = {
   allowedTools: ["Read", "Glob", "Grep"],
   permissionMode: "dontAsk"
-};
-<div class="highlight"><pre><span></span><code>The listed `Read`, `Glob`, and `Grep` calls are approved, apart from the [actions no mode auto-approves](https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves) and [reads from network paths](https://code.claude.com/docs/en/permissions.md#network-paths). Every other call that would prompt is denied instead, though a [mod](https://code.claude.com/docs/en/plugins/mods/overview.md) you installed can still approve [some of those calls](https://code.claude.com/docs/en/permissions.md#precedence-among-rules-hooks-and-mods).
-
-Calls that need no approval in `default` mode run whether or not you list them. These include [read-only Bash commands](https://code.claude.com/docs/en/permissions.md#read-only-commands), tools like `Agent` that don't ask before running, and file reads inside your working directories. To hide a built-in tool from Claude entirely rather than deny its calls, add its bare name to `disallowedTools`.
-
-&gt; [!WARNING]
-&gt;
-&gt; **`allowed_tools` does not constrain `bypassPermissions`.** `allowed_tools` pre-approves the tools you list. Other unlisted tools are not matched by any allow rule and fall through to the permission mode, where `bypassPermissions` approves them. Setting `allowed_tools=["Read"]` alongside `permission_mode="bypassPermissions"` still approves every tool, including `Bash`, `Write`, and `Edit`. If you need `bypassPermissions` but want specific tools blocked, use `disallowed_tools`.
-
-You can also configure allow, deny, and ask rules declaratively in `.claude/settings.json`. These rules are read when the `project` setting source is enabled, which it is for default `query()` options. If you set `setting_sources` (TypeScript: `settingSources`) explicitly, include `"project"` for them to apply. See [Permission settings](https://code.claude.com/docs/en/settings-reference.md#permission-settings) for the rule syntax.
-
-## Permission modes
-
-Permission modes provide global control over how Claude uses tools. You can set the permission mode when calling `query()` or change it dynamically during streaming sessions.
-
-With Claude Code v2.1.302 or later, your app starts in `default` mode unless you set a permission mode or it gets one from [`permissions.defaultMode`](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode) in its settings files. In `default` mode, Claude Code denies any tool call needing approval unless you approve it through an allow rule, hook, `canUseTool` callback, or permission prompt tool. If tool calls are denied, see [Tool calls denied in `claude -p` and Agent SDK runs](https://code.claude.com/docs/en/permission-modes#which-mode-a-non-interactive-run-starts-in).
-
-### Available modes
-
-The SDK supports these permission modes:
-
-| Mode | Description | Tool behavior |
-| :- | :- | :- |
-| `default` | Standard permission behavior | No mode-based auto-approvals; calls that need approval and match no allow rule trigger your `canUseTool` callback |
-| `dontAsk` | Deny instead of prompting | Any call that would otherwise prompt is denied without calling `canUseTool`, though a [mod](https://code.claude.com/docs/en/plugins/mods/overview.md) you installed can still approve [some of those calls](https://code.claude.com/docs/en/permissions.md#precedence-among-rules-hooks-and-mods). Calls approved by `allowed_tools` or `settings.json` allow rules run, and so do calls that need no approval in `default` mode. Some calls, such as [reads from network paths](https://code.claude.com/docs/en/permissions.md#network-paths), are denied even when `allowed_tools` or an allow rule matches them. For the list, see [Don't ask mode](#don’t-ask-mode-dontask) |
-| `acceptEdits` | Auto-accept file edits | File edits and [filesystem operations](#accept-edits-mode-acceptedits) (`mkdir`, `rm`, `mv`, etc.) are automatically approved |
-| `bypassPermissions` | Bypass permission checks | Tools run without permission prompts, except for the [actions no mode auto-approves](https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves) and, outside a [cloud session](https://code.claude.com/docs/en/claude-code-on-the-web.md), custom tools your application [marks `always_ask`](https://code.claude.com/docs/en/agent-sdk/custom-tools#require-approval-for-specific-tools). Use with caution |
-| `plan` | Planning mode | Claude explores and plans without editing your source files; file edits are never auto-approved and prompt through your `canUseTool` callback |
-| `auto` | Model-classified approvals | A model classifier reviews actions such as shell commands and network requests, allowing or blocking each one it reviews. See [Auto mode](https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode) for availability and the decision order |
-
-&gt; [!WARNING]
-&gt;
-&gt; **Subagent inheritance:** If your main session is in [plan mode](https://code.claude.com/docs/en/permission-modes.md#analyze-before-you-edit-with-plan-mode), a subagent whose [`AgentDefinition`](https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition) sets `permissionMode: "acceptEdits"` still runs in plan mode. That subagent's `Edit` and `Write` calls on your source files still go to your `canUseTool` callback. Plan mode holds for the subagents you define too, so that handing work to one doesn't get around reviewing the plan first.
-&gt;
-&gt; The subagent inherits `plan`, `acceptEdits`, `auto`, or `bypassPermissions` from the main session, and under a `default`- or `dontAsk`-mode main session it runs in the mode you set. Even then, Claude Code never applies a `"bypassPermissions"` value, and applies an `"auto"` value only when [auto mode is available](https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode) to that subagent. The `bypassPermissions` exception requires Claude Code v2.1.267 or later.
-&gt;
-&gt; Subagents may have different system prompts and less constrained behavior than your main agent, so inheriting `bypassPermissions` grants them full, autonomous system access. The [actions no mode auto-approves](https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves) still apply.
-
-### Set permission mode
-
-You can set the permission mode once when starting a query, or change it dynamically while the session is active.
-
-**At query time**
-
-Pass `permission_mode` (Python) or `permissionMode` (TypeScript) when creating a query.
-
-```python Python theme={null}
+};</code></p>
+<p>The listed <code>Read</code>, <code>Glob</code>, and <code>Grep</code> calls are approved, apart from the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a> and <a href="https://code.claude.com/docs/en/permissions.md#network-paths">reads from network paths</a>. Every other call that would prompt is denied instead, though a <a href="https://code.claude.com/docs/en/plugins/mods/overview.md">mod</a> you installed can still approve <a href="https://code.claude.com/docs/en/permissions.md#precedence-among-rules-hooks-and-mods">some of those calls</a>.</p>
+<p>Calls that need no approval in <code>default</code> mode run whether or not you list them. These include <a href="https://code.claude.com/docs/en/permissions.md#read-only-commands">read-only Bash commands</a>, tools like <code>Agent</code> that don't ask before running, and file reads inside your working directories. To hide a built-in tool from Claude entirely rather than deny its calls, add its bare name to <code>disallowedTools</code>.</p>
+<blockquote>
+<p>[!WARNING]</p>
+<p><strong><code>allowed_tools</code> does not constrain <code>bypassPermissions</code>.</strong> <code>allowed_tools</code> pre-approves the tools you list. Other unlisted tools are not matched by any allow rule and fall through to the permission mode, where <code>bypassPermissions</code> approves them. Setting <code>allowed_tools=["Read"]</code> alongside <code>permission_mode="bypassPermissions"</code> still approves every tool, including <code>Bash</code>, <code>Write</code>, and <code>Edit</code>. If you need <code>bypassPermissions</code> but want specific tools blocked, use <code>disallowed_tools</code>.</p>
+</blockquote>
+<p>You can also configure allow, deny, and ask rules declaratively in <code>.claude/settings.json</code>. These rules are read when the <code>project</code> setting source is enabled, which it is for default <code>query()</code> options. If you set <code>setting_sources</code> (TypeScript: <code>settingSources</code>) explicitly, include <code>"project"</code> for them to apply. See <a href="https://code.claude.com/docs/en/settings-reference.md#permission-settings">Permission settings</a> for the rule syntax.</p>
+<h2 id="permission-modes">Permission modes</h2>
+<p>Permission modes provide global control over how Claude uses tools. You can set the permission mode when calling <code>query()</code> or change it dynamically during streaming sessions.</p>
+<p>With Claude Code v2.1.302 or later, your app starts in <code>default</code> mode unless you set a permission mode or it gets one from <a href="https://code.claude.com/docs/en/settings-reference#permissions-defaultmode"><code>permissions.defaultMode</code></a> in its settings files. In <code>default</code> mode, Claude Code denies any tool call needing approval unless you approve it through an allow rule, hook, <code>canUseTool</code> callback, or permission prompt tool. If tool calls are denied, see <a href="https://code.claude.com/docs/en/permission-modes#which-mode-a-non-interactive-run-starts-in">Tool calls denied in <code>claude -p</code> and Agent SDK runs</a>.</p>
+<h3 id="available-modes">Available modes</h3>
+<p>The SDK supports these permission modes:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Mode</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Tool behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>default</code></td>
+<td style="text-align: left;">Standard permission behavior</td>
+<td style="text-align: left;">No mode-based auto-approvals; calls that need approval and match no allow rule trigger your <code>canUseTool</code> callback</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dontAsk</code></td>
+<td style="text-align: left;">Deny instead of prompting</td>
+<td style="text-align: left;">Any call that would otherwise prompt is denied without calling <code>canUseTool</code>, though a <a href="https://code.claude.com/docs/en/plugins/mods/overview.md">mod</a> you installed can still approve <a href="https://code.claude.com/docs/en/permissions.md#precedence-among-rules-hooks-and-mods">some of those calls</a>. Calls approved by <code>allowed_tools</code> or <code>settings.json</code> allow rules run, and so do calls that need no approval in <code>default</code> mode. Some calls, such as <a href="https://code.claude.com/docs/en/permissions.md#network-paths">reads from network paths</a>, are denied even when <code>allowed_tools</code> or an allow rule matches them. For the list, see <a href="#don’t-ask-mode-dontask">Don't ask mode</a></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>acceptEdits</code></td>
+<td style="text-align: left;">Auto-accept file edits</td>
+<td style="text-align: left;">File edits and <a href="#accept-edits-mode-acceptedits">filesystem operations</a> (<code>mkdir</code>, <code>rm</code>, <code>mv</code>, etc.) are automatically approved</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>bypassPermissions</code></td>
+<td style="text-align: left;">Bypass permission checks</td>
+<td style="text-align: left;">Tools run without permission prompts, except for the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a> and, outside a <a href="https://code.claude.com/docs/en/claude-code-on-the-web.md">cloud session</a>, custom tools your application <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools#require-approval-for-specific-tools">marks <code>always_ask</code></a>. Use with caution</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>plan</code></td>
+<td style="text-align: left;">Planning mode</td>
+<td style="text-align: left;">Claude explores and plans without editing your source files; file edits are never auto-approved and prompt through your <code>canUseTool</code> callback</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>auto</code></td>
+<td style="text-align: left;">Model-classified approvals</td>
+<td style="text-align: left;">A model classifier reviews actions such as shell commands and network requests, allowing or blocking each one it reviews. See <a href="https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode">Auto mode</a> for availability and the decision order</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>[!WARNING]</p>
+<p><strong>Subagent inheritance:</strong> If your main session is in <a href="https://code.claude.com/docs/en/permission-modes.md#analyze-before-you-edit-with-plan-mode">plan mode</a>, a subagent whose <a href="https://code.claude.com/docs/en/agent-sdk/typescript#agentdefinition"><code>AgentDefinition</code></a> sets <code>permissionMode: "acceptEdits"</code> still runs in plan mode. That subagent's <code>Edit</code> and <code>Write</code> calls on your source files still go to your <code>canUseTool</code> callback. Plan mode holds for the subagents you define too, so that handing work to one doesn't get around reviewing the plan first.</p>
+<p>The subagent inherits <code>plan</code>, <code>acceptEdits</code>, <code>auto</code>, or <code>bypassPermissions</code> from the main session, and under a <code>default</code>- or <code>dontAsk</code>-mode main session it runs in the mode you set. Even then, Claude Code never applies a <code>"bypassPermissions"</code> value, and applies an <code>"auto"</code> value only when <a href="https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode">auto mode is available</a> to that subagent. The <code>bypassPermissions</code> exception requires Claude Code v2.1.267 or later.</p>
+<p>Subagents may have different system prompts and less constrained behavior than your main agent, so inheriting <code>bypassPermissions</code> grants them full, autonomous system access. The <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a> still apply.</p>
+</blockquote>
+<h3 id="set-permission-mode">Set permission mode</h3>
+<p>You can set the permission mode once when starting a query, or change it dynamically while the session is active.</p>
+<blockquote>
+<p>[tab] At query time</p>
+<p>Pass <code>permission_mode</code> (Python) or <code>permissionMode</code> (TypeScript) when creating a query.</p>
+<p>```python Python theme={null}
 import asyncio
-from claude_agent_sdk import query, ClaudeAgentOptions
-
-
-async def main():
+from claude_agent_sdk import query, ClaudeAgentOptions</p>
+<p>async def main():
     async for message in query(
         prompt="Help me refactor this code",
         options=ClaudeAgentOptions(
@@ -6856,11 +6939,9 @@ async def main():
         ),
     ):
         if hasattr(message, "result"):
-            print(message.result)
-
-
-asyncio.run(main())
-</code></pre></div></p>
+            print(message.result)</p>
+<p>asyncio.run(main())
+```</p>
 <p>```typescript TypeScript theme={null}
 import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>async function main() {
@@ -6876,34 +6957,29 @@ import { query } from "@anthropic-ai/claude-agent-sdk";</p>
   }
 }</p>
 <p>main();
-<div class="highlight"><pre><span></span><code>**During streaming**
-
-Call `set_permission_mode()` (Python) or `setPermissionMode()` (TypeScript) to change the mode mid-session. The new mode takes effect immediately for all subsequent tool requests. This lets you start restrictive and loosen permissions as trust builds, for example switching to `acceptEdits` after reviewing Claude's initial approach.
-
-```python Python theme={null}
+```</p>
+<p>[tab] During streaming</p>
+<p>Call <code>set_permission_mode()</code> (Python) or <code>setPermissionMode()</code> (TypeScript) to change the mode mid-session. The new mode takes effect immediately for all subsequent tool requests. This lets you start restrictive and loosen permissions as trust builds, for example switching to <code>acceptEdits</code> after reviewing Claude's initial approach.</p>
+<p>```python Python theme={null}
 import asyncio
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-
-
-async def main():
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions</p>
+<p>async def main():
     async with ClaudeSDKClient(
         options=ClaudeAgentOptions(
             permission_mode="default",  # Start in default mode
         )
     ) as client:
-        await client.query("Help me refactor this code")
+        await client.query("Help me refactor this code")</p>
+<pre><code>    # Change mode dynamically mid-session
+    await client.set_permission_mode("acceptEdits")
 
-        # Change mode dynamically mid-session
-        await client.set_permission_mode("acceptEdits")
-
-        # Process messages with the new permission mode
-        async for message in client.receive_response():
-            if hasattr(message, "result"):
-                print(message.result)
-
-
-asyncio.run(main())
-</code></pre></div></p>
+    # Process messages with the new permission mode
+    async for message in client.receive_response():
+        if hasattr(message, "result"):
+            print(message.result)
+</code></pre>
+<p>asyncio.run(main())
+```</p>
 <p>```typescript TypeScript theme={null}
 import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>async function main() {
@@ -6924,6 +7000,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 }</p>
 <p>main();
 ```</p>
+</blockquote>
 <h3 id="mode-details">Mode details</h3>
 <h4 id="accept-edits-mode-acceptedits">Accept edits mode (<code>acceptEdits</code>)</h4>
 <p>Auto-approves file operations so Claude can edit code without prompting. Other tools (like Bash commands that aren't filesystem operations) still require normal permissions.</p>
