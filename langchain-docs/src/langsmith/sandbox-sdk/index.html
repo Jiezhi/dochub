@@ -13429,6 +13429,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#create-a-non-persistent-sandbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create a non-persistent sandbox
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sandbox-lifetime-and-retention" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -42537,6 +42548,34 @@
     
   
     InMemoryByteStore integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../oss/python/integrations/stores/openviking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenVikingStore integration
   
 
     
@@ -80199,6 +80238,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#create-a-non-persistent-sandbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create a non-persistent sandbox
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sandbox-lifetime-and-retention" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -80737,6 +80787,98 @@ const sb = await client.createSandbox({
 <p><Note>
 Free-form <code>labels</code> (up to 128 per sandbox, 256 bytes per key and 4096 bytes per value) can be set through the REST API on create. Sandboxes inherit their snapshot's labels unless overridden. The <code>langsmith.sandbox</code> clients do not expose this field yet.
 </Note></p>
+<h2 id="create-a-non-persistent-sandbox">Create a non-persistent sandbox</h2>
+<p>A non-persistent sandbox keeps filesystem writes only while it runs. Use it for disposable code execution or evaluations that do not need files after a stop. Non-persistent sandboxes incur no storage charges; compute usage still applies.</p>
+<p>Persistence is enabled by default. Set <code>persistent</code> to <code>false</code> when creating a sandbox to opt out. This setting applies to the new sandbox, not existing sandboxes.</p>
+<p><Note>
+These examples use Python <code>langsmith</code> version 0.14.17 or later, TypeScript <code>langsmith</code> version 0.11.7 or later, Go <code>github.com/langchain-ai/langsmith-go</code> v0.29.3, and Java <code>com.langchain.smith:langsmith-java</code> version 0.1.0-beta.28.
+</Note></p>
+<p>Set <code>LANGSMITH_API_KEY</code> and <code>LANGSMITH_ENDPOINT</code> as described in <a href="#create-and-run-a-sandbox">Create and run a sandbox</a>. Files remain available between commands while the sandbox runs:</p>
+<p><CodeGroup></p>
+<p>```python Python
+from langsmith.sandbox import SandboxClient</p>
+<p>client = SandboxClient()
+with client.sandbox(persistent=False) as sandbox:
+    sandbox.run("echo hello &gt; /tmp/example.txt")
+    result = sandbox.run("cat /tmp/example.txt")
+    print(result.stdout)
+<div class="highlight"><pre><span></span><code>```ts TypeScript
+
+const client = new SandboxClient();
+const sandbox = await client.createSandbox({ persistent: false });
+try {
+  await sandbox.run("echo hello &gt; /tmp/example.txt");
+  const result = await sandbox.run("cat /tmp/example.txt");
+  console.log(result.stdout);
+} finally {
+  await sandbox.delete();
+}
+</code></pre></div></p>
+<p>```go Go
+package main</p>
+<p>import (
+    "context"
+    "fmt"
+    "log"</p>
+<pre><code>langsmith "github.com/langchain-ai/langsmith-go"
+</code></pre>
+<p>)</p>
+<p>func main() {
+    ctx := context.Background()
+    client := langsmith.NewClient()
+    sandbox, err := client.Sandboxes.Boxes.NewSandbox(ctx, langsmith.SandboxBoxNewParams{
+        Persistent: langsmith.F(false),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer sandbox.Delete(ctx)</p>
+<pre><code>result, err := sandbox.Run(ctx, langsmith.SandboxBoxRunParams{
+    Command: langsmith.F("echo hello &gt; /tmp/example.txt &amp;&amp; cat /tmp/example.txt"),
+})
+if err != nil {
+    log.Print(err)
+    return
+}
+fmt.Print(result.Stdout)
+</code></pre>
+<p>}
+<code></code>java Java
+import com.langchain.smith.client.okhttp.OkHttpClient;
+import com.langchain.smith.core.ClientOptions;
+import com.langchain.smith.models.sandboxes.boxes.BoxCreateParams;
+import com.langchain.smith.sandbox.Sandbox;
+import com.langchain.smith.sandbox.SandboxClient;
+
+public class NonPersistentSandbox {
+    public static void main(String[] args) {
+        ClientOptions options = ClientOptions.builder()
+            .fromEnv()
+            .httpClient(OkHttpClient.builder().build())
+            .build();
+        try {
+            SandboxClient client = SandboxClient.of(options);
+            Sandbox sandbox = client.create(
+                BoxCreateParams.builder().persistent(false).build()
+            );
+            try {
+                sandbox.run("echo hello &gt; /tmp/example.txt");
+                System.out.print(sandbox.run("cat /tmp/example.txt").stdoutString());
+            } finally {
+                sandbox.delete();
+            }
+        } finally {
+            options.close();
+        }
+    }
+}
+```</p>
+<p></CodeGroup></p>
+<p>The Python context manager deletes the sandbox when the block exits. For manual cleanup, use <code>client.create_sandbox(persistent=False)</code> and call <code>sandbox.delete()</code> when finished. The TypeScript <code>finally</code> block deletes the sandbox even if a command fails.</p>
+<p><Warning>
+Both an idle timeout and an explicit stop discard filesystem writes. The next start boots fresh from the snapshot. Save outputs outside the sandbox before it stops. Setting <code>delete_after_stop_seconds</code> does not preserve these writes.
+</Warning></p>
+<p>Non-persistent sandboxes cannot preserve memory on stop or capture their filesystem as a snapshot. Some snapshots captured from other sandboxes cannot boot a non-persistent sandbox. Use the default snapshot or a compatible <a href="/langsmith/sandbox-snapshots">custom snapshot</a>. Disk capacity is limited to 16 GiB per vCPU.</p>
 <h2 id="sandbox-lifetime-and-retention">Sandbox lifetime and retention</h2>
 <p>Sandboxes are governed by a two-stage retention model anchored to <strong>idle
 activity</strong> and the <strong><code>stopped</code></strong> state.</p>
