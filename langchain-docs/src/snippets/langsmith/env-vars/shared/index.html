@@ -1726,6 +1726,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../openwiki/operations/version-claims/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate Package Version Claims
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2019,6 +2047,34 @@
     
   
     Runnable Code Samples and Snippet Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../openwiki/workflows/egress-ip-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintain the LangSmith Egress IP Inventory
   
 
     
@@ -77552,6 +77608,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ff_optimized_streaming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FF_OPTIMIZED_STREAMING
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ff_profile_imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FF_PROFILE_IMPORTS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#langgraph_aes_key-and-langgraph_aes_json_keys" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -80042,6 +80120,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ff_optimized_streaming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FF_OPTIMIZED_STREAMING
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ff_profile_imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FF_PROFILE_IMPORTS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#langgraph_aes_key-and-langgraph_aes_json_keys" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -80304,6 +80404,31 @@ When <code>BG_JOB_ISOLATED_LOOPS</code> is enabled, each background worker runs 
 <p><Note>
 Enabling <code>DD_API_KEY</code> (and thus <code>ddtrace-run</code>) can override or interfere with other auto-instrumentation solutions (such as OpenTelemetry) that you may have instrumented into your application code.
 </Note></p>
+<h2 id="ff_optimized_streaming"><code>FF_OPTIMIZED_STREAMING</code></h2>
+<p>Set <code>FF_OPTIMIZED_STREAMING=true</code> on your deployment to use Redis Streams instead of Redis Pub/Sub for streaming run output.</p>
+<p><Note>
+<code>FF_OPTIMIZED_STREAMING</code> requires Agent Server v0.7.93 or later.
+</Note></p>
+<p>When enabled, the server stores all streaming events in Redis Streams. <code>RESUMABLE_STREAM_TTL_SECONDS</code> still controls how long Redis retains the stream data and defaults to <code>120</code> seconds.</p>
+<p>Non-resumable runs started before you enable the flag continue to stream through Redis Pub/Sub.</p>
+<p>Accepts boolean values <code>true</code> and <code>false</code>. Defaults to <code>false</code>.</p>
+<h2 id="ff_profile_imports"><code>FF_PROFILE_IMPORTS</code></h2>
+<p>Set <code>FF_PROFILE_IMPORTS</code> to <code>true</code> to find out why a graph is slow to load. Defaults to <code>false</code>. Added in <code>langgraph-api==0.6.8</code>.</p>
+<p>Agent Server runs your graph code when it imports your graph modules at startup, so work that happens at import time delays readiness. Examples include network calls, database or client setup, reading large files, and heavy dependency imports. When a graph import takes longer than 3 seconds, the server logs a warning that suggests setting this variable.</p>
+<p>With the variable set, the server profiles the import of each Python module it loads from your configuration. This covers your graphs, custom app, auth handler, store, checkpointer, and encryption module. If any function inside an import takes at least 1 second, the server logs a <code>slow_import_profile</code> warning that lists up to 10 of the slowest. Each entry shows the function, its cumulative time, and where in your module it was called from. The report has the following format, with illustrative values:</p>
+<div class="highlight"><pre><span></span><code>Slow startup for './agent.py:graph' (12.3s)
+
+    Slowest operations:
+       10.84s  connect_to_database      clients/db.py:42
+               ↳ from agent.py (module-level)
+</code></pre></div>
+<p>The report identifies the slow operation, so you can move it inside a function or initialize it lazily instead of running it at import time.</p>
+<p>Keep the following in mind:
+- Profiling adds overhead, so the reported times run higher than normal. Remove the variable once you've fixed the problem.
+- Calls made at the top level of a module are attributed to <code>(module-level)</code> with no line number.
+- Operations that take less than 1 second each don't appear in the report, even when many of them add up to a slow import.
+- Import profiling works for Python graphs only. JavaScript graphs aren't supported yet.
+- Only import time is profiled. Delays after your graph is imported, such as in your custom app lifespan, don't appear.</p>
 <h2 id="langgraph_aes_key-and-langgraph_aes_json_keys"><code>LANGGRAPH_AES_KEY</code> and <code>LANGGRAPH_AES_JSON_KEYS</code></h2>
 <p>Set <code>LANGGRAPH_AES_KEY</code> to a 16, 24, or 32-byte key to encrypt checkpoints at rest. Set <code>LANGGRAPH_AES_JSON_KEYS</code> to a comma-separated list of JSON keys to also encrypt wherever they appear in thread, assistant, run, cron, and store data. <code>LANGGRAPH_AES_JSON_KEYS</code> requires <code>LANGGRAPH_AES_KEY</code>.</p>
 <p>For setup and key rotation, see <a href="/langsmith/aes-encryption">Configure AES encryption at rest</a>.</p>

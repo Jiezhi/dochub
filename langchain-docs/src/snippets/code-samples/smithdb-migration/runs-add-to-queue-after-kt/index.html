@@ -1721,6 +1721,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../openwiki/operations/version-claims/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate Package Version Claims
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2014,6 +2042,34 @@
     
   
     Runnable Code Samples and Snippet Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../openwiki/workflows/egress-ip-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintain the LangSmith Egress IP Inventory
   
 
     
@@ -79664,26 +79720,36 @@
 import com.langchain.smith.client.LangsmithClient
 import com.langchain.smith.client.okhttp.LangsmithOkHttpClient
 import com.langchain.smith.models.annotationqueues.AnnotationQueueAnnotationQueuesParams
-import com.langchain.smith.models.annotationqueues.runs.RunCreateByKeyParams
-import com.langchain.smith.models.runs.RunQueryParams
-import com.langchain.smith.models.sessions.SessionListParams</p>
+import com.langchain.smith.models.annotationqueues.items.ItemCreateParams
+import com.langchain.smith.models.runs.RunQueryV2Params
+import com.langchain.smith.models.runs.RunSelectField
+import com.langchain.smith.models.sessions.SessionListParams
+import java.time.OffsetDateTime</p>
 <p>val client: LangsmithClient = LangsmithOkHttpClient.fromEnv()</p>
 <p>var queueId = "<queue-id>"
 var projectId = "<project-id>"
-val runs = client.runs().query(
-    RunQueryParams.builder().session(listOf(projectId)).limit(5L).build()
+val runs = client.runs().queryV2(
+    RunQueryV2Params.builder()
+        .addProjectId(projectId)
+        .minStartTime(OffsetDateTime.now().minusDays(30))
+        .addSelect(RunSelectField.ID)
+        .addSelect(RunSelectField.PROJECT_ID)
+        .addSelect(RunSelectField.START_TIME)
+        .pageSize(5L)
+        .build()
 ).items()</p>
-<p>val params = RunCreateByKeyParams.builder().queueId(queueId)
+<p>val params = ItemCreateParams.builder().queueId(queueId)
 for (run in runs) {
-    params.addBody(
-        RunCreateByKeyParams.Body.builder()
-            .runId(run.id())
-            .sessionId(run.sessionId())
+    params.addItem(
+        ItemCreateParams.Item.builder()
+            .itemType(ItemCreateParams.Item.ItemType.RUN)
+            .runId(run.id().get())
+            .projectId(run.projectId().get())
             .startTime(run.startTime().get())
             .build()
     )
 }
-client.annotationQueues().runs().createByKey(params.build())
+client.annotationQueues().items().create(params.build())
 ```</p>
 
 

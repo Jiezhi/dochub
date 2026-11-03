@@ -3314,7 +3314,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -10046,7 +10046,11 @@ for await (const message of query({
 </ul>
 <h3 id="import-the-core-entry-when-you-bundle-the-agent-sdk">Import the <code>/core</code> entry when you bundle the Agent SDK</h3>
 <p>If your application bundles the Agent SDK together with its own dependencies, import from <code>@anthropic-ai/claude-agent-sdk/core</code> instead of the package root. The <code>/core</code> entry requires TypeScript Agent SDK v0.3.282 or later, and its types require TypeScript 5.0 or later.</p>
-<p>The <code>/core</code> entry exports the same <code>query()</code>, <code>startup()</code>, <code>tool()</code>, <code>createSdkMcpServer()</code>, and <code>resolveSettings()</code> as the root entry, along with the functions that rename, tag, and delete sessions, <code>AbortError</code>, the runtime constants, and every type. It adds no names of its own. To keep the code your application loads small, <code>/core</code> leaves out some root exports, including <code>prewarm()</code>, the <code>InMemorySessionStore</code> class, and the helpers that list, read, fork, import, and summarize sessions. If you need one of them, use the root entry instead.</p>
+<p>To keep the code your application loads small, the <code>/core</code> entry leaves out some root exports:</p>
+<ul>
+<li><strong>Exported</strong>: the same <code>query()</code>, <code>startup()</code>, <a href="#prewarm"><code>prewarm()</code></a>, <code>tool()</code>, <code>createSdkMcpServer()</code>, and <code>resolveSettings()</code> as the root entry, along with the functions that rename, tag, and delete sessions, <code>AbortError</code>, the runtime constants, and every type. Importing the alpha <code>prewarm()</code> from <code>/core</code> requires Agent SDK v0.3.314 or later.</li>
+<li><strong>Left out</strong>: root exports including the <code>InMemorySessionStore</code> class and the helpers that list, read, fork, import, and summarize sessions. If you need one of them, use the root entry instead.</li>
+</ul>
 <p>The root entry inlines its own copies of <code>zod</code> and <code>@modelcontextprotocol/sdk</code>. The <code>/core</code> entry imports them from your <code>node_modules</code> at the ranges the Agent SDK's <code>peerDependencies</code> declare, so a bundle that already includes them doesn't carry a second copy. Import from either the root or <code>/core</code> in a given process, not both: they are separate bundles, and loading both gives you two copies of the Agent SDK's classes and state.</p>
 <h2 id="functions">Functions</h2>
 <h3 id="query"><code>query()</code></h3>
@@ -12565,7 +12569,9 @@ type SDKResultMessage =
 <ul>
 <li>A resume that Claude Code stops because it <a href="https://code.claude.com/docs/en/worktrees.md#the-session-resumes-outside-its-worktree">can't return the session to its worktree</a>, with <code>worktree_unverified</code> or <code>worktree_resume_refused</code>. That section says which error carries which value.</li>
 <li>A refused <a href="#options"><code>continue</code></a> of a conversation that a background session holds, with <code>session_held_by_background</code>. For a refused <a href="#options"><code>resume</code></a> of such a conversation, Claude Code writes the result only when the variable is set.</li>
+<li>A start that Claude Code refuses because <a href="#sandboxsettings"><code>failIfUnavailable</code></a> is on and the sandbox can't start, with <code>sandbox_required_unavailable</code>.</li>
 </ul>
+<p>The <code>SDKStartupFailureReason</code> type lists the values <code>startup_failure_reason</code> can hold:</p>
 <p>```typescript theme={null}
 type SDKStartupFailureReason =
   | "org_pin_api_key_conflict"
@@ -12586,7 +12592,8 @@ type SDKStartupFailureReason =
   | "cli_version_too_old"
   | "bypass_root"
   | "org_config_required_unavailable"
-  | "org_config_refused";
+  | "org_config_refused"
+  | "sandbox_required_unavailable";
 <div class="highlight"><pre><span></span><code>Each value names one refusal:
 
 | Value | What stopped the session |
@@ -12610,6 +12617,7 @@ type SDKStartupFailureReason =
 | `bypass_root` | Bypass permissions mode was requested while running as root |
 | `org_config_required_unavailable` | The session needs the organization's policies and managed settings before it can start, and they couldn't be loaded, for example because of a network failure or an Anthropic server error. Requires Agent SDK v0.3.293 or later |
 | `org_config_refused` | Anthropic refused to provide the organization's policies and managed settings for this sign-in, for example because the sign-in expired or was revoked, or the organization doesn't allow Claude Code for this account. Requires Agent SDK v0.3.293 or later |
+| `sandbox_required_unavailable` | [`failIfUnavailable`](#sandboxsettings) is on and the sandbox can't start. The text in `errors` ends with `Set sandbox.failIfUnavailable=false to allow unsandboxed execution.` Requires Agent SDK v0.3.314 or later |
 
 ### `SDKSystemMessage`
 

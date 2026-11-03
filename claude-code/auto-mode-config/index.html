@@ -1656,7 +1656,7 @@
   <span class="md-ellipsis">
     
   
-    Changelog
+    Claude Code Changelog
   
 
     
@@ -6995,17 +6995,36 @@ claude auto-mode critique
 claude auto-mode reset</code></p>
 <p>The command summarizes what it will remove and asks <code>Reset auto mode configuration to defaults?</code> before writing; pass <code>--yes</code> to skip the confirmation. Reset changes only <code>~/.claude/settings.json</code>: <code>autoMode</code> rules from <a href="https://code.claude.com/docs/en/server-managed-settings.md">managed settings</a> or the <code>--settings</code> flag still apply.</p>
 <h2 id="review-denials">Review denials</h2>
-<p>To review and retry actions the auto mode classifier denied, open <code>/permissions</code> and select the <strong>Recently denied</strong> tab, where Claude Code records each denial. Press <code>r</code> on a denied action to mark it for retry: when you exit the dialog, Claude Code sends a message telling the model it may retry that tool call and resumes the conversation.</p>
-<p>When the classifier produces <a href="https://code.claude.com/docs/en/errors.md#auto-mode-cannot-determine-the-safety-of-an-action">no verdict on the action</a>, because a safety check separate from auto mode refused the classifier's own request or its response didn't parse, Claude Code denies the action without recording it under <strong>Recently denied</strong>. The linked error entry covers what Claude is told and how to run the action if you need it.</p>
-<h3 id="fix-a-denial-with-an-allow-rule-an-environment-entry-or-a-retry">Fix a denial with an allow rule, an environment entry, or a retry</h3>
-<p>To read the command or URL behind a notice such as <code>bash denied by auto mode · [Data Exfiltration] · /permissions</code>, use the <strong>Recently denied</strong> tab, a hook, or the conversation:</p>
+<p>To let Claude retry a blocked action, use the <strong>Recently blocked</strong> tab in <code>/permissions</code>:</p>
+<p><strong>1. Open the tab</strong></p>
+<p>Run <code>/permissions</code> in your session to open the permissions dialog, then select the <strong>Recently blocked</strong> tab.</p>
+<p><strong>2. Check the action</strong></p>
+<p>Highlight the action's row and read its command or input below the list. Go by the command or input, not the row's description, which Claude or the tool wrote.</p>
+<p><strong>3. Approve the action</strong></p>
+<p>Press <code>r</code> to approve the action and let Claude retry it.</p>
+<p><strong>4. Close the dialog</strong></p>
+<p>Press <code>Esc</code> to close the dialog and apply your approval. If Claude was working when you opened <code>/permissions</code>, send a message once Claude finishes to let Claude retry the action. Otherwise, you don't need to send anything: Claude continues now and may retry it. If it doesn't, name the action in your next message, as <a href="https://code.claude.com/docs/en/permission-modes.md#approvals-you-state-in-conversation">Approvals you state in conversation</a> describes.</p>
+<p>Approving an action doesn't add a permission rule. In auto mode, a retried action goes through the check again, so it can be blocked again. To let a command through from now on, <a href="#fix-a-denial-with-an-allow-rule-an-environment-entry-or-a-retry">add an <code>allow</code> rule</a>.</p>
+<p>If you don't want Claude to retry right away, you can approve an action for later, take back an approval, or close the dialog and discard your approvals:</p>
 <ul>
-<li><strong>Recently denied tab</strong>: in the <code>/permissions</code> dialog, highlight a denied Bash or PowerShell action to read its command below the list. In <a href="https://code.claude.com/docs/en/accessibility.md">screen reader mode</a>, all the commands appear before the list instead.</li>
-<li><strong>Hook</strong>: to capture the exact input of denials programmatically, add a <a href="https://code.claude.com/docs/en/hooks#permissiondenied"><code>PermissionDenied</code> hook</a>, which receives it as <code>tool_input</code>.</li>
+<li><strong>Approve for later</strong>: press <code>Enter</code> on the row, then <code>Esc</code>. The row leaves the tab, and Claude may retry the action after your next message once Claude finishes. If you also pressed <code>r</code> on another row, the row where you pressed <code>Enter</code> stays on the tab and Claude isn't told about that action. Approve that row on your next visit, or press <code>r</code> on both</li>
+<li><strong>Take back an approval</strong>: before you press <code>Esc</code>, press <code>Enter</code> on the row, whether you approved it with <code>Enter</code> or <code>r</code></li>
+<li><strong>Close the dialog and discard your approvals</strong>: press <code>Ctrl+C</code> twice</li>
+</ul>
+<p>You can't approve an action from the tab when its row can't show all of its command or input, or when the action has no row:</p>
+<ul>
+<li><strong>The row reads <code>This row can't be approved here</code></strong>: if you intended the action, tell Claude in your next message and Claude may try it again</li>
+<li><strong>No row, and <code>Not run</code> or a classifier error in the conversation</strong>: auto mode's classifier gave no verdict. To see how to run the action, read <a href="https://code.claude.com/docs/en/errors.md#auto-mode-cannot-determine-the-safety-of-an-action">Auto mode cannot determine the safety of an action</a></li>
+</ul>
+<h3 id="fix-a-denial-with-an-allow-rule-an-environment-entry-or-a-retry">Fix a denial with an allow rule, an environment entry, or a retry</h3>
+<p>Notices read like <code>bash blocked by auto mode · /permissions · Auto mode: [Data Exfiltration]</code>. To read the command or URL behind one, use the <strong>Recently blocked</strong> tab, a hook, or the conversation:</p>
+<ul>
+<li><strong>Recently blocked tab</strong>: highlight the action's row. In <a href="https://code.claude.com/docs/en/accessibility.md">screen reader mode</a>, every command and input appears before the list.</li>
+<li><strong>Hook</strong>: to capture the exact input of denials programmatically, add a <a href="https://code.claude.com/docs/en/hooks#permissiondenied"><code>PermissionDenied</code> hook</a>, which receives it as <code>tool_input</code>. If your hook reads <code>reason</code>, expect no <code>Auto mode:</code> prefix, and text such as <code>Blocked by classifier</code> instead of <code>No reason provided</code>.</li>
 <li><strong>Conversation</strong>: find the tool call. If the call appears shortened or folded into a summary line such as <code>Ran 3 shell commands</code>, press <code>Ctrl+O</code> to open the <a href="https://code.claude.com/docs/en/interactive-mode.md#transcript-viewer">transcript viewer</a>, which expands it.</li>
 </ul>
 <p>The text beneath the call tells you whether there is anything to fix. A dim <code>Not run · auto mode's check had no usable answer</code> row, or text that reports a problem with the classifier itself, such as <code>Auto mode could not evaluate this action</code>, means Claude Code blocked the call without a verdict from the classifier. For a <code>Not run</code> row, press <code>Ctrl+O</code> to read the full message, then see <a href="https://code.claude.com/docs/en/errors.md#auto-mode-cannot-determine-the-safety-of-an-action">Auto mode cannot determine the safety of an action</a> or <a href="https://code.claude.com/docs/en/errors.md#the-server-returned-no-safety-verdict">The server returned no safety verdict</a> for what to do.</p>
-<p>Otherwise, a line reading <code>Denied by auto mode classifier</code> with a reason such as <code>[Production Deploy]</code> or <code>Blocked by classifier</code> means the classifier judged the call unsafe, so pick the fix from what the call was trying to reach or do:</p>
+<p>Otherwise, a <code>Blocked by auto mode</code> line means the classifier judged the call unsafe. To let the call through, take the step that matches what Claude was trying to reach or do:</p>
 <ul>
 <li>A destination Claude needs throughout the task, such as a package registry, an internal domain, or a repository host: add it to <code>autoMode.environment</code>.</li>
 <li>A command you want to run without review from now on: add an <code>allow</code> rule.</li>

@@ -21129,6 +21129,18 @@ Screening rejects the obvious injection shapes, but it does not know your filesy
 </ul>
 <p>A single value still arrives as a one-element list, so the parameter's type is stable. Declaring a parameter that can <em>only</em> be a list without the <code>*</code> raises an error when the template is created. A parameter that also accepts a scalar (<code>str | list[str] | None</code>) is left alone — it still works as a plain <code>{?param}</code>.</p>
 <p>A URI fragment (<code>#section</code>) is not part of the resource identity. FastMCP drops it before matching, so <code>data://42?format=json#top</code> yields <code>id="42"</code> and <code>format="json"</code>. A template that contains a literal <code>#</code> is matched against the full URI, fragment included.</p>
+<p><strong>Required query parameters:</strong></p>
+<p>A <code>{?param}</code> block is always optional. When a resource cannot be read without a query value, write the query into the template as literal text and put a regular placeholder where the value goes. The placeholder then behaves like a path parameter: it maps to a required function parameter, and a URI without that key does not match the template.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">fastmcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastMCP</span>
+
+<span class="n">mcp</span> <span class="o">=</span> <span class="n">FastMCP</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"SearchServer"</span><span class="p">)</span>
+
+<span class="nd">@mcp</span><span class="o">.</span><span class="n">resource</span><span class="p">(</span><span class="s2">"search://items?q=</span><span class="si">{q}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">search_items</span><span class="p">(</span><span class="n">q</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Search items by a required query."""</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"Results for </span><span class="si">{</span><span class="n">q</span><span class="si">}</span><span class="s2">"</span>
+</code></pre></div>
+<p>Reading <code>search://items?q=shoes</code> calls <code>search_items("shoes")</code>. The value runs up to the next <code>&amp;</code> and may be empty or contain <code>/</code>, so <code>search://items?q=</code> passes an empty string. An <code>&amp;</code> that belongs to the value must be percent-encoded. Only the keys written in the template are accepted: <code>search://items?q=shoes&amp;page=2</code> does not match, so add <code>&amp;page={page}</code> to the template when the resource needs a second key. Keys must appear in the order the template writes them. A literal query cannot be combined with a <code>{?param}</code> block in the same template.</p>
 <p><strong>Query parameters vs. hidden defaults:</strong></p>
 <p>Query parameters expose optional configuration to clients. To hide optional parameters from clients entirely (always use defaults), simply omit them from the URI template:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Clients CAN override max_results via query string</span>

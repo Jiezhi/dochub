@@ -1728,6 +1728,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../openwiki/operations/version-claims/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate Package Version Claims
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2021,6 +2049,34 @@
     
   
     Runnable Code Samples and Snippet Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../openwiki/workflows/egress-ip-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintain the LangSmith Egress IP Inventory
   
 
     
@@ -7380,6 +7436,17 @@
     <span class="md-ellipsis">
       
         Use the LLM auth proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-a-gateway-on-byoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use a gateway on BYOC
       
     </span>
   </a>
@@ -79920,6 +79987,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#use-a-gateway-on-byoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use a gateway on BYOC
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -80180,7 +80258,7 @@ A provider listed in <code>engine.workloadIdentityProviders</code> counts as con
 <p><Info>
 Model gateway support requires LangSmith Helm chart <code>0.17.31</code> or later.
 </Info></p>
-<p>Whoever installs LangSmith configures the gateway in the Helm values, not in the UI. Gateway URLs are often private addresses, so an organization setting would let any Organization Admin point Engine at internal services. Model gateways are not yet available on <a href="/langsmith/engine-self-hosted#engine-on-byoc">BYOC</a>.</p>
+<p>Whoever installs LangSmith configures the gateway in the Helm values, not in the UI. Gateway URLs are often private addresses, so an organization setting would let any Organization Admin point Engine at internal services. On <a href="/langsmith/engine-self-hosted#engine-on-byoc">BYOC</a> data planes on AWS, LangChain configures the gateway for you. See <a href="#use-a-gateway-on-byoc">Use a gateway on BYOC</a>.</p>
 <h3 id="gateway-requirements">Gateway requirements</h3>
 <p>Your gateway must:</p>
 <ul>
@@ -80289,6 +80367,28 @@ Apply the Helm values and restart both Engine workloads so they pick up the new 
 1. If your organization's <strong>Allowed URLs</strong> setting is <strong>Custom</strong>, add the auth proxy's hostname to the list.</p>
 <p>Engine runs on a schedule, not as a signed-in user. Its tokens identify the organization and workspace, with <code>actor_type</code> set to <code>api_key:service</code>, and they do not include an IdP token. If your <code>ext_authz</code> or <code>ext_proc</code> service exchanges a user's IdP token for gateway credentials, handle Engine's requests separately, for example by mapping the workspace to gateway credentials.</p>
 <p>If Engine reports that the LLM auth proxy is not enabled for the organization, or that the organization has no JWT audience, complete <a href="/langsmith/llm-auth-proxy-self-hosted#3-configure-organization-settings-in-langsmith">Configure organization settings in LangSmith</a>.</p>
+<h3 id="use-a-gateway-on-byoc">Use a gateway on BYOC</h3>
+<p>On <a href="/langsmith/engine-self-hosted#engine-on-byoc">BYOC</a> data planes on AWS, LangChain configures the gateway, so you don't edit Helm values. Model gateways are not yet available on BYOC data planes on Azure or Google Cloud.</p>
+<ol>
+<li>Check that your gateway meets the <a href="#gateway-requirements">gateway requirements</a> and that your data plane can reach it.</li>
+<li>
+<p>Choose how Engine authenticates to the gateway:</p>
+</li>
+<li>
+<p><strong>API key</strong>: Store the gateway key in AWS Secrets Manager, in the AWS account and region that host your data plane. The secret's name must start with <code>langsmith/</code>, because your data plane can read only secrets with that prefix. Store the key as a plain string, or as a field of a JSON secret. Encrypt the secret with the default <code>aws/secretsmanager</code> key. If you use your own KMS key instead, ask LangChain which role to allow in its key policy.</p>
+</li>
+<li>
+<p><strong>LLM auth proxy</strong>: Install the <a href="/langsmith/llm-auth-proxy-self-hosted">LLM auth proxy</a> where your data plane can reach it, and complete its organization settings. Set the proxy's <code>jwksUri</code> to <code>https://&lt;data-plane-host&gt;/api/.well-known/jwks.json</code>. Your data plane signs the tokens Engine sends with its own key, and this URL publishes that key.</p>
+</li>
+<li>
+<p>Contact LangChain with:</p>
+</li>
+<li>The APIs your gateway serves: Anthropic, OpenAI, or both.</li>
+<li>The base URL for each API, as described in <a href="#configure-the-gateway">Configure the gateway</a>. For the LLM auth proxy, give the proxy's URLs instead.</li>
+<li>The authentication method. For an API key, include the secret's ARN, the JSON field that holds the key if the secret is JSON, and the header name if your gateway doesn't expect <code>Authorization: Bearer &lt;key&gt;</code>.</li>
+<li>After LangChain confirms the change, <a href="#configure-the-gateway">test and select the gateway</a> under <strong>Settings &gt; Engine &gt; Model providers</strong>.</li>
+</ol>
+<p>If the key can't be read, for example because the secret was deleted or its KMS key doesn't allow LangSmith, <strong>Test connection</strong> fails for the gateway. Engine's other providers and the rest of LangSmith keep working.</p>
 <h2 id="connect-privately">Connect privately</h2>
 <p>Engine works over public egress. To keep its traffic on private networking, connect to LangSmith Intelligence with AWS PrivateLink, or connect to your own model providers through your cloud's private endpoints.</p>
 <h3 id="connect-with-aws-privatelink">Connect with AWS PrivateLink</h3>

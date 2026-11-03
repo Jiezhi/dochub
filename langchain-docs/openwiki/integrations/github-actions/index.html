@@ -1535,6 +1535,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Core CI gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed-document-package-version-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed-document package-version claims
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1936,6 +1953,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/version-claims/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate Package Version Claims
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2229,6 +2274,34 @@
     
   
     Runnable Code Samples and Snippet Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/egress-ip-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintain the LangSmith Egress IP Inventory
   
 
     
@@ -79896,6 +79969,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Core CI gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed-document-package-version-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed-document package-version claims
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -80029,7 +80119,7 @@
   <h1>GitHub Actions and CI Automation</h1>
 
 <h2 id="authority-map">Authority map</h2>
-<p>GitHub Actions separates read-only validation from automation that may write a branch, comment on a pull request, or publish a generated site. The source tree is the authoring surface. <code>build/</code>, preview branches, <code>prod</code>, and maintenance branches are outputs; maintenance writers propose changes for review rather than merge them.</p>
+<p>GitHub Actions separates checks that hold only read access to this repository from automation that may write a branch, comment on a pull request, or publish a generated site. Read-only in this map describes GitHub repository authority, not necessarily network isolation: the changed-document version check queries public registries. The source tree is the authoring surface. <code>build/</code>, preview branches, <code>prod</code>, and maintenance branches are outputs; maintenance writers propose changes for review rather than merge them.</p>
 <p>The local composite action <code>.github/actions/uv_setup</code> is the common Python bootstrap for current CI and maintenance workflows. It pins <code>astral-sh/setup-uv@v7</code> to uv <code>0.9.26</code>, requires a major.minor Python version input, and sets <code>ignore-nothing-to-cache: true</code> so a job that exits before <code>uv sync</code> or <code>uv run</code> does not fail during cache cleanup. Reuse this action instead of independently selecting a uv version in a workflow.</p>
 <div class="highlight"><pre><span></span><code>flowchart TD
   Change["Pull request or main push"] --&gt; CI["Read-only CI gates"]
@@ -80042,7 +80132,7 @@
   Weekly["Monday changelog schedule"] --&gt; ChangePr["Dated changelog review PR"]
   Main["Main push"] --&gt; Publish["prod build handoff"]
 </code></pre></div>
-<p><em>Validation does not write repository state; the write-capable paths produce bounded deployment or review artifacts.</em></p>
+<p><em>Read-only validation does not write repository state; write-capable paths produce bounded deployment or review artifacts.</em></p>
 <h3 id="credential-and-fork-boundary">Credential and fork boundary</h3>
 <p>Credentialed sample execution is deliberately unavailable to fork pull requests: provider API keys are repository secrets, so <strong>Test Code Samples</strong> runs PR jobs only when the head repository is this repository. Mintlify preview creation applies the same same-repository condition before its write-capable build-and-push job. A skipped fork run is absent integration coverage, not a passing credentialed test.</p>
 <p>Workflow permissions reinforce that distinction: core checks request read access, while the preview branch, trace-refresh, OpenAPI-refresh, changelog, and publishing paths have only the write authority needed for their output. Keep secrets in GitHub secrets and do not place their values in shell output, summaries, bot comments, or PR bodies.</p>
@@ -80076,6 +80166,12 @@
 </tr>
 </tbody>
 </table>
+<h3 id="changed-document-package-version-claims">Changed-document package-version claims</h3>
+<p><strong>Check version claims</strong> is a separate, read-only pull-request workflow. It is triggered when authored <code>src/**/*.mdx</code>, its checker, ignore configuration, or workflow definition changes. After a full-history checkout, it finds the merge-base against the PR base and passes only changed MDX files below <code>src/</code> to <code>scripts/check_version_claims.py --files</code>; if that diff is empty, it succeeds without setting up Python or making registry requests.</p>
+<p>The checker is deliberately narrower than an upgrade bot: it collects exact pins (<code>==</code>) and minimum floors (<code>&gt;=</code>) named in documentation, then verifies that each named release—or a release in a truncated series such as <code>1.1</code>—has been published. It does <strong>not</strong> decide that a valid floor should be raised. A scoped package always goes to npm and a package with Python extras always goes to PyPI; otherwise the nearest Python/JavaScript label, a <code>:::python</code> or <code>:::js</code> fence, and then page-path language determine the registry. This prevents a package published on divergent Python and npm version lines from being checked against the wrong registry.</p>
+<p>A registry lookup failure is reported as an unresolved note rather than a bad-version failure, so an outage or unavailable package does not block the PR. A version that resolves but was never published fails unless its exact specifier is a documented exception in <code>scripts/version_claims_ignore.cfg</code>. Run the same focused check locally after documentation changes:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/check_version_claims.py<span class="w"> </span>--files<span class="w"> </span>src/path/to/page.mdx
+</code></pre></div>
 <p><code>make build</code> installs npm dependencies and calls the pipeline build command. The command requires the source directory, creates <code>build/</code>, and delegates the transformation to <code>DocumentationBuilder.build_all()</code>. Use the narrow local entrypoint first:</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span><span class="nb">test</span>
 make<span class="w"> </span>lint
@@ -80116,7 +80212,8 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <p><code>changelog-weekly.yml</code> runs Mondays at 13:00 UTC, serializes the <code>changelog-weekly</code> group without cancelling an active run, and allows manual <code>since</code>, <code>until</code>, and <code>dry_run</code> inputs. It validates that manual dates are paired and use <code>YYYY-MM-DD</code>. Non-dry runs use a GitHub App token for the dated <code>changelog/weekly-&lt;UTC-date&gt;</code> branch and review PR.</p>
 <p>Before force-pushing a same-day branch, the workflow refuses to overwrite a branch containing commits not authored by <code>github-actions[bot]</code>. It creates or updates a PR only when tracked changelog state changed; it never merges. A dry run writes only candidate public entries to the summary, not the detailed report that can name private PRs or unreleased work. See <a href="/openwiki/workflows/changelog-publication.md">Weekly Changelog Publication</a>.</p>
 <h2 id="previews-and-publication">Previews and publication</h2>
-<p>Mintlify preview creation is restricted to same-repository PRs or manual dispatch. It validates the source branch, builds documentation, creates a collision-resistant <code>preview-</code> branch containing <code>build/</code>, and invokes the Mintlify preview API only after the branch is pushed. On PR closure, cleanup selects the derived prefix and refuses to delete a non-<code>preview-</code> branch. The comment job requires Mintlify credentials, rejects malformed or unusable API responses, maintains one marker-based bot comment for successful non-Dependabot PRs, removes old duplicates, and lists at most five changed routable Markdown pages by diff size. See <a href="/openwiki/integrations/mintlify.md">Mintlify Integration</a>.</p>
+<p>Mintlify preview creation is restricted to same-repository PRs or manual dispatch. It validates the source branch, builds documentation, creates a collision-resistant <code>preview-</code> branch containing <code>build/</code>, and invokes the Mintlify preview API only after the branch is pushed. On PR closure, cleanup selects the derived prefix and refuses to delete a non-<code>preview-</code> branch.</p>
+<p>For a successful non-Dependabot PR, the comment job needs Mintlify credentials and the preview-branch output; malformed JSON or an API error with neither a status ID nor preview URL fails the job. It deletes all bot comments carrying the current marker or recognized legacy preview wording, then creates one replacement marker comment. If Mintlify supplies a preview URL, that comment includes the site URL, a deployment-readiness notice, and deep links for up to five largest changed routable Markdown or MDX files. Files outside <code>src/</code>, code-sample and snippet paths, and non-routable names are excluded; <code>index</code> maps to its directory and shared OSS paths map to the Python route unless already language-specific. Without a preview URL, the replacement still records the generated branch but has no page deep links. See <a href="/openwiki/integrations/mintlify.md">Mintlify Integration</a>.</p>
 <p><code>publish.yml</code> runs on a <code>main</code> push or manual dispatch. It builds documentation, verifies <code>build/</code>, copies it beneath <code>public/build</code>, then uses the GitHub token to publish <code>public</code> to <code>prod</code>. This production handoff is separate from preview branches and is not an authoring surface.</p>
 <h2 id="safe-change-checklist">Safe-change checklist</h2>
 <ol>
@@ -80128,6 +80225,7 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <li>Keep Linear escalation downstream of failed or cancelled scheduled runs. An unset team variable must warn rather than fail observation.</li>
 <li>Preserve no-diff, standing-PR, human-edit, and review boundaries for OpenAPI, changelog, and trace writers. Do not expose secrets or private reports in generated material.</li>
 <li>Preserve preview branch sanitization and deletion guards; do not enable credentialed preview paths for forks.</li>
+<li>Keep package-version validation scoped to changed authored MDX and publication existence; do not turn it into automated dependency-floor upgrades or make registry outages a false failure.</li>
 </ol>
 <h2 id="related-pages">Related pages</h2>
 <ul>

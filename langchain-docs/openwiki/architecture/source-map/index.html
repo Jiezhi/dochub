@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Maps the durable owners of documentation, navigation, generated source, release automation, and deployment output. Use it to choose the safe change boundary and avoid editing derived artifacts.">
+        <meta name="description" content="Maps the durable owners of documentation, navigation, generated source, validation, and deployment output. Use it to choose the safe change boundary and avoid editing derived artifacts.">
       
       
       
@@ -1261,10 +1261,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#markdown-snippets-and-cross-references" class="md-nav__link">
+  <a href="#authoring-rules-that-affect-ownership" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Markdown, snippets, and cross-references
+        Authoring rules that affect ownership
       
     </span>
   </a>
@@ -1281,6 +1281,28 @@
     <span class="md-ellipsis">
       
         API-reference boundaries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#egress-inventory-and-generated-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Egress inventory and generated documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#version-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version claims
       
     </span>
   </a>
@@ -1891,6 +1913,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/version-claims/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate Package Version Claims
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2184,6 +2234,34 @@
     
   
     Runnable Code Samples and Snippet Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflows/egress-ip-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintain the LangSmith Egress IP Inventory
   
 
     
@@ -79827,10 +79905,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#markdown-snippets-and-cross-references" class="md-nav__link">
+  <a href="#authoring-rules-that-affect-ownership" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Markdown, snippets, and cross-references
+        Authoring rules that affect ownership
       
     </span>
   </a>
@@ -79847,6 +79925,28 @@
     <span class="md-ellipsis">
       
         API-reference boundaries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#egress-inventory-and-generated-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Egress inventory and generated documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#version-claims" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version claims
       
     </span>
   </a>
@@ -79947,11 +80047,12 @@
     Mintlify --&gt; Site["docs.langchain.com"]
     Metadata["Package and integration metadata"] --&gt; Generators["Committed-source generators"]
     Generators --&gt; Source
-    Upstream["LangSmith OpenAPI host"] --&gt; Processor["OpenAPI processor"]
-    Processor --&gt; Spec["Committed OpenAPI input"]
-    Spec --&gt; Mintlify
+    Inventory["Egress JSON inventory"] --&gt; EgressGenerator["Egress table generator"]
+    EgressGenerator --&gt; Source
+    Source --&gt; VersionChecker["Version-claim checker"]
+    VersionChecker --&gt; Registries["PyPI and npm registries"]
 </code></pre></div>
-<p><em>Authored and generated-but-committed inputs converge during the build; Mintlify then serves the disposable build and generates configured OpenAPI endpoint pages.</em></p>
+<p><em>Authored and generated-but-committed inputs converge during the build; separate checks validate published package versions and generated egress tables before deployment.</em></p>
 <h2 id="ownership-boundaries">Ownership boundaries</h2>
 <table>
 <thead>
@@ -79998,6 +80099,11 @@
 <td>Change policy or refresh the committed input, not deployment-generated endpoint MDX.</td>
 </tr>
 <tr>
+<td>Egress-address data and public machine-readable artifact</td>
+<td><code>src/langsmith/egress-ip-addresses.json</code></td>
+<td>Edit validated inventory entries, then regenerate both embedded tables.</td>
+</tr>
+<tr>
 <td>Cloud and Fleet changelog content</td>
 <td><code>src/langsmith/changelog.mdx</code>, <code>src/snippets/langsmith/fleet-changelog.mdx</code>, and the encrypted held-state ledger</td>
 <td>Use the weekly proposal workflow or make a deliberate source edit; do not expose held state.</td>
@@ -80015,11 +80121,12 @@
 </tbody>
 </table>
 <h2 id="authored-documentation-labels-and-routes">Authored documentation, labels, and routes</h2>
-<p><code>src/</code> is organized for authoring ownership, <strong>not</strong> as a URL or reader-navigation mirror. LangSmith content is in <code>src/langsmith/</code>, OSS content is in <code>src/oss/</code>, reusable MDX and components are in <code>src/snippets/</code>, and <code>src/code-samples/</code> holds runnable programs. Reader-facing product and menu labels deliberately cross those directories: the Build menu includes both OSS and LangSmith content, while Test, Deploy, and Monitor draw from LangSmith. Find the owner by directory; find the reader-facing location in <code>src/docs.json</code>.</p>
-<p>A page emitted by the builder is not automatically discoverable. <code>src/docs.json</code> independently owns menus, redirects, and OpenAPI configuration, so adding or moving a page requires an explicit navigation decision and a redirect when retaining a public URL.</p>
-<p><code>DocumentationBuilder.build_all()</code> recreates <code>build/</code>, builds Python and JavaScript OSS variants, emits Deep Agents Code and OpenWiki once at unversioned OSS routes, builds LangSmith content, then copies shared files including <code>docs.json</code>. Regular OSS pages land under <code>oss/python/</code> and <code>oss/javascript/</code>. <code>src/oss/openwiki/</code> and <code>src/oss/deepagents/code/</code> intentionally land only at unversioned paths; the Build navigation lists the OpenWiki paths under both language dropdowns. Managed Deep Agents is distinct: matching <code>src/langsmith/managed-deep-agents*.mdx</code> files produce Python and JavaScript routes, while configured unversioned legacy URLs redirect to the Python route.</p>
+<p><code>src/</code> is organized for authoring ownership, not as a URL or reader-navigation mirror. LangSmith content is in <code>src/langsmith/</code>, OSS content is in <code>src/oss/</code>, reusable MDX and components are in <code>src/snippets/</code>, and <code>src/code-samples/</code> holds runnable programs. Product and menu labels deliberately cross those directories: Build includes both OSS and LangSmith content, while Test, Deploy, and Monitor draw from LangSmith. Find the owner by directory; find reader-facing placement in <code>src/docs.json</code>.</p>
+<p>Adding a source page does not make it discoverable. <code>src/docs.json</code> independently owns menus, redirects, and OpenAPI configuration, so an addition or move requires an explicit navigation decision and a redirect when retaining a public URL. The current contract has two products composed of menus rather than a flat tab list. Build has Python and TypeScript dropdowns; OpenWiki appears in both even though its pages are unversioned.</p>
+<p><code>DocumentationBuilder.build_all()</code> recreates <code>build/</code>, builds Python and JavaScript OSS variants, emits Deep Agents Code and OpenWiki once at unversioned OSS routes, builds LangSmith content, then copies shared files including <code>docs.json</code>. Regular OSS pages land under <code>oss/python/</code> and <code>oss/javascript/</code>. <code>src/oss/openwiki/</code> and <code>src/oss/deepagents/code/</code> intentionally land only at unversioned paths. Managed Deep Agents is distinct: matching <code>src/langsmith/managed-deep-agents*.mdx</code> files produce Python and JavaScript routes, while configured unversioned legacy URLs redirect to Python.</p>
 <p>Source collection is containment-safe: the builder skips source-tree symlinks and files whose resolved path leaves the collection root. Preserve that safeguard when changing traversal or adding a collection.</p>
-<h3 id="markdown-snippets-and-cross-references">Markdown, snippets, and cross-references</h3>
+<h3 id="authoring-rules-that-affect-ownership">Authoring rules that affect ownership</h3>
+<p>The repository guidance applies to manually authored <code>src/</code> content, not generated output. Every MDX page needs YAML frontmatter with a concise title and a plain-text SEO description; adding a page also requires <code>src/docs.json</code>. Use Tabler icons, test code examples, and avoid fabricating examples or policy details. For shared OSS content, <code>:::python</code> and <code>:::js</code> fences select language-specific material; a shared page listed in only one language navigation is built only for that language, and a previously public omitted-language route needs a redirect.</p>
 <p>Before writing MD or MDX, the builder resolves <code>@[...]</code> cross-references, adds UTM parameters to eligible LangSmith CTA links, and selects the target <code>:::python</code> or <code>:::js</code> content while leaving unsupported conditional labels intact. The scoped entries in <code>pipeline/preprocessors/link_map.py</code> are the authority for cross-reference symbols. An unresolved symbol is logged and left literal rather than receiving a guessed URL.</p>
 <p>Snippets are shared source but have language-aware Markdown copies: the build writes the source-relative copy plus Python and JavaScript copies, and rewrites language-targeted MDX imports to the corresponding copy. JSX and TSX components stay shared.</p>
 <h2 id="api-reference-boundaries">API-reference boundaries</h2>
@@ -80030,6 +80137,17 @@
 <li><code>src/langsmith/langsmith-platform-openapi.json</code> is a generated-but-reviewed committed input. Its processor fetches only an allow-listed LangSmith host, or reads a local input; hides fleet/internal and configured health operations; assigns and orders tag groups; and normalizes visible operation titles before writing the file.</li>
 </ul>
 <p>The daily OpenAPI workflow runs that processor, makes no commit when the specification is unchanged, and appends changes to the existing <code>chore/refresh-langsmith-openapi</code> pull request. Change the processing policy or upstream contract rather than hand-editing endpoint pages.</p>
+<h2 id="egress-inventory-and-generated-documentation">Egress inventory and generated documentation</h2>
+<p><code>src/langsmith/egress-ip-addresses.json</code> is the single source for public LangSmith and LangSmith Deployment egress addresses. It is published unchanged at <code>/langsmith/egress-ip-addresses.json</code>; consumers filter <code>addresses</code> by <code>service</code>, <code>cloud</code>, and <code>region</code>, then allowlist every matching <code>cidr</code> and compare the deterministic <code>version</code> to detect changes. The two reader-facing tables are generated blocks in <code>src/langsmith/cloud.mdx</code> and <code>src/langsmith/cloud-platform-features.mdx</code>, not independent sources.</p>
+<p>The generator accepts schema version 1 only. Inventory entries must have exactly <code>service</code>, <code>cloud</code>, <code>region</code>, and <code>cidr</code>; services map to those two target pages, clouds are <code>gcp</code> or <code>aws</code>, regions are <code>us</code>, <code>eu</code>, or <code>apac</code>, and each CIDR must be a distinct global IPv4 <code>/32</code>. It hashes a canonical sorted representation of <code>addresses</code> into <code>version</code>, renders only the populated cloud/region columns for each service, and requires exactly one begin/end marker pair per target page. <code>--check</code> reports inventory-version or table drift without writing; normal mode rewrites the hash and both tables. Run:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/generate_egress_ip_tables.py
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/generate_egress_ip_tables.py<span class="w"> </span>--check
+</code></pre></div>
+<p>Commit the JSON and both regenerated pages together. Do not manually change a generated table or the hash. The focused egress tests cover malformed and duplicate entries, drift detection, and the build's byte-for-byte publication of the one unversioned JSON artifact.</p>
+<h2 id="version-claims">Version claims</h2>
+<p>Minimum package versions in prose are claims that a release exists, not instructions for automation to select a newer floor. <code>scripts/check_version_claims.py</code> scans MDX for <code>&gt;=</code> and <code>==</code> package specifiers and queries PyPI or npm concurrently. A scoped <code>@name/package</code> is npm-only and extras brackets are PyPI-only; otherwise the nearest explicit language label wins, followed by a <code>:::python</code>/<code>:::js</code> fence, language-bearing path, the small JS-only page override set, and finally PyPI. This ordering matters because packages such as <code>deepagents</code> have divergent package/version lines across registries.</p>
+<p>The checker accepts exact releases and truncated series floors when a published release shares that dotted prefix. It records all occurrence lines for a specifier, uses a fixed allowlist before lookup, and refuses registry URL construction for unsafe package names. Registry failures are unresolved notes rather than false claims; a version is a failure only when its package resolves and no published release satisfies the exact version or series. Use <code>--advisory-only</code> for a report that always exits successfully.</p>
+<p>On pull requests that touch docs/checker configuration, <code>check-version-claims.yml</code> computes changed <code>src/**/*.mdx</code> files from the merge base and blocks only those pages on nonexistent releases. The scheduled external-version workflow runs the complete checker in advisory mode, so stale untouched content and registry availability do not make the scheduled sweep fail. Add an ignore entry only for a documented, intentional unresolvable example; normally correct the page.</p>
 <h2 id="development-verification-and-publication">Development, verification, and publication</h2>
 <p>The <code>docs</code> console script exposes the pipeline CLI. <code>docs dev</code> builds initially unless <code>--skip-build</code> is selected, watches <code>src/</code>, and starts <code>mint dev</code> in <code>build/</code>; an initial build failure prevents server startup. <code>make build</code>, <code>make dev</code>, and the link-check targets are the standard wrappers.</p>
 <p>CI calls reusable test, lint, and link-validation workflows and cancels an older run for the same workflow and ref when a newer push arrives. Separate jobs check merge-conflict markers, cross-references, external integration URL schemes, and generated provider output. The link workflow builds the site, validates links with anchors and redirects, and checks the Agent Server OpenAPI specification. The generated-file check regenerates <code>src/oss/python/integrations/providers/overview.mdx</code> and rejects drift except for its stated automation and label bypasses.</p>
@@ -80044,28 +80162,26 @@
 <p>The Monday repository-liveness workflow runs the checker with <code>--write</code> and maintains one standing draft PR on <code>chore/dead-integration-repos</code>. For a dead third-party GitHub home, the checker can adopt a live third-party replacement evidenced by PyPI, npm, or external documentation. It keeps live GitLab, partner-documentation, and first-party alternatives for human attention; with no live alternate, it delists the package and removes associated listing surfaces.</p>
 <h2 id="changelog-state-and-release-watch-automation">Changelog state and release-watch automation</h2>
 <p>The weekly changelog pipeline owns proposed Cloud and Fleet updates. It collects merged <code>feat</code> and <code>fix</code> pull requests from <code>langchain-ai/langchainplus</code> for a Monday-to-Monday window, classifies customer relevance, and writes only through <code>weekly --write</code>. The destination files are <code>src/langsmith/changelog.mdx</code> and <code>src/snippets/langsmith/fleet-changelog.mdx</code>; flag-gated candidates are retained in <code>scripts/.changelog_held.json.enc</code> until rollout checks allow publication. The ledger is encrypted because the public repository must not disclose unreleased work.</p>
-<p><code>.github/workflows/changelog-weekly.yml</code> is the operational entrypoint. It runs each Monday at 13:00 UTC or by validated manual date range, and opens or refreshes a review PR rather than publishing directly. A dry run writes candidate entries to the Actions summary; the detailed report stays local because it can name private PRs and unreleased work. Edit wording in the changelog targets during review, not generated build output. See <a href="/openwiki/workflows/changelog-publication.md">Weekly Changelog Publication</a> for its gates and failure semantics.</p>
-<p><code>docs-release-watch/</code> is a separately deployable Managed Deep Agent, not a Mintlify build input. Its registry maps each covered product to an upstream repository, documentation boundary, release-tag filter, source prefixes, language scope, and durable memory file. It currently watches OpenWiki, Deep Agents Python, Deep Agents Code, and Deep Agents JS. For an eligible release published 7–30 days earlier, it compares tagged source with the owned documentation boundary and prepares one Linear DOC ticket and one <strong>draft</strong> documentation PR per feature; people review before merge. To extend coverage, add the registry entry, a matching product skill, and a schedule prompt, then run <code>uv run mda deploy</code>. See <a href="/openwiki/workflows/release-watch.md">Documentation Release Watch</a> for the write safeguards and credentials.</p>
+<p><code>docs-release-watch/</code> is a separately deployable Managed Deep Agent, not a Mintlify build input. Its registry maps each covered product to an upstream repository, documentation boundary, release-tag filter, source prefixes, language scope, and durable memory file. It watches OpenWiki, Deep Agents Python, Deep Agents Code, and Deep Agents JS. For an eligible release published 7–30 days earlier, it compares tagged source with the owned documentation boundary and prepares one Linear DOC ticket and one draft documentation PR per feature; people review before merge. To extend coverage, add the registry entry, a matching product skill, and a schedule prompt, then run <code>uv run mda deploy</code>.</p>
 <h2 id="change-guide">Change guide</h2>
 <ol>
-<li><strong>Add or move a page:</strong> edit the owning <code>src/</code> MDX, then update <code>src/docs.json</code>; do not infer navigation from the directory name.</li>
+<li><strong>Add or move a page:</strong> edit the owning <code>src/</code> MDX, then update <code>src/docs.json</code> and redirects; do not infer navigation from the directory name.</li>
 <li><strong>Change routes, language rendering, snippets, or preprocessing:</strong> modify <code>pipeline/</code>, preserve containment safety, add a focused test, and rebuild.</li>
-<li><strong>Change a runnable example:</strong> edit and test <code>src/code-samples/</code>, run <code>make code-snippets</code>, and commit the rendered snippet MDX—not the ignored intermediate.</li>
+<li><strong>Change a runnable example:</strong> edit and test <code>src/code-samples/</code>, run <code>make code-snippets</code>, and commit rendered snippet MDX, not the ignored intermediate.</li>
+<li><strong>Change egress addresses:</strong> validate the JSON change, run the egress generator, commit the JSON and two tables, and verify the public artifact after deployment.</li>
+<li><strong>Change package version text:</strong> use an accurate human-chosen floor, put ecosystem-specific claims in the right language fence or label, and run the checker on the edited MDX.</li>
 <li><strong>Change provider or integration listings:</strong> choose <code>packages.yml</code>, hosted-page frontmatter, or <code>integration_external_docs.yaml</code> by ownership, then regenerate.</li>
 <li><strong>Change Mintlify API reference:</strong> change <code>src/docs.json</code>, the committed specification, or <code>process_langsmith_openapi.py</code>; never author deployment-generated endpoint MDX.</li>
-<li><strong>Fix an API symbol link:</strong> amend the scoped mapping in <code>pipeline/preprocessors/link_map.py</code> and verify preprocessing rather than pasting a guessed URL into output.</li>
-<li><strong>Change a changelog proposal:</strong> preserve encrypted held-state handling and review-PR publication; use <code>weekly --write</code> only when the required secrets and rollout checks are available.</li>
-<li><strong>Extend release watch:</strong> align the product registry, skill, schedule, and deployment. Do not treat its generated draft PR as an automatically publishable documentation change.</li>
-<li><strong>Change verification or scheduled maintenance:</strong> update the workflow, script, and tests together; preserve the standing-PR behavior of OpenAPI and integration-repository maintenance.</li>
+<li><strong>Change verification or scheduled maintenance:</strong> update the workflow, script, and tests together; preserve standing-PR behavior where it is part of the workflow contract.</li>
 </ol>
 <h2 id="related-pages">Related pages</h2>
 <ul>
-<li><a href="/openwiki/architecture/build-system.md">Build system</a></li>
 <li><a href="/openwiki/concepts/versioning.md">Versioning</a></li>
 <li><a href="/openwiki/integrations/mintlify.md">Mintlify integration</a></li>
-<li><a href="/openwiki/operations/adding-pages.md">Adding pages</a></li>
-<li><a href="/openwiki/workflows/changelog-publication.md">Weekly Changelog Publication</a></li>
-<li><a href="/openwiki/workflows/release-watch.md">Documentation Release Watch</a></li>
+<li><a href="/openwiki/operations/version-claims.md">Version-claim checks</a></li>
+<li><a href="/openwiki/workflows/code-sample-lifecycle.md">Code sample lifecycle</a></li>
+<li><a href="/openwiki/workflows/egress-ip-inventory.md">Egress IP inventory</a></li>
+<li><a href="/openwiki/quickstart.md">Quickstart</a></li>
 </ul>
 
 

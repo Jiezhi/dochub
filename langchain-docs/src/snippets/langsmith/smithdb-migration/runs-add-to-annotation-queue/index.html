@@ -1726,6 +1726,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../openwiki/operations/version-claims/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validate Package Version Claims
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2019,6 +2047,34 @@
     
   
     Runnable Code Samples and Snippet Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../openwiki/workflows/egress-ip-inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintain the LangSmith Egress IP Inventory
   
 
     
@@ -79899,120 +79955,105 @@
   <h1>Runs add to annotation queue</h1>
 
 <h2 id="annotation-queues-add-runs">Annotation queues: add runs</h2>
-<p>Add runs to an annotation queue. The SmithDB-backed path takes each run's full lookup key—its ID plus the <code>session_id</code> (project UUID) and <code>start_time</code> partition keys—so the run can be located directly instead of scanned for.</p>
+<p>Add runs to an annotation queue. The legacy <code>POST /api/v1/annotation-queues/{queue_id}/runs</code> and <code>POST /api/v1/annotation-queues/{queue_id}/runs/by-key</code> endpoints are both deprecated. Use the annotation queue items API instead: each run is one <code>RUN</code> item with its ID plus the <code>project_id</code> (project UUID) and <code>start_time</code> lookup keys, so the run can be located directly instead of scanned for.</p>
 <p><Note>
-This method stays on the existing client, not the new <code>runs</code> v2 client, so the <a href="/langsmith/smithdb-sdk-migration#exceptions">Exceptions</a> table does not apply—error handling is unchanged.
+In Python and TypeScript, the items API is on the new client resources (<code>client.annotation_queues.items</code> / <code>client.annotationQueues.items</code>), so the <a href="/langsmith/smithdb-sdk-migration#exceptions">Exceptions</a> table applies. On self-hosted, the items endpoints need LangSmith v0.16.14 or later.
 </Note></p>
 <h3 id="main-changes">Main changes</h3>
 <h4 id="method-name">Method name</h4>
 <p><Tabs>
   <Tab title="Python">
-    No change—<code>client.add_runs_to_annotation_queue()</code>. The SmithDB path is selected by the parameters you pass (see Inputs below).</p>
-<pre><code>See the [reference](https://reference.langchain.com/python/langsmith/client/Client/add_runs_to_annotation_queue) for the full parameter list.
-</code></pre>
-<p></Tab>
+    | Before | After |
+    |--------|-------|
+    | <code>client.add_runs_to_annotation_queue()</code> | <code>client.annotation_queues.items.create()</code> (async) |
+  </Tab>
   <Tab title="TypeScript">
-    No change—<code>client.addRunsToAnnotationQueue()</code>. The SmithDB path is selected by the argument you pass (see Inputs below).</p>
-<pre><code>See the [reference](https://reference.langchain.com/javascript/langsmith/client/Client/addRunsToAnnotationQueue) for the full parameter list.
-</code></pre>
-<p></Tab>
+    | Before | After |
+    |--------|-------|
+    | <code>client.addRunsToAnnotationQueue()</code> | <code>client.annotationQueues.items.create()</code> |
+  </Tab>
   <Tab title="Java">
     | Before | After |
     |--------|-------|
-    | <code>client.annotationQueues().runs().create()</code> | <code>client.annotationQueues().runs().createByKey()</code> |</p>
-<pre><code>See the [reference](https://javadoc.io/doc/com.langchain.smith/langsmith-java/latest/com/langchain/smith/services/blocking/annotationqueues/RunService.html) for the full parameter list.
-</code></pre>
-<p></Tab>
+    | <code>client.annotationQueues().runs().create()</code> | <code>client.annotationQueues().items().create()</code> |
+  </Tab>
   <Tab title="Go">
     | Before | After |
     |--------|-------|
-    | <code>client.AnnotationQueues.Runs.New()</code> | <code>client.AnnotationQueues.Runs.NewByKey()</code> |</p>
-<pre><code>See the [reference](https://pkg.go.dev/github.com/langchain-ai/langsmith-go#AnnotationQueueRunService.NewByKey) for the full parameter list.
+    | <code>client.AnnotationQueues.Runs.New()</code> | <code>client.AnnotationQueues.Items.New()</code> |</p>
+<pre><code>See the [reference](https://pkg.go.dev/github.com/langchain-ai/langsmith-go#AnnotationQueueItemService.New) for the full parameter list.
 </code></pre>
 <p></Tab>
   <Tab title="cURL">
     | Before | After |
     |--------|-------|
-    | <code>POST /api/v1/annotation-queues/{queue_id}/runs</code> | <code>POST /api/v1/annotation-queues/{queue_id}/runs/by-key</code> |</p>
-<pre><code>See the [API doc](/langsmith/smith-api/annotation-queues/add-runs-to-annotation-queue-by-key) for the full parameter list.
-</code></pre>
-<p></Tab>
+    | <code>POST /api/v1/annotation-queues/{queue_id}/runs</code> | <code>POST /api/v1/platform/annotation-queues/{queue_id}/items</code> |
+  </Tab>
 </Tabs></p>
 <h4 id="inputs">Inputs</h4>
+<p>The request takes a list of items (up to 100 per call) instead of a list of run IDs. Each run becomes one item:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>item_type</code></td>
+<td><code>RUN</code></td>
+</tr>
+<tr>
+<td><code>run_id</code></td>
+<td>The run ID</td>
+</tr>
+<tr>
+<td><code>project_id</code></td>
+<td>The run's project UUID (<code>project_id</code> on a run from <code>runs.query</code>; <code>session_id</code> is also accepted as an alias)</td>
+</tr>
+<tr>
+<td><code>start_time</code></td>
+<td>The run's start time (RFC3339)</td>
+</tr>
+</tbody>
+</table>
+<p><code>extend_trace_retention</code> is unchanged and stays an optional query parameter.</p>
 <p><Tabs>
   <Tab title="Python">
-    <Warning>
-    The SmithDB path needs each run's <code>session_id</code> (project UUID) and <code>start_time</code> in addition to its <code>run_id</code>. These are already present on the run objects you fetch (for example from <code>client.list_runs()</code>).
-    </Warning></p>
-<pre><code>| Before (`run_ids`) | After (`runs`) | Notes |
-|---|---|---|
-| `run_ids: list[UUID \| str]` | *(deprecated)* | Legacy path. Still works and hits `/runs`, resolving each run server-side. Will be removed in a future release |
-| *(not available)* | `runs: Sequence[RunKey]` | **New preferred.** Each `RunKey` is a `TypedDict` with `run_id`, `session_id`, and `start_time` |
-
-Provide exactly one of `runs` or `run_ids`; passing both raises a `LangSmithUserError`.
-</code></pre>
-<p></Tab>
+    | Before | After |
+    |---|---|
+    | <code>run_ids=[...]</code> or <code>runs=[RunKey, ...]</code> | <code>items=[{"item_type": "RUN", "run_id", "project_id", "start_time"}, ...]</code> |
+  </Tab>
   <Tab title="TypeScript">
-    <Warning>
-    The SmithDB path needs each run's <code>sessionId</code> (project UUID) and <code>startTime</code> in addition to its <code>runId</code>. These are already present on the run objects you fetch (for example from <code>client.listRuns()</code>).
-    </Warning></p>
-<pre><code>| Before (`string[]`) | After (`RunKey[]`) | Notes |
-|---|---|---|
-| `runs: string[]` | *(deprecated)* | Legacy path (array of run-ID strings). Still works and hits `/runs`. Will be removed in a future release |
-| *(not available)* | `runs: RunKey[]` | **New preferred.** Each `RunKey` is `{ runId, sessionId, startTime }`; `startTime` accepts a `Date`, epoch ms, or ISO string |
-
-Both shapes are the same positional second argument; the SDK selects the SmithDB path when you pass `RunKey[]`.
-</code></pre>
-<p></Tab>
+    | Before | After |
+    |---|---|
+    | <code>string[]</code> or <code>RunKey[]</code> (second argument) | <code>{ items: [{ item_type: "RUN", run_id, project_id, start_time }] }</code> |
+  </Tab>
   <Tab title="Java">
-    | Before (<code>RunCreateParams</code>) | After (<code>RunCreateByKeyParams</code>) | Notes |
-    |---|---|---|
-    | <code>.bodyOfRunsUuidArray(List&lt;String&gt;)</code> | <em>(removed)</em> | Legacy body; run IDs only |
-    | <em>(not available)</em> | <code>.addBody(RunCreateByKeyParams.Body)</code> | Each <code>Body</code> has <code>runId</code>, <code>sessionId</code>, and <code>startTime</code> |
-    | <code>.queueId(String)</code> | <code>.queueId(String)</code> | Unchanged |
-    | <code>.extendTraceRetention(Boolean)</code> | <code>.extendTraceRetention(Boolean)</code> | Unchanged optional query param |
+    | Before (<code>RunCreateParams</code>) | After (<code>ItemCreateParams</code>) |
+    |---|---|
+    | <code>.bodyOfRunsUuidArray(List&lt;String&gt;)</code> | <code>.addItem(ItemCreateParams.Item)</code> with <code>itemType(RUN)</code>, <code>runId</code>, <code>projectId</code>, <code>startTime</code> |
+    | <code>.queueId(String)</code> | <code>.queueId(String)</code> |
   </Tab>
   <Tab title="Go">
-    | Before (<code>AnnotationQueueRunNewParams</code>) | After (<code>AnnotationQueueRunNewByKeyParams</code>) | Notes |
-    |---|---|---|
-    | <code>Body: AnnotationQueueRunNewParamsBodyRunsUuidArray</code> (<code>[]string</code>) | <em>(removed)</em> | Legacy body; run IDs only |
-    | <em>(not available)</em> | <code>Body: []AnnotationQueueRunNewByKeyParamsBody</code> | Each has <code>RunID</code>, <code>SessionID</code>, and <code>StartTime</code> |
-    | <em>(not available)</em> | <code>ExtendTraceRetention</code> | Optional query param |
+    | Before (<code>AnnotationQueueRunNewParams</code>) | After (<code>AnnotationQueueItemNewParams</code>) |
+    |---|---|
+    | <code>Body: AnnotationQueueRunNewParamsBodyRunsUuidArray</code> | <code>Items: []AnnotationQueueItemNewParamsItem</code> with <code>ItemType</code>, <code>RunID</code>, <code>ProjectID</code>, <code>StartTime</code> |
   </Tab>
   <Tab title="cURL">
-    <Warning>
-    The <code>/runs/by-key</code> request body is an array of objects, not an array of ID strings. Each object needs <code>run_id</code>, <code>session_id</code> (project UUID), and <code>start_time</code> (RFC3339).
-    </Warning></p>
-<pre><code>| Before (`POST /runs` body) | After (`POST /runs/by-key` body) | Notes |
-|---|---|---|
-| `["&lt;run-id&gt;", ...]` | `[{"run_id", "session_id", "start_time"}]` | `session_id` is the project UUID; `start_time` is RFC3339 |
-| `?extend_trace_retention` (query) | `?extend_trace_retention` (query) | Unchanged optional query param |
-</code></pre>
-<p></Tab>
+    | Before (body) | After (body) |
+    |---|---|
+    | <code>["&lt;run-id&gt;", ...]</code> | <code>{"items": [{"item_type": "RUN", "run_id", "project_id", "start_time"}]}</code> |
+  </Tab>
 </Tabs></p>
 <h4 id="response">Response</h4>
-<p><Tabs>
-  <Tab title="Python">
-    No change. Both <code>run_ids=</code> and <code>runs=</code> return <code>None</code>.
-  </Tab>
-  <Tab title="TypeScript">
-    No change. Both shapes resolve to <code>void</code>.
-  </Tab>
-  <Tab title="Java">
-    <code>createByKey()</code> returns <code>List&lt;RunCreateByKeyResponse&gt;</code>—the same shape <code>create()</code> returned, with <code>id()</code>, <code>queueId()</code>, <code>runId()</code>, <code>addedAt()</code>, and <code>lastReviewedTime()</code>.
-  </Tab>
-  <Tab title="Go">
-    <code>NewByKey()</code> returns <code>*[]AnnotationQueueRunNewByKeyResponse</code>—the same shape <code>New()</code> returned, with <code>ID</code>, <code>QueueID</code>, <code>RunID</code>, <code>AddedAt</code>, and <code>LastReviewedTime</code>.
-  </Tab>
-  <Tab title="cURL">
-    No change. <code>POST /runs/by-key</code> returns the array of created queue-run records (<code>id</code>, <code>queue_id</code>, <code>run_id</code>, <code>added_at</code>, <code>last_reviewed_time</code>), the same shape as <code>POST /runs</code>.
-  </Tab>
-</Tabs></p>
+<p>The items API returns <code>{"items": [...]}</code>, one created queue item per input (<code>id</code>, <code>queue_id</code>, <code>item_type</code>, <code>run_id</code>, <code>project_id</code>, <code>start_time</code>, <code>added_at</code>, <code>last_reviewed_time</code>). Use the item <code>id</code> with the other items endpoints (update, delete, status). The legacy Python and TypeScript methods returned nothing.</p>
 <h3 id="examples">Examples</h3>
 <h4 id="add-runs-to-a-queue">Add runs to a queue</h4>
 <p><Tabs>
   <Tab title="Python">
-    <code>run_ids=</code> takes a plain list of run IDs. <code>runs=</code> takes each run's full lookup key—read <code>run_id</code>, <code>session_id</code>, and <code>start_time</code> off the run objects you already have.</p>
+    Build one <code>RUN</code> item per run from the run objects you already have.</p>
 <pre><code>&lt;Tabs sync={false}&gt;
   &lt;Tab title="Before"&gt;
     &lt;SmithdbRunsAddToQueueBeforePy /&gt;
@@ -80024,7 +80065,7 @@ Both shapes are the same positional second argument; the SDK selects the SmithDB
 </code></pre>
 <p></Tab>
   <Tab title="TypeScript">
-    Pass an array of run-ID strings for the legacy path, or an array of <code>RunKey</code> objects (<code>runId</code>, <code>sessionId</code>, <code>startTime</code>) built from the run objects you already have.</p>
+    Build one <code>RUN</code> item per run from the run objects you already have.</p>
 <pre><code>&lt;Tabs sync={false}&gt;
   &lt;Tab title="Before"&gt;
     &lt;SmithdbRunsAddToQueueBeforeJs /&gt;
@@ -80036,7 +80077,7 @@ Both shapes are the same positional second argument; the SDK selects the SmithDB
 </code></pre>
 <p></Tab>
   <Tab title="Java">
-    <code>create()</code> takes run IDs via <code>bodyOfRunsUuidArray</code>. <code>createByKey()</code> takes a <code>Body</code> per run with <code>runId</code>, <code>sessionId</code>, and <code>startTime</code>.</p>
+    Add one <code>ItemCreateParams.Item</code> per run.</p>
 <pre><code>&lt;Tabs sync={false}&gt;
   &lt;Tab title="Before"&gt;
     &lt;SmithdbRunsAddToQueueBeforeKt /&gt;
@@ -80048,7 +80089,7 @@ Both shapes are the same positional second argument; the SDK selects the SmithDB
 </code></pre>
 <p></Tab>
   <Tab title="Go">
-    <code>New()</code> takes run IDs via <code>AnnotationQueueRunNewParamsBodyRunsUuidArray</code>. <code>NewByKey()</code> takes an <code>AnnotationQueueRunNewByKeyParamsBody</code> per run with <code>RunID</code>, <code>SessionID</code>, and <code>StartTime</code>.</p>
+    Add one <code>AnnotationQueueItemNewParamsItem</code> per run.</p>
 <pre><code>&lt;Tabs sync={false}&gt;
   &lt;Tab title="Before"&gt;
     &lt;SmithdbRunsAddToQueueBeforeGo /&gt;
@@ -80060,7 +80101,7 @@ Both shapes are the same positional second argument; the SDK selects the SmithDB
 </code></pre>
 <p></Tab>
   <Tab title="cURL">
-    <code>POST /runs</code> takes an array of run-ID strings. <code>POST /runs/by-key</code> takes an array of objects, each with <code>run_id</code>, <code>session_id</code>, and <code>start_time</code>.</p>
+    <code>POST /runs</code> takes an array of run-ID strings. <code>POST /items</code> takes an <code>items</code> array of objects.</p>
 <pre><code>&lt;Tabs sync={false}&gt;
   &lt;Tab title="Before"&gt;
     &lt;SmithdbRunsAddToQueueBeforeSh /&gt;
