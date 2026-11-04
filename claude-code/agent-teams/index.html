@@ -1856,7 +1856,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7236,16 +7236,16 @@ Claude Code checks the model it selects for a teammate against your organization
 * **Family alias such as `opus`**: On the Anthropic API and Claude Platform on AWS, Claude Code runs the teammate on the newest version of that family the allowlist permits. On providers with provider-specific model IDs, where the [substitution doesn't operate](https://code.claude.com/docs/en/model-config.md#restrict-model-selection), a blocked alias falls back like any other blocked value per the next bullet
 * **Any other blocked value, including a family alias on providers where the substitution doesn't operate, or one whose family has no permitted version**: Claude Code runs the teammate on the lead's model instead. If you set `CLAUDE_CODE_SUBAGENT_MODEL`, Claude Code tries that model first, under these same rules
 
-By default, teammates inherit the lead's [effort level](https://code.claude.com/docs/en/model-config.md#adjust-effort-level). In split-pane mode this applies from v2.1.186; earlier versions did not pass the lead's session effort to split-pane teammates.
+By default, a teammate on the lead's model inherits the lead's [effort level](https://code.claude.com/docs/en/model-config.md#adjust-effort-level). In split-pane mode this applies from v2.1.186; earlier versions did not pass the lead's session effort to split-pane teammates. For a teammate on another model, see [Effort level of subagents and teammates](https://code.claude.com/docs/en/model-config.md#effort-level-of-subagents-and-teammates).
 
 ### Have teammates plan before implementing
 
-For complex or risky tasks, you can have teammates plan before implementing. A teammate that Claude spawns while the lead is in [plan mode](https://code.claude.com/docs/en/permission-modes.md#analyze-before-you-edit-with-plan-mode) works in read-only plan mode until its plan is ready. Switch the lead into plan mode first, then ask for the teammate:
+For complex or risky tasks, you can have teammates plan before implementing. A teammate that Claude spawns while the lead is in [plan mode](https://code.claude.com/docs/en/permission-modes.md#analyze-before-you-edit-with-plan-mode) also works in plan mode until its plan is ready. Switch the lead into plan mode first, then ask for the teammate:
 
 ```text wrap theme={null}
 Spawn an architect teammate to refactor the authentication module.
 </code></pre></div></p>
-<p>When that teammate finishes planning, it sends a plan approval request to the lead. If you haven't changed that teammate's permission mode since it was spawned, Claude Code approves the plan as soon as the request arrives, without the lead reviewing it. The teammate's edits and commands still go through the permission prompts described in <a href="#permissions">Permissions</a>. Once approved, the teammate exits plan mode and begins implementation.</p>
+<p>When that teammate finishes planning, it sends a plan approval request to the lead. If you haven't changed that teammate's permission mode since it was spawned, Claude Code approves the plan as soon as the request arrives, without the lead reviewing it. Once approved, the teammate exits plan mode and begins implementation. Claude Code passes it the lead's current <a href="#permissions">permission mode</a>, or Manual if that's plan mode.</p>
 <p>If you put a running in-process teammate in plan mode by pressing <a href="https://code.claude.com/docs/en/permission-modes#switch-permission-modes"><code>Shift+Tab</code></a> while viewing its session, the lead reviews that run's plan instead of Claude Code approving it. You aren't asked to approve it; the lead approves it or sends it back for revision.</p>
 <h3 id="talk-to-teammates-directly">Talk to teammates directly</h3>
 <p>Each teammate is a full, independent Claude Code session. You can message any teammate directly to give additional instructions, ask follow-up questions, or redirect their approach.</p>
@@ -7349,7 +7349,13 @@ Spawn a teammate using the security-reviewer agent type to audit the auth module
 <p>When Claude messages an in-process teammate that is no longer running, Claude Code brings it back in the same session, restores any conversation saved for it, and gives it the message as its next prompt. After you resume a session, teammates aren't brought back this way, per <a href="#limitations">the resume limitation</a>.</p>
 <p>For a teammate it brings back, Claude Code re-applies a definition that came from a project's <code>.claude/agents/</code> directory or an <code>--add-dir</code> directory only if you've <a href="https://code.claude.com/docs/en/permissions.md#what-runs-before-you-trust-a-folder">trusted the folder the agent file is in</a>. Trusting a parent folder doesn't count. Until then, the teammate comes back with none of the definition's tools or instructions, keeping only the tools Claude Code adds to every in-process teammate. See <a href="https://code.claude.com/docs/en/errors.md#teammate-agent-definition-not-restored">the teammate's agent definition was not restored</a> for the notice text.</p>
 <h3 id="permissions">Permissions</h3>
-<p>Teammates start with the lead's permission mode, except <a href="https://code.claude.com/docs/en/permission-modes#allow-only-pre-approved-tools-with-dontask-mode"><code>dontAsk</code> mode</a>, which they don't inherit. If the lead runs with <code>--dangerously-skip-permissions</code>, all teammates do too. After spawning, you can change an individual teammate's permission mode, but you can't set per-teammate permission modes at spawn time.</p>
+<p>To cycle a running teammate's permission mode, press <a href="https://code.claude.com/docs/en/permission-modes#switch-permission-modes"><code>Shift+Tab</code></a>, though an in-process teammate can run in the lead's mode instead. For a split-pane teammate, press it in its pane. For an <a href="#choose-a-display-mode">in-process</a> teammate, press it while <a href="#talk-to-teammates-directly">viewing its session</a>, and the teammate checks its mode when it starts its next turn.</p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>An in-process teammate that isn't in <a href="#have-teammates-plan-before-implementing">plan mode</a> runs in the lead's mode while the lead is in <a href="https://code.claude.com/docs/en/permission-modes#auto-approve-file-edits-with-acceptedits-mode"><code>acceptEdits</code></a>, <a href="https://code.claude.com/docs/en/permission-modes#eliminate-prompts-with-auto-mode"><code>auto</code></a>, or <a href="https://code.claude.com/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode"><code>bypassPermissions</code></a> mode. Switching the teammate to Manual doesn't change that, even if its status bar shows Manual.</p>
+<p>To have it ask before it edits, press Enter on the <code>main</code> row in the agent panel and switch the lead to Manual mode too. The lead then asks too, as does any other teammate in Manual mode.</p>
+</blockquote>
+<p>You can't set per-teammate permission modes at spawn time. A new teammate starts with the lead's mode, including <code>bypassPermissions</code> mode, which <code>--dangerously-skip-permissions</code> turns on. If the lead is in <a href="https://code.claude.com/docs/en/permission-modes#allow-only-pre-approved-tools-with-dontask-mode"><code>dontAsk</code> mode</a>, the teammate starts in <a href="https://code.claude.com/docs/en/permission-modes.md#available-modes">Manual mode</a> instead.</p>
 <p>An <a href="#choose-a-display-mode">in-process</a> teammate runs under the lead's live allow and deny rules, so <a href="https://code.claude.com/docs/en/cli-reference#cli-flags"><code>--disallowedTools</code></a>, <code>--tools</code>, and <code>--allowedTools</code> all apply to it. For a split-pane teammate, check each flag:</p>
 <ul>
 <li><strong><code>--disallowedTools</code> and <code>--tools</code></strong>: the teammate starts with the lead's command-line deny rules and tool list. Requires Claude Code v2.1.309 or later.</li>
@@ -7507,7 +7513,7 @@ tmux kill-session -t &lt;session-name&gt;
 <li><strong>No nested teams</strong>: teammates cannot spawn their own teammates. Only the lead can manage the team.</li>
 <li><strong>No background subagents from in-process teammates</strong>: an in-process teammate's own subagents run in the foreground, because a teammate's background work can't outlive the lead's process. Claude Code returns an error when a teammate spawns a subagent whose definition sets <code>background: true</code>. A teammate's <code>run_in_background: true</code> request also fails, either with an error or by running silently in the foreground. Subagents launched from the main conversation follow the <a href="https://code.claude.com/docs/en/sub-agents.md#run-subagents-in-foreground-or-background">background default</a>.</li>
 <li><strong>Lead is fixed</strong>: the main session is the lead for its lifetime. You can't promote a teammate to lead or transfer leadership.</li>
-<li><strong>Permissions set at spawn</strong>: teammates start with the permission mode described under <a href="#permissions">Permissions</a>. You can change an individual teammate's permission mode after spawning, but you can't set per-teammate permission modes at spawn time.</li>
+<li><strong>No per-teammate permission modes at spawn</strong>: teammates start with the permission mode described under <a href="#permissions">Permissions</a>.</li>
 <li><strong>Split panes require tmux or iTerm2</strong>: the default in-process mode works in any terminal. Split-pane mode isn't supported in VS Code's integrated terminal, Windows Terminal, or Ghostty.</li>
 </ul>
 <h2 id="next-steps">Next steps</h2>

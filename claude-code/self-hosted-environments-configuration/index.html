@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -7064,7 +7064,14 @@ Use this file to discover all available pages before exploring further.</p>
 <p>A <a href="https://code.claude.com/docs/en/self-hosted-environments">self-hosted environment</a> runs Claude Code <a href="https://code.claude.com/docs/en/claude-code-on-the-web.md">cloud sessions</a> on your own infrastructure, executed by a runner process you deploy. With no configuration, that runner clones the session's repository, spawns Claude Code, and cleans up. This page is for the platform engineer operating the runners: it covers the extension points for when those defaults don't fit, from per-session credential provisioning to replacing checkout entirely. Wrappers and hooks run as executable files on the runner host, which is Linux or macOS, and the examples on this page assume a POSIX shell.</p>
 <p>A few hook environment variables on this page still use <code>pool</code>, such as <code>CLAUDE_RUNNER_POOL_ID</code>; the CLI flag and env var names use <code>environment</code>, such as <code>--environment-secret-file</code>.</p>
 <h2 id="wrapper-scripts">Wrapper scripts</h2>
-<p>Use a wrapper script when each session needs setup the runner can't do on its own: provisioning short-lived credentials scoped to the session creator, exporting environment-specific secrets, preparing language toolchains, or applying resource limits around the child process. The runner starts your wrapper in place of the Claude Code binary, once per session. End the wrapper by <code>exec</code>-ing into <code>$CLAUDE_RUNNER_CLAUDE_BIN</code>, the runner's own binary, so signals and exit codes propagate correctly.</p>
+<p>Use a wrapper script when each session needs setup the runner can't do on its own:</p>
+<ul>
+<li>Provisioning short-lived credentials scoped to the session creator</li>
+<li>Exporting environment-specific secrets</li>
+<li>Preparing language toolchains</li>
+<li>Applying resource limits around the child process</li>
+</ul>
+<p>The runner starts your wrapper in place of the Claude Code binary each time it starts a session, including when a session resumes or is requeued. End the wrapper by <code>exec</code>-ing into <code>$CLAUDE_RUNNER_CLAUDE_BIN</code>, the runner's own binary, so signals and exit codes propagate correctly.</p>
 <p>Point <code>--exec-path</code>, or <code>SELF_HOSTED_RUNNER_EXEC_PATH</code>, at the wrapper when you start the runner, replacing <code>&lt;writable-dir&gt;</code> as the <a href="https://code.claude.com/docs/en/self-hosted-environments-quickstart.md#set-up-manually">quickstart</a> describes:</p>
 <p>```bash theme={null}
 claude self-hosted-runner --environment-secret-file /etc/claude/environment-secret --base-dir '<writable-dir>' --exec-path /etc/claude/session-wrapper.sh
@@ -7166,7 +7173,9 @@ These hooks are distinct from [Claude Code hooks](https://code.claude.com/docs/e
 
 ### checkout
 
-Runs once per repository, in place of the runner's built-in clone and fetch. Use the hook to clone from a read-through mirror that you reach over HTTPS or SSH, seed a working tree from an archive, or apply per-session git auth. The runner sets these variables, and may set other `CLAUDE_RUNNER_` variables that the table doesn't list:
+Runs for each repository each time the runner starts a session, including when the session resumes or is requeued, in place of the runner's built-in clone and fetch. Use the hook to clone from a read-through mirror that you reach over HTTPS or SSH, seed a working tree from an archive, or apply per-session git auth.
+
+The runner sets these variables, and may set other `CLAUDE_RUNNER_` variables that the table doesn't list:
 
 | Variable | Description |
 | :- | :- |
@@ -7206,7 +7215,12 @@ When the hook succeeds, the runner removes the checkout path after the session e
 
 ### post-session
 
-Runs once per session, after the Claude Code child has exited and before the runner tears the workspace down. This hook is your only chance to save uncommitted work: at `--capacity` above one, the runner deletes per-session worktrees right after the hook returns, and at `--capacity 1` the reused [canonical clone](https://code.claude.com/docs/en/self-hosted-environments-deploy.md#reuse-a-pre-warmed-checkout) is hard-reset when the next session starts, so uncommitted tracked changes don't survive on either path. Typical uses are pushing a snapshot branch of uncommitted changes, archiving logs, or emitting a session-ended event to your own systems.
+Runs after the Claude Code child has exited and before the runner tears the workspace down. This hook is your only chance to save uncommitted work, because uncommitted tracked changes don't survive on either path:
+
+* **At `--capacity` above one**: the runner deletes per-session worktrees right after the hook returns
+* **At `--capacity 1`**: the reused [canonical clone](https://code.claude.com/docs/en/self-hosted-environments-deploy.md#reuse-a-pre-warmed-checkout) is hard-reset when the next session starts
+
+Typical uses are pushing a snapshot branch of uncommitted changes, archiving logs, or emitting a session-ended event to your own systems.
 
 The hook fires on every session end where a child process was spawned, whatever the cause; the `CLAUDE_RUNNER_EXIT_REASON` values below enumerate the cases. It can't fire when the runner terminates abruptly, such as a VM preemption or a power loss; if you need guarantees against abrupt termination, snapshot periodically from inside the session with a Claude Code `PostToolUse` hook instead. The runner sets:
 
@@ -7291,7 +7305,7 @@ done
 <p>Git in your hook still reads every setting the runner doesn't set, such as credential helpers, <code>url.*.insteadOf</code> rewrites, and filter drivers, from every configuration file, including the ones sessions can write. A credential helper or filter driver named in one of those files runs as a program with your hook's privileges, and configuration in those files can still change where a push from your hook goes, including a push to a URL you pass on the command line.</p>
 <p>Before v2.1.280, the runner set none of these settings, and under <code>--configure-git</code> a commit made from a hook failed unless the hook passed <code>-c commit.gpgsign=false</code>.</p>
 <h3 id="command">command</h3>
-<p>Runs once per session after checkout, in place of the built-in child spawn. The hook receives the same environment as a <a href="#wrapper-scripts">wrapper script</a> and should <code>exec</code> into <code>"$CLAUDE_RUNNER_CLAUDE_BIN"</code> the same way. Use the <code>command</code> hook to keep all customization in one hooks directory; use <code>--exec-path</code> when the wrapper lives elsewhere. If <code>--exec-path</code> is also set, the flag takes precedence and the <code>command</code> hook is ignored.</p>
+<p>Runs after checkout each time a session starts or resumes, in place of the built-in child spawn. The hook receives the same environment as a <a href="#wrapper-scripts">wrapper script</a> and should <code>exec</code> into <code>"$CLAUDE_RUNNER_CLAUDE_BIN"</code> the same way. Use the <code>command</code> hook to keep all customization in one hooks directory; use <code>--exec-path</code> when the wrapper lives elsewhere. If <code>--exec-path</code> is also set, the flag takes precedence and the <code>command</code> hook is ignored.</p>
 <p>Always <code>exec</code> the runner's own binary rather than a PATH-resolved <code>claude</code>; otherwise you defeat <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#pin-the-version">version pinning</a>.</p>
 <h2 id="on-demand-runners">On-demand runners</h2>
 <p>Instead of running a fixed fleet, you can boot one runner per session. The orchestrator is a separate, stateless subcommand that polls Anthropic for spawn requests, one per session that's queued with no runner available, and runs your <code>spawn-runner</code> hook for each. Your hook submits a workload to your platform: a Kubernetes Job, an EC2 instance, a Nomad dispatch.</p>
@@ -7527,7 +7541,7 @@ claude self-hosted-runner orchestrator \
 <ul>
 <li><strong>Metadata endpoint</strong>: if you deny sessions the <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy.md#harden-your-deployment">cloud metadata endpoint</a> outright, credentials served from it, such as an instance profile, don't reach Claude Code either. A file-based web identity, such as IAM Roles for Service Accounts (IRSA) on Amazon EKS or a Workload Identity Federation credential file, doesn't depend on it.</li>
 <li><strong>Renewal</strong>: a session can outlive a credential, so use a method that renews itself, such as a file-based web identity</li>
-<li><strong>Wrapper script</strong>: the runner starts your <a href="#provision-credentials-scoped-to-the-session-creator">wrapper script</a> once per session, so credentials it exports aren't renewed. Claude Code reads AWS credentials from its environment, so if your wrapper already exports AWS credentials for other work, Claude Code can sign model requests with them.</li>
+<li><strong>Wrapper script</strong>: credential values your <a href="#provision-credentials-scoped-to-the-session-creator">wrapper script</a> exports aren't renewed while Claude Code runs, so for a long session, use a method that renews itself. Claude Code reads AWS credentials from its environment, so if your wrapper already exports AWS credentials for other work, Claude Code can sign model requests with them.</li>
 </ul>
 <p><strong>3. Set one provider's variables in the runner's environment</strong></p>
 <p>Set exactly one provider's variables where you set the runner's other environment variables, such as the container spec or service unit, then restart the runner. The examples show them as shell exports. With <a href="#on-demand-runners">on-demand runners</a>, set them on the workload your <code>spawn-runner</code> hook starts.</p>

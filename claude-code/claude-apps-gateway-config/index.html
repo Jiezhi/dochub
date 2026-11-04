@@ -1474,7 +1474,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -8941,7 +8941,7 @@ upstreams:
 }
 <div class="highlight"><pre><span></span><code>* If STS refuses or is unreachable, the gateway doesn't send the request with the upstream's own credentials. It logs the STS error with what to check, then tries the next upstream you listed. [Upstream error messages](#upstream-error-messages) covers what the client receives when no upstream succeeds. A later upstream without `assume_role` would serve the request with its own credentials, so list one only if that is what you want.
 * The gateway calls the regional STS endpoint `sts.&lt;region&gt;.amazonaws.com`, which its network must reach. For the FIPS endpoint, set `AWS_USE_FIPS_ENDPOINT=true` in the gateway's environment rather than `use_fips_endpoint` in an AWS config file.
-* `assume_role` applies to `provider: bedrock` only and needs SigV4 source credentials: the gateway refuses to start when it's set beside `aws_bearer_token`.
+* `assume_role` needs SigV4 source credentials: the gateway refuses to start when it's set beside `aws_bearer_token`.
 * Without a [`groups` list](#send-each-team-to-its-own-upstream), every developer the gateway admits can use this upstream. To limit which models a developer can use, set `availableModels` in a [`managed`](#managed) policy.
 * To keep a model served through the role from also being served from another account, give it a custom id whose `upstream_model` map has only this upstream's name. For such an id the gateway skips every other upstream, so neither the request nor the token count for an aborted request can fail over to another account.
 * A request for a built-in model name can still [reach this upstream](#multiple-upstreams), and the gateway signs it with the same role. List this upstream last unless its account should also serve those models.
@@ -9015,6 +9015,11 @@ upstreams:
 <td>Takes the same keys as the <a href="#amazon-bedrock">Amazon Bedrock</a> upstream's <code>auth</code> block, under the same rules.</td>
 </tr>
 <tr>
+<td><code>assume_role</code></td>
+<td>No</td>
+<td>The role that this upstream's requests go through, with the same keys as <a href="#bedrock-in-another-aws-account">on a <code>bedrock</code> upstream</a>, including <code>session_name</code> for <a href="#per-developer-aws-cost-attribution">per-developer attribution</a>. Give the role Mantle's IAM actions. Requires a gateway running Claude Code v2.1.318 or later. An earlier gateway exits at startup with <code>Unrecognized key(s) in object: 'assume_role'</code>.</td>
+</tr>
+<tr>
 <td><code>base_url</code></td>
 <td>No</td>
 <td>Override the derived endpoint. Keep the <code>/anthropic</code> path at the end.</td>
@@ -9026,7 +9031,7 @@ upstreams:
 <p>A <code>bedrock</code> upstream's <code>guardrail</code> and <code>assume_role</code> settings don't extend to the requests Mantle serves:</p>
 <ul>
 <li><strong><code>guardrail</code></strong>: the gateway applies no <a href="#apply-an-amazon-bedrock-guardrail">Bedrock guardrail</a> to requests it sends to Mantle, so it refuses to start when a <code>mantle</code> upstream is listed while any <code>bedrock</code> upstream sets <code>guardrail</code>.</li>
-<li><strong><code>assume_role</code></strong>: a <code>mantle</code> upstream takes no <a href="#bedrock-in-another-aws-account"><code>assume_role</code></a>. Requests that Mantle serves are sent with the <code>mantle</code> upstream's own <code>auth</code> credentials, and aren't <a href="#per-developer-aws-cost-attribution">attributed per developer</a>.</li>
+<li><strong><code>assume_role</code></strong>: set it on the <code>mantle</code> upstream itself. Without it, requests that Mantle serves are sent with the <code>mantle</code> upstream's own <code>auth</code> credentials.</li>
 </ul>
 <p>For what Mantle's own error responses mean, see <a href="https://code.claude.com/docs/en/amazon-bedrock.md#mantle-endpoint-errors">Mantle endpoint errors</a>.</p>
 <h4 id="claude-platform-on-aws">Claude Platform on AWS</h4>

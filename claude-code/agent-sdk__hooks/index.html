@@ -685,6 +685,45 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#block-the-action-when-a-callback-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Block the action when a callback fails
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Block the action when a callback fails">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#events-that-behave-differently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Events that behave differently
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-errors-for-onfailure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup errors for onFailure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1850,7 +1889,7 @@
   <span class="md-ellipsis">
     
   
-    Claude Code Changelog
+    Changelog
   
 
     
@@ -6855,6 +6894,45 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#block-the-action-when-a-callback-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Block the action when a callback fails
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Block the action when a callback fails">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#events-that-behave-differently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Events that behave differently
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#startup-errors-for-onfailure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Startup errors for onFailure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -7495,6 +7573,12 @@ for await (const message of query({
 <td><code>undefined</code></td>
 <td>Timeout in seconds. When omitted, Claude Code applies the <a href="#hook-timeout">event's default timeout</a>. Your SDK callbacks follow the <code>command</code> hook defaults</td>
 </tr>
+<tr>
+<td><code>onFailure</code></td>
+<td><code>"continue" \| "block"</code></td>
+<td><code>undefined</code></td>
+<td>What a failed callback does. Set <code>"block"</code> to <a href="#block-the-action-when-a-callback-fails">block the action when a callback fails</a>. In Python, use <code>on_failure</code></td>
+</tr>
 </tbody>
 </table>
 <p>Use the <code>matcher</code> pattern to target specific tools whenever possible. A matcher with <code>'Bash'</code> only runs for Bash commands, while omitting the pattern runs your callbacks for every occurrence of the event.</p>
@@ -7561,6 +7645,42 @@ const asyncHook: HookCallback = async (input, toolUseID, { signal }) =&gt; {
 <p>[!NOTE]</p>
 <p>Async outputs can't block, modify, or inject context into the operation since the agent has already moved on. Use them only for side effects like logging, metrics, or notifications.</p>
 </blockquote>
+<h3 id="block-the-action-when-a-callback-fails">Block the action when a callback fails</h3>
+<p>On most events, if a callback throws or returns output that fails validation, the action goes ahead and your app receives an <a href="https://code.claude.com/docs/en/agent-sdk/typescript#sdkinformationalmessage"><code>SDKInformationalMessage</code></a> warning whose <code>tag</code> is <code>hook_callback_failed</code>. A <code>PreToolUse</code> guard that crashes then lets the tool call reach the normal permission flow. A callback that returns nothing, such as a path with no <code>return</code>, also counts as failing. In Python, read <code>tag</code> from <code>SystemMessage.data</code>.</p>
+<p>To block the action instead, set <code>onFailure: "block"</code> in TypeScript or <code>on_failure="block"</code> in Python on the matcher. Requires TypeScript Agent SDK v0.3.317 or later, or Python Agent SDK v0.2.177 or later. This example blocks a Bash call when <code>check_policy</code> in Python or <code>checkPolicy</code> in TypeScript fails:</p>
+<p>```python Python theme={null}
+options = ClaudeAgentOptions(
+    hooks={
+        "PreToolUse": [
+            HookMatcher(matcher="Bash", hooks=[check_policy], on_failure="block")
+        ]
+    }
+)
+<div class="highlight"><pre><span></span><code>```typescript TypeScript theme={null}
+import type { Options } from "@anthropic-ai/claude-agent-sdk";
+
+const options: Options = {
+  hooks: {
+    PreToolUse: [{ matcher: "Bash", hooks: [checkPolicy], onFailure: "block" }]
+  }
+};
+</code></pre></div></p>
+<p>To test it, make the callback raise an error and ask Claude to run a Bash command. The tool result includes <code>failed; blocking because onFailure is "block"</code>, and Claude doesn't see your error text.</p>
+<p>Return <code>{}</code> when the callback has no opinion. With <code>"block"</code> set, a path with no <code>return</code> blocks the action. A callback that catches its own error and returns <code>{}</code> isn't failing, so let the error propagate from a guard.</p>
+<h4 id="events-that-behave-differently">Events that behave differently</h4>
+<p>These events don't always block with <code>"block"</code> set:</p>
+<ul>
+<li><strong><code>Stop</code>, <code>SubagentStop</code>, <code>TaskCompleted</code>, and <code>TeammateIdle</code></strong>: these events ignore the option, so the action goes ahead.</li>
+<li><strong><code>PermissionRequest</code></strong>: the block counts only if it arrives before your <code>canUseTool</code> callback answers.</li>
+<li><strong><code>PostToolUse</code></strong>: the tool has already run, so Claude receives the failure as feedback.</li>
+</ul>
+<p>A callback that exceeds its timeout follows <a href="#hook-timeout">Hook timeout</a>. With <code>"block"</code> set, a timeout also blocks <code>PreCompact</code>, <code>Elicitation</code>, and <code>WorktreeCreate</code>.</p>
+<h4 id="startup-errors-for-onfailure">Startup errors for <code>onFailure</code></h4>
+<p>With <code>"block"</code> set, the query fails at startup and sends no prompt when it can't honor the option:</p>
+<ul>
+<li><strong>Claude Code doesn't support the option</strong>: the error includes <code>does not honor</code>. Update Claude Code, or remove the option.</li>
+<li><strong>The session was already running and didn't register your hooks</strong>: the error includes <code>did not register your hooks</code>. Start a new session.</li>
+</ul>
 <h2 id="examples">Examples</h2>
 <p>Several examples in this section show only the callback function. To run one, register the callback under the matching event in the <code>hooks</code> field of your options, as shown in <a href="#configure-hooks">Configure hooks</a>.</p>
 <h3 id="modify-tool-input">Modify tool input</h3>
@@ -7988,7 +8108,7 @@ When a callback exceeds its timeout, Claude Code cancels it and discards its out
 * `Stop` and `SubagentStop`: the timed-out callback counts as returning no decision. The agent or subagent stops as if that callback had allowed it, and a decision from your other hooks on the event still applies. Before Claude Code v2.1.273, a timed-out `Stop` or `SubagentStop` callback counted as a failed hook run, and Claude Code discarded the decisions of your other hooks on the event.
 * `SessionStart`: the timed-out callback counts as returning no output, and the session continues with the output of your other `SessionStart` hooks.
 * `PreModelSwitch`: Claude Code blocks the model switch. A hook that doesn't answer hasn't approved the switch.
-* Other events, such as `Notification`, `PreCompact`, and `PostModelSwitch`: Claude Code logs the failure and continues.
+* Other events, such as `Notification`, `PreCompact`, and `PostModelSwitch`: Claude Code logs the failure and continues. With [`onFailure: "block"`](#block-the-action-when-a-callback-fails), a timeout on `PreCompact`, `Elicitation`, or `WorktreeCreate` blocks the action.
 
 The first time a `Stop` or `SessionStart` callback times out in the main session, Claude Code also adds an [`SDKInformationalMessage`](https://code.claude.com/docs/en/agent-sdk/typescript#sdkinformationalmessage) to the message stream saying the app driving the session didn't respond. Later timeouts don't repeat that message while your app stays unresponsive.
 
