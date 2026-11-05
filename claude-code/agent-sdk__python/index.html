@@ -9538,7 +9538,7 @@ Permission modes for controlling tool execution.
 PermissionMode = Literal[
     "default",  # Standard permission behavior
     "acceptEdits",  # Auto-accept file edits
-    "plan",  # Planning mode - explore without editing
+    "plan",  # Planning mode - Claude explores and plans
     "dontAsk",  # Deny anything not pre-approved instead of prompting
     "bypassPermissions",  # Bypass permission checks; explicit ask rules still prompt (use with caution)
     "auto",  # A model classifier reviews actions such as shell commands and network requests
@@ -9570,7 +9570,12 @@ CanUseTool = Callable[
 <li><code>context</code>: A <code>ToolPermissionContext</code> with additional information</li>
 </ul>
 <p>Returns a <code>PermissionResult</code> (either <code>PermissionResultAllow</code> or <code>PermissionResultDeny</code>).</p>
-<p>The callback is the SDK replacement for the interactive permission prompt: it's invoked only when the <a href="https://code.claude.com/docs/en/agent-sdk/permissions.md#how-permissions-are-evaluated">permission evaluation flow</a> resolves to a prompt. Tool calls already approved by an <code>allowed_tools</code> entry, a settings allow rule, or the permission mode, such as <code>acceptEdits</code> or <code>bypassPermissions</code>, never invoke it. To gate every tool call, use a <a href="https://code.claude.com/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a> instead.</p>
+<p>The callback replaces the interactive permission prompt. The SDK calls <code>can_use_tool</code> when the <a href="https://code.claude.com/docs/en/agent-sdk/permissions.md#how-permissions-are-evaluated">permission evaluation flow</a> resolves to a prompt. Calls approved in either of these ways run without calling <code>can_use_tool</code>:</p>
+<ul>
+<li>A call that an <code>allowed_tools</code> entry or a settings allow rule approves</li>
+<li>A call the permission mode approves, such as a file edit in <code>acceptEdits</code> mode</li>
+</ul>
+<p>To check those calls, use a <a href="https://code.claude.com/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>, which runs for them too.</p>
 <p>An allow rule doesn't pre-approve the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a>; see <a href="https://code.claude.com/docs/en/agent-sdk/permissions.md#how-permissions-are-evaluated">How permissions are evaluated</a> for which of them reach the callback and what happens in <code>dontAsk</code> and <code>auto</code> mode.</p>
 <h3 id="toolpermissioncontext"><code>ToolPermissionContext</code></h3>
 <p>Context information passed to tool permission callbacks.</p>
@@ -12148,7 +12153,7 @@ class SandboxNetworkConfig(TypedDict, total=False):
 </table>
 <blockquote>
 <p>[!NOTE]</p>
-<p>The built-in sandbox proxy enforces the network allowlist based on the requested hostname and does not terminate or inspect TLS traffic, so techniques such as <a href="https://en.wikipedia.org/wiki/Domain_fronting">domain fronting</a> can potentially bypass it. See <a href="https://code.claude.com/docs/en/sandboxing.md#security-limitations">Sandboxing security limitations</a> for details and <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment.md#traffic-forwarding">Secure deployment</a> for configuring a TLS-terminating proxy.</p>
+<p>The built-in sandbox proxy enforces the network allowlist based on the requested hostname. By default, the proxy doesn't terminate or inspect TLS traffic, so techniques such as <a href="https://en.wikipedia.org/wiki/Domain_fronting">domain fronting</a> can potentially bypass the allowlist. See <a href="https://code.claude.com/docs/en/sandboxing.md#security-limitations">Sandboxing security limitations</a> for details and <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment.md#traffic-forwarding">Secure deployment</a> for configuring a TLS-terminating proxy.</p>
 </blockquote>
 <h3 id="sandboxignoreviolations"><code>SandboxIgnoreViolations</code></h3>
 <p>Configuration for ignoring specific sandbox violations.</p>

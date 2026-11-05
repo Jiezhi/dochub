@@ -7609,7 +7609,9 @@ Create an IAM policy with the required permissions for Claude Code:
 <p><a href="https://docs.aws.amazon.com/bedrock/latest/userguide/service-tiers-inference.html">Amazon Bedrock service tiers</a> let you trade off cost against latency. Set <code>ANTHROPIC_BEDROCK_SERVICE_TIER</code> to <code>default</code>, <code>flex</code>, or <code>priority</code>:</p>
 <p>```bash theme={null}
 export ANTHROPIC_BEDROCK_SERVICE_TIER=priority
-<div class="highlight"><pre><span></span><code>Claude Code sends this as the `X-Amzn-Bedrock-Service-Tier` header on each request. Tier availability varies by model and region. Reserved capacity uses a [provisioned throughput](https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html) ARN as the model ID instead of this setting.
+<div class="highlight"><pre><span></span><code>Claude Code sends this as the `X-Amzn-Bedrock-Service-Tier` header on every [Invoke API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html) request from a session that has the variable, except its [model access checks](#startup-model-checks). Setting it has no effect on requests to the [Mantle endpoint](#use-the-mantle-endpoint) or through a [Claude apps gateway](https://code.claude.com/docs/en/claude-apps-gateway). Tier availability varies by model and region. Reserved capacity uses a [provisioned throughput](https://docs.aws.amazon.com/bedrock/latest/userguide/prov-throughput.html) ARN as the model ID instead of this setting.
+
+To cover [background sessions](https://code.claude.com/docs/en/agent-view.md#settings-and-provider) you start from a terminal, set `ANTHROPIC_BEDROCK_SERVICE_TIER` in the [`env`](https://code.claude.com/docs/en/settings-reference#env) block of your settings. Those sessions get the value you export only when the shell that started the [supervisor](https://code.claude.com/docs/en/agent-view.md#the-supervisor-process) exported it.
 
 ## AWS Guardrails
 
@@ -7631,7 +7633,7 @@ Example settings file configuration:
 <p>Mantle is an Amazon Bedrock endpoint that serves Claude models through the native Anthropic API shape rather than the Amazon Bedrock Invoke API. It uses the same <a href="#2-configure-aws-credentials">AWS credentials</a> and <a href="#advanced-credential-configuration"><code>awsAuthRefresh</code> configuration</a>.</p>
 <p>Mantle has its own IAM actions under the <code>bedrock-mantle:</code> prefix, so the <code>bedrock:</code> actions in <a href="#iam-configuration">IAM configuration</a> don't cover it. Grant your IAM identity <code>bedrock-mantle:CreateInference</code> for inference and <code>bedrock-mantle:CountTokens</code> for token counting. See <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/inference.html">Making inference requests</a> and <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/count-tokens.html">Counting tokens</a> in the AWS documentation, and the <a href="https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonbedrockpoweredbyawsmantle.html">service authorization reference</a> for every Mantle action.</p>
 <h3 id="enable-mantle">Enable Mantle</h3>
-<p>With AWS credentials already configured, set <code>CLAUDE_CODE_USE_MANTLE</code> to route requests to the Mantle endpoint:</p>
+<p>With AWS credentials already configured, set <code>CLAUDE_CODE_USE_MANTLE</code> and your AWS region:</p>
 <p>```bash theme={null}
 export CLAUDE_CODE_USE_MANTLE=1
 export AWS_REGION=us-east-1
@@ -7723,7 +7725,6 @@ export ANTHROPIC_BEDROCK_MANTLE_BASE_URL=https://your-gateway.example.com</code>
 <ul>
 <li>Specify the model as an <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html">inference profile</a> ID</li>
 </ul>
-<p>Claude Code uses the Amazon Bedrock <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InvokeModelWithResponseStream.html">Invoke API</a> and does not support the Converse API.</p>
 <h3 id="streaming-errors-behind-a-gateway-or-proxy">Streaming errors behind a gateway or proxy</h3>
 <p>Amazon Bedrock streams <code>InvokeModelWithResponseStream</code> responses in a binary event-stream format with the header <code>Content-Type: application/vnd.amazon.eventstream</code>. A gateway or proxy between Claude Code and Amazon Bedrock must forward the response body and its headers, including <code>Content-Type</code>, as Amazon Bedrock sent them.</p>
 <p>If the gateway rewrites <code>Content-Type</code> to another value, Claude Code rejects the response with an error that begins <code>Bedrock streaming response has content-type</code>, naming the value it received. The common rewrite is <code>text/event-stream</code>, from an integration that re-emits the stream as server-sent events. For the <code>CLAUDE_CODE_DISABLE_BEDROCK_CONTENT_TYPE_GUARD</code> variable that the error message names, see <a href="https://code.claude.com/docs/en/errors.md#bedrock-streaming-response-has-an-unexpected-content-type">Bedrock streaming response has an unexpected content-type</a>.</p>
@@ -7741,7 +7742,7 @@ export ANTHROPIC_BEDROCK_MANTLE_BASE_URL=https://your-gateway.example.com</code>
 <li>If the error names a <code>bedrock-mantle:</code> action, grant your IAM identity that action.</li>
 <li>If the error names no action and your credentials are valid, your AWS account has not been granted access to the model you requested. Contact your AWS account team to request access.</li>
 </ul>
-<p>A <code>400</code> that names the model ID means that model is not served on Mantle. Mantle has its own model lineup separate from the standard Amazon Bedrock catalog, so inference profile IDs such as <code>us.anthropic.claude-sonnet-4-6</code> will not work. Use a Mantle-format ID, or enable <a href="#run-mantle-alongside-the-invoke-api">both endpoints</a> so Claude Code routes each request to the endpoint where the model is available.</p>
+<p>A <code>400</code> that names the model ID means that model isn't served on Mantle. Mantle has its own model lineup separate from the standard Amazon Bedrock catalog, so inference profile IDs such as <code>us.anthropic.claude-sonnet-4-6</code> don't work. Use a Mantle-format ID, or enable <a href="#run-mantle-alongside-the-invoke-api">both endpoints</a> so Claude Code sends inference profile IDs to the Invoke API.</p>
 <h2 id="additional-resources">Additional resources</h2>
 <ul>
 <li><a href="https://docs.aws.amazon.com/bedrock/">Amazon Bedrock documentation</a></li>

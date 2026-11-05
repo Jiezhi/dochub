@@ -7116,6 +7116,15 @@ This example runs an audit script after every file edit across the organization:
 <h3 id="fetch-and-caching-behavior">Fetch and caching behavior</h3>
 <p>Claude Code fetches settings from Anthropic's servers at startup and polls for updates hourly during active sessions.</p>
 <p>A client signed in through a <a href="#platform-availability">Claude apps gateway</a> fetches its settings from the gateway and waits for that fetch before the session starts, so the fetch in the lists below doesn't apply to it. <a href="#enforce-fail-closed-startup">Enforce fail-closed startup</a> covers what happens when that fetch fails.</p>
+<blockquote>
+<p>[!NOTE]</p>
+<p>On a Team or Enterprise claude.ai login stored on the machine, Anthropic can require your organization's settings before a session starts. When it does, whatever the lists below say, a developer <a href="https://code.claude.com/docs/en/errors.md#couldnt-load-your-organizations-settings">can't start a session</a> in cases such as these:</p>
+<ul>
+<li>Their sign-in has expired, until they run <code>claude auth login</code></li>
+<li>Claude Code has neither the settings nor a recent cached copy. Check that the machine can reach <code>api.anthropic.com</code></li>
+</ul>
+<p>A startup message with <code>before a session can start</code> or <code>Your Claude session has expired</code> means the requirement applies.</p>
+</blockquote>
 <p><strong>First launch without cached settings:</strong></p>
 <ul>
 <li>When a developer signs in at startup, such as on a first run or after <code>/logout</code>, Claude Code waits up to five seconds for the fetch before it opens the session. When the policy arrives in time, Claude Code enforces it from the first screen and shows your <a href="https://code.claude.com/docs/en/settings-reference#companyannouncements"><code>companyAnnouncements</code></a> on it. When the payload needs <a href="#security-approval-dialogs">security approval</a>, Claude Code ends the wait and applies the payload once the developer approves</li>
@@ -7162,11 +7171,11 @@ This example runs an audit script after every file edit across the organization:
 <li>None of them falls back to a stricter value.</li>
 <li>The payload holds a key other than those two retention keys.</li>
 </ul>
-<p>The startup notice, <code>/status</code>, and <code>claude doctor</code> then report the <a href="https://code.claude.com/docs/en/errors.md#remote-managed-settings-failed-to-load">failed load</a> with the cause <code>no setting in the server response could be applied as written</code>, and that entry says which policy the session runs on. Clients that <a href="#enforce-fail-closed-startup">enforce fail-closed startup</a> exit at startup instead.
+<p>The startup notice, <code>/status</code>, and <code>claude doctor</code> then report the <a href="https://code.claude.com/docs/en/errors.md#remote-managed-settings-failed-to-load">failed load</a> with the cause <code>no setting in the server response could be applied as written</code>, and that entry says which policy the session runs on. Clients that <a href="#enforce-fail-closed-startup">enforce fail-closed startup</a> exit at startup instead. If startup stops with a message that your organization requires its settings <code>before a session can start</code>, see <a href="https://code.claude.com/docs/en/errors.md#couldnt-load-your-organizations-settings">Claude Code couldn't load your organization's settings</a>.
 * The <a href="#security-approval-dialogs">security approval dialog</a> evaluates the salvaged payload, so a stripped invalid entry is never presented for approval and never executes.</p>
 <p>To debug delivery issues, run <code>claude --debug-file &lt;path&gt;</code> and search the log for <code>Remote settings</code>. Validate a payload change with <code>claude doctor</code> on a test machine before rolling it out to the organization.</p>
 <h3 id="enforce-fail-closed-startup">Enforce fail-closed startup</h3>
-<p>By default, if the remote settings fetch fails at startup, the CLI continues with the settings cached from the last successful fetch, except for the <a href="#fetch-and-caching-behavior">values Claude Code withholds</a> until a fetch succeeds. On a machine that has never fetched them, the CLI continues without server-managed settings and still applies any <a href="https://code.claude.com/docs/en/managed-settings.md#delivery-mechanisms">endpoint-managed settings</a> on the device.</p>
+<p>By default, if the remote settings fetch fails at startup, the CLI continues with the settings cached from the last successful fetch. The <a href="#fetch-and-caching-behavior">values Claude Code withholds</a> stay withheld until a fetch succeeds. On a machine that has never fetched them, the CLI continues without server-managed settings and still applies any <a href="https://code.claude.com/docs/en/managed-settings.md#delivery-mechanisms">endpoint-managed settings</a> on the device. <a href="#fetch-and-caching-behavior">Anthropic can require the settings</a> instead.</p>
 <p>To stop clients from starting on cached or absent server-managed settings, set <code>forceRemoteSettingsRefresh: true</code> in your managed settings.</p>
 <p>Clients signed in through a <a href="#platform-availability">Claude apps gateway</a> wait for the startup fetch whether or not you set this, and handle a failed fetch as follows:</p>
 <ul>
@@ -7290,7 +7299,7 @@ This example runs an audit script after every file edit across the organization:
 </tr>
 <tr>
 <td style="text-align: left;">API is unavailable</td>
-<td style="text-align: left;">Cached settings apply if available, except for the <a href="#fetch-and-caching-behavior">values Claude Code withholds</a> until a fetch succeeds. Without a cache, Claude Code enforces no server-managed settings until the next successful fetch and still applies any <a href="https://code.claude.com/docs/en/managed-settings.md#delivery-mechanisms">endpoint-managed settings</a> on the device. With <code>forceRemoteSettingsRefresh: true</code>, the CLI exits instead of continuing, except for <a href="#enforce-fail-closed-startup"><code>claude auth</code> subcommands</a>. Clients signed in through a <a href="#platform-availability">Claude apps gateway</a> exit at startup without that setting, with the same <code>claude auth</code> exemption</td>
+<td style="text-align: left;">Cached settings apply if available. Without a cache, Claude Code enforces no server-managed settings until the next successful fetch. <a href="#fetch-and-caching-behavior">Fetch and caching behavior</a> lists the exceptions, including when Anthropic requires the settings. With <code>forceRemoteSettingsRefresh: true</code>, the CLI exits instead of continuing, except for <a href="#enforce-fail-closed-startup"><code>claude auth</code> subcommands</a>. Clients signed in through a <a href="#platform-availability">Claude apps gateway</a> exit at startup without that setting, with the same <code>claude auth</code> exemption</td>
 </tr>
 <tr>
 <td style="text-align: left;">User authenticates with a different organization</td>

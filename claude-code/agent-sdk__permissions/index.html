@@ -782,6 +782,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Allow and deny rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-patterns-in-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path patterns in rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6602,6 +6619,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Allow and deny rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-patterns-in-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path patterns in rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -6763,26 +6797,26 @@ Use this file to discover all available pages before exploring further.</p>
 <p>[!NOTE]</p>
 <p>If you load a plugin that contains a <a href="https://code.claude.com/docs/en/plugins/mods/overview.md">mod</a>, see <a href="https://code.claude.com/docs/en/permissions.md#precedence-among-rules-hooks-and-mods">where a mod's decisions fit among rules and hooks</a>.</p>
 </blockquote>
-<p>When Claude requests a tool, the SDK checks permissions in this order:</p>
+<p>When Claude requests a tool, Claude Code checks the call at these steps. Each step can decide the call, send it to your <code>canUseTool</code> callback, or pass it on:</p>
 <p><strong>1. Hooks</strong></p>
-<p>Run <a href="https://code.claude.com/docs/en/agent-sdk/hooks.md">hooks</a> first. A hook can deny the call outright or pass it on. A hook that returns <code>allow</code> doesn't skip the deny and ask rules below, which are evaluated regardless of the hook result.</p>
+<p>Run <a href="https://code.claude.com/docs/en/agent-sdk/hooks.md">hooks</a>. A hook can deny the call outright or pass it on. A hook that returns <code>allow</code> doesn't skip the deny and ask rules below, which are evaluated regardless of the hook result.</p>
 <p>A <code>PreToolUse</code> hook that returns <code>allow</code> also can't approve an <code>rm</code> or <code>rmdir</code> command whose target Claude Code recognizes as a <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical path</a>, such as <code>rm -rf ~</code>. For what that <code>allow</code> does in plan mode, see <a href="https://code.claude.com/docs/en/permissions.md#hook-approvals-in-plan-mode">Hook approvals in plan mode</a>.</p>
 <p><strong>2. Deny rules</strong></p>
-<p>If a deny rule from <code>disallowed_tools</code> or <a href="https://code.claude.com/docs/en/settings-reference.md#permission-settings">settings.json</a> matches, the call is denied and <a href="https://code.claude.com/docs/en/agent-sdk/user-input"><code>canUseTool</code></a> isn't called, even in <a href="#bypass-permissions-mode-bypasspermissions"><code>bypassPermissions</code></a> mode and even when a hook returned <code>allow</code>.</p>
+<p>If a deny rule from <code>disallowed_tools</code> or from a <a href="#rules-in-settings-files">settings file the SDK loads</a> matches, the call is denied and <a href="https://code.claude.com/docs/en/agent-sdk/user-input"><code>canUseTool</code></a> isn't called. The call is denied this way even in <a href="#bypass-permissions-mode-bypasspermissions"><code>bypassPermissions</code></a> mode and when a hook returned <code>allow</code>.</p>
 <p>In the TypeScript SDK, if you set the <code>permission_policy</code> of a <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools.md#require-approval-for-specific-tools">custom tool</a> to <a href="https://code.claude.com/docs/en/agent-sdk/typescript#mcpservertoolpolicy"><code>always_deny</code></a>, a call to that tool is denied at this step.</p>
 <p><strong>3. Ask rules</strong></p>
 <p>Check <code>ask</code> rules from <a href="https://code.claude.com/docs/en/settings-reference.md#permission-settings">settings.json</a>. If an ask rule matches, the call falls through to your <a href="https://code.claude.com/docs/en/agent-sdk/user-input"><code>canUseTool</code> callback</a> for confirmation, even in <code>bypassPermissions</code> mode.</p>
-<p>Tools that require user interaction behave the same way: <code>AskUserQuestion</code> and MCP tools whose server sets <a href="https://code.claude.com/docs/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a> always fall through to the callback, even when an allow rule matches. In <code>dontAsk</code> mode both cases are denied instead, because that mode never prompts. The MCP annotation requires Claude Code v2.1.199 or later.</p>
+<p>Tools that require user interaction behave the same way. <code>AskUserQuestion</code> and MCP tools whose server sets <a href="https://code.claude.com/docs/en/mcp#require-approval-for-a-specific-tool"><code>_meta["anthropic/requiresUserInteraction"]</code></a> fall through to the callback, even when an allow rule matches. In <code>dontAsk</code> mode both cases are denied instead, because that mode turns each prompt into a denial. The MCP annotation requires Claude Code v2.1.199 or later.</p>
 <p><a href="https://code.claude.com/docs/en/mcp.md#organization-controls-on-connector-tools">claude.ai connector</a> tools your organization has set to <code>ask</code> also leave the flow at this step. Every call falls through to the callback, even in <code>bypassPermissions</code> mode and even when an allow rule matches. The callback receives the reason <code>Your organization requires approval for this tool</code>. In <code>dontAsk</code> mode the call is denied instead, because that mode never prompts.</p>
 <p>In the TypeScript SDK, if you set a custom tool's <code>permission_policy</code> to <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools#require-approval-for-specific-tools"><code>always_ask</code></a>, no allow rule approves its calls, not even an <code>allowedTools</code> entry. In <code>dontAsk</code> mode Claude Code denies those calls, and in <code>auto</code>, <code>plan</code>, or <code>bypassPermissions</code> mode it <a href="https://code.claude.com/docs/en/agent-sdk/typescript.md#permission-modes-that-can-approve-an-always_ask-call">can approve them</a> before your callback runs.</p>
 <p><strong>4. Permission mode</strong></p>
 <p>Apply the active <a href="#permission-modes">permission mode</a>:</p>
 <ul>
-<li>In <code>bypassPermissions</code> mode, Claude Code approves everything that reaches this step except recognized <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removals</a> and Bash commands flagged <a href="https://code.claude.com/docs/en/permission-modes#dangerous-rm-operation-not-ruled-out"><code>Dangerous rm operation not ruled out</code></a>, which fall through instead.</li>
-<li>To run those removals with no prompt, see <a href="https://code.claude.com/docs/en/permission-modes.md#turn-off-the-critical-path-removal-prompt-in-bypasspermissions-mode">Turn off the critical-path removal prompt</a>.</li>
+<li>In <code>bypassPermissions</code> mode, Claude Code approves each call that reaches this step unless it's one of the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a>. For which of those actions go to your <code>canUseTool</code> callback, see <a href="#bypass-permissions-mode-bypasspermissions">Bypass permissions mode</a>.</li>
 <li>In <code>acceptEdits</code> mode, Claude Code approves the file operations listed under <a href="#accept-edits-mode-acceptedits">Accept edits mode</a>.</li>
-<li>In <code>plan</code> mode, Claude Code sends file-edit tools to your <code>canUseTool</code> callback regardless of allow rules.</li>
-<li>In other modes, the request falls through.</li>
+<li>In <code>plan</code> mode, some calls reach your callback, and when auto mode is available, others go to its classifier instead. For more information, see <a href="#plan-mode-plan">Plan mode</a>.</li>
+<li>In <code>default</code> and <code>dontAsk</code> mode, the call goes on to the allow rules.</li>
+<li>For <code>auto</code> mode, see <a href="#auto-mode-auto">Auto mode</a>.</li>
 </ul>
 <p><strong>5. Allow rules</strong></p>
 <p>Check <code>allow</code> rules (from <code>allowed_tools</code> and settings.json). If a rule matches, the tool is approved. A call the tool approves on its own is resolved at this step too, with no rule needed: for example a file read inside your working directories or a <a href="https://code.claude.com/docs/en/permissions.md#read-only-commands">read-only Bash command</a>.</p>
@@ -6833,8 +6867,6 @@ Use this file to discover all available pages before exploring further.</p>
 </tbody>
 </table>
 <p>Allow rules accept tool-name globs only after a literal <code>mcp__&lt;server&gt;__</code> prefix. The server segment must be glob-free so the rule names a specific server you configured: <code>mcp__puppeteer__*</code> matches every tool from the <code>puppeteer</code> server, and <code>mcp__github__get_*</code> matches its <code>get_</code> tools. An unanchored entry like <code>allowed_tools=["*"]</code> or <code>allowed_tools=["mcp__*"]</code> is ignored and doesn't auto-approve anything.</p>
-<p>Scoped rules for <code>Read</code> and <code>Edit</code> take a path pattern. <code>Edit(path)</code> rules govern all built-in tools that write files, including <code>Write</code> and <code>NotebookEdit</code>; a <code>Write(path)</code> rule is never matched by the file permission checks.</p>
-<p>Use <code>//path</code> for an absolute filesystem path: a deny rule of <code>Edit(//secrets/**)</code> blocks writes anywhere under <code>/secrets</code> on disk. With a single leading slash, <code>Edit(/secrets/**)</code> anchors at the rule's source instead. For rules passed through <code>allowed_tools</code> or <code>disallowed_tools</code>, that means the session's working directory, so the rule doesn't block <code>/secrets</code> on disk. See <a href="https://code.claude.com/docs/en/permissions.md#read-and-edit">Read and Edit rules</a> for the four anchor forms and how rules from settings files resolve.</p>
 <blockquote>
 <p>[!WARNING]</p>
 <p><strong>Auto-approved tools never reach <code>canUseTool</code>.</strong> A tool call approved at any earlier step, by <code>acceptEdits</code> or <code>bypassPermissions</code>, or by an allow rule, skips your <code>canUseTool</code> callback, so permission checks you put there are silently bypassed for that tool.</p>
@@ -6847,16 +6879,16 @@ Use this file to discover all available pages before exploring further.</p>
 <p>Custom tools your application marks <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools#require-approval-for-specific-tools"><code>always_ask</code></a>: decide the call in the callback. To stop these calls arriving, <a href="https://code.claude.com/docs/en/agent-sdk/typescript.md#mcpsdkserverconfigwithinstance">change the policy mid-session</a>. In <code>auto</code>, <code>plan</code>, and <code>bypassPermissions</code> mode the call can instead be approved before the callback, in the cases listed under <a href="https://code.claude.com/docs/en/agent-sdk/typescript#permission-modes-that-can-approve-an-always_ask-call">Permission modes that can approve an <code>always_ask</code> call</a></p>
 </li>
 <li>
-<p>Recognized <code>rm</code> and <code>rmdir</code> <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removals</a>: in <code>default</code>, <code>acceptEdits</code>, and <code>bypassPermissions</code> mode, allow or deny the removal in the callback, where <a href="https://code.claude.com/docs/en/agent-sdk/typescript#canusetool"><code>decisionReason</code></a> starts with <code>Dangerous rm</code>. For <code>auto</code> and <code>plan</code> mode, see <a href="https://code.claude.com/docs/en/permission-modes.md#critical-path-removals-in-each-permission-mode">Critical-path removals in each permission mode</a>. The check that recognizes these removals <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">can miss some commands</a></p>
+<p>Recognized <code>rm</code> and <code>rmdir</code> <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removals</a>: in <code>default</code>, <code>acceptEdits</code>, and <code>bypassPermissions</code> mode, allow or deny the removal in the callback, where <a href="https://code.claude.com/docs/en/agent-sdk/typescript#canusetool"><code>decisionReason</code></a> starts with <code>Dangerous rm</code>. For <code>auto</code> and <code>plan</code> mode, see <a href="https://code.claude.com/docs/en/permission-modes.md#critical-path-removals-in-each-permission-mode">Critical-path removals in each permission mode</a></p>
 </li>
 <li>
 <p><strong>Bare name</strong>: an entry like <code>Read</code> or <code>mcp__github__get_issue</code> auto-approves every call to that tool apart from the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a> and <a href="https://code.claude.com/docs/en/permissions.md#network-paths">reads from network paths</a>.</p>
 </li>
 <li>
-<p><strong>Scoped rule</strong>: an entry like <code>Bash(npm test *)</code> auto-approves only matching calls, and other <code>Bash</code> calls that need approval still fall through to the callback.</p>
+<p><strong>Scoped rule</strong>: an entry like <code>Bash(npm test *)</code> auto-approves calls that match it, and other <code>Bash</code> calls that need approval fall through to the permission mode.</p>
 </li>
 </ul>
-<p>For checks that must run on every tool call, use a <a href="https://code.claude.com/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>: hooks run before every other step, and a hook deny applies even in <code>bypassPermissions</code> mode.</p>
+<p>To check calls that an allow rule, <code>acceptEdits</code>, or <code>bypassPermissions</code> approves, use a <a href="https://code.claude.com/docs/en/agent-sdk/hooks"><code>PreToolUse</code> hook</a>, which runs for those calls too. A hook deny applies even in <code>bypassPermissions</code> mode.</p>
 </blockquote>
 <p>For a locked-down agent, pair <code>allowedTools</code> with <code>permissionMode: "dontAsk"</code>:</p>
 <p><code>typescript theme={null}
@@ -6868,9 +6900,19 @@ const options = {
 <p>Calls that need no approval in <code>default</code> mode run whether or not you list them. These include <a href="https://code.claude.com/docs/en/permissions.md#read-only-commands">read-only Bash commands</a>, tools like <code>Agent</code> that don't ask before running, and file reads inside your working directories. To hide a built-in tool from Claude entirely rather than deny its calls, add its bare name to <code>disallowedTools</code>.</p>
 <blockquote>
 <p>[!WARNING]</p>
-<p><strong><code>allowed_tools</code> does not constrain <code>bypassPermissions</code>.</strong> <code>allowed_tools</code> pre-approves the tools you list. Other unlisted tools are not matched by any allow rule and fall through to the permission mode, where <code>bypassPermissions</code> approves them. Setting <code>allowed_tools=["Read"]</code> alongside <code>permission_mode="bypassPermissions"</code> still approves every tool, including <code>Bash</code>, <code>Write</code>, and <code>Edit</code>. If you need <code>bypassPermissions</code> but want specific tools blocked, use <code>disallowed_tools</code>.</p>
+<p><strong><code>allowed_tools</code> does not constrain <code>bypassPermissions</code>.</strong> <code>allowed_tools</code> pre-approves the tools you list. In <code>bypassPermissions</code> mode, Claude Code approves a call to an unlisted tool unless it's one of the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a>.</p>
+<p>If you set <code>allowed_tools=["Read"]</code> with <code>permission_mode="bypassPermissions"</code>, Claude Code still approves calls to tools such as <code>Bash</code>, <code>Write</code>, and <code>Edit</code>. If you need <code>bypassPermissions</code> but want specific tools blocked, use <code>disallowed_tools</code>. For the calls that still reach your <code>canUseTool</code> callback in this mode, see <a href="#bypass-permissions-mode-bypasspermissions">Bypass permissions mode</a>.</p>
 </blockquote>
 <p>You can also configure allow, deny, and ask rules declaratively in <code>.claude/settings.json</code>. These rules are read when the <code>project</code> setting source is enabled, which it is for default <code>query()</code> options. If you set <code>setting_sources</code> (TypeScript: <code>settingSources</code>) explicitly, include <code>"project"</code> for them to apply. See <a href="https://code.claude.com/docs/en/settings-reference.md#permission-settings">Permission settings</a> for the rule syntax.</p>
+<p>For when allow rules in a project's <code>.claude/settings.json</code> apply, see <a href="https://code.claude.com/docs/en/permissions.md#project-allow-rules-and-workspace-trust">Project allow rules and workspace trust</a>.</p>
+<h3 id="path-patterns-in-rules">Path patterns in rules</h3>
+<p>Scoped rules for <code>Read</code> and <code>Edit</code> take a path pattern. <code>Edit(path)</code> rules govern all built-in tools that write files, including <code>Write</code> and <code>NotebookEdit</code>, so write a path rule for any of them as <code>Edit(path)</code>. If you write a path rule as <code>Write(path)</code> or <code>NotebookEdit(path)</code>, it <a href="https://code.claude.com/docs/en/permissions.md#path-rules-that-never-match">matches no call</a> and has no effect.</p>
+<p>In <code>allowed_tools</code> and <code>disallowed_tools</code>, start a path pattern with <code>//</code> for an absolute path, or with a single <code>/</code> for a path inside the session's working directory:</p>
+<ul>
+<li><strong><code>//path</code></strong>: with a deny rule of <code>Edit(//secrets/**)</code>, Claude Code blocks writes under <code>/secrets</code> on disk from Claude's file tools and from <a href="https://code.claude.com/docs/en/permissions#what-read-and-edit-rules-cover">Bash commands such as <code>tee</code> and <code>&gt; file</code> redirection</a>. A script that Claude runs and that opens files itself can still write under <code>/secrets</code>. For enforcement by the operating system, see <a href="https://code.claude.com/docs/en/sandboxing.md">Configure the sandboxed Bash tool</a>.</li>
+<li><strong><code>/path</code></strong>: <code>Edit(/secrets/**)</code> matches the <code>secrets</code> directory inside the working directory.</li>
+</ul>
+<p>For other ways to start a path pattern, see <a href="https://code.claude.com/docs/en/permissions.md#read-and-edit">Read and Edit rules</a>.</p>
 <h2 id="permission-modes">Permission modes</h2>
 <p>Permission modes provide global control over how Claude uses tools. You can set the permission mode when calling <code>query()</code> or change it dynamically during streaming sessions.</p>
 <p>With Claude Code v2.1.302 or later, your app starts in <code>default</code> mode unless you set a permission mode or it gets one from <a href="https://code.claude.com/docs/en/settings-reference#permissions-defaultmode"><code>permissions.defaultMode</code></a> in its settings files. In <code>default</code> mode, Claude Code denies any tool call needing approval unless you approve it through an allow rule, hook, <code>canUseTool</code> callback, or permission prompt tool. If tool calls are denied, see <a href="https://code.claude.com/docs/en/permission-modes#which-mode-a-non-interactive-run-starts-in">Tool calls denied in <code>claude -p</code> and Agent SDK runs</a>.</p>
@@ -6898,7 +6940,7 @@ const options = {
 <tr>
 <td style="text-align: left;"><code>acceptEdits</code></td>
 <td style="text-align: left;">Auto-accept file edits</td>
-<td style="text-align: left;">File edits and <a href="#accept-edits-mode-acceptedits">filesystem operations</a> (<code>mkdir</code>, <code>rm</code>, <code>mv</code>, etc.) are automatically approved</td>
+<td style="text-align: left;">File edits and <a href="#accept-edits-mode-acceptedits">filesystem operations</a> (<code>mkdir</code>, <code>rm</code>, <code>mv</code>, etc.) inside your <a href="https://code.claude.com/docs/en/permissions.md#working-directories">working directories</a> are automatically approved</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>bypassPermissions</code></td>
@@ -6908,7 +6950,7 @@ const options = {
 <tr>
 <td style="text-align: left;"><code>plan</code></td>
 <td style="text-align: left;">Planning mode</td>
-<td style="text-align: left;">Claude explores and plans without editing your source files; file edits are never auto-approved and prompt through your <code>canUseTool</code> callback</td>
+<td style="text-align: left;">Claude explores and plans. Edits made with Claude's file tools go to your <code>canUseTool</code> callback even when an allow rule matches them</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>auto</code></td>
@@ -7006,13 +7048,13 @@ import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <p>Auto-approves file operations so Claude can edit code without prompting. Other tools (like Bash commands that aren't filesystem operations) still require normal permissions.</p>
 <p><strong>Auto-approved operations:</strong></p>
 <ul>
-<li>File edits (Edit, Write tools)</li>
+<li>File edits with the Edit, Write, and NotebookEdit tools</li>
 <li>Filesystem commands: <code>mkdir</code>, <code>touch</code>, <code>rm</code>, <code>rmdir</code>, <code>mv</code>, <code>cp</code>, <code>sed</code></li>
 </ul>
-<p>Both apply only to paths inside the working directory or <code>additionalDirectories</code>. In <code>acceptEdits</code> mode, Claude Code doesn't auto-approve the request when Claude:</p>
+<p>Both apply to paths inside the working directory or a directory you add. In Python, add one with <code>add_dirs</code>, and in TypeScript with <code>additionalDirectories</code>. In <code>acceptEdits</code> mode, Claude Code doesn't auto-approve the request when Claude:</p>
 <ul>
 <li>Works on a path outside that scope</li>
-<li>Writes to a protected path</li>
+<li>Writes to a <a href="https://code.claude.com/docs/en/permission-modes.md#protected-paths">protected path</a></li>
 <li>Removes a path that Claude Code recognizes as a <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical path</a> with <code>rm</code> or <code>rmdir</code></li>
 <li>Runs <a href="https://code.claude.com/docs/en/permission-modes#auto-approve-file-edits-with-acceptedits-mode"><code>touch</code></a> with, for example, an option, a glob, or a <code>timeout 5</code> or <code>LANG=C</code> prefix</li>
 </ul>
@@ -7028,28 +7070,67 @@ import { query } from "@anthropic-ai/claude-agent-sdk";</p>
 <li>Recognized <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removals</a></li>
 </ul>
 <p>If your <code>PreToolUse</code> hook returns <code>allow</code> for a recognized critical-path removal, a read from a network path, or a call to a tool marked <code>always_ask</code>, the call is still denied. The check that recognizes these removals <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">can miss some commands</a>.</p>
-<p><strong>Use when:</strong> you want a fixed, explicit tool surface for a headless agent and prefer a hard deny over silent reliance on <code>canUseTool</code> being absent.</p>
+<p><strong>Use when:</strong> you run a headless agent and want a hard deny for each call that would otherwise prompt.</p>
 <h4 id="bypass-permissions-mode-bypasspermissions">Bypass permissions mode (<code>bypassPermissions</code>)</h4>
 <p>Auto-approves tool uses without prompting, except the <a href="https://code.claude.com/docs/en/permission-modes.md#actions-no-mode-auto-approves">actions no mode auto-approves</a>. Hooks still execute and can block operations if needed. On Linux and macOS, Claude Code refuses to start in this mode as root or under <code>sudo</code> outside a <a href="https://code.claude.com/docs/en/permission-modes.md#skip-all-checks-with-bypasspermissions-mode">recognized sandbox</a>, and the query fails before the first turn.</p>
 <blockquote>
 <p>[!WARNING]</p>
 <p>Use with extreme caution. Claude has full system access in this mode. Only use in controlled environments where you trust all possible operations.</p>
-<p><code>allowed_tools</code> does not constrain this mode. Every tool is approved, not just the ones you listed. These controls still apply:</p>
+<p><code>allowed_tools</code> doesn't constrain this mode, and calls to tools you didn't list are approved too. These controls still apply:</p>
 <ul>
 <li>Deny rules, explicit <code>ask</code> rules, and hooks are evaluated before the mode check and can still block a tool.</li>
-<li>Connector tools <a href="https://code.claude.com/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, tools that require user interaction, and recognized <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removals</a> still fall through to your <code>canUseTool</code> callback. The check that recognizes these removals <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">can miss some commands</a>, and you can <a href="https://code.claude.com/docs/en/permission-modes.md#turn-off-the-critical-path-removal-prompt-in-bypasspermissions-mode">turn off the critical-path removal prompt</a>. Outside a <a href="https://code.claude.com/docs/en/claude-code-on-the-web.md">cloud session</a>, calls to custom tools your application <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools#require-approval-for-specific-tools">marks <code>always_ask</code></a> fall through to the callback too.</li>
+<li>Connector tools <a href="https://code.claude.com/docs/en/mcp#organization-controls-on-connector-tools">your organization set to <code>ask</code></a>, tools that require user interaction, recognized <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removals</a>, and Bash commands flagged <a href="https://code.claude.com/docs/en/permission-modes#dangerous-rm-operation-not-ruled-out"><code>Dangerous rm operation not ruled out</code></a> still fall through to your <code>canUseTool</code> callback. The check that recognizes critical-path removals <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">can miss some commands</a>, and you can <a href="https://code.claude.com/docs/en/permission-modes.md#turn-off-the-critical-path-removal-prompt-in-bypasspermissions-mode">turn off the critical-path removal prompt</a>. Outside a <a href="https://code.claude.com/docs/en/claude-code-on-the-web.md">cloud session</a>, calls to custom tools your application <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools#require-approval-for-specific-tools">marks <code>always_ask</code></a> fall through to the callback too.</li>
 <li>The <a href="https://code.claude.com/docs/en/permission-modes.md#skip-all-checks-with-bypasspermissions-mode">cross-session messaging safeguards</a> still apply.</li>
 </ul>
 </blockquote>
 <h4 id="plan-mode-plan">Plan mode (<code>plan</code>)</h4>
-<p>Claude explores the codebase and produces a plan without editing your source files. File edits are never auto-approved in plan mode, even when an allow rule matches or a <code>PreToolUse</code> hook returns <code>allow</code>. They prompt through your <code>canUseTool</code> callback instead.</p>
-<p>While auto mode is available to the session, commands Claude runs during planning don't reach your callback by default, because the classifier model that <a href="https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode">auto mode</a> uses <a href="https://code.claude.com/docs/en/permission-modes.md#analyze-before-you-edit-with-plan-mode">reviews them instead</a>. With that review on, the classifier can also approve read-only calls that would otherwise reach your callback, such as a <code>WebFetch</code> call with no allow rule.</p>
+<p>Claude explores the codebase and produces a plan. During planning, edits made with Claude's file tools outside <a href="https://code.claude.com/docs/en/permission-modes.md#protected-paths">protected paths</a> reach your <code>canUseTool</code> callback, even when an allow rule matches or a <code>PreToolUse</code> hook returns <code>allow</code>. <a href="https://code.claude.com/docs/en/agent-sdk/user-input#handle-clarifying-questions"><code>AskUserQuestion</code></a> calls reach your callback too, even when an allow rule names the tool.</p>
+<p>When <a href="https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode">auto mode</a> is available, Claude Code sends these calls during planning to <a href="https://code.claude.com/docs/en/permission-modes.md#analyze-before-you-edit-with-plan-mode">auto mode's classifier</a> for review instead of to your callback, when no allow rule approves them:</p>
+<ul>
+<li>Shell commands</li>
+<li>Web fetches</li>
+<li>Web searches</li>
+<li>Calls to MCP tools that their server marks read-only</li>
+</ul>
+<p>This review is on by default. To turn it off, set <a href="https://code.claude.com/docs/en/settings-reference#useautomodeduringplan"><code>useAutoModeDuringPlan</code></a> to <code>false</code> in the <code>settings</code> option you pass to <code>query()</code>, or in your user settings. While the review is off, web searches and calls to MCP tools marked read-only reach your callback.</p>
+<p>For shell commands and web fetches, the table shows whether each call reaches your callback:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Call during planning</th>
+<th style="text-align: left;">Review on</th>
+<th style="text-align: left;">Review off, or auto mode not available</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">A <a href="https://code.claude.com/docs/en/permissions.md#read-only-commands">read-only</a> shell command, such as <code>ls</code></td>
+<td style="text-align: left;">Runs without reaching your callback</td>
+<td style="text-align: left;">Runs without reaching your callback</td>
+</tr>
+<tr>
+<td style="text-align: left;">Any other shell command that no allow rule approves, except a <a href="https://code.claude.com/docs/en/permission-modes.md#critical-paths">critical-path removal</a></td>
+<td style="text-align: left;">Goes to the classifier, which approves or refuses it without your callback</td>
+<td style="text-align: left;">Reaches your callback</td>
+</tr>
+<tr>
+<td style="text-align: left;">A <code>WebFetch</code> call to a <a href="https://code.claude.com/docs/en/tools-reference.md#webfetch-tool-behavior">preapproved documentation domain</a></td>
+<td style="text-align: left;">Runs without reaching your callback</td>
+<td style="text-align: left;">Runs without reaching your callback</td>
+</tr>
+<tr>
+<td style="text-align: left;">Any other <code>WebFetch</code> call that no allow rule approves</td>
+<td style="text-align: left;">Goes to the classifier, which approves or refuses it without your callback</td>
+<td style="text-align: left;">Reaches your callback</td>
+</tr>
+</tbody>
+</table>
+<p>For what happens after the classifier refuses several calls in a row, see <a href="https://code.claude.com/docs/en/permission-modes.md#repeated-block-thresholds">Repeated-block thresholds</a>.</p>
 <blockquote>
 <p>[!NOTE]</p>
 <p>In the TypeScript SDK, if you set <code>allowDangerouslySkipPermissions: true</code> alongside <code>permissionMode: 'plan'</code>, file edits still reach your <code>canUseTool</code> callback. To switch a session that starts in plan mode to <code>bypassPermissions</code> later with <code>setPermissionMode()</code>, you need <code>allowDangerouslySkipPermissions</code> set from the start.</p>
 </blockquote>
-<p>Claude may use <code>AskUserQuestion</code> to clarify requirements before finalizing the plan. See <a href="https://code.claude.com/docs/en/agent-sdk/user-input.md#handle-clarifying-questions">Handle approvals and user input</a> for handling these prompts.</p>
-<p><strong>Use when:</strong> you want Claude to propose changes without executing them, such as during code review or when you need to approve changes before they're made.</p>
+<p><strong>Use when:</strong> you want Claude to produce a plan first, such as during code review or before a large change.</p>
 <h4 id="auto-mode-auto">Auto mode (<code>auto</code>)</h4>
 <p>A classifier model reviews actions such as shell commands and network requests before they run, and allows or blocks each one it reviews. For the models and providers auto mode requires and the order it evaluates actions in, see <a href="https://code.claude.com/docs/en/permission-modes.md#eliminate-prompts-with-auto-mode">Eliminate permission prompts with auto mode</a>.</p>
 <p>If you switch a session that's in auto mode to a model that auto mode doesn't support, using <a href="https://code.claude.com/docs/en/agent-sdk/python#claudesdkclient"><code>set_model()</code></a>, <a href="https://code.claude.com/docs/en/agent-sdk/typescript#query-object"><code>setModel()</code></a>, or <a href="https://code.claude.com/docs/en/agent-sdk/typescript#applyflagsettings"><code>applyFlagSettings()</code></a>, the session changes to <code>default</code> mode:</p>
